@@ -163,7 +163,9 @@ export interface AppNotification {
 }
 
 /** Atleta com relações resolvidas, usado no feed e no perfil público. */
-export interface AthleteCard extends Athlete {
+export type PublicAthlete = Omit<Athlete, "agency_id" | "user_id" | "email" | "deleted_at">;
+
+export interface AthleteCard extends PublicAthlete {
   position?: Pick<Position, "name_en" | "name_pt" | "abbreviation"> | null;
   sport?: Pick<Sport, "name_en" | "name_pt" | "slug"> | null;
   country?: Pick<Country, "name_en" | "name_pt" | "flag_emoji"> | null;

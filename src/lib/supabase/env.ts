@@ -8,7 +8,10 @@
  * Servidor: SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY
  */
 export const publicSupabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
-export const publicSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+export const publicSupabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_SUPABASE_ANON_KEY ??
+  "";
 
 /** Permite que a aplicação renderize mesmo antes das credenciais existirem. */
 export const isSupabaseConfigured = Boolean(publicSupabaseUrl && publicSupabaseAnonKey);

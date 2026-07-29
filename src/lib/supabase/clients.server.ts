@@ -10,7 +10,13 @@ function serverUrl() {
 }
 
 function anonKey() {
-  return process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? "";
+  return (
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.VITE_SUPABASE_ANON_KEY ??
+    ""
+  );
 }
 
 export function serverSupabaseConfigured() {
@@ -36,10 +42,10 @@ export function getUserServerClient(accessToken: string): SupabaseClient | null 
 
 /** Service role. IGNORA RLS. Somente operações privilegiadas já autorizadas. */
 export function getAdminClient(): SupabaseClient {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key || !serverUrl()) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL ausentes. Configure o Supabase externo.",
+      "SUPABASE_SECRET_KEY / SUPABASE_URL ausentes. Configure o Supabase externo.",
     );
   }
   return createClient(serverUrl(), key, {

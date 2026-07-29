@@ -9,38 +9,206 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
+import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
+import { Route as AdminPipelineRouteImport } from './routes/admin.pipeline'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminDocumentsRouteImport } from './routes/admin.documents'
+import { Route as AdminAthletesIndexRouteImport } from './routes/admin.athletes.index'
+import { Route as AdminAthletesIdRouteImport } from './routes/admin.athletes.$id'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/auth/accept-invite',
+  path: '/auth/accept-invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AthleteSlugRoute = AthleteSlugRouteImport.update({
+  id: '/athlete/$slug',
+  path: '/athlete/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPipelineRoute = AdminPipelineRouteImport.update({
+  id: '/admin/pipeline',
+  path: '/admin/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/admin/notifications',
+  path: '/admin/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
+  id: '/admin/documents',
+  path: '/admin/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAthletesIndexRoute = AdminAthletesIndexRouteImport.update({
+  id: '/admin/athletes/',
+  path: '/admin/athletes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAthletesIdRoute = AdminAthletesIdRouteImport.update({
+  id: '/admin/athletes/$id',
+  path: '/admin/athletes/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/pipeline': typeof AdminPipelineRoute
+  '/athlete/$slug': typeof AthleteSlugRoute
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/athletes/$id': typeof AdminAthletesIdRoute
+  '/admin/athletes/': typeof AdminAthletesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/pipeline': typeof AdminPipelineRoute
+  '/athlete/$slug': typeof AthleteSlugRoute
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/athletes/$id': typeof AdminAthletesIdRoute
+  '/admin/athletes': typeof AdminAthletesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/pipeline': typeof AdminPipelineRoute
+  '/athlete/$slug': typeof AthleteSlugRoute
+  '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/athletes/$id': typeof AdminAthletesIdRoute
+  '/admin/athletes/': typeof AdminAthletesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/admin/documents'
+    | '/admin/notifications'
+    | '/admin/pipeline'
+    | '/athlete/$slug'
+    | '/auth/accept-invite'
+    | '/admin/'
+    | '/admin/athletes/$id'
+    | '/admin/athletes/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/admin/documents'
+    | '/admin/notifications'
+    | '/admin/pipeline'
+    | '/athlete/$slug'
+    | '/auth/accept-invite'
+    | '/admin'
+    | '/admin/athletes/$id'
+    | '/admin/athletes'
+  id:
+    | '__root__'
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/admin/documents'
+    | '/admin/notifications'
+    | '/admin/pipeline'
+    | '/athlete/$slug'
+    | '/auth/accept-invite'
+    | '/admin/'
+    | '/admin/athletes/$id'
+    | '/admin/athletes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  AdminDocumentsRoute: typeof AdminDocumentsRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminPipelineRoute: typeof AdminPipelineRoute
+  AthleteSlugRoute: typeof AthleteSlugRoute
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminAthletesIdRoute: typeof AdminAthletesIdRoute
+  AdminAthletesIndexRoute: typeof AdminAthletesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,12 +216,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/accept-invite': {
+      id: '/auth/accept-invite'
+      path: '/auth/accept-invite'
+      fullPath: '/auth/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/athlete/$slug': {
+      id: '/athlete/$slug'
+      path: '/athlete/$slug'
+      fullPath: '/athlete/$slug'
+      preLoaderRoute: typeof AthleteSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/pipeline': {
+      id: '/admin/pipeline'
+      path: '/admin/pipeline'
+      fullPath: '/admin/pipeline'
+      preLoaderRoute: typeof AdminPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/documents': {
+      id: '/admin/documents'
+      path: '/admin/documents'
+      fullPath: '/admin/documents'
+      preLoaderRoute: typeof AdminDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/athletes/': {
+      id: '/admin/athletes/'
+      path: '/admin/athletes'
+      fullPath: '/admin/athletes/'
+      preLoaderRoute: typeof AdminAthletesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/athletes/$id': {
+      id: '/admin/athletes/$id'
+      path: '/admin/athletes/$id'
+      fullPath: '/admin/athletes/$id'
+      preLoaderRoute: typeof AdminAthletesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  AdminDocumentsRoute: AdminDocumentsRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminPipelineRoute: AdminPipelineRoute,
+  AthleteSlugRoute: AthleteSlugRoute,
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminAthletesIdRoute: AdminAthletesIdRoute,
+  AdminAthletesIndexRoute: AdminAthletesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

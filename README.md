@@ -636,6 +636,9 @@ Continue developing this project in the [Lovable editor](https://lovable.dev/pro
 
 ## Development
 
+Para configurar o ambiente, aplicar as migrations e criar o primeiro
+administrador, consulte [`docs/SETUP.md`](docs/SETUP.md).
+
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh

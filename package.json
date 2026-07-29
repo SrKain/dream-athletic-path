@@ -1,6 +1,10 @@
 {
   "name": "tanstack_start_ts",
   "private": true,
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "sideEffects": false,
   "type": "module",
   "scripts": {
@@ -9,6 +13,10 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run build",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -84,6 +92,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "^3.2.4"
   }
 }
