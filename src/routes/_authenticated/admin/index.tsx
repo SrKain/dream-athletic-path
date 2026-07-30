@@ -3,7 +3,6 @@ import { AlertTriangle, CheckCircle2, FileClock, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
-import { Panel } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminDashboard });
@@ -55,30 +54,6 @@ function AdminDashboard() {
               <p className="mt-4 font-display text-4xl font-semibold">{value}</p>
             </div>
           ))}
-        </div>
-        <div className="mt-8">
-          <Panel
-            title="Próximos passos"
-            description="Acompanhe documentos e atletas antes da publicação."
-          >
-            <div className="grid gap-px bg-border md:grid-cols-3">
-              {[
-                ["01", "Cadastre o atleta", "Preencha identidade, esporte e dados acadêmicos."],
-                [
-                  "02",
-                  "Envie o convite",
-                  "O atleta recebe acesso para acompanhar e enviar arquivos.",
-                ],
-                ["03", "Publique o perfil", "Aprove mídia e libere o atleta no catálogo público."],
-              ].map(([number, title, text]) => (
-                <div key={number} className="bg-card p-6">
-                  <span className="font-display text-sm text-primary">{number}</span>
-                  <h3 className="mt-3 font-display text-lg font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>
-                </div>
-              ))}
-            </div>
-          </Panel>
         </div>
       </AppShell>
     </ProtectedPage>

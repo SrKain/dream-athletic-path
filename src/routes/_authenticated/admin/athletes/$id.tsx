@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Panel,
   buttonClass,
@@ -11,7 +13,9 @@ import {
   textareaClass,
 } from "@/components/admin-ui";
 import { inviteAthlete } from "@/lib/auth.functions";
+import { buildAthleteSlug } from "@/lib/athlete-slugs";
 import { supabase } from "@/lib/supabase/client";
+import { validateUpload } from "@/lib/uploads";
 import type {
   Achievement,
   Athlete,
@@ -36,6 +40,18 @@ function AthleteEditor() {
   const [media, setMedia] = useState<AthleteMedia[]>([]);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const [achievementDraft, setAchievementDraft] = useState({
+    title: "",
+    description: "",
+    achievedOn: "",
+    imageUrl: "",
+    medal: false,
+    type: "",
+  });
+  const [showAchievementForm, setShowAchievementForm] = useState(false);
 
   const load = useCallback(async () => {
     const [
@@ -85,6 +101,16 @@ function AthleteEditor() {
   }, [id]);
   useEffect(() => void load(), [load]);
 
+  const filteredCountries = useMemo(() => {
+    const term = countrySearch.trim().toLowerCase();
+    if (!term) return countries;
+    return countries.filter((item) =>
+      [item.name_pt, item.name_en, item.code].some((value) =>
+        value?.toLowerCase().includes(term),
+      ),
+    );
+  }, [countries, countrySearch]);
+
   if (!athlete)
     return (
       <ProtectedPage role="agency_admin">
@@ -96,7 +122,17 @@ function AthleteEditor() {
   const currentAthlete = athlete;
 
   async function save() {
-    const { error } = await supabase.from("athletes").update(currentAthlete).eq("id", id);
+    const nextSlug = buildAthleteSlug(
+      currentAthlete.full_name,
+      positions.find((item) => item.id === currentAthlete.position_id)?.name_pt,
+      [currentAthlete.slug],
+    );
+    const { data: existing } = await supabase.from("athletes").select("slug").neq("id", id);
+    const existingSlugs = (existing ?? []).map((item) => item.slug as string);
+    const { error } = await supabase
+      .from("athletes")
+      .update({ ...currentAthlete, slug: buildAthleteSlug(currentAthlete.full_name, positions.find((item) => item.id === currentAthlete.position_id)?.name_pt, existingSlugs) })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     const { error: profileError } = await supabase
       .from("athlete_profiles")
@@ -152,12 +188,73 @@ function AthleteEditor() {
       await load();
     }
   }
-  async function addAchievement() {
-    const title = window.prompt("Título da conquista");
-    if (!title) return;
-    const { error } = await supabase
-      .from("achievements")
-      .insert({ athlete_id: id, title_pt: title, title_en: title, is_public: true });
+  async function uploadPhoto(file?: File) {
+    if (!file || !currentAthlete) return;
+    const validation = validateUpload("photo", file);
+    if (!validation.valid) return toast.error("Arquivo inválido ou acima do limite.");
+    setUploadingPhoto(true);
+    const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+    const stored = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
+    if (stored.error) toast.error(stored.error.message);
+    else {
+      const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
+      const { error } = await supabase.from("athletes").update({ photo_url: publicUrl }).eq("id", id);
+      if (error) toast.error(error.message);
+      else {
+        setAthlete({ ...currentAthlete, photo_url: publicUrl });
+        toast.success("Foto enviada.");
+      }
+    }
+    setUploadingPhoto(false);
+  }
+
+  async function uploadHighlightVideo(file?: File) {
+    if (!file || !currentAthlete) return;
+    const validation = validateUpload("video", file);
+    if (!validation.valid) return toast.error("Vídeo inválido ou acima do limite.");
+    setUploadingVideo(true);
+    const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+    const stored = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
+    if (stored.error) toast.error(stored.error.message);
+    else {
+      const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
+      setProfile({ ...profile, highlight_video_url: publicUrl });
+      toast.success("Vídeo enviado.");
+    }
+    setUploadingVideo(false);
+  }
+
+  async function saveAchievement() {
+    if (!achievementDraft.title.trim()) return toast.error("Informe um título para a conquista.");
+    const { error } = await supabase.from("achievements").insert({
+      athlete_id: id,
+      title_pt: achievementDraft.title,
+      title_en: achievementDraft.title,
+      description_pt: achievementDraft.description || null,
+      description_en: achievementDraft.description || null,
+      achieved_on: achievementDraft.achievedOn || null,
+      image_url: achievementDraft.imageUrl || null,
+      medal: achievementDraft.medal,
+      achievement_type: achievementDraft.type || null,
+      is_public: true,
+    });
+    if (error) toast.error(error.message);
+    else {
+      setAchievementDraft({
+        title: "",
+        description: "",
+        achievedOn: "",
+        imageUrl: "",
+        medal: false,
+        type: "",
+      });
+      setShowAchievementForm(false);
+      await load();
+    }
+  }
+
+  async function deleteAchievement(item: Achievement) {
+    const { error } = await supabase.from("achievements").delete().eq("id", item.id);
     if (error) toast.error(error.message);
     else await load();
   }
@@ -198,11 +295,9 @@ function AthleteEditor() {
                   />
                 </Field>
                 <Field label="Slug">
-                  <input
-                    className={inputClass}
-                    value={athlete.slug}
-                    onChange={(e) => update("slug", e.target.value)}
-                  />
+                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    {athlete.slug || "Será gerado automaticamente ao salvar"}
+                  </div>
                 </Field>
                 <Field label="Nascimento">
                   <input
@@ -211,20 +306,6 @@ function AthleteEditor() {
                     value={athlete.birth_date ?? ""}
                     onChange={(e) => update("birth_date", e.target.value || null)}
                   />
-                </Field>
-                <Field label="Esporte">
-                  <select
-                    className={inputClass}
-                    value={athlete.sport_id ?? ""}
-                    onChange={(e) => update("sport_id", e.target.value || null)}
-                  >
-                    <option value="">Selecione</option>
-                    {sports.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name_pt}
-                      </option>
-                    ))}
-                  </select>
                 </Field>
                 <Field label="Posição">
                   <select
@@ -243,18 +324,15 @@ function AthleteEditor() {
                   </select>
                 </Field>
                 <Field label="Nacionalidade">
-                  <select
-                    className={inputClass}
+                  <SearchableSelect
                     value={athlete.nationality ?? ""}
-                    onChange={(e) => update("nationality", e.target.value || null)}
-                  >
-                    <option value="">Selecione</option>
-                    {countries.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {item.flag_emoji} {item.name_pt}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Buscar país"
+                    options={countries.map((item) => ({
+                      value: item.code,
+                      label: `${item.flag_emoji ?? ""} ${item.name_pt}`.trim(),
+                    }))}
+                    onChange={(value) => update("nationality", value || null)}
+                  />
                 </Field>
                 <Field label="Altura (cm)">
                   <input
@@ -276,12 +354,20 @@ function AthleteEditor() {
                     }
                   />
                 </Field>
-                <Field label="Foto URL">
-                  <input
-                    className={inputClass}
-                    value={athlete.photo_url ?? ""}
-                    onChange={(e) => update("photo_url", e.target.value || null)}
-                  />
+                <Field label="Foto">
+                  <label className={secondaryButtonClass + " mt-1 flex cursor-pointer items-center justify-center gap-2"}>
+                    <Upload className="h-4 w-4" />
+                    {uploadingPhoto ? "Enviando..." : "Selecionar foto"}
+                    <input
+                      className="hidden"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => void uploadPhoto(e.target.files?.[0])}
+                    />
+                  </label>
+                  {athlete.photo_url && (
+                    <img src={athlete.photo_url} alt="Preview da foto" className="mt-3 h-40 w-full rounded-md object-cover" />
+                  )}
                 </Field>
               </div>
             </Panel>
@@ -336,21 +422,27 @@ function AthleteEditor() {
                   />
                 </Field>
                 <Field label="Vídeo destaque">
-                  <input
-                    className={inputClass}
-                    value={profile.highlight_video_url ?? ""}
-                    onChange={(e) =>
-                      setProfile({ ...profile, highlight_video_url: e.target.value })
-                    }
-                  />
+                  <label className={secondaryButtonClass + " mt-1 flex cursor-pointer items-center justify-center gap-2"}>
+                    <Upload className="h-4 w-4" />
+                    {uploadingVideo ? "Enviando..." : "Selecionar vídeo"}
+                    <input
+                      className="hidden"
+                      type="file"
+                      accept="video/mp4,video/quicktime"
+                      onChange={(e) => void uploadHighlightVideo(e.target.files?.[0])}
+                    />
+                  </label>
+                  {profile.highlight_video_url && (
+                    <video src={profile.highlight_video_url} controls className="mt-3 h-40 w-full rounded-md object-cover" />
+                  )}
                 </Field>
               </div>
             </Panel>
             <Panel
               title="Mídia enviada"
               action={
-                <button className={secondaryButtonClass} onClick={addAchievement}>
-                  + Conquista
+                <button className={secondaryButtonClass} onClick={() => setShowAchievementForm((value) => !value)}>
+                  {showAchievementForm ? "Fechar" : "+ Conquista"}
                 </button>
               }
             >
@@ -385,11 +477,79 @@ function AthleteEditor() {
               ) : (
                 <p className="p-5 text-sm text-muted-foreground">Nenhuma mídia enviada.</p>
               )}
+              {showAchievementForm && (
+                <div className="border-t p-5">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field label="Título">
+                      <input
+                        className={inputClass}
+                        value={achievementDraft.title}
+                        onChange={(e) => setAchievementDraft({ ...achievementDraft, title: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Tipo">
+                      <input
+                        className={inputClass}
+                        value={achievementDraft.type}
+                        onChange={(e) => setAchievementDraft({ ...achievementDraft, type: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Descrição" wide>
+                      <textarea
+                        className={textareaClass}
+                        value={achievementDraft.description}
+                        onChange={(e) => setAchievementDraft({ ...achievementDraft, description: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Data">
+                      <input
+                        className={inputClass}
+                        type="date"
+                        value={achievementDraft.achievedOn}
+                        onChange={(e) => setAchievementDraft({ ...achievementDraft, achievedOn: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Imagem(URL)">
+                      <input
+                        className={inputClass}
+                        value={achievementDraft.imageUrl}
+                        onChange={(e) => setAchievementDraft({ ...achievementDraft, imageUrl: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Medalha">
+                      <label className="flex items-center gap-2 text-sm font-medium">
+                        <input
+                          type="checkbox"
+                          checked={achievementDraft.medal}
+                          onChange={(e) => setAchievementDraft({ ...achievementDraft, medal: e.target.checked })}
+                        />
+                        Marcar como medalha
+                      </label>
+                    </Field>
+                  </div>
+                  <div className="mt-4 flex gap-3">
+                    <button className={buttonClass} onClick={() => void saveAchievement()}>
+                      Salvar conquista
+                    </button>
+                    <button className={secondaryButtonClass} onClick={() => setShowAchievementForm(false)}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="border-t p-5">
                 <h3 className="font-medium">Conquistas publicadas</h3>
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
                   {achievements.map((item) => (
-                    <li key={item.id}>• {item.title_pt ?? item.title_en}</li>
+                    <li key={item.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                      <div>
+                        <p className="font-medium text-foreground">{item.title_pt ?? item.title_en}</p>
+                        <p className="mt-1 text-xs">{item.description_pt ?? item.description_en}</p>
+                      </div>
+                      <button className="text-xs text-destructive" onClick={() => void deleteAchievement(item)}>
+                        Excluir
+                      </button>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -406,17 +566,6 @@ function AthleteEditor() {
                   type="checkbox"
                   checked={athlete.is_public}
                   onChange={(e) => update("is_public", e.target.checked)}
-                />
-              </label>
-              <label className="flex items-center justify-between gap-4">
-                <span>
-                  <b className="block text-sm">Em destaque</b>
-                  <small className="text-muted-foreground">Hero do catálogo</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={athlete.is_featured}
-                  onChange={(e) => update("is_featured", e.target.checked)}
                 />
               </label>
               {athlete.is_public && (

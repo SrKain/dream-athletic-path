@@ -5,22 +5,13 @@ import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-ui";
+import { buildAthleteSlug } from "@/lib/athlete-slugs";
 import { supabase } from "@/lib/supabase/client";
 import type { Athlete } from "@/types/db";
 
 export const Route = createFileRoute("/_authenticated/admin/athletes/")({
   component: AthletesPage,
 });
-
-function slugify(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 function AthletesPage() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
@@ -43,11 +34,12 @@ function AthletesPage() {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
     if (!agency) return toast.error("Crie a agência antes do primeiro atleta.");
+    const existingSlugs = (athletes ?? []).map((item) => item.slug);
     const { error } = await supabase.from("athletes").insert({
       agency_id: agency.id,
       full_name: name,
       email: email || null,
-      slug: `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`,
+      slug: buildAthleteSlug(name, null, existingSlugs),
     });
     if (error) toast.error(error.message);
     else {

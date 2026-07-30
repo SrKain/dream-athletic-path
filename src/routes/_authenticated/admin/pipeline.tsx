@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { GripVertical, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
-import { EmptyState, Panel, StatusBadge, buttonClass, inputClass } from "@/components/admin-ui";
+import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 import type {
   Athlete,
@@ -22,6 +22,7 @@ function PipelinePage() {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [progress, setProgress] = useState<AthleteStageProgress[]>([]);
   const [stageName, setStageName] = useState("");
+  const [draggedAthleteId, setDraggedAthleteId] = useState<string | null>(null);
 
   async function load() {
     const [s, i, a, p] = await Promise.all([
@@ -93,13 +94,34 @@ function PipelinePage() {
     }
   }
 
+  async function moveAthleteToStage(athleteId: string, stageId: string) {
+    const existing = progress.find((item) => item.athlete_id === athleteId && item.stage_id === stageId);
+    const payload = {
+      athlete_id: athleteId,
+      stage_id: stageId,
+      status: (existing?.status ?? "in_progress") as StageStatus,
+      started_at: existing?.started_at ?? new Date().toISOString(),
+      completed_at: existing?.completed_at ?? null,
+    };
+    const [progressError, athleteError] = await Promise.all([
+      supabase.from("athlete_stage_progress").upsert(payload, { onConflict: "athlete_id,stage_id" }),
+      supabase.from("athletes").update({ current_stage_id: stageId }).eq("id", athleteId),
+    ]);
+    if (progressError.error) toast.error(progressError.error.message);
+    else if (athleteError.error) toast.error(athleteError.error.message);
+    else {
+      toast.success("Atleta movido no pipeline.");
+      await load();
+    }
+  }
+
   return (
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title="Pipeline">
         <div className="space-y-6">
           <Panel
             title="Etapas"
-            description="O pipeline é dinâmico e compartilhado por todos os atletas."
+            description="Adicione etapas e mantenha o acompanhamento visual por colunas."
           >
             <form onSubmit={addStage} className="flex gap-3 border-b p-4">
               <input
@@ -131,58 +153,61 @@ function PipelinePage() {
               ))}
             </div>
           </Panel>
-          <Panel title="Acompanhamento por atleta">
-            {athletes.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="p-4">Atleta</th>
-                      {stages.map((stage) => (
-                        <th className="p-4" key={stage.id}>
-                          {stage.name_pt ?? stage.name_en}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {athletes.map((athlete) => (
-                      <tr className="border-b last:border-0" key={athlete.id}>
-                        <td className="p-4 font-medium">{athlete.full_name}</td>
-                        {stages.map((stage) => {
-                          const current =
-                            progress.find(
-                              (item) =>
-                                item.athlete_id === athlete.id && item.stage_id === stage.id,
+
+          <Panel title="Acompanhamento em Kanban">
+            {stages.length ? (
+              <div className="grid gap-4 p-5 xl:grid-cols-4">
+                {stages.map((stage) => {
+                  const stageAthletes = athletes.filter((athlete) => athlete.current_stage_id === stage.id);
+
+                  return (
+                    <div
+                      key={stage.id}
+                      className="min-h-80 rounded-2xl border bg-muted/20 p-3"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => {
+                        if (draggedAthleteId) {
+                          void moveAthleteToStage(draggedAthleteId, stage.id);
+                          setDraggedAthleteId(null);
+                        }
+                      }}
+                    >
+                      <div className="mb-3 border-b pb-3">
+                        <h3 className="font-semibold">{stage.name_pt ?? stage.name_en}</h3>
+                        <p className="text-xs text-muted-foreground">Arraste atletas para esta coluna</p>
+                      </div>
+                      <div className="space-y-2">
+                        {stageAthletes.length ? (
+                          stageAthletes.map((athlete) => {
+                            const current = progress.find(
+                              (item) => item.athlete_id === athlete.id && item.stage_id === stage.id,
                             )?.status ?? "not_started";
-                          return (
-                            <td className="p-4" key={stage.id}>
-                              <select
-                                className={inputClass}
-                                value={current}
-                                onChange={(e) =>
-                                  updateProgress(
-                                    athlete.id,
-                                    stage.id,
-                                    e.target.value as StageStatus,
-                                  )
-                                }
+                            return (
+                              <div
+                                key={athlete.id}
+                                draggable
+                                onDragStart={() => setDraggedAthleteId(athlete.id)}
+                                className="cursor-grab rounded-xl border bg-background p-3 shadow-sm"
                               >
-                                <option value="not_started">Não iniciado</option>
-                                <option value="in_progress">Em andamento</option>
-                                <option value="blocked">Bloqueado</option>
-                                <option value="completed">Concluído</option>
-                              </select>
-                              <div className="mt-2">
-                                <StatusBadge value={current} />
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="font-medium">{athlete.full_name}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">{current}</p>
+                                  </div>
+                                  <GripVertical className="mt-1 h-4 w-4 text-muted-foreground" />
+                                </div>
                               </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            );
+                          })
+                        ) : (
+                          <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                            Nenhum atleta aqui.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <EmptyState>Nenhum atleta cadastrado.</EmptyState>

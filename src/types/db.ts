@@ -51,6 +51,7 @@ export interface Athlete {
   position_id: string | null;
   photo_url: string | null;
   cover_url: string | null;
+  current_stage_id: string | null;
   is_public: boolean;
   is_featured: boolean;
   created_at: string;
@@ -89,6 +90,9 @@ export interface Achievement {
   description_en: string | null;
   description_pt: string | null;
   achieved_on: string | null;
+  image_url: string | null;
+  medal: boolean;
+  achievement_type: string | null;
   is_public: boolean;
 }
 
