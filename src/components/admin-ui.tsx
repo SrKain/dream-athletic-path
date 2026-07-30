@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
 export const inputClass =
-  "h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
+  "h-10 w-full rounded-md border border-white/45 bg-background/55 px-3 text-sm outline-none backdrop-blur focus:border-primary focus:ring-2 focus:ring-primary/10";
 export const textareaClass = `${inputClass} min-h-24 py-2`;
 export const buttonClass =
-  "inline-flex h-10 items-center justify-center rounded-md bg-foreground px-4 text-sm font-medium text-background disabled:opacity-50";
+  "liquid-button inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium disabled:opacity-50";
 export const secondaryButtonClass =
-  "inline-flex h-10 items-center justify-center rounded-md border bg-background px-4 text-sm font-medium hover:bg-muted disabled:opacity-50";
+  "glass-panel inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium hover:bg-background/70 disabled:opacity-50";
 
 export function Panel({
   title,
@@ -20,7 +20,7 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-md border bg-card">
+    <section className="glass-panel rounded-md">
       <header className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-display text-lg font-semibold">{title}</h2>

@@ -25,6 +25,7 @@ import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_
 import { Route as AuthenticatedPortalMediaRouteImport } from './routes/_authenticated/portal/media'
 import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal/documents'
 import { Route as AuthenticatedAdminPipelineRouteImport } from './routes/_authenticated/admin/pipeline'
+import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
 import { Route as AuthenticatedAdminDocumentsRouteImport } from './routes/_authenticated/admin/documents'
 import { Route as AuthenticatedAdminAthletesIndexRouteImport } from './routes/_authenticated/admin/athletes/index'
@@ -116,6 +117,12 @@ const AuthenticatedAdminPipelineRoute =
     path: '/pipeline',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminSettingsRoute =
+  AuthenticatedAdminSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminNotificationsRoute =
   AuthenticatedAdminNotificationsRouteImport.update({
     id: '/notifications',
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/portal/media': typeof AuthenticatedPortalMediaRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/portal/media': typeof AuthenticatedPortalMediaRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/documents': typeof AuthenticatedAdminDocumentsRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/_authenticated/portal/media': typeof AuthenticatedPortalMediaRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/admin/documents'
     | '/admin/notifications'
     | '/admin/pipeline'
+    | '/admin/settings'
     | '/portal/documents'
     | '/portal/media'
     | '/portal/notifications'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/admin/documents'
     | '/admin/notifications'
     | '/admin/pipeline'
+    | '/admin/settings'
     | '/portal/documents'
     | '/portal/media'
     | '/portal/notifications'
@@ -259,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/documents'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/pipeline'
+    | '/_authenticated/admin/settings'
     | '/_authenticated/portal/documents'
     | '/_authenticated/portal/media'
     | '/_authenticated/portal/notifications'
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPipelineRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/settings': {
+      id: '/_authenticated/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/notifications': {
       id: '/_authenticated/admin/notifications'
       path: '/notifications'
@@ -428,6 +448,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminDocumentsRoute: typeof AuthenticatedAdminDocumentsRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminPipelineRoute: typeof AuthenticatedAdminPipelineRoute
+  AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminAthletesIdRoute: typeof AuthenticatedAdminAthletesIdRoute
   AuthenticatedAdminAthletesIndexRoute: typeof AuthenticatedAdminAthletesIndexRoute
@@ -438,6 +459,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminDocumentsRoute: AuthenticatedAdminDocumentsRoute,
     AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
     AuthenticatedAdminPipelineRoute: AuthenticatedAdminPipelineRoute,
+    AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
     AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
     AuthenticatedAdminAthletesIdRoute: AuthenticatedAdminAthletesIdRoute,
     AuthenticatedAdminAthletesIndexRoute: AuthenticatedAdminAthletesIndexRoute,

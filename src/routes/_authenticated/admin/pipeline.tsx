@@ -1,92 +1,114 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { GripVertical, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { GripVertical, Plus, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
-import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-ui";
+import {
+  EmptyState,
+  Panel,
+  buttonClass,
+  inputClass,
+  secondaryButtonClass,
+} from "@/components/admin-ui";
+import { buildAthleteSlug } from "@/lib/athlete-slugs";
+import { buildStageProgressPayload, getFirstActiveStage } from "@/lib/pipeline.helpers";
 import { supabase } from "@/lib/supabase/client";
-import type {
-  Athlete,
-  AthleteStageProgress,
-  ChecklistItem,
-  PipelineStage,
-  StageStatus,
-} from "@/types/db";
+import type { Athlete, AthleteStageProgress, PipelineStage, StageStatus } from "@/types/db";
 
 export const Route = createFileRoute("/_authenticated/admin/pipeline")({ component: PipelinePage });
 
 function PipelinePage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [items, setItems] = useState<ChecklistItem[]>([]);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [progress, setProgress] = useState<AthleteStageProgress[]>([]);
-  const [stageName, setStageName] = useState("");
   const [draggedAthleteId, setDraggedAthleteId] = useState<string | null>(null);
+  const [openQuickAdd, setOpenQuickAdd] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   async function load() {
-    const [s, i, a, p] = await Promise.all([
-      supabase.from("pipeline_stages").select("*").order("order_index"),
-      supabase.from("checklist_items").select("*").order("sort_order"),
+    const [s, a, p] = await Promise.all([
+      supabase.from("pipeline_stages").select("*").eq("is_active", true).order("order_index"),
       supabase.from("athletes").select("*").is("deleted_at", null).order("full_name"),
       supabase.from("athlete_stage_progress").select("*"),
     ]);
+    if (s.error) toast.error(s.error.message);
+    if (a.error) toast.error(a.error.message);
+    if (p.error) toast.error(p.error.message);
     setStages((s.data ?? []) as PipelineStage[]);
-    setItems((i.data ?? []) as ChecklistItem[]);
     setAthletes((a.data ?? []) as Athlete[]);
     setProgress((p.data ?? []) as AthleteStageProgress[]);
   }
   useEffect(() => void load(), []);
 
-  async function addStage(event: React.FormEvent) {
+  const firstStage = useMemo(() => getFirstActiveStage(stages), [stages]);
+  const athletesWithoutStage = athletes.filter((athlete) => !athlete.current_stage_id);
+
+  async function createAthlete(event: React.FormEvent) {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
-    if (!agency) return;
-    const key = stageName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-");
-    const { error } = await supabase.from("pipeline_stages").insert({
-      agency_id: agency.id,
-      key,
-      name_pt: stageName,
-      name_en: stageName,
-      order_index: (stages.length + 1) * 10,
-    });
-    if (error) toast.error(error.message);
+    if (!agency) return toast.error("Crie a agência antes do primeiro atleta.");
+
+    const existingSlugs = athletes.map((item) => item.slug);
+    const { data, error } = await supabase
+      .from("athletes")
+      .insert({
+        agency_id: agency.id,
+        current_stage_id: firstStage?.id ?? null,
+        email: email || null,
+        full_name: name,
+        slug: buildAthleteSlug(name, null, existingSlugs),
+      })
+      .select("id")
+      .single();
+    if (error) return toast.error(error.message);
+
+    if (firstStage && data?.id) {
+      const { error: progressError } = await supabase
+        .from("athlete_stage_progress")
+        .upsert(buildStageProgressPayload({ athleteId: data.id, stageId: firstStage.id }), {
+          onConflict: "athlete_id,stage_id",
+        });
+      if (progressError) return toast.error(progressError.message);
+    }
+
+    toast.success("Atleta criado na primeira etapa.");
+    setName("");
+    setEmail("");
+    setOpenQuickAdd(false);
+    await load();
+  }
+
+  async function moveAthleteToStage(athleteId: string, stageId: string) {
+    const existing = progress.find(
+      (item) => item.athlete_id === athleteId && item.stage_id === stageId,
+    );
+    const [progressResult, athleteResult] = await Promise.all([
+      supabase
+        .from("athlete_stage_progress")
+        .upsert(buildStageProgressPayload({ athleteId, stageId, existing }), {
+          onConflict: "athlete_id,stage_id",
+        }),
+      supabase.from("athletes").update({ current_stage_id: stageId }).eq("id", athleteId),
+    ]);
+    if (progressResult.error) toast.error(progressResult.error.message);
+    else if (athleteResult.error) toast.error(athleteResult.error.message);
     else {
-      setStageName("");
+      toast.success("Atleta movido no pipeline.");
       await load();
     }
   }
-  async function addChecklist(stageId: string) {
-    const label = window.prompt("Nome do item solicitado");
-    if (!label) return;
-    const { error } = await supabase.from("checklist_items").insert({
-      stage_id: stageId,
-      label_pt: label,
-      label_en: label,
-      sort_order: items.filter((item) => item.stage_id === stageId).length * 10,
-    });
-    if (error) toast.error(error.message);
-    else await load();
-  }
+
   async function updateProgress(athleteId: string, stageId: string, status: StageStatus) {
     const existing = progress.find(
       (item) => item.athlete_id === athleteId && item.stage_id === stageId,
     );
-    const payload = {
-      athlete_id: athleteId,
-      stage_id: stageId,
-      status,
-      started_at:
-        status === "in_progress" ? new Date().toISOString() : (existing?.started_at ?? null),
-      completed_at: status === "completed" ? new Date().toISOString() : null,
-    };
     const { error } = await supabase
       .from("athlete_stage_progress")
-      .upsert(payload, { onConflict: "athlete_id,stage_id" });
+      .upsert(buildStageProgressPayload({ athleteId, stageId, existing, status }), {
+        onConflict: "athlete_id,stage_id",
+      });
     if (error) toast.error(error.message);
     else {
       toast.success("Pipeline atualizado.");
@@ -94,126 +116,155 @@ function PipelinePage() {
     }
   }
 
-  async function moveAthleteToStage(athleteId: string, stageId: string) {
-    const existing = progress.find((item) => item.athlete_id === athleteId && item.stage_id === stageId);
-    const payload = {
-      athlete_id: athleteId,
-      stage_id: stageId,
-      status: (existing?.status ?? "in_progress") as StageStatus,
-      started_at: existing?.started_at ?? new Date().toISOString(),
-      completed_at: existing?.completed_at ?? null,
-    };
-    const [progressError, athleteError] = await Promise.all([
-      supabase.from("athlete_stage_progress").upsert(payload, { onConflict: "athlete_id,stage_id" }),
-      supabase.from("athletes").update({ current_stage_id: stageId }).eq("id", athleteId),
-    ]);
-    if (progressError.error) toast.error(progressError.error.message);
-    else if (athleteError.error) toast.error(athleteError.error.message);
-    else {
-      toast.success("Atleta movido no pipeline.");
-      await load();
-    }
-  }
-
   return (
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title="Pipeline">
-        <div className="space-y-6">
-          <Panel
-            title="Etapas"
-            description="Adicione etapas e mantenha o acompanhamento visual por colunas."
-          >
-            <form onSubmit={addStage} className="flex gap-3 border-b p-4">
+        <Panel
+          title="Acompanhamento em Kanban"
+          description="Arraste atletas entre as etapas e acompanhe a jornada operacional."
+          action={
+            <button className={buttonClass} onClick={() => setOpenQuickAdd((value) => !value)}>
+              <UserPlus className="mr-2 h-4 w-4" /> Adicionar atleta
+            </button>
+          }
+        >
+          {openQuickAdd && (
+            <form
+              onSubmit={createAthlete}
+              className="grid gap-4 border-b border-white/40 bg-background/30 p-5 md:grid-cols-[1fr_1fr_auto]"
+            >
               <input
                 className={inputClass}
-                placeholder="Nova etapa"
-                value={stageName}
-                onChange={(e) => setStageName(e.target.value)}
+                placeholder="Nome completo"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <input
+                className={inputClass}
+                placeholder="E-mail do atleta"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <button className={buttonClass}>
-                <Plus className="mr-2 h-4 w-4" /> Adicionar
+                <Plus className="mr-2 h-4 w-4" /> Criar
               </button>
             </form>
-            <div className="divide-y">
-              {stages.map((stage) => (
-                <div key={stage.id} className="flex items-start justify-between gap-5 p-4">
-                  <div>
-                    <h3 className="font-medium">{stage.name_pt ?? stage.name_en}</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {items
-                        .filter((item) => item.stage_id === stage.id)
-                        .map((item) => item.label_pt ?? item.label_en)
-                        .join(" · ") || "Sem itens"}
-                    </p>
-                  </div>
-                  <button className="text-sm text-primary" onClick={() => addChecklist(stage.id)}>
-                    + Checklist
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Panel>
+          )}
 
-          <Panel title="Acompanhamento em Kanban">
-            {stages.length ? (
-              <div className="grid gap-4 p-5 xl:grid-cols-4">
-                {stages.map((stage) => {
-                  const stageAthletes = athletes.filter((athlete) => athlete.current_stage_id === stage.id);
+          {stages.length ? (
+            <div className="grid gap-4 p-5 xl:grid-cols-4">
+              {stages.map((stage) => {
+                const stageAthletes = athletes.filter(
+                  (athlete) => athlete.current_stage_id === stage.id,
+                );
 
-                  return (
-                    <div
-                      key={stage.id}
-                      className="min-h-80 rounded-2xl border bg-muted/20 p-3"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={() => {
-                        if (draggedAthleteId) {
-                          void moveAthleteToStage(draggedAthleteId, stage.id);
-                          setDraggedAthleteId(null);
-                        }
-                      }}
-                    >
-                      <div className="mb-3 border-b pb-3">
-                        <h3 className="font-semibold">{stage.name_pt ?? stage.name_en}</h3>
-                        <p className="text-xs text-muted-foreground">Arraste atletas para esta coluna</p>
-                      </div>
-                      <div className="space-y-2">
-                        {stageAthletes.length ? (
-                          stageAthletes.map((athlete) => {
-                            const current = progress.find(
-                              (item) => item.athlete_id === athlete.id && item.stage_id === stage.id,
+                return (
+                  <div
+                    key={stage.id}
+                    className="min-h-80 rounded-md border border-white/45 bg-background/35 p-3 backdrop-blur"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      if (draggedAthleteId) {
+                        void moveAthleteToStage(draggedAthleteId, stage.id);
+                        setDraggedAthleteId(null);
+                      }
+                    }}
+                  >
+                    <div className="mb-3 border-b border-border/70 pb-3">
+                      <h3 className="font-display text-lg font-semibold">
+                        {stage.name_pt ?? stage.name_en}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {stageAthletes.length} atletas
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {stageAthletes.length ? (
+                        stageAthletes.map((athlete) => {
+                          const current =
+                            progress.find(
+                              (item) =>
+                                item.athlete_id === athlete.id && item.stage_id === stage.id,
                             )?.status ?? "not_started";
-                            return (
-                              <div
-                                key={athlete.id}
-                                draggable
-                                onDragStart={() => setDraggedAthleteId(athlete.id)}
-                                className="cursor-grab rounded-xl border bg-background p-3 shadow-sm"
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div>
-                                    <p className="font-medium">{athlete.full_name}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">{current}</p>
-                                  </div>
-                                  <GripVertical className="mt-1 h-4 w-4 text-muted-foreground" />
+                          return (
+                            <div
+                              key={athlete.id}
+                              draggable
+                              onDragStart={() => setDraggedAthleteId(athlete.id)}
+                              className="cursor-grab rounded-md border border-white/45 bg-background/70 p-3 shadow-sm"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <Link
+                                    to="/admin/athletes/$id"
+                                    params={{ id: athlete.id }}
+                                    className="font-medium hover:text-primary"
+                                  >
+                                    {athlete.full_name}
+                                  </Link>
+                                  <p className="mt-1 text-xs text-muted-foreground">{current}</p>
                                 </div>
+                                <GripVertical className="mt-1 h-4 w-4 text-muted-foreground" />
                               </div>
-                            );
-                          })
-                        ) : (
-                          <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-                            Nenhum atleta aqui.
-                          </div>
+                              <select
+                                className={`${inputClass} mt-3 h-9`}
+                                value={current}
+                                onChange={(event) =>
+                                  void updateProgress(
+                                    athlete.id,
+                                    stage.id,
+                                    event.target.value as StageStatus,
+                                  )
+                                }
+                              >
+                                <option value="not_started">Não iniciado</option>
+                                <option value="in_progress">Em andamento</option>
+                                <option value="blocked">Bloqueado</option>
+                                <option value="completed">Concluído</option>
+                              </select>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                          Nenhum atleta aqui.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {athletesWithoutStage.length > 0 && (
+                <div className="min-h-80 rounded-md border border-dashed border-primary/50 bg-primary/5 p-3">
+                  <div className="mb-3 border-b border-primary/20 pb-3">
+                    <h3 className="font-display text-lg font-semibold">Sem etapa</h3>
+                    <p className="text-xs text-muted-foreground">Envie para a primeira etapa.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {athletesWithoutStage.map((athlete) => (
+                      <div key={athlete.id} className="rounded-md border bg-background/70 p-3">
+                        <p className="font-medium">{athlete.full_name}</p>
+                        {firstStage && (
+                          <button
+                            className={`${secondaryButtonClass} mt-3 w-full`}
+                            onClick={() => void moveAthleteToStage(athlete.id, firstStage.id)}
+                          >
+                            Mover para {firstStage.name_pt ?? firstStage.name_en}
+                          </button>
                         )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState>Nenhum atleta cadastrado.</EmptyState>
-            )}
-          </Panel>
-        </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <EmptyState>Configure as etapas do pipeline antes de adicionar atletas.</EmptyState>
+          )}
+        </Panel>
       </AppShell>
     </ProtectedPage>
   );

@@ -15,4 +15,10 @@ describe("public athlete projection", () => {
     expect(PUBLIC_ATHLETE_SELECT).toContain("slug");
     expect(PUBLIC_ATHLETE_SELECT).toContain("is_public");
   });
+
+  it("contains physical fields required by the public profile", () => {
+    expect(PUBLIC_ATHLETE_SELECT).toContain("birth_date");
+    expect(PUBLIC_ATHLETE_SELECT).toContain("height_cm");
+    expect(PUBLIC_ATHLETE_SELECT).toContain("weight_kg");
+  });
 });

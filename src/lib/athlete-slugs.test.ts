@@ -12,8 +12,8 @@ describe("buildAthleteSlug", () => {
   });
 
   it("avoids collisions with suffixes", () => {
-    expect(buildAthleteSlug("Ana Paula", "Levantadora", ["ana-paula", "ana-paula-levantadora"])).toBe(
-      "ana-paula-levantadora-2",
-    );
+    expect(
+      buildAthleteSlug("Ana Paula", "Levantadora", ["ana-paula", "ana-paula-levantadora"]),
+    ).toBe("ana-paula-levantadora-2");
   });
 });

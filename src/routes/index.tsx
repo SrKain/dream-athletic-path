@@ -1,10 +1,12 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { ArrowRight, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ConfigurationNotice } from "@/components/configuration-notice";
 import { useI18n } from "@/i18n/i18n-provider";
+import { buildAthleteShelves, filterAthletes, pickAceAthletes } from "@/lib/catalog";
 import { listPublicAthletes } from "@/lib/athletes.functions";
+import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { AthleteCard } from "@/types/db";
 
@@ -18,62 +20,43 @@ function Catalog() {
     athletes: AthleteCard[];
     configured: boolean;
   };
-  const { locale, setLocale, t, pick } = useI18n();
+  const { locale, setLocale, pick } = useI18n();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
   const [country, setCountry] = useState("");
   const [ageRange, setAgeRange] = useState("");
 
+  const volleyballAthletes = useMemo(() => athletes.filter(isVolleyball), [athletes]);
+  const catalogAthletes = volleyballAthletes.length ? volleyballAthletes : athletes;
+
   const positions = Array.from(
-    new Set(athletes.map((item) => item.position?.name_pt).filter(Boolean)),
+    new Set(catalogAthletes.map((item) => item.position?.name_pt).filter(Boolean)),
   ) as string[];
   const countries = Array.from(
-    new Set(athletes.map((item) => item.country?.name_pt).filter(Boolean)),
+    new Set(catalogAthletes.map((item) => item.country?.name_pt).filter(Boolean)),
   ) as string[];
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase();
-    return athletes.filter((athlete) => {
-      const matchesPosition = !position || athlete.position?.name_pt === position;
-      const matchesCountry = !country || athlete.country?.name_pt === country;
-      const age = athlete.birth_date
-        ? Math.floor((Date.now() - new Date(athlete.birth_date).getTime()) / 31_557_600_000)
-        : null;
-      const matchesAge =
-        !ageRange ||
-        age === null ||
-        (ageRange === "under18"
-          ? age <= 18
-          : ageRange === "19-22"
-            ? age >= 19 && age <= 22
-            : age >= 23);
-      const haystack = [
-        athlete.full_name,
-        athlete.position?.name_pt,
-        athlete.position?.name_en,
-        athlete.country?.name_pt,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase();
-
-      return matchesPosition && matchesCountry && matchesAge && (!term || haystack.includes(term));
-    });
-  }, [ageRange, athletes, country, position, search]);
+  const filtered = useMemo(
+    () => filterAthletes(catalogAthletes, { ageRange, country, position, search }),
+    [ageRange, catalogAthletes, country, position, search],
+  );
+  const shelves = useMemo(() => buildAthleteShelves(filtered), [filtered]);
+  const aces = useMemo(() => pickAceAthletes(filtered), [filtered]);
 
   if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-xl">
+    <main className="min-h-screen overflow-hidden bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl">
         <div className="container-edge flex h-16 items-center justify-between md:h-20">
-          <Link to="/" className="font-display text-xl font-semibold">
-            Go Team Go
+          <Link to="/" className="flex items-center gap-2">
+            <span className="font-display text-xl font-semibold tracking-tight">Go Team Go</span>
+            <span className="hidden h-1.5 w-1.5 rounded-full bg-primary md:block" />
+            <span className="eyebrow hidden text-muted-foreground md:block">NCAA</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-sm text-muted-foreground md:block">Catálogo de vôlei</span>
+          <div className="flex items-center gap-3">
             <button
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+              className="glass-panel rounded-full px-3 py-1.5 text-xs font-semibold"
               onClick={() => setLocale(locale === "pt" ? "en" : "pt")}
             >
               {locale === "pt" ? "EN" : "PT"}
@@ -81,7 +64,7 @@ function Catalog() {
             <Link
               to="/login"
               search={{ redirect: undefined }}
-              className="inline-flex h-10 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background"
+              className="liquid-button inline-flex h-10 items-center rounded-md px-4 text-sm font-medium"
             >
               Área restrita
             </Link>
@@ -89,118 +72,111 @@ function Catalog() {
         </div>
       </header>
 
-      <section className="border-b bg-linear-to-br from-background via-card to-muted/40">
-        <div className="container-edge grid gap-8 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
-          <div>
-            <p className="eyebrow text-primary">{t("feed.recent")}</p>
-            <h1 className="mt-4 max-w-2xl font-display text-4xl font-semibold tracking-tight sm:text-5xl">
-              Talentos de vôlei prontos para o próximo nível
+      <section className="relative overflow-hidden border-b border-border/70">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.72_0.13_146_/_0.2),transparent_30%),linear-gradient(135deg,oklch(0.968_0.018_102),oklch(0.9_0.035_148))]" />
+        <div className="absolute inset-y-0 right-0 w-2/3 opacity-20 [background:repeating-linear-gradient(90deg,transparent_0_22px,oklch(0.46_0.11_162_/_0.35)_22px_24px),linear-gradient(180deg,oklch(0.55_0.12_250_/_0.35),oklch(0.62_0.18_25_/_0.28))]" />
+        <div className="container-edge relative grid gap-10 py-12 md:py-16 lg:grid-cols-12 lg:items-center lg:py-20">
+          <div className="lg:col-span-7">
+            <p className="eyebrow text-primary">Catálogo premium de vôlei · USA pathway</p>
+            <h1 className="mt-5 max-w-3xl font-display text-[clamp(2.6rem,6vw,5.4rem)] font-semibold leading-[0.98] tracking-tight">
+              Atletas prontos para jogar, estudar e competir nos EUA.
             </h1>
-            <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-              Explore perfis completos, posições e contexto acadêmico em uma experiência visual inspirada em grandes plataformas de descoberta.
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
+              Explore perfis por posição, descubra destaques e encontre talentos brasileiros com
+              contexto esportivo, acadêmico e visual de alto nível.
             </p>
-          </div>
-          <div className="rounded-3xl border bg-background/80 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-primary">Descubra atletas</p>
-                <p className="mt-1 text-sm text-muted-foreground">Filtre por posição, país e idade para encontrar o perfil certo.</p>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <a
+                href="#catalog"
+                className="liquid-button group inline-flex h-12 items-center gap-2 rounded-md px-6 text-sm font-medium"
+              >
+                Ver atletas
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
+              <div className="glass-panel inline-flex h-12 items-center gap-3 rounded-md px-5 text-sm font-medium">
+                <Sparkles className="h-4 w-4 text-primary" />
+                {filtered.length} perfis publicados
               </div>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                Vôlei
-              </span>
             </div>
-            <div className="mt-6 space-y-3">
-              <div className="rounded-2xl border bg-muted/40 p-4">
-                <p className="text-sm font-medium">Pesquisa</p>
-                <p className="mt-1 text-sm text-muted-foreground">Busque por nome, posição ou país.</p>
-              </div>
-              <div className="rounded-2xl border bg-muted/40 p-4">
-                <p className="text-sm font-medium">Perfil completo</p>
-                <p className="mt-1 text-sm text-muted-foreground">Acesse biografia, vídeo destaque e conquistas.</p>
+          </div>
+          <div className="relative lg:col-span-5">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-surface shadow-2xl">
+              <img
+                src={catalogHeroImage}
+                alt=""
+                className="h-full w-full object-cover"
+                aria-hidden="true"
+              />
+              <div className="absolute inset-0 bg-linear-to-tr from-primary/55 via-primary/10 to-transparent" />
+              <div className="glass-dark absolute bottom-4 left-4 right-4 rounded-md px-4 py-3 text-surface-foreground">
+                <p className="text-xs font-semibold tracking-wide">
+                  NCAA · D1 · D2 · D3 · NAIA · JUCO
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="container-edge py-12 md:py-16">
-        <div className="flex flex-col gap-4 border-b pb-8 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="eyebrow text-primary">Talentos para o próximo nível</p>
-            <h2 className="mt-2 font-display text-3xl font-semibold">{t("feed.title")}</h2>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row">
-            <label className="flex h-11 min-w-70 items-center gap-2 rounded-full border bg-card px-3 shadow-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full bg-transparent text-sm outline-none"
-                placeholder="Buscar atleta, posição ou país"
-              />
-            </label>
-            <select
-              className="h-11 rounded-full border bg-card px-3 text-sm shadow-sm"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            >
-              <option value="">Posições</option>
-              {positions.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-            <select
-              className="h-11 rounded-full border bg-card px-3 text-sm shadow-sm"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-            >
-              <option value="">Países</option>
-              {countries.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-            <select
-              className="h-11 rounded-full border bg-card px-3 text-sm shadow-sm"
-              value={ageRange}
-              onChange={(e) => setAgeRange(e.target.value)}
-            >
-              <option value="">Idade</option>
-              <option value="under18">Até 18</option>
-              <option value="19-22">19–22</option>
-              <option value="23plus">23+</option>
-            </select>
-          </div>
+      <section id="catalog" className="container-edge py-10 md:py-14">
+        <div className="glass-panel grid gap-3 rounded-md p-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+          <label className="flex h-11 min-w-0 items-center gap-2 rounded-md border border-white/50 bg-background/50 px-3">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-full bg-transparent text-sm outline-none"
+              placeholder="Buscar atleta, posição ou país"
+            />
+          </label>
+          <select
+            className="h-11 rounded-md border border-white/50 bg-background/50 px-3 text-sm"
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+          >
+            <option value="">Posições</option>
+            {positions.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+          <select
+            className="h-11 rounded-md border border-white/50 bg-background/50 px-3 text-sm"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          >
+            <option value="">Países</option>
+            {countries.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+          <select
+            className="h-11 rounded-md border border-white/50 bg-background/50 px-3 text-sm"
+            value={ageRange}
+            onChange={(e) => setAgeRange(e.target.value)}
+          >
+            <option value="">Idade</option>
+            <option value="under18">Até 18</option>
+            <option value="19-22">19-22</option>
+            <option value="23plus">23+</option>
+          </select>
         </div>
 
         {filtered.length ? (
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((athlete) => (
-              <Link
-                key={athlete.id}
-                to="/athlete/$slug"
-                params={{ slug: athlete.slug }}
-                className="group overflow-hidden rounded-3xl border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <AthleteImage athlete={athlete} />
-                <div className="p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-display text-xl font-semibold group-hover:text-primary">
-                      {athlete.full_name}
-                    </h3>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
-                      Vôlei
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {pick(athlete.position?.name_pt, athlete.position?.name_en) || "Posição"} ·{" "}
-                    {pick(athlete.country?.name_pt, athlete.country?.name_en) || "País"}
-                  </p>
-                  <div className="mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
-                    Ver perfil
-                  </div>
-                </div>
-              </Link>
+          <div className="mt-12 space-y-14">
+            <AthleteShelf
+              title="Aces do saque"
+              description="Destaques selecionados para abrir a conversa com coaches."
+              athletes={aces}
+              pick={pick}
+            />
+            {shelves.map((shelf) => (
+              <AthleteShelf
+                key={shelf.key}
+                title={shelf.title}
+                description={shelf.description}
+                athletes={shelf.athletes}
+                pick={pick}
+              />
             ))}
           </div>
         ) : (
@@ -211,25 +187,83 @@ function Catalog() {
   );
 }
 
-function AthleteImage({ athlete }: { athlete: AthleteCard }) {
-  const imageSrc = athlete.photo_url ?? getMockAthleteImage(athlete.slug, athlete.full_name);
+function AthleteShelf({
+  title,
+  description,
+  athletes,
+  pick,
+}: {
+  title: string;
+  description: string;
+  athletes: AthleteCard[];
+  pick: (pt?: string | null, en?: string | null) => string | null;
+}) {
+  if (!athletes.length) return null;
 
   return (
-    <div className="relative aspect-4/5 overflow-hidden bg-linear-to-br from-stone-300 to-stone-600">
-      <img
-        src={imageSrc}
-        alt={athlete.full_name}
-        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
-      />
-    </div>
+    <section>
+      <div className="mb-5 flex items-end justify-between gap-4 border-b border-border/70 pb-4">
+        <div>
+          <p className="eyebrow text-primary">Vôlei</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">{title}</h2>
+        </div>
+        <p className="hidden max-w-sm text-right text-sm text-muted-foreground md:block">
+          {description}
+        </p>
+      </div>
+      <div className="scrollbar-none -mx-4 flex gap-4 overflow-x-auto px-4 pb-4">
+        {athletes.map((athlete) => (
+          <AthleteCardItem key={athlete.id} athlete={athlete} pick={pick} />
+        ))}
+      </div>
+    </section>
   );
 }
 
-function getMockAthleteImage(slug: string, fullName: string) {
-  const images: Record<string, string> = {
-    "marina-alves": "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=900&q=80",
-    "gabriel-santos": "https://images.unsplash.com/photo-1521417531039-4f7d5f4d3f6b?auto=format&fit=crop&w=900&q=80",
-  };
+function AthleteCardItem({
+  athlete,
+  pick,
+}: {
+  athlete: AthleteCard;
+  pick: (pt?: string | null, en?: string | null) => string | null;
+}) {
+  return (
+    <Link
+      to="/athlete/$slug"
+      params={{ slug: athlete.slug }}
+      className="group relative min-w-[15rem] overflow-hidden rounded-md bg-surface text-surface-foreground shadow-xl transition duration-300 hover:-translate-y-1 hover:shadow-2xl md:min-w-[18rem]"
+    >
+      <div className="relative aspect-[4/5] overflow-hidden">
+        <img
+          src={getAthleteDisplayImage(athlete)}
+          alt={athlete.full_name}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+        />
+        <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/25 to-transparent" />
+        {athlete.is_featured && (
+          <span className="glass-dark absolute left-3 top-3 rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+            Destaque
+          </span>
+        )}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 p-4">
+        <h3 className="font-display text-2xl font-semibold tracking-tight">{athlete.full_name}</h3>
+        <p className="mt-2 text-sm text-surface-foreground/72">
+          {pick(athlete.position?.name_pt, athlete.position?.name_en) || "Posição"} ·{" "}
+          {pick(athlete.country?.name_pt, athlete.country?.name_en) || "País"}
+        </p>
+        <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground">
+          Ver perfil <ArrowRight className="h-3.5 w-3.5" />
+        </div>
+      </div>
+    </Link>
+  );
+}
 
-  return images[slug] ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0f172a&color=fff&size=640`;
+function isVolleyball(athlete: AthleteCard) {
+  const values = [athlete.sport?.slug, athlete.sport?.name_pt, athlete.sport?.name_en]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
+  return values.includes("volleyball") || values.includes("vôlei") || values.includes("volei");
 }

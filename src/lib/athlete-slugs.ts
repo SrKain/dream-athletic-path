@@ -11,7 +11,9 @@ export function buildAthleteSlug(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-  const variants = [base, positionName ? `${base}-${positionName}` : null].filter(Boolean) as string[];
+  const variants = [base, positionName ? `${base}-${positionName}` : null].filter(
+    Boolean,
+  ) as string[];
   const normalizedPosition = positionName
     ?.normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")

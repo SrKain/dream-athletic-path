@@ -11,7 +11,6 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { useEffect } from "react";
 
 import { useAuth } from "@/providers/auth-provider";
 import type { AppRole } from "@/types/db";
@@ -22,7 +21,7 @@ const adminLinks = [
   { to: "/admin/pipeline", label: "Pipeline", icon: ClipboardList },
   { to: "/admin/documents", label: "Documentos", icon: FileText },
   { to: "/admin/notifications", label: "Notificações", icon: Bell },
-  { to: "/admin/pipeline", label: "Configurações", icon: Settings },
+  { to: "/admin/settings", label: "Configurações", icon: Settings },
 ] as const;
 
 const athleteLinks = [
@@ -33,11 +32,6 @@ const athleteLinks = [
   { to: "/portal/notifications", label: "Notificações", icon: Bell },
 ] as const;
 
-/**
- * O controle de acesso vive no layout `_authenticated` (e nos sub-layouts de
- * papel), que roda antes da renderização. Aqui só aguardamos a hidratação da
- * sessão para evitar telas piscando com dados vazios.
- */
 export function ProtectedPage({ role, children }: { role: AppRole; children: React.ReactNode }) {
   void role;
   const { loading, user } = useAuth();
@@ -65,12 +59,12 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/35">
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-72 bg-surface text-surface-foreground transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-20 items-center border-b border-white/10 px-6">
-          <Link to="/" className="font-display text-xl font-semibold">
+          <Link to="/" className="font-display text-xl font-semibold tracking-tight">
             Go Team Go
           </Link>
         </div>
@@ -107,11 +101,11 @@ export function AppShell({
         />
       )}
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b bg-background/90 px-4 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-border/70 bg-background/80 px-4 backdrop-blur-xl md:px-8">
           <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu">
             <Menu className="h-5 w-5" />
           </button>
-          <h1 className="font-display text-xl font-semibold">{title}</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight">{title}</h1>
         </header>
         <main className="p-4 md:p-8">{children}</main>
       </div>

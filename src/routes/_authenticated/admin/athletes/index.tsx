@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-ui";
 import { buildAthleteSlug } from "@/lib/athlete-slugs";
+import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
 import { supabase } from "@/lib/supabase/client";
 import type { Athlete } from "@/types/db";
 
@@ -34,22 +35,44 @@ function AthletesPage() {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
     if (!agency) return toast.error("Crie a agência antes do primeiro atleta.");
-    const existingSlugs = (athletes ?? []).map((item) => item.slug);
-    const { error } = await supabase.from("athletes").insert({
-      agency_id: agency.id,
-      full_name: name,
-      email: email || null,
-      slug: buildAthleteSlug(name, null, existingSlugs),
-    });
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Atleta criado.");
-      setName("");
-      setEmail("");
-      setOpen(false);
-      await load();
+    const { data: firstStage } = await supabase
+      .from("pipeline_stages")
+      .select("*")
+      .eq("agency_id", agency.id)
+      .eq("is_active", true)
+      .order("order_index")
+      .limit(1)
+      .maybeSingle();
+    const existingSlugs = athletes.map((item) => item.slug);
+    const { data, error } = await supabase
+      .from("athletes")
+      .insert({
+        agency_id: agency.id,
+        current_stage_id: firstStage?.id ?? null,
+        email: email || null,
+        full_name: name,
+        slug: buildAthleteSlug(name, null, existingSlugs),
+      })
+      .select("id")
+      .single();
+    if (error) return toast.error(error.message);
+
+    if (firstStage && data?.id) {
+      const { error: progressError } = await supabase
+        .from("athlete_stage_progress")
+        .upsert(buildStageProgressPayload({ athleteId: data.id, stageId: firstStage.id }), {
+          onConflict: "athlete_id,stage_id",
+        });
+      if (progressError) return toast.error(progressError.message);
     }
+
+    toast.success("Atleta criado na primeira etapa.");
+    setName("");
+    setEmail("");
+    setOpen(false);
+    await load();
   }
+
   const filtered = useMemo(
     () => athletes.filter((item) => item.full_name.toLowerCase().includes(search.toLowerCase())),
     [athletes, search],
@@ -70,7 +93,7 @@ function AthletesPage() {
           {open && (
             <form
               onSubmit={create}
-              className="grid gap-4 border-b bg-muted/40 p-5 md:grid-cols-[1fr_1fr_auto]"
+              className="grid gap-4 border-b border-white/40 bg-background/30 p-5 md:grid-cols-[1fr_1fr_auto]"
             >
               <input
                 className={inputClass}
@@ -89,8 +112,8 @@ function AthletesPage() {
               <button className={buttonClass}>Criar perfil</button>
             </form>
           )}
-          <div className="border-b p-4">
-            <label className="flex max-w-sm items-center gap-2 rounded-md border bg-background px-3">
+          <div className="border-b border-white/40 p-4">
+            <label className="flex max-w-sm items-center gap-2 rounded-md border border-white/45 bg-background/55 px-3 backdrop-blur">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 className="h-10 w-full bg-transparent text-sm outline-none"
@@ -101,13 +124,13 @@ function AthletesPage() {
             </label>
           </div>
           {filtered.length ? (
-            <div className="divide-y">
+            <div className="divide-y divide-border/70">
               {filtered.map((athlete) => (
                 <Link
                   key={athlete.id}
                   to="/admin/athletes/$id"
                   params={{ id: athlete.id }}
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-muted/40"
+                  className="flex items-center justify-between gap-4 p-4 hover:bg-background/35"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-muted font-semibold">

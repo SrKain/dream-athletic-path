@@ -1,7 +1,9 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
-import { ArrowLeft, Award, GraduationCap, MapPin, Ruler, Weight } from "lucide-react";
+import { ArrowLeft, Award, Calendar, GraduationCap, MapPin, Ruler, Weight } from "lucide-react";
 
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
+import { calculateAge } from "@/lib/catalog";
+import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { useI18n } from "@/i18n/i18n-provider";
 
 export const Route = createFileRoute("/athlete/$slug")({
@@ -19,9 +21,10 @@ export const Route = createFileRoute("/athlete/$slug")({
             content: `${loaderData.athlete.full_name}, ${loaderData.athlete.sport?.name_pt ?? "atleta"} representado pela Go Team Go.`,
           },
           { property: "og:title", content: `${loaderData.athlete.full_name} — Go Team Go` },
-          ...(loaderData.athlete.photo_url
-            ? [{ property: "og:image", content: loaderData.athlete.photo_url }]
-            : []),
+          {
+            property: "og:image",
+            content: loaderData.athlete.photo_url ?? getAthleteDisplayImage(loaderData.athlete),
+          },
         ]
       : [],
   }),
@@ -35,35 +38,40 @@ function PublicAthleteProfile() {
     profile?.stats && typeof profile.stats === "object"
       ? Object.entries(profile.stats as Record<string, string | number>)
       : [];
+  const age = calculateAge(athlete.birth_date);
 
   return (
-    <main className="min-h-screen">
-      <header className="border-b">
-        <div className="container-edge flex h-20 items-center justify-between">
-          <Link to="/" className="font-display text-xl font-semibold">
+    <main className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+        <div className="container-edge flex h-16 items-center justify-between md:h-20">
+          <Link to="/" className="font-display text-xl font-semibold tracking-tight">
             Go Team Go
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+              className="glass-panel rounded-full px-3 py-1.5 text-xs font-semibold"
               onClick={() => setLocale(locale === "pt" ? "en" : "pt")}
             >
               {locale === "pt" ? "EN" : "PT"}
             </button>
             <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
+              <ArrowLeft className="h-4 w-4" /> Catálogo
             </Link>
           </div>
         </div>
       </header>
-      <section className="bg-surface text-surface-foreground">
-        <div className="container-edge grid gap-10 py-14 lg:grid-cols-12 lg:py-20">
+
+      <section className="relative overflow-hidden bg-surface text-surface-foreground">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,oklch(0.66_0.13_146_/_0.28),transparent_35%),linear-gradient(135deg,oklch(0.19_0.05_162),oklch(0.11_0.025_162))]" />
+        <div className="container-edge relative grid gap-10 py-12 lg:grid-cols-12 lg:py-20">
           <div className="lg:col-span-7 lg:self-end">
-            <p className="eyebrow text-gold">{athlete.sport?.name_pt ?? "Atleta"}</p>
-            <h1 className="mt-5 text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.94] tracking-[-0.045em]">
+            <p className="eyebrow text-primary-foreground/70">
+              {athlete.sport?.name_pt ?? "Atleta"} · Go Team Go
+            </p>
+            <h1 className="mt-5 font-display text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.94] tracking-tight">
               {athlete.full_name}
             </h1>
-            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65">
+            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-surface-foreground/70">
               {athlete.position && (
                 <span>{pick(athlete.position.name_pt, athlete.position.name_en)}</span>
               )}
@@ -74,34 +82,49 @@ function PublicAthleteProfile() {
                 </span>
               )}
             </div>
-          </div>
-          <div className="aspect-[4/5] overflow-hidden rounded-md bg-white/10 lg:col-span-5">
-            {athlete.photo_url ? (
-              <img
-                src={athlete.photo_url}
-                alt={athlete.full_name}
-                className="h-full w-full object-cover"
+            <dl className="mt-10 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-md border border-white/15 bg-white/10 md:grid-cols-4">
+              <HeroStat
+                label="Altura"
+                value={athlete.height_cm ? `${athlete.height_cm} cm` : "—"}
               />
-            ) : (
-              <div className="flex h-full items-center justify-center text-7xl text-white/40">
-                {athlete.full_name[0]}
-              </div>
-            )}
+              <HeroStat label="Peso" value={athlete.weight_kg ? `${athlete.weight_kg} kg` : "—"} />
+              <HeroStat label="Idade" value={age !== null ? `${age} anos` : "—"} />
+              <HeroStat
+                label="Posição"
+                value={pick(athlete.position?.name_pt, athlete.position?.name_en) ?? "—"}
+              />
+            </dl>
+          </div>
+          <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-white/10 shadow-2xl lg:col-span-5">
+            <img
+              src={getAthleteDisplayImage(athlete)}
+              alt={athlete.full_name}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-linear-to-tr from-primary/35 via-transparent to-transparent" />
           </div>
         </div>
       </section>
-      <section className="container-edge grid gap-12 py-16 lg:grid-cols-12">
+
+      <section className="container-edge grid gap-10 py-14 lg:grid-cols-12 lg:py-18">
         <div className="lg:col-span-7">
           <p className="eyebrow text-primary">Sobre</p>
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             {pick(profile?.bio_pt, profile?.bio_en) || "Perfil esportivo em preparação."}
           </p>
+          {profile?.highlight_video_url && (
+            <video
+              src={profile.highlight_video_url}
+              controls
+              className="mt-8 aspect-video w-full rounded-md bg-surface"
+            />
+          )}
           {achievements.length > 0 && (
             <div className="mt-12">
               <h2 className="font-display text-2xl font-semibold">Conquistas</h2>
               <div className="mt-5 space-y-4">
                 {achievements.map((item) => (
-                  <article key={item.id} className="flex gap-4 border-t pt-4">
+                  <article key={item.id} className="flex gap-4 border-t border-border pt-4">
                     <Award className="h-5 w-5 text-primary" />
                     <div>
                       <h3 className="font-semibold">{pick(item.title_pt, item.title_en)}</h3>
@@ -116,25 +139,21 @@ function PublicAthleteProfile() {
           )}
         </div>
         <aside className="lg:col-span-5">
-          <div className="rounded-md border bg-card p-6">
-            <p className="eyebrow text-muted-foreground">Perfil</p>
+          <div className="glass-panel rounded-md p-6">
+            <p className="eyebrow text-primary">Perfil acadêmico</p>
             <dl className="mt-5 grid grid-cols-2 gap-5">
-              <Stat
-                icon={Ruler}
-                label="Altura"
-                value={athlete.height_cm ? `${athlete.height_cm} cm` : "—"}
-              />
-              <Stat
-                icon={Weight}
-                label="Peso"
-                value={athlete.weight_kg ? `${athlete.weight_kg} kg` : "—"}
-              />
               <Stat
                 icon={GraduationCap}
                 label="Conclusão"
                 value={profile?.graduation_year ?? "—"}
               />
               <Stat icon={GraduationCap} label="GPA" value={profile?.gpa ?? "—"} />
+              <Stat icon={Calendar} label="Inglês" value={profile?.english_level ?? "—"} />
+              <Stat
+                icon={MapPin}
+                label="Nacionalidade"
+                value={pick(athlete.country?.name_pt, athlete.country?.name_en) ?? "—"}
+              />
               {stats.map(([label, value]) => (
                 <Stat key={label} icon={Award} label={label} value={value} />
               ))}
@@ -142,8 +161,9 @@ function PublicAthleteProfile() {
           </div>
         </aside>
       </section>
+
       {media.length > 0 && (
-        <section className="bg-muted/50 py-16">
+        <section className="border-t border-border bg-muted/40 py-16">
           <div className="container-edge">
             <h2 className="font-display text-3xl font-semibold">Galeria</h2>
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -171,6 +191,17 @@ function PublicAthleteProfile() {
         </section>
       )}
     </main>
+  );
+}
+
+function HeroStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="bg-surface p-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-surface-foreground/50">
+        {label}
+      </dt>
+      <dd className="mt-2 font-display text-xl font-semibold">{value}</dd>
+    </div>
   );
 }
 

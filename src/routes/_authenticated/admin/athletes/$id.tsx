@@ -14,6 +14,7 @@ import {
 } from "@/components/admin-ui";
 import { inviteAthlete } from "@/lib/auth.functions";
 import { buildAthleteSlug } from "@/lib/athlete-slugs";
+import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
 import { supabase } from "@/lib/supabase/client";
 import { validateUpload } from "@/lib/uploads";
 import type {
@@ -22,6 +23,7 @@ import type {
   AthleteMedia,
   AthleteProfile,
   Country,
+  PipelineStage,
   Position,
   Sport,
 } from "@/types/db";
@@ -37,6 +39,7 @@ function AthleteEditor() {
   const [sports, setSports] = useState<Sport[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
   const [media, setMedia] = useState<AthleteMedia[]>([]);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -60,6 +63,7 @@ function AthleteEditor() {
       sportsResult,
       positionsResult,
       countriesResult,
+      stagesResult,
       mediaResult,
       achievementsResult,
     ] = await Promise.all([
@@ -68,6 +72,7 @@ function AthleteEditor() {
       supabase.from("sports").select("*").order("name_pt"),
       supabase.from("positions").select("*").order("name_pt"),
       supabase.from("countries").select("*").order("name_pt"),
+      supabase.from("pipeline_stages").select("*").eq("is_active", true).order("order_index"),
       supabase
         .from("athlete_media")
         .select("*")
@@ -85,6 +90,7 @@ function AthleteEditor() {
     setSports((sportsResult.data ?? []) as Sport[]);
     setPositions((positionsResult.data ?? []) as Position[]);
     setCountries((countriesResult.data ?? []) as Country[]);
+    setStages((stagesResult.data ?? []) as PipelineStage[]);
     const loadedMedia = (mediaResult.data ?? []) as AthleteMedia[];
     setMedia(loadedMedia);
     const resolvedMedia = await Promise.all(
@@ -105,9 +111,7 @@ function AthleteEditor() {
     const term = countrySearch.trim().toLowerCase();
     if (!term) return countries;
     return countries.filter((item) =>
-      [item.name_pt, item.name_en, item.code].some((value) =>
-        value?.toLowerCase().includes(term),
-      ),
+      [item.name_pt, item.name_en, item.code].some((value) => value?.toLowerCase().includes(term)),
     );
   }, [countries, countrySearch]);
 
@@ -122,18 +126,35 @@ function AthleteEditor() {
   const currentAthlete = athlete;
 
   async function save() {
+    const { data: existing } = await supabase.from("athletes").select("slug").neq("id", id);
+    const existingSlugs = (existing ?? []).map((item) => item.slug as string);
     const nextSlug = buildAthleteSlug(
       currentAthlete.full_name,
       positions.find((item) => item.id === currentAthlete.position_id)?.name_pt,
-      [currentAthlete.slug],
+      existingSlugs,
     );
-    const { data: existing } = await supabase.from("athletes").select("slug").neq("id", id);
-    const existingSlugs = (existing ?? []).map((item) => item.slug as string);
     const { error } = await supabase
       .from("athletes")
-      .update({ ...currentAthlete, slug: buildAthleteSlug(currentAthlete.full_name, positions.find((item) => item.id === currentAthlete.position_id)?.name_pt, existingSlugs) })
+      .update({ ...currentAthlete, slug: nextSlug })
       .eq("id", id);
     if (error) return toast.error(error.message);
+    if (currentAthlete.current_stage_id) {
+      const { data: existingProgress } = await supabase
+        .from("athlete_stage_progress")
+        .select("*")
+        .eq("athlete_id", id)
+        .eq("stage_id", currentAthlete.current_stage_id)
+        .maybeSingle();
+      const { error: progressError } = await supabase.from("athlete_stage_progress").upsert(
+        buildStageProgressPayload({
+          athleteId: id,
+          existing: existingProgress,
+          stageId: currentAthlete.current_stage_id,
+        }),
+        { onConflict: "athlete_id,stage_id" },
+      );
+      if (progressError) return toast.error(progressError.message);
+    }
     const { error: profileError } = await supabase
       .from("athlete_profiles")
       .upsert({ ...profile, athlete_id: id });
@@ -194,11 +215,16 @@ function AthleteEditor() {
     if (!validation.valid) return toast.error("Arquivo inválido ou acima do limite.");
     setUploadingPhoto(true);
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
-    const stored = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
+    const stored = await supabase.storage
+      .from("athlete-media")
+      .upload(path, file, { upsert: true });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
-      const { error } = await supabase.from("athletes").update({ photo_url: publicUrl }).eq("id", id);
+      const { error } = await supabase
+        .from("athletes")
+        .update({ photo_url: publicUrl })
+        .eq("id", id);
       if (error) toast.error(error.message);
       else {
         setAthlete({ ...currentAthlete, photo_url: publicUrl });
@@ -214,7 +240,9 @@ function AthleteEditor() {
     if (!validation.valid) return toast.error("Vídeo inválido ou acima do limite.");
     setUploadingVideo(true);
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
-    const stored = await supabase.storage.from("athlete-media").upload(path, file, { upsert: true });
+    const stored = await supabase.storage
+      .from("athlete-media")
+      .upload(path, file, { upsert: true });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -323,6 +351,20 @@ function AthleteEditor() {
                       ))}
                   </select>
                 </Field>
+                <Field label="Etapa do pipeline">
+                  <select
+                    className={inputClass}
+                    value={athlete.current_stage_id ?? ""}
+                    onChange={(e) => update("current_stage_id", e.target.value || null)}
+                  >
+                    <option value="">Sem etapa</option>
+                    {stages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {stage.name_pt ?? stage.name_en}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <Field label="Nacionalidade">
                   <SearchableSelect
                     value={athlete.nationality ?? ""}
@@ -355,7 +397,12 @@ function AthleteEditor() {
                   />
                 </Field>
                 <Field label="Foto">
-                  <label className={secondaryButtonClass + " mt-1 flex cursor-pointer items-center justify-center gap-2"}>
+                  <label
+                    className={
+                      secondaryButtonClass +
+                      " mt-1 flex cursor-pointer items-center justify-center gap-2"
+                    }
+                  >
                     <Upload className="h-4 w-4" />
                     {uploadingPhoto ? "Enviando..." : "Selecionar foto"}
                     <input
@@ -366,7 +413,11 @@ function AthleteEditor() {
                     />
                   </label>
                   {athlete.photo_url && (
-                    <img src={athlete.photo_url} alt="Preview da foto" className="mt-3 h-40 w-full rounded-md object-cover" />
+                    <img
+                      src={athlete.photo_url}
+                      alt="Preview da foto"
+                      className="mt-3 h-40 w-full rounded-md object-cover"
+                    />
                   )}
                 </Field>
               </div>
@@ -422,7 +473,12 @@ function AthleteEditor() {
                   />
                 </Field>
                 <Field label="Vídeo destaque">
-                  <label className={secondaryButtonClass + " mt-1 flex cursor-pointer items-center justify-center gap-2"}>
+                  <label
+                    className={
+                      secondaryButtonClass +
+                      " mt-1 flex cursor-pointer items-center justify-center gap-2"
+                    }
+                  >
                     <Upload className="h-4 w-4" />
                     {uploadingVideo ? "Enviando..." : "Selecionar vídeo"}
                     <input
@@ -433,7 +489,11 @@ function AthleteEditor() {
                     />
                   </label>
                   {profile.highlight_video_url && (
-                    <video src={profile.highlight_video_url} controls className="mt-3 h-40 w-full rounded-md object-cover" />
+                    <video
+                      src={profile.highlight_video_url}
+                      controls
+                      className="mt-3 h-40 w-full rounded-md object-cover"
+                    />
                   )}
                 </Field>
               </div>
@@ -441,7 +501,10 @@ function AthleteEditor() {
             <Panel
               title="Mídia enviada"
               action={
-                <button className={secondaryButtonClass} onClick={() => setShowAchievementForm((value) => !value)}>
+                <button
+                  className={secondaryButtonClass}
+                  onClick={() => setShowAchievementForm((value) => !value)}
+                >
                   {showAchievementForm ? "Fechar" : "+ Conquista"}
                 </button>
               }
@@ -484,21 +547,27 @@ function AthleteEditor() {
                       <input
                         className={inputClass}
                         value={achievementDraft.title}
-                        onChange={(e) => setAchievementDraft({ ...achievementDraft, title: e.target.value })}
+                        onChange={(e) =>
+                          setAchievementDraft({ ...achievementDraft, title: e.target.value })
+                        }
                       />
                     </Field>
                     <Field label="Tipo">
                       <input
                         className={inputClass}
                         value={achievementDraft.type}
-                        onChange={(e) => setAchievementDraft({ ...achievementDraft, type: e.target.value })}
+                        onChange={(e) =>
+                          setAchievementDraft({ ...achievementDraft, type: e.target.value })
+                        }
                       />
                     </Field>
                     <Field label="Descrição" wide>
                       <textarea
                         className={textareaClass}
                         value={achievementDraft.description}
-                        onChange={(e) => setAchievementDraft({ ...achievementDraft, description: e.target.value })}
+                        onChange={(e) =>
+                          setAchievementDraft({ ...achievementDraft, description: e.target.value })
+                        }
                       />
                     </Field>
                     <Field label="Data">
@@ -506,14 +575,18 @@ function AthleteEditor() {
                         className={inputClass}
                         type="date"
                         value={achievementDraft.achievedOn}
-                        onChange={(e) => setAchievementDraft({ ...achievementDraft, achievedOn: e.target.value })}
+                        onChange={(e) =>
+                          setAchievementDraft({ ...achievementDraft, achievedOn: e.target.value })
+                        }
                       />
                     </Field>
                     <Field label="Imagem(URL)">
                       <input
                         className={inputClass}
                         value={achievementDraft.imageUrl}
-                        onChange={(e) => setAchievementDraft({ ...achievementDraft, imageUrl: e.target.value })}
+                        onChange={(e) =>
+                          setAchievementDraft({ ...achievementDraft, imageUrl: e.target.value })
+                        }
                       />
                     </Field>
                     <Field label="Medalha">
@@ -521,7 +594,9 @@ function AthleteEditor() {
                         <input
                           type="checkbox"
                           checked={achievementDraft.medal}
-                          onChange={(e) => setAchievementDraft({ ...achievementDraft, medal: e.target.checked })}
+                          onChange={(e) =>
+                            setAchievementDraft({ ...achievementDraft, medal: e.target.checked })
+                          }
                         />
                         Marcar como medalha
                       </label>
@@ -531,7 +606,10 @@ function AthleteEditor() {
                     <button className={buttonClass} onClick={() => void saveAchievement()}>
                       Salvar conquista
                     </button>
-                    <button className={secondaryButtonClass} onClick={() => setShowAchievementForm(false)}>
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => setShowAchievementForm(false)}
+                    >
                       Cancelar
                     </button>
                   </div>
@@ -541,12 +619,20 @@ function AthleteEditor() {
                 <h3 className="font-medium">Conquistas publicadas</h3>
                 <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
                   {achievements.map((item) => (
-                    <li key={item.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+                    <li
+                      key={item.id}
+                      className="flex items-start justify-between gap-3 rounded-md border p-3"
+                    >
                       <div>
-                        <p className="font-medium text-foreground">{item.title_pt ?? item.title_en}</p>
+                        <p className="font-medium text-foreground">
+                          {item.title_pt ?? item.title_en}
+                        </p>
                         <p className="mt-1 text-xs">{item.description_pt ?? item.description_en}</p>
                       </div>
-                      <button className="text-xs text-destructive" onClick={() => void deleteAchievement(item)}>
+                      <button
+                        className="text-xs text-destructive"
+                        onClick={() => void deleteAchievement(item)}
+                      >
                         Excluir
                       </button>
                     </li>
