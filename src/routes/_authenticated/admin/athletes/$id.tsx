@@ -22,7 +22,9 @@ import type {
   Sport,
 } from "@/types/db";
 
-export const Route = createFileRoute("/_authenticated/admin/athletes/$id")({ component: AthleteEditor });
+export const Route = createFileRoute("/_authenticated/admin/athletes/$id")({
+  component: AthleteEditor,
+});
 
 function AthleteEditor() {
   const { id } = Route.useParams();
