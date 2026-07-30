@@ -8,7 +8,7 @@ import { usePortalData } from "@/hooks/use-portal-data";
 import { supabase } from "@/lib/supabase/client";
 import { validateUpload, type UploadKind } from "@/lib/uploads";
 
-export const Route = createFileRoute("/portal/media")({ component: PortalMedia });
+export const Route = createFileRoute("/_authenticated/portal/media")({ component: PortalMedia });
 function PortalMedia() {
   const { data, reload } = usePortalData();
   const [uploading, setUploading] = useState(false);

@@ -4,7 +4,7 @@ import { EmptyState, Panel } from "@/components/admin-ui";
 import { usePortalData } from "@/hooks/use-portal-data";
 import { supabase } from "@/lib/supabase/client";
 
-export const Route = createFileRoute("/portal/notifications")({ component: PortalNotifications });
+export const Route = createFileRoute("/_authenticated/portal/notifications")({ component: PortalNotifications });
 function PortalNotifications() {
   const { data, reload } = usePortalData();
   async function read(id: string) {

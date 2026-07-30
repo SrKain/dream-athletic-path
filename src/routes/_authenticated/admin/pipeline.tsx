@@ -14,7 +14,7 @@ import type {
   StageStatus,
 } from "@/types/db";
 
-export const Route = createFileRoute("/admin/pipeline")({ component: PipelinePage });
+export const Route = createFileRoute("/_authenticated/admin/pipeline")({ component: PipelinePage });
 
 function PipelinePage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);

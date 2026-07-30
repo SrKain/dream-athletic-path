@@ -5,7 +5,7 @@ import { EmptyState, Panel } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 import type { AppNotification } from "@/types/db";
 
-export const Route = createFileRoute("/admin/notifications")({ component: AdminNotifications });
+export const Route = createFileRoute("/_authenticated/admin/notifications")({ component: AdminNotifications });
 function AdminNotifications() {
   const [items, setItems] = useState<AppNotification[]>([]);
   useEffect(() => {

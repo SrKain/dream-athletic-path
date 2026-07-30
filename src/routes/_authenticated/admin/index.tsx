@@ -6,7 +6,7 @@ import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { Panel } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 
-export const Route = createFileRoute("/admin/")({ component: AdminDashboard });
+export const Route = createFileRoute("/_authenticated/admin/")({ component: AdminDashboard });
 
 function AdminDashboard() {
   const [metrics, setMetrics] = useState({ athletes: 0, published: 0, documents: 0, blocked: 0 });
