@@ -13,19 +13,19 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PortalIndexRouteImport } from './routes/portal.index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as PortalPipelineRouteImport } from './routes/portal.pipeline'
-import { Route as PortalNotificationsRouteImport } from './routes/portal.notifications'
-import { Route as PortalMediaRouteImport } from './routes/portal.media'
-import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
 import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
-import { Route as AdminPipelineRouteImport } from './routes/admin.pipeline'
-import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
-import { Route as AdminDocumentsRouteImport } from './routes/admin.documents'
-import { Route as AdminAthletesIndexRouteImport } from './routes/admin.athletes.index'
-import { Route as AdminAthletesIdRouteImport } from './routes/admin.athletes.$id'
+import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal/index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedPortalPipelineRouteImport } from './routes/_authenticated/portal/pipeline'
+import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal/notifications'
+import { Route as AuthenticatedPortalMediaRouteImport } from './routes/_authenticated/portal/media'
+import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal/documents'
+import { Route as AuthenticatedAdminPipelineRouteImport } from './routes/_authenticated/admin/pipeline'
+import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
+import { Route as AuthenticatedAdminDocumentsRouteImport } from './routes/_authenticated/admin/documents'
+import { Route as AuthenticatedAdminAthletesIndexRouteImport } from './routes/_authenticated/admin/athletes/index'
+import { Route as AuthenticatedAdminAthletesIdRouteImport } from './routes/_authenticated/admin/athletes/$id'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -47,36 +47,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortalIndexRoute = PortalIndexRouteImport.update({
-  id: '/portal/',
-  path: '/portal/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalPipelineRoute = PortalPipelineRouteImport.update({
-  id: '/portal/pipeline',
-  path: '/portal/pipeline',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalNotificationsRoute = PortalNotificationsRouteImport.update({
-  id: '/portal/notifications',
-  path: '/portal/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalMediaRoute = PortalMediaRouteImport.update({
-  id: '/portal/media',
-  path: '/portal/media',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalDocumentsRoute = PortalDocumentsRouteImport.update({
-  id: '/portal/documents',
-  path: '/portal/documents',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
   id: '/auth/accept-invite',
   path: '/auth/accept-invite',
@@ -87,69 +57,109 @@ const AthleteSlugRoute = AthleteSlugRouteImport.update({
   path: '/athlete/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminPipelineRoute = AdminPipelineRouteImport.update({
-  id: '/admin/pipeline',
-  path: '/admin/pipeline',
+const AuthenticatedPortalIndexRoute =
+  AuthenticatedPortalIndexRouteImport.update({
+    id: '/_authenticated/portal/',
+    path: '/portal/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/_authenticated/admin/',
+  path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
-  id: '/admin/notifications',
-  path: '/admin/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
-  id: '/admin/documents',
-  path: '/admin/documents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAthletesIndexRoute = AdminAthletesIndexRouteImport.update({
-  id: '/admin/athletes/',
-  path: '/admin/athletes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAthletesIdRoute = AdminAthletesIdRouteImport.update({
-  id: '/admin/athletes/$id',
-  path: '/admin/athletes/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedPortalPipelineRoute =
+  AuthenticatedPortalPipelineRouteImport.update({
+    id: '/_authenticated/portal/pipeline',
+    path: '/portal/pipeline',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedPortalNotificationsRoute =
+  AuthenticatedPortalNotificationsRouteImport.update({
+    id: '/_authenticated/portal/notifications',
+    path: '/portal/notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedPortalMediaRoute =
+  AuthenticatedPortalMediaRouteImport.update({
+    id: '/_authenticated/portal/media',
+    path: '/portal/media',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedPortalDocumentsRoute =
+  AuthenticatedPortalDocumentsRouteImport.update({
+    id: '/_authenticated/portal/documents',
+    path: '/portal/documents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminPipelineRoute =
+  AuthenticatedAdminPipelineRouteImport.update({
+    id: '/_authenticated/admin/pipeline',
+    path: '/admin/pipeline',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminNotificationsRoute =
+  AuthenticatedAdminNotificationsRouteImport.update({
+    id: '/_authenticated/admin/notifications',
+    path: '/admin/notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminDocumentsRoute =
+  AuthenticatedAdminDocumentsRouteImport.update({
+    id: '/_authenticated/admin/documents',
+    path: '/admin/documents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminAthletesIndexRoute =
+  AuthenticatedAdminAthletesIndexRouteImport.update({
+    id: '/_authenticated/admin/athletes/',
+    path: '/admin/athletes/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAdminAthletesIdRoute =
+  AuthenticatedAdminAthletesIdRouteImport.update({
+    id: '/_authenticated/admin/athletes/$id',
+    path: '/admin/athletes/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
-  '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
-  '/portal/documents': typeof PortalDocumentsRoute
-  '/portal/media': typeof PortalMediaRoute
-  '/portal/notifications': typeof PortalNotificationsRoute
-  '/portal/pipeline': typeof PortalPipelineRoute
-  '/admin/': typeof AdminIndexRoute
-  '/portal/': typeof PortalIndexRoute
-  '/admin/athletes/$id': typeof AdminAthletesIdRoute
-  '/admin/athletes/': typeof AdminAthletesIndexRoute
+  '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/portal/media': typeof AuthenticatedPortalMediaRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/portal/pipeline': typeof AuthenticatedPortalPipelineRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/admin/athletes/$id': typeof AuthenticatedAdminAthletesIdRoute
+  '/admin/athletes/': typeof AuthenticatedAdminAthletesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
-  '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
-  '/portal/documents': typeof PortalDocumentsRoute
-  '/portal/media': typeof PortalMediaRoute
-  '/portal/notifications': typeof PortalNotificationsRoute
-  '/portal/pipeline': typeof PortalPipelineRoute
-  '/admin': typeof AdminIndexRoute
-  '/portal': typeof PortalIndexRoute
-  '/admin/athletes/$id': typeof AdminAthletesIdRoute
-  '/admin/athletes': typeof AdminAthletesIndexRoute
+  '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/portal/media': typeof AuthenticatedPortalMediaRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/portal/pipeline': typeof AuthenticatedPortalPipelineRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
+  '/portal': typeof AuthenticatedPortalIndexRoute
+  '/admin/athletes/$id': typeof AuthenticatedAdminAthletesIdRoute
+  '/admin/athletes': typeof AuthenticatedAdminAthletesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -157,19 +167,19 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/admin/documents': typeof AdminDocumentsRoute
-  '/admin/notifications': typeof AdminNotificationsRoute
-  '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
-  '/portal/documents': typeof PortalDocumentsRoute
-  '/portal/media': typeof PortalMediaRoute
-  '/portal/notifications': typeof PortalNotificationsRoute
-  '/portal/pipeline': typeof PortalPipelineRoute
-  '/admin/': typeof AdminIndexRoute
-  '/portal/': typeof PortalIndexRoute
-  '/admin/athletes/$id': typeof AdminAthletesIdRoute
-  '/admin/athletes/': typeof AdminAthletesIndexRoute
+  '/_authenticated/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
+  '/_authenticated/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
+  '/_authenticated/portal/documents': typeof AuthenticatedPortalDocumentsRoute
+  '/_authenticated/portal/media': typeof AuthenticatedPortalMediaRoute
+  '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/_authenticated/portal/pipeline': typeof AuthenticatedPortalPipelineRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_authenticated/admin/athletes/$id': typeof AuthenticatedAdminAthletesIdRoute
+  '/_authenticated/admin/athletes/': typeof AuthenticatedAdminAthletesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -178,11 +188,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/athlete/$slug'
+    | '/auth/accept-invite'
     | '/admin/documents'
     | '/admin/notifications'
     | '/admin/pipeline'
-    | '/athlete/$slug'
-    | '/auth/accept-invite'
     | '/portal/documents'
     | '/portal/media'
     | '/portal/notifications'
@@ -197,11 +207,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/athlete/$slug'
+    | '/auth/accept-invite'
     | '/admin/documents'
     | '/admin/notifications'
     | '/admin/pipeline'
-    | '/athlete/$slug'
-    | '/auth/accept-invite'
     | '/portal/documents'
     | '/portal/media'
     | '/portal/notifications'
@@ -216,19 +226,19 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
-    | '/admin/documents'
-    | '/admin/notifications'
-    | '/admin/pipeline'
     | '/athlete/$slug'
     | '/auth/accept-invite'
-    | '/portal/documents'
-    | '/portal/media'
-    | '/portal/notifications'
-    | '/portal/pipeline'
-    | '/admin/'
-    | '/portal/'
-    | '/admin/athletes/$id'
-    | '/admin/athletes/'
+    | '/_authenticated/admin/documents'
+    | '/_authenticated/admin/notifications'
+    | '/_authenticated/admin/pipeline'
+    | '/_authenticated/portal/documents'
+    | '/_authenticated/portal/media'
+    | '/_authenticated/portal/notifications'
+    | '/_authenticated/portal/pipeline'
+    | '/_authenticated/admin/'
+    | '/_authenticated/portal/'
+    | '/_authenticated/admin/athletes/$id'
+    | '/_authenticated/admin/athletes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,19 +246,19 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  AdminDocumentsRoute: typeof AdminDocumentsRoute
-  AdminNotificationsRoute: typeof AdminNotificationsRoute
-  AdminPipelineRoute: typeof AdminPipelineRoute
   AthleteSlugRoute: typeof AthleteSlugRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
-  PortalDocumentsRoute: typeof PortalDocumentsRoute
-  PortalMediaRoute: typeof PortalMediaRoute
-  PortalNotificationsRoute: typeof PortalNotificationsRoute
-  PortalPipelineRoute: typeof PortalPipelineRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-  PortalIndexRoute: typeof PortalIndexRoute
-  AdminAthletesIdRoute: typeof AdminAthletesIdRoute
-  AdminAthletesIndexRoute: typeof AdminAthletesIndexRoute
+  AuthenticatedAdminDocumentsRoute: typeof AuthenticatedAdminDocumentsRoute
+  AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
+  AuthenticatedAdminPipelineRoute: typeof AuthenticatedAdminPipelineRoute
+  AuthenticatedPortalDocumentsRoute: typeof AuthenticatedPortalDocumentsRoute
+  AuthenticatedPortalMediaRoute: typeof AuthenticatedPortalMediaRoute
+  AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
+  AuthenticatedPortalPipelineRoute: typeof AuthenticatedPortalPipelineRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
+  AuthenticatedAdminAthletesIdRoute: typeof AuthenticatedAdminAthletesIdRoute
+  AuthenticatedAdminAthletesIndexRoute: typeof AuthenticatedAdminAthletesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -281,48 +291,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portal/': {
-      id: '/portal/'
-      path: '/portal'
-      fullPath: '/portal/'
-      preLoaderRoute: typeof PortalIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/': {
-      id: '/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal/pipeline': {
-      id: '/portal/pipeline'
-      path: '/portal/pipeline'
-      fullPath: '/portal/pipeline'
-      preLoaderRoute: typeof PortalPipelineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal/notifications': {
-      id: '/portal/notifications'
-      path: '/portal/notifications'
-      fullPath: '/portal/notifications'
-      preLoaderRoute: typeof PortalNotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal/media': {
-      id: '/portal/media'
-      path: '/portal/media'
-      fullPath: '/portal/media'
-      preLoaderRoute: typeof PortalMediaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal/documents': {
-      id: '/portal/documents'
-      path: '/portal/documents'
-      fullPath: '/portal/documents'
-      preLoaderRoute: typeof PortalDocumentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth/accept-invite': {
       id: '/auth/accept-invite'
       path: '/auth/accept-invite'
@@ -337,39 +305,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AthleteSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/pipeline': {
-      id: '/admin/pipeline'
+    '/_authenticated/portal/': {
+      id: '/_authenticated/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof AuthenticatedPortalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/portal/pipeline': {
+      id: '/_authenticated/portal/pipeline'
+      path: '/portal/pipeline'
+      fullPath: '/portal/pipeline'
+      preLoaderRoute: typeof AuthenticatedPortalPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/portal/notifications': {
+      id: '/_authenticated/portal/notifications'
+      path: '/portal/notifications'
+      fullPath: '/portal/notifications'
+      preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/portal/media': {
+      id: '/_authenticated/portal/media'
+      path: '/portal/media'
+      fullPath: '/portal/media'
+      preLoaderRoute: typeof AuthenticatedPortalMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/portal/documents': {
+      id: '/_authenticated/portal/documents'
+      path: '/portal/documents'
+      fullPath: '/portal/documents'
+      preLoaderRoute: typeof AuthenticatedPortalDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin/pipeline': {
+      id: '/_authenticated/admin/pipeline'
       path: '/admin/pipeline'
       fullPath: '/admin/pipeline'
-      preLoaderRoute: typeof AdminPipelineRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminPipelineRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/notifications': {
-      id: '/admin/notifications'
+    '/_authenticated/admin/notifications': {
+      id: '/_authenticated/admin/notifications'
       path: '/admin/notifications'
       fullPath: '/admin/notifications'
-      preLoaderRoute: typeof AdminNotificationsRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/documents': {
-      id: '/admin/documents'
+    '/_authenticated/admin/documents': {
+      id: '/_authenticated/admin/documents'
       path: '/admin/documents'
       fullPath: '/admin/documents'
-      preLoaderRoute: typeof AdminDocumentsRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/athletes/': {
-      id: '/admin/athletes/'
+    '/_authenticated/admin/athletes/': {
+      id: '/_authenticated/admin/athletes/'
       path: '/admin/athletes'
       fullPath: '/admin/athletes/'
-      preLoaderRoute: typeof AdminAthletesIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminAthletesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/athletes/$id': {
-      id: '/admin/athletes/$id'
+    '/_authenticated/admin/athletes/$id': {
+      id: '/_authenticated/admin/athletes/$id'
       path: '/admin/athletes/$id'
       fullPath: '/admin/athletes/$id'
-      preLoaderRoute: typeof AdminAthletesIdRouteImport
+      preLoaderRoute: typeof AuthenticatedAdminAthletesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -380,30 +390,20 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  AdminDocumentsRoute: AdminDocumentsRoute,
-  AdminNotificationsRoute: AdminNotificationsRoute,
-  AdminPipelineRoute: AdminPipelineRoute,
   AthleteSlugRoute: AthleteSlugRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
-  PortalDocumentsRoute: PortalDocumentsRoute,
-  PortalMediaRoute: PortalMediaRoute,
-  PortalNotificationsRoute: PortalNotificationsRoute,
-  PortalPipelineRoute: PortalPipelineRoute,
-  AdminIndexRoute: AdminIndexRoute,
-  PortalIndexRoute: PortalIndexRoute,
-  AdminAthletesIdRoute: AdminAthletesIdRoute,
-  AdminAthletesIndexRoute: AdminAthletesIndexRoute,
+  AuthenticatedAdminDocumentsRoute: AuthenticatedAdminDocumentsRoute,
+  AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
+  AuthenticatedAdminPipelineRoute: AuthenticatedAdminPipelineRoute,
+  AuthenticatedPortalDocumentsRoute: AuthenticatedPortalDocumentsRoute,
+  AuthenticatedPortalMediaRoute: AuthenticatedPortalMediaRoute,
+  AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
+  AuthenticatedPortalPipelineRoute: AuthenticatedPortalPipelineRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
+  AuthenticatedAdminAthletesIdRoute: AuthenticatedAdminAthletesIdRoute,
+  AuthenticatedAdminAthletesIndexRoute: AuthenticatedAdminAthletesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
