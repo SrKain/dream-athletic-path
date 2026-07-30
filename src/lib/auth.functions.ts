@@ -1,31 +1,25 @@
 import { createServerFn } from "@tanstack/react-start";
 
-async function authenticate(accessToken: string, requiredRole?: "agency_admin") {
-  const { getAdminClient } = await import("@/lib/supabase/clients.server");
-  const admin = getAdminClient();
-  const { data, error } = await admin.auth.getUser(accessToken);
-  if (error || !data.user) throw new Response("Unauthorized", { status: 401 });
-  if (requiredRole) {
-    const { data: role } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id)
-      .eq("role", requiredRole)
-      .maybeSingle();
-    if (!role) throw new Response("Forbidden", { status: 403 });
+import { requireAgency, requireAuth } from "@/lib/supabase/auth-middleware";
+
+function appUrl() {
+  const url = process.env.APP_URL;
+  if (!url) {
+    throw new Response("APP_URL não configurada no ambiente do servidor.", { status: 500 });
   }
-  return { admin, user: data.user };
+  return url.replace(/\/$/, "");
 }
 
 export const inviteAthlete = createServerFn({ method: "POST" })
-  .validator((input: { athleteId: string; email: string; accessToken: string }) => ({
+  .middleware([requireAgency])
+  .validator((input: { athleteId: string; email: string }) => ({
     athleteId: String(input.athleteId),
     email: String(input.email).trim().toLowerCase(),
-    accessToken: String(input.accessToken),
   }))
-  .handler(async ({ data }) => {
-    const { admin, user } = await authenticate(data.accessToken, "agency_admin");
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  .handler(async ({ data, context }) => {
+    const base = appUrl();
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const admin = getAdminClient();
     const { data: athlete } = await admin
       .from("athletes")
       .select("id,agency_id,full_name")
@@ -34,7 +28,7 @@ export const inviteAthlete = createServerFn({ method: "POST" })
     if (!athlete) throw new Response("Atleta não encontrado", { status: 404 });
 
     const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(data.email, {
-      redirectTo: `${appUrl}/auth/accept-invite`,
+      redirectTo: `${base}/auth/accept-invite`,
       data: { athlete_id: athlete.id, full_name: athlete.full_name },
     });
     if (error) throw new Response(error.message, { status: 400 });
@@ -45,18 +39,18 @@ export const inviteAthlete = createServerFn({ method: "POST" })
       email: data.email,
       role: "athlete",
       auth_user_id: invited.user?.id ?? null,
-      invited_by: user.id,
+      invited_by: context.userId,
     });
     return { success: true };
   });
 
 export const finalizeAthleteInvite = createServerFn({ method: "POST" })
-  .validator((input: { accessToken: string }) => ({
-    accessToken: String(input.accessToken),
-  }))
-  .handler(async ({ data }) => {
-    const { admin, user } = await authenticate(data.accessToken);
+  .middleware([requireAuth])
+  .handler(async ({ context }) => {
+    const user = { id: context.userId, email: context.email };
     if (!user.email) throw new Response("E-mail ausente", { status: 400 });
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const admin = getAdminClient();
     const { data: invitation } = await admin
       .from("invitations")
       .select("id,athlete_id,email,expires_at,accepted_at,revoked_at")

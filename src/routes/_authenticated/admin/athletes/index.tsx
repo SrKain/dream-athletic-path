@@ -8,7 +8,9 @@ import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-u
 import { supabase } from "@/lib/supabase/client";
 import type { Athlete } from "@/types/db";
 
-export const Route = createFileRoute("/admin/athletes/")({ component: AthletesPage });
+export const Route = createFileRoute("/_authenticated/admin/athletes/")({
+  component: AthletesPage,
+});
 
 function slugify(value: string) {
   return value

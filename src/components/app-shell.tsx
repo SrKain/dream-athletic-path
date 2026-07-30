@@ -31,27 +31,15 @@ const athleteLinks = [
   { to: "/portal/notifications", label: "Notificações", icon: Bell },
 ] as const;
 
-export function ProtectedPage({
-  role: requiredRole,
-  children,
-}: {
-  role: AppRole;
-  children: React.ReactNode;
-}) {
-  const { loading, user, role } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      void navigate({ to: "/login", search: { redirect: window.location.pathname } });
-    } else if (role !== requiredRole) {
-      void navigate({ to: role === "agency_admin" ? "/admin" : "/portal" });
-    }
-  }, [loading, navigate, requiredRole, role, user]);
-
-  if (loading) return <PageLoading />;
-  if (!user || role !== requiredRole) return <PageLoading />;
+/**
+ * O controle de acesso vive no layout `_authenticated` (e nos sub-layouts de
+ * papel), que roda antes da renderização. Aqui só aguardamos a hidratação da
+ * sessão para evitar telas piscando com dados vazios.
+ */
+export function ProtectedPage({ role, children }: { role: AppRole; children: React.ReactNode }) {
+  void role;
+  const { loading, user } = useAuth();
+  if (loading || !user) return <PageLoading />;
   return <>{children}</>;
 }
 

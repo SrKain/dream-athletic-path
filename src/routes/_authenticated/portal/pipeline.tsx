@@ -4,7 +4,9 @@ import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { StatusBadge } from "@/components/admin-ui";
 import { usePortalData } from "@/hooks/use-portal-data";
 
-export const Route = createFileRoute("/portal/pipeline")({ component: PortalPipeline });
+export const Route = createFileRoute("/_authenticated/portal/pipeline")({
+  component: PortalPipeline,
+});
 function PortalPipeline() {
   const { data } = usePortalData();
   return (

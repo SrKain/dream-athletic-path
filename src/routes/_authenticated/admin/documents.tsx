@@ -7,7 +7,9 @@ import { supabase } from "@/lib/supabase/client";
 import type { AthleteDocument, DocumentStatus } from "@/types/db";
 
 type DocumentRow = AthleteDocument & { athletes?: { full_name: string } | null };
-export const Route = createFileRoute("/admin/documents")({ component: DocumentsAdmin });
+export const Route = createFileRoute("/_authenticated/admin/documents")({
+  component: DocumentsAdmin,
+});
 
 function DocumentsAdmin() {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);

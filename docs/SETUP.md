@@ -51,6 +51,17 @@ Use `bun run build` como Build Command. Cadastre todas as variáveis de
 `SUPABASE_SECRET_KEY` é server-only e nunca deve usar o prefixo `VITE_`.
 Convites e recuperação usam temporariamente o serviço de e-mail do Supabase Auth.
 
+`APP_URL` é obrigatória: sem ela o envio de convites falha em vez de gerar um
+link apontando para `localhost`.
+
+No painel do Supabase, em Authentication > URL Configuration, defina o
+`Site URL` com o domínio publicado e inclua nas Redirect URLs:
+
+- `https://<dominio>/reset-password`
+- `https://<dominio>/auth/accept-invite`
+
+Sem essas URLs, recuperação de senha e aceite de convite não funcionam.
+
 Antes de publicar uma revisão, execute:
 
 ```sh

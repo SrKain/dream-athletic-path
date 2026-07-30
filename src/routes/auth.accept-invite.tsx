@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 
 import { AuthCard, primaryButtonClass } from "@/components/auth-card";
 import { finalizeAthleteInvite } from "@/lib/auth.functions";
-import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/providers/auth-provider";
 
 export const Route = createFileRoute("/auth/accept-invite")({ component: AcceptInvite });
@@ -23,10 +22,7 @@ function AcceptInvite() {
     setWorking(true);
     setError("");
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const accessToken = session.session?.access_token;
-      if (!accessToken) throw new Error("Sua sessão expirou. Abra novamente o link do convite.");
-      await finalizeAthleteInvite({ data: { accessToken } });
+      await finalizeAthleteInvite();
       await refreshRole();
       await navigate({ to: "/portal" });
     } catch (caught) {

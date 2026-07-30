@@ -1,7 +1,7 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { ArrowLeft, Award, GraduationCap, MapPin, Ruler, Weight } from "lucide-react";
 
-import { getPublicAthlete } from "@/lib/athletes.functions";
+import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { useI18n } from "@/i18n/i18n-provider";
 
 export const Route = createFileRoute("/athlete/$slug")({
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/athlete/$slug")({
 });
 
 function PublicAthleteProfile() {
-  const { athlete, profile, media, achievements } = Route.useLoaderData();
+  const { athlete, profile, media, achievements } = Route.useLoaderData() as PublicAthletePayload;
   const { locale, setLocale, pick } = useI18n();
   const stats =
     profile?.stats && typeof profile.stats === "object"

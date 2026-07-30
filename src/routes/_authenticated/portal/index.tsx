@@ -4,7 +4,7 @@ import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { Panel, StatusBadge } from "@/components/admin-ui";
 import { usePortalData } from "@/hooks/use-portal-data";
 
-export const Route = createFileRoute("/portal/")({ component: PortalDashboard });
+export const Route = createFileRoute("/_authenticated/portal/")({ component: PortalDashboard });
 function PortalDashboard() {
   const { data } = usePortalData();
   const current =

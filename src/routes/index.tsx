@@ -14,7 +14,10 @@ export const Route = createFileRoute("/")({
 });
 
 function Catalog() {
-  const { athletes, configured } = Route.useLoaderData();
+  const { athletes, configured } = Route.useLoaderData() as {
+    athletes: AthleteCard[];
+    configured: boolean;
+  };
   const { locale, setLocale, t, pick } = useI18n();
   const [search, setSearch] = useState("");
   const [sport, setSport] = useState("");
