@@ -1,97 +1,42 @@
-## Contexto e restrições
+# Auditoria de execução e segurança — o que falta para rodar
 
-- **Sem Lovable Cloud.** Nenhuma tabela, auth, storage ou função será criada no ecossistema Lovable.
-- Toda a persistência, autenticação, storage e e-mail apontam para um **projeto Supabase externo** (fornecido por você) + **Resend**.
-- O código fica portável para Vercel/Netlify/Cloudflare/AWS: nada de APIs proprietárias do Lovable.
+Revisei o código atual (clients Supabase, server functions, rotas privadas, migrations e configuração Vercel). Resumo: **nenhuma chave secreta está exposta ao navegador hoje**, mas há três ajustes de padrão e uma checklist de configuração para o app rodar de ponta a ponta.
 
-**Preciso de você antes de codar o banco:**
-1. `SUPABASE_URL`
-2. `SUPABASE_ANON_KEY` (publicável)
-3. `SUPABASE_SERVICE_ROLE_KEY` (secreta)
-4. `RESEND_API_KEY` + domínio remetente
+## O que já está correto
 
-As chaves secretas serão guardadas no cofre de secrets do projeto (variáveis de ambiente do servidor), nunca no código. A anon key vai em `.env` como `VITE_*`, o que é seguro por padrão porque toda a proteção real está nas políticas RLS.
+- Só variáveis `VITE_*` chegam ao browser (`src/lib/supabase/env.ts`); a URL e a chave publicável são públicas por natureza e protegidas por RLS.
+- A service role key vive apenas em `clients.server.ts` (sufixo `.server.ts` bloqueia o bundle do cliente) e é importada dinamicamente dentro dos handlers.
+- `.env` está no `.gitignore`; a Resend key é lida apenas no servidor.
+- Migrations `0001`–`0004` já criam tabelas com GRANTs, RLS, `has_role` e políticas de Storage (`athlete-media` público, `athlete-media-pending` e `documents` privados).
 
----
+## Ajustes de segurança/padrão a fazer
 
-## Arquitetura
+1. **Parar de enviar o access token no corpo da requisição.**
+   `src/lib/auth.functions.ts` recebe `accessToken` como input e valida com o cliente admin. Já existem `attachSupabaseAuth` (header `Authorization`, registrado em `src/start.ts`) e `requireAuth` / `requireAgency` — porém não usados. Trocar as duas server functions para `.middleware([requireAgency])` / `.middleware([requireAuth])`, remover `accessToken` dos inputs e dos call sites (`admin.athletes.$id.tsx`, `auth.accept-invite.tsx`). Ganho: token deixa de circular em body/logs e a verificação de papel passa a rodar com RLS do próprio usuário, usando o admin só para o que exige privilégio.
+2. **Rotas privadas fora do SSR e sob um único portão.**
+   `admin.*` e `portal.*` são rotas SSR de topo protegidas só no cliente por `ProtectedPage` (efeito colateral: HTML de área restrita renderizado no servidor e piscada de conteúdo). Mover para o layout sem path `_authenticated` com `ssr: false` e `beforeLoad` fazendo `supabase.auth.getUser()` + redirect para `/login`; a verificação de papel (`agency_admin` vs `athlete`) fica em sub-layouts `_authenticated/admin` e `_authenticated/portal`. As páginas públicas (`/`, `/athlete/$slug`, login, reset) continuam com SSR para SEO.
+3. **Nunca depender de `APP_URL` padrão.**
+   `auth.functions.ts` cai em `http://localhost:3000` quando `APP_URL` não existe — convites enviados em produção apontariam para localhost. Passar a falhar explicitamente se `APP_URL` estiver ausente em produção.
 
-```text
-Browser ──► TanStack Start (SSR/edge)
-              ├─ rotas públicas   → feed / perfil do atleta (leitura anon via RLS)
-              ├─ rotas privadas   → agência / atleta (sessão Supabase, RLS por papel)
-              └─ server functions → operações privilegiadas + Resend
-                        │
-                        ▼
-              Supabase EXTERNO (Postgres + Auth + Storage)
-```
+## Checklist para rodar (Supabase + Vercel)
 
-Camada de acesso isolada em `src/lib/supabase/` — trocar de provedor no futuro exige mexer só nessa pasta.
+**No Supabase**
+- Rodar em ordem `db/migrations/0001` → `0004` no SQL Editor (idempotentes).
+- Criar o primeiro usuário no painel Auth e rodar o bloco de bootstrap de `docs/SETUP.md` (cria a agência e o papel `agency_admin`).
+- Authentication → URL Configuration: `Site URL` = domínio Vercel e adicionar em Redirect URLs `https://<dominio>/reset-password` e `https://<dominio>/auth/accept-invite` (sem isso, convite e recuperação de senha quebram).
+- Confirmar que os três buckets existem após as migrations.
 
-Estrutura de pastas:
-```text
-src/
-  components/{ui,layout,athlete,pipeline,feed,forms}
-  routes/            páginas + endpoints
-  features/          lógica por domínio (athletes, pipeline, documents, notifications)
-  lib/supabase/      client browser, client servidor, middleware de auth
-  lib/email/         serviço centralizado Resend + templates
-  hooks/  services/  providers/  schemas/  types/  i18n/
-```
+**Na Vercel (Preview e Production)**
+| Variável | Escopo |
+|---|---|
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | build/browser (públicas) |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | servidor |
+| `SUPABASE_SECRET_KEY` | servidor — **nunca** com prefixo `VITE_` |
+| `APP_URL` | URL pública do ambiente |
+| `RESEND_API_KEY`, `EMAIL_FROM` | servidor (sem eles, e-mails são apenas registrados como `skipped`) |
 
----
+Build Command `bun run build`; `vite.config.ts` já usa `nitro: { preset: "vercel" }`.
 
-## Modelo de dados (Supabase externo)
+## Entregável desta etapa
 
-`profiles` (1:1 com auth.users) · `user_roles` (tabela separada + função `has_role`, obrigatório para evitar escalonamento de privilégio) · `agencies` · `athletes` · `athlete_profiles` · `athlete_media` · `achievements` · `positions` · `countries` · `sports` · `pipeline_stages` · `athlete_stage_progress` · `stage_checklists` · `checklist_items` · `athlete_checklist_items` · `documents` · `document_requests` · `notifications` · `email_log` · `invitations`
-
-Decisões:
-- Papel do usuário **nunca** em `profiles` — sempre em `user_roles` com enum `app_role ('agency_admin','athlete','coach')`.
-- `athletes.slug` único → URL pública `/athlete/joao-silva`.
-- `athletes.is_public` + `athlete_media.is_public` controlam o que a Agência libera no catálogo.
-- Etapas dinâmicas: `pipeline_stages` pertence à agência, com `order_index`, `name_en`, `name_pt`; nada hard-coded.
-- Campos de texto visíveis ao coach têm par `_en` / `_pt` para o multilíngue.
-- Todas as tabelas: `GRANT`s explícitos + RLS habilitado.
-
-RLS resumido:
-| Tabela | anon | atleta | coach | agência |
-|---|---|---|---|---|
-| athletes / media / achievements | SELECT só `is_public` | SELECT/UPDATE próprio | SELECT público | ALL |
-| documents / pipeline / checklists | — | SELECT próprio, INSERT upload | — | ALL |
-| notifications | — | SELECT próprio | SELECT próprio | ALL |
-
-Storage: bucket `athlete-media` público (fotos/vídeos do catálogo) e bucket `documents` **privado** com políticas por `athlete_id` no caminho + URLs assinadas.
-
----
-
-## Escopo da entrega (MVP completo, uma parada para aprovação)
-
-1. **Base** — camada Supabase externa, providers, i18n PT/EN, design system com tokens semânticos trocáveis (identidade visual entra depois sem refatorar componentes).
-2. **Banco** — migração SQL completa idempotente, aplicada no seu Supabase; o arquivo fica versionado em `supabase/migrations/` para reprodução em qualquer ambiente.
-3. **Auth** — login e-mail/senha, recuperação de senha, aceite de convite, guards de rota por papel, redirecionamento pós-login por perfil. Sem provedores sociais.
-4. **Agência** — dashboard, CRUD de atletas, envio de convite, gestão de posições e etapas, aprovação/reprovação de documentos, avanço de pipeline.
-5. **Atleta** — dashboard, edição do próprio perfil, upload de foto/vídeos/documentos, visualização do pipeline, pendências e checklist.
-6. **Coach** — catálogo com busca e filtros (posição, país, idade, esporte).
-7. **Feed público** — `/` estilo Netflix: hero, trilhas horizontais de cards grandes, destaques; sem login.
-8. **Perfil público** — `/athlete/$slug` com SSR, metadados OG dinâmicos para compartilhamento.
-9. **Notificações** — tabela + centro de notificações in-app.
-10. **Resend** — serviço centralizado `sendEmail(type, to, data)` com todos os gatilhos ligados (boas-vindas, convite, mudança de etapa, solicitação/aprovação/reprovação de documento, reset de senha) e templates placeholder, registrando cada envio em `email_log`.
-
-Ao final: paro, documento o que foi criado e as decisões arquiteturais, e aguardo sua aprovação antes de qualquer funcionalidade avançada.
-
----
-
-## Melhorias que proponho (dentro do escopo, custo baixo)
-
-- **`invitations` com token e expiração** em vez de depender só do convite nativo do Supabase — dá controle de reenvio e auditoria.
-- **`email_log`** — rastreabilidade de todo disparo, indispensável para suporte.
-- **Soft delete** (`deleted_at`) em `athletes` e `documents` — exclusão acidental é irreversível caso contrário.
-- **Slug versionado** — se o nome do atleta mudar, o slug antigo redireciona, para não quebrar links já compartilhados com coaches.
-
-Se preferir cortar alguma delas, é só dizer.
-
----
-
-## Nota técnica
-
-Rotas privadas usam layout `_authenticated` sem SSR (a sessão Supabase vive no `localStorage`); rotas públicas mantêm SSR para SEO e preview social. Operações privilegiadas (criar atleta, enviar convite, disparar e-mail) rodam em server functions com verificação de papel no servidor — o cliente nunca toca a service role key.
+Aplico os itens 1–3, rodo `bun run validate` (lint + typecheck + testes + build) e te devolvo a lista final de variáveis a conferir na Vercel. Nenhuma mudança de banco é necessária — as migrations atuais cobrem o modelo.
