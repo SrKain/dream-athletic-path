@@ -1,12 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import type { AthleteCard } from "@/types/db";
+import type { Achievement, AthleteCard, AthleteMedia, AthleteProfile } from "@/types/db";
+
+export type PublicAthletePayload = {
+  athlete: AthleteCard;
+  profile: AthleteProfile | null;
+  media: AthleteMedia[];
+  achievements: Achievement[];
+};
 
 export const PUBLIC_ATHLETE_SELECT =
   "id, slug, full_name, birth_date, height_cm, weight_kg, nationality, sport_id, position_id, photo_url, cover_url, is_public, is_featured, created_at, position:positions(name_en,name_pt,abbreviation), sport:sports(name_en,name_pt,slug), country:countries(name_en,name_pt,flag_emoji)";
 
 /** Feed público — leitura anônima via RLS no Supabase externo. */
-export const listPublicAthletes = createServerFn({ method: "GET" }).handler(async () => {
+export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ athletes: AthleteCard[]; configured: boolean }> => {
   const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
   const client = getPublicServerClient();
   if (!client) return { athletes: [] as AthleteCard[], configured: false };
@@ -23,7 +31,8 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(asyn
     return { athletes: [] as AthleteCard[], configured: true };
   }
   return { athletes: (data ?? []) as unknown as AthleteCard[], configured: true };
-});
+  },
+);
 
 /** Perfil público por slug (com fallback para slugs antigos). */
 export const getPublicAthlete = createServerFn({ method: "GET" })
