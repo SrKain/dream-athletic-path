@@ -2,6 +2,7 @@ import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { ArrowLeft, Award, GraduationCap, MapPin, Ruler, Weight } from "lucide-react";
 
 import { getPublicAthlete } from "@/lib/athletes.functions";
+import { useI18n } from "@/i18n/i18n-provider";
 
 export const Route = createFileRoute("/athlete/$slug")({
   loader: async ({ params }) => {
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/athlete/$slug")({
 
 function PublicAthleteProfile() {
   const { athlete, profile, media, achievements } = Route.useLoaderData();
+  const { locale, setLocale, pick } = useI18n();
   const stats =
     profile?.stats && typeof profile.stats === "object"
       ? Object.entries(profile.stats as Record<string, string | number>)
@@ -41,9 +43,17 @@ function PublicAthleteProfile() {
           <Link to="/" className="font-display text-xl font-semibold">
             Go Team Go
           </Link>
-          <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
-          </Link>
+          <div className="flex items-center gap-4">
+            <button
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+              onClick={() => setLocale(locale === "pt" ? "en" : "pt")}
+            >
+              {locale === "pt" ? "EN" : "PT"}
+            </button>
+            <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground">
+              <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
+            </Link>
+          </div>
         </div>
       </header>
       <section className="bg-surface text-surface-foreground">
@@ -54,18 +64,24 @@ function PublicAthleteProfile() {
               {athlete.full_name}
             </h1>
             <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/65">
-              {athlete.position?.name_pt && <span>{athlete.position.name_pt}</span>}
+              {athlete.position && (
+                <span>{pick(athlete.position.name_pt, athlete.position.name_en)}</span>
+              )}
               {athlete.country?.name_pt && (
                 <span className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" /> {athlete.country.flag_emoji}{" "}
-                  {athlete.country.name_pt}
+                  {pick(athlete.country.name_pt, athlete.country.name_en)}
                 </span>
               )}
             </div>
           </div>
           <div className="aspect-[4/5] overflow-hidden rounded-md bg-white/10 lg:col-span-5">
             {athlete.photo_url ? (
-              <img src={athlete.photo_url} alt={athlete.full_name} className="h-full w-full object-cover" />
+              <img
+                src={athlete.photo_url}
+                alt={athlete.full_name}
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-7xl text-white/40">
                 {athlete.full_name[0]}
@@ -78,7 +94,7 @@ function PublicAthleteProfile() {
         <div className="lg:col-span-7">
           <p className="eyebrow text-primary">Sobre</p>
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-            {profile?.bio_pt ?? profile?.bio_en ?? "Perfil esportivo em preparação."}
+            {pick(profile?.bio_pt, profile?.bio_en) || "Perfil esportivo em preparação."}
           </p>
           {achievements.length > 0 && (
             <div className="mt-12">
@@ -88,9 +104,9 @@ function PublicAthleteProfile() {
                   <article key={item.id} className="flex gap-4 border-t pt-4">
                     <Award className="h-5 w-5 text-primary" />
                     <div>
-                      <h3 className="font-semibold">{item.title_pt ?? item.title_en}</h3>
+                      <h3 className="font-semibold">{pick(item.title_pt, item.title_en)}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {item.description_pt ?? item.description_en}
+                        {pick(item.description_pt, item.description_en)}
                       </p>
                     </div>
                   </article>
@@ -103,9 +119,21 @@ function PublicAthleteProfile() {
           <div className="rounded-md border bg-card p-6">
             <p className="eyebrow text-muted-foreground">Perfil</p>
             <dl className="mt-5 grid grid-cols-2 gap-5">
-              <Stat icon={Ruler} label="Altura" value={athlete.height_cm ? `${athlete.height_cm} cm` : "—"} />
-              <Stat icon={Weight} label="Peso" value={athlete.weight_kg ? `${athlete.weight_kg} kg` : "—"} />
-              <Stat icon={GraduationCap} label="Conclusão" value={profile?.graduation_year ?? "—"} />
+              <Stat
+                icon={Ruler}
+                label="Altura"
+                value={athlete.height_cm ? `${athlete.height_cm} cm` : "—"}
+              />
+              <Stat
+                icon={Weight}
+                label="Peso"
+                value={athlete.weight_kg ? `${athlete.weight_kg} kg` : "—"}
+              />
+              <Stat
+                icon={GraduationCap}
+                label="Conclusão"
+                value={profile?.graduation_year ?? "—"}
+              />
               <Stat icon={GraduationCap} label="GPA" value={profile?.gpa ?? "—"} />
               {stats.map(([label, value]) => (
                 <Stat key={label} icon={Award} label={label} value={value} />
@@ -121,11 +149,21 @@ function PublicAthleteProfile() {
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {media.map((item) =>
                 item.kind === "video" ? (
-                  <video key={item.id} controls poster={item.thumbnail_url ?? undefined} className="aspect-video w-full rounded-md bg-black">
+                  <video
+                    key={item.id}
+                    controls
+                    poster={item.thumbnail_url ?? undefined}
+                    className="aspect-video w-full rounded-md bg-black"
+                  >
                     <source src={item.url} />
                   </video>
                 ) : (
-                  <img key={item.id} src={item.url} alt={item.caption_pt ?? athlete.full_name} className="aspect-[4/3] w-full rounded-md object-cover" />
+                  <img
+                    key={item.id}
+                    src={item.url}
+                    alt={item.caption_pt ?? athlete.full_name}
+                    className="aspect-[4/3] w-full rounded-md object-cover"
+                  />
                 ),
               )}
             </div>

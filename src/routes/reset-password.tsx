@@ -15,15 +15,25 @@ function ResetPassword() {
     if (error) toast.error(error.message);
     else {
       toast.success("Senha atualizada.");
-      await navigate({ to: "/login" });
+      await navigate({ to: "/login", search: { redirect: undefined } });
     }
   }
   return (
-    <AuthCard title="Definir nova senha" subtitle="Escolha uma senha com pelo menos oito caracteres.">
+    <AuthCard
+      title="Definir nova senha"
+      subtitle="Escolha uma senha com pelo menos oito caracteres."
+    >
       <form onSubmit={submit} className="space-y-5">
         <label className="block text-sm font-medium">
           Nova senha
-          <input className={fieldClass} type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            className={fieldClass}
+            type="password"
+            minLength={8}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </label>
         <button className={primaryButtonClass}>Salvar senha</button>
       </form>

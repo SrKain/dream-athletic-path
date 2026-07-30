@@ -20,11 +20,23 @@ function ForgotPassword() {
       <form onSubmit={submit} className="space-y-5">
         <label className="block text-sm font-medium">
           E-mail
-          <input className={fieldClass} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            className={fieldClass}
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </label>
         <button className={primaryButtonClass}>Enviar link</button>
       </form>
-      <Link to="/login" className="mt-5 block text-center text-sm text-primary">Voltar ao login</Link>
+      <Link
+        to="/login"
+        search={{ redirect: undefined }}
+        className="mt-5 block text-center text-sm text-primary"
+      >
+        Voltar ao login
+      </Link>
     </AuthCard>
   );
 }

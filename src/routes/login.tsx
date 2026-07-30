@@ -38,11 +38,23 @@ function LoginPage() {
       <form onSubmit={submit} className="space-y-5">
         <label className="block text-sm font-medium">
           E-mail
-          <input className={fieldClass} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            className={fieldClass}
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </label>
         <label className="block text-sm font-medium">
           Senha
-          <input className={fieldClass} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            className={fieldClass}
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </label>
         <button className={primaryButtonClass} disabled={loading}>
           {loading ? "Entrando..." : "Entrar"}

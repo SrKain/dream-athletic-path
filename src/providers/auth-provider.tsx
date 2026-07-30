@@ -57,7 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       loading,
       configured: isSupabaseConfigured,
-      refreshRole: async () => loadRole(user),
+      refreshRole: async () => {
+        const { data } = await supabase.auth.getUser();
+        return loadRole(data.user);
+      },
       signOut: async () => {
         await supabase.auth.signOut();
         setUser(null);

@@ -13,9 +13,20 @@ function AdminDashboard() {
   useEffect(() => {
     void Promise.all([
       supabase.from("athletes").select("*", { count: "exact", head: true }).is("deleted_at", null),
-      supabase.from("athletes").select("*", { count: "exact", head: true }).eq("is_public", true).is("deleted_at", null),
-      supabase.from("documents").select("*", { count: "exact", head: true }).in("status", ["submitted", "resubmit"]).is("deleted_at", null),
-      supabase.from("athlete_stage_progress").select("*", { count: "exact", head: true }).eq("status", "blocked"),
+      supabase
+        .from("athletes")
+        .select("*", { count: "exact", head: true })
+        .eq("is_public", true)
+        .is("deleted_at", null),
+      supabase
+        .from("documents")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["submitted", "resubmit"])
+        .is("deleted_at", null),
+      supabase
+        .from("athlete_stage_progress")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "blocked"),
     ]).then(([athletes, published, documents, blocked]) =>
       setMetrics({
         athletes: athletes.count ?? 0,
@@ -46,11 +57,18 @@ function AdminDashboard() {
           ))}
         </div>
         <div className="mt-8">
-          <Panel title="Próximos passos" description="Acompanhe documentos e atletas antes da publicação.">
+          <Panel
+            title="Próximos passos"
+            description="Acompanhe documentos e atletas antes da publicação."
+          >
             <div className="grid gap-px bg-border md:grid-cols-3">
               {[
                 ["01", "Cadastre o atleta", "Preencha identidade, esporte e dados acadêmicos."],
-                ["02", "Envie o convite", "O atleta recebe acesso para acompanhar e enviar arquivos."],
+                [
+                  "02",
+                  "Envie o convite",
+                  "O atleta recebe acesso para acompanhar e enviar arquivos.",
+                ],
                 ["03", "Publique o perfil", "Aprove mídia e libere o atleta no catálogo público."],
               ].map(([number, title, text]) => (
                 <div key={number} className="bg-card p-6">

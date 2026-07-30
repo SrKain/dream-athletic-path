@@ -71,7 +71,7 @@ export function AppShell({
 
   async function logout() {
     await signOut();
-    await navigate({ to: "/login" });
+    await navigate({ to: "/login", search: { redirect: undefined } });
   }
 
   return (

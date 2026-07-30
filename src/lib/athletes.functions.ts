@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import type { AthleteCard } from "@/types/db";
 
-const CARD_SELECT =
+export const PUBLIC_ATHLETE_SELECT =
   "id, slug, full_name, birth_date, height_cm, weight_kg, nationality, sport_id, position_id, photo_url, cover_url, is_public, is_featured, created_at, position:positions(name_en,name_pt,abbreviation), sport:sports(name_en,name_pt,slug), country:countries(name_en,name_pt,flag_emoji)";
 
 /** Feed público — leitura anônima via RLS no Supabase externo. */
@@ -13,7 +13,7 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(asyn
 
   const { data, error } = await client
     .from("athletes")
-    .select(CARD_SELECT)
+    .select(PUBLIC_ATHLETE_SELECT)
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(60);
@@ -27,7 +27,7 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(asyn
 
 /** Perfil público por slug (com fallback para slugs antigos). */
 export const getPublicAthlete = createServerFn({ method: "GET" })
-  .inputValidator((data: { slug: string }) => ({ slug: String(data.slug).slice(0, 120) }))
+  .validator((data: { slug: string }) => ({ slug: String(data.slug).slice(0, 120) }))
   .handler(async ({ data }) => {
     const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
     const client = getPublicServerClient();
@@ -35,7 +35,7 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
 
     let { data: athlete } = await client
       .from("athletes")
-      .select(CARD_SELECT)
+      .select(PUBLIC_ATHLETE_SELECT)
       .eq("slug", data.slug)
       .eq("is_public", true)
       .maybeSingle();
@@ -49,7 +49,7 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       if (!legacy) return null;
       const retry = await client
         .from("athletes")
-        .select(CARD_SELECT)
+        .select(PUBLIC_ATHLETE_SELECT)
         .eq("id", legacy.athlete_id)
         .eq("is_public", true)
         .maybeSingle();

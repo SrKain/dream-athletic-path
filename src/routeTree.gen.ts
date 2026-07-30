@@ -13,7 +13,12 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as PortalPipelineRouteImport } from './routes/portal.pipeline'
+import { Route as PortalNotificationsRouteImport } from './routes/portal.notifications'
+import { Route as PortalMediaRouteImport } from './routes/portal.media'
+import { Route as PortalDocumentsRouteImport } from './routes/portal.documents'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
 import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
 import { Route as AdminPipelineRouteImport } from './routes/admin.pipeline'
@@ -42,9 +47,34 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/portal/',
+  path: '/portal/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalPipelineRoute = PortalPipelineRouteImport.update({
+  id: '/portal/pipeline',
+  path: '/portal/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalNotificationsRoute = PortalNotificationsRouteImport.update({
+  id: '/portal/notifications',
+  path: '/portal/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalMediaRoute = PortalMediaRouteImport.update({
+  id: '/portal/media',
+  path: '/portal/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalDocumentsRoute = PortalDocumentsRouteImport.update({
+  id: '/portal/documents',
+  path: '/portal/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
@@ -93,7 +123,12 @@ export interface FileRoutesByFullPath {
   '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/portal/documents': typeof PortalDocumentsRoute
+  '/portal/media': typeof PortalMediaRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/pipeline': typeof PortalPipelineRoute
   '/admin/': typeof AdminIndexRoute
+  '/portal/': typeof PortalIndexRoute
   '/admin/athletes/$id': typeof AdminAthletesIdRoute
   '/admin/athletes/': typeof AdminAthletesIndexRoute
 }
@@ -107,7 +142,12 @@ export interface FileRoutesByTo {
   '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/portal/documents': typeof PortalDocumentsRoute
+  '/portal/media': typeof PortalMediaRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/pipeline': typeof PortalPipelineRoute
   '/admin': typeof AdminIndexRoute
+  '/portal': typeof PortalIndexRoute
   '/admin/athletes/$id': typeof AdminAthletesIdRoute
   '/admin/athletes': typeof AdminAthletesIndexRoute
 }
@@ -122,7 +162,12 @@ export interface FileRoutesById {
   '/admin/pipeline': typeof AdminPipelineRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/portal/documents': typeof PortalDocumentsRoute
+  '/portal/media': typeof PortalMediaRoute
+  '/portal/notifications': typeof PortalNotificationsRoute
+  '/portal/pipeline': typeof PortalPipelineRoute
   '/admin/': typeof AdminIndexRoute
+  '/portal/': typeof PortalIndexRoute
   '/admin/athletes/$id': typeof AdminAthletesIdRoute
   '/admin/athletes/': typeof AdminAthletesIndexRoute
 }
@@ -138,7 +183,12 @@ export interface FileRouteTypes {
     | '/admin/pipeline'
     | '/athlete/$slug'
     | '/auth/accept-invite'
+    | '/portal/documents'
+    | '/portal/media'
+    | '/portal/notifications'
+    | '/portal/pipeline'
     | '/admin/'
+    | '/portal/'
     | '/admin/athletes/$id'
     | '/admin/athletes/'
   fileRoutesByTo: FileRoutesByTo
@@ -152,7 +202,12 @@ export interface FileRouteTypes {
     | '/admin/pipeline'
     | '/athlete/$slug'
     | '/auth/accept-invite'
+    | '/portal/documents'
+    | '/portal/media'
+    | '/portal/notifications'
+    | '/portal/pipeline'
     | '/admin'
+    | '/portal'
     | '/admin/athletes/$id'
     | '/admin/athletes'
   id:
@@ -166,7 +221,12 @@ export interface FileRouteTypes {
     | '/admin/pipeline'
     | '/athlete/$slug'
     | '/auth/accept-invite'
+    | '/portal/documents'
+    | '/portal/media'
+    | '/portal/notifications'
+    | '/portal/pipeline'
     | '/admin/'
+    | '/portal/'
     | '/admin/athletes/$id'
     | '/admin/athletes/'
   fileRoutesById: FileRoutesById
@@ -181,7 +241,12 @@ export interface RootRouteChildren {
   AdminPipelineRoute: typeof AdminPipelineRoute
   AthleteSlugRoute: typeof AthleteSlugRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  PortalDocumentsRoute: typeof PortalDocumentsRoute
+  PortalMediaRoute: typeof PortalMediaRoute
+  PortalNotificationsRoute: typeof PortalNotificationsRoute
+  PortalPipelineRoute: typeof PortalPipelineRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  PortalIndexRoute: typeof PortalIndexRoute
   AdminAthletesIdRoute: typeof AdminAthletesIdRoute
   AdminAthletesIndexRoute: typeof AdminAthletesIndexRoute
 }
@@ -216,11 +281,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/': {
+      id: '/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/pipeline': {
+      id: '/portal/pipeline'
+      path: '/portal/pipeline'
+      fullPath: '/portal/pipeline'
+      preLoaderRoute: typeof PortalPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/notifications': {
+      id: '/portal/notifications'
+      path: '/portal/notifications'
+      fullPath: '/portal/notifications'
+      preLoaderRoute: typeof PortalNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/media': {
+      id: '/portal/media'
+      path: '/portal/media'
+      fullPath: '/portal/media'
+      preLoaderRoute: typeof PortalMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/documents': {
+      id: '/portal/documents'
+      path: '/portal/documents'
+      fullPath: '/portal/documents'
+      preLoaderRoute: typeof PortalDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/accept-invite': {
@@ -285,7 +385,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminPipelineRoute: AdminPipelineRoute,
   AthleteSlugRoute: AthleteSlugRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  PortalDocumentsRoute: PortalDocumentsRoute,
+  PortalMediaRoute: PortalMediaRoute,
+  PortalNotificationsRoute: PortalNotificationsRoute,
+  PortalPipelineRoute: PortalPipelineRoute,
   AdminIndexRoute: AdminIndexRoute,
+  PortalIndexRoute: PortalIndexRoute,
   AdminAthletesIdRoute: AdminAthletesIdRoute,
   AdminAthletesIndexRoute: AdminAthletesIndexRoute,
 }

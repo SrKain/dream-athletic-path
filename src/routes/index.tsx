@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ConfigurationNotice } from "@/components/configuration-notice";
+import { useI18n } from "@/i18n/i18n-provider";
 import { listPublicAthletes } from "@/lib/athletes.functions";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { AthleteCard } from "@/types/db";
@@ -14,18 +15,41 @@ export const Route = createFileRoute("/")({
 
 function Catalog() {
   const { athletes, configured } = Route.useLoaderData();
+  const { locale, setLocale, t, pick } = useI18n();
   const [search, setSearch] = useState("");
   const [sport, setSport] = useState("");
-
-  if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;
+  const [position, setPosition] = useState("");
+  const [country, setCountry] = useState("");
+  const [ageRange, setAgeRange] = useState("");
 
   const sports = Array.from(
-    new Map(athletes.flatMap((item) => (item.sport ? [[item.sport.slug, item.sport]] : []))).values(),
+    new Map(
+      athletes.flatMap((item) => (item.sport ? [[item.sport.slug, item.sport]] : [])),
+    ).values(),
   );
+  const positions = Array.from(
+    new Set(athletes.map((item) => item.position?.name_pt).filter(Boolean)),
+  ) as string[];
+  const countries = Array.from(
+    new Set(athletes.map((item) => item.country?.name_pt).filter(Boolean)),
+  ) as string[];
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     return athletes.filter((athlete) => {
       const matchesSport = !sport || athlete.sport?.slug === sport;
+      const matchesPosition = !position || athlete.position?.name_pt === position;
+      const matchesCountry = !country || athlete.country?.name_pt === country;
+      const age = athlete.birth_date
+        ? Math.floor((Date.now() - new Date(athlete.birth_date).getTime()) / 31_557_600_000)
+        : null;
+      const matchesAge =
+        !ageRange ||
+        age === null ||
+        (ageRange === "under18"
+          ? age <= 18
+          : ageRange === "19-22"
+            ? age >= 19 && age <= 22
+            : age >= 23);
       const haystack = [
         athlete.full_name,
         athlete.position?.name_pt,
@@ -37,10 +61,18 @@ function Catalog() {
         .filter(Boolean)
         .join(" ")
         .toLocaleLowerCase();
-      return matchesSport && (!term || haystack.includes(term));
+      return (
+        matchesSport &&
+        matchesPosition &&
+        matchesCountry &&
+        matchesAge &&
+        (!term || haystack.includes(term))
+      );
     });
-  }, [athletes, search, sport]);
+  }, [ageRange, athletes, country, position, search, sport]);
   const featured = filtered.find((item) => item.is_featured) ?? filtered[0];
+
+  if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;
 
   return (
     <main className="min-h-screen bg-background">
@@ -51,8 +83,15 @@ function Catalog() {
           </Link>
           <div className="flex items-center gap-4">
             <span className="eyebrow hidden text-muted-foreground md:block">Athlete catalog</span>
+            <button
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+              onClick={() => setLocale(locale === "pt" ? "en" : "pt")}
+            >
+              {locale === "pt" ? "EN" : "PT"}
+            </button>
             <Link
               to="/login"
+              search={{ redirect: undefined }}
               className="inline-flex h-10 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background"
             >
               Área restrita
@@ -70,8 +109,9 @@ function Catalog() {
                 {featured.full_name}
               </h1>
               <p className="mt-5 text-white/65">
-                {featured.sport?.name_pt} · {featured.position?.name_pt} ·{" "}
-                {featured.country?.name_pt}
+                {pick(featured.sport?.name_pt, featured.sport?.name_en)} ·{" "}
+                {pick(featured.position?.name_pt, featured.position?.name_en)} ·{" "}
+                {pick(featured.country?.name_pt, featured.country?.name_en)}
               </p>
               <Link
                 to="/athlete/$slug"
@@ -89,10 +129,10 @@ function Catalog() {
       <section className="container-edge py-16">
         <div className="flex flex-col gap-5 border-b pb-8 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="eyebrow text-primary">Talentos Go Team Go</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold">Encontre seu próximo atleta</h2>
+            <p className="eyebrow text-primary">{t("feed.recent")}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold">{t("feed.title")}</h2>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 xl:flex-row">
             <label className="flex h-11 min-w-72 items-center gap-2 rounded-md border bg-card px-3">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
@@ -117,6 +157,36 @@ function Catalog() {
                 ))}
               </select>
             </label>
+            <select
+              className="h-11 rounded-md border bg-card px-3 text-sm"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+            >
+              <option value="">Posições</option>
+              {positions.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+            <select
+              className="h-11 rounded-md border bg-card px-3 text-sm"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            >
+              <option value="">Países</option>
+              {countries.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+            <select
+              className="h-11 rounded-md border bg-card px-3 text-sm"
+              value={ageRange}
+              onChange={(e) => setAgeRange(e.target.value)}
+            >
+              <option value="">Idades</option>
+              <option value="under18">Até 18</option>
+              <option value="19-22">19–22</option>
+              <option value="23plus">23+</option>
+            </select>
           </div>
         </div>
 
@@ -135,17 +205,16 @@ function Catalog() {
                     {athlete.full_name}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {athlete.sport?.name_pt ?? "Atleta"} ·{" "}
-                    {athlete.position?.abbreviation ?? athlete.position?.name_pt}
+                    {pick(athlete.sport?.name_pt, athlete.sport?.name_en) || "Atleta"} ·{" "}
+                    {athlete.position?.abbreviation ??
+                      pick(athlete.position?.name_pt, athlete.position?.name_en)}
                   </p>
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="py-24 text-center text-muted-foreground">
-            Nenhum atleta encontrado.
-          </div>
+          <div className="py-24 text-center text-muted-foreground">Nenhum atleta encontrado.</div>
         )}
       </section>
     </main>

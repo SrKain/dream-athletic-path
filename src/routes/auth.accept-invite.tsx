@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { AuthCard, primaryButtonClass } from "@/components/auth-card";
 import { finalizeAthleteInvite } from "@/lib/auth.functions";
+import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/providers/auth-provider";
 
 export const Route = createFileRoute("/auth/accept-invite")({ component: AcceptInvite });
@@ -14,14 +15,18 @@ function AcceptInvite() {
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) void navigate({ to: "/login", search: { redirect: "/auth/accept-invite" } });
+    if (!loading && !user)
+      void navigate({ to: "/login", search: { redirect: "/auth/accept-invite" } });
   }, [loading, navigate, user]);
 
   async function accept() {
     setWorking(true);
     setError("");
     try {
-      await finalizeAthleteInvite();
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sua sessão expirou. Abra novamente o link do convite.");
+      await finalizeAthleteInvite({ data: { accessToken } });
       await refreshRole();
       await navigate({ to: "/portal" });
     } catch (caught) {
@@ -31,8 +36,13 @@ function AcceptInvite() {
   }
 
   return (
-    <AuthCard title="Ativar acesso" subtitle="Confirme para vincular sua conta ao perfil de atleta.">
-      {error && <p className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+    <AuthCard
+      title="Ativar acesso"
+      subtitle="Confirme para vincular sua conta ao perfil de atleta."
+    >
+      {error && (
+        <p className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+      )}
       <button className={primaryButtonClass} onClick={accept} disabled={working || !user}>
         {working ? "Ativando..." : "Ativar minha conta"}
       </button>
