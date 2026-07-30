@@ -37,7 +37,7 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
 /** Perfil público por slug (com fallback para slugs antigos). */
 export const getPublicAthlete = createServerFn({ method: "GET" })
   .validator((data: { slug: string }) => ({ slug: String(data.slug).slice(0, 120) }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<PublicAthletePayload | null> => {
     const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
     const client = getPublicServerClient();
     if (!client) return null;
@@ -85,8 +85,8 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
 
     return {
       athlete: athlete as unknown as AthleteCard,
-      profile: profile.data ?? null,
-      media: media.data ?? [],
-      achievements: achievements.data ?? [],
+      profile: (profile.data ?? null) as AthleteProfile | null,
+      media: (media.data ?? []) as unknown as AthleteMedia[],
+      achievements: (achievements.data ?? []) as unknown as Achievement[],
     };
   });

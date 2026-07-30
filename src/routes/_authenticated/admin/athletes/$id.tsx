@@ -105,12 +105,7 @@ function AthleteEditor() {
   async function invite() {
     if (!currentAthlete.email) return toast.error("Informe o e-mail do atleta.");
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const accessToken = session.session?.access_token;
-      if (!accessToken) return toast.error("Sua sessão expirou. Entre novamente.");
-      await inviteAthlete({
-        data: { athleteId: id, email: currentAthlete.email, accessToken },
-      });
+      await inviteAthlete({ data: { athleteId: id, email: currentAthlete.email } });
       toast.success("Convite enviado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao enviar convite.");
