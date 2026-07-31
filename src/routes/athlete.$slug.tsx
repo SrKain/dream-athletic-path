@@ -199,6 +199,28 @@ function PublicAthleteProfile() {
           </div>
         </section>
       )}
+
+      <section className="border-t border-border py-16">
+        <div className="container-edge grid gap-6 text-center">
+          <h2 className="font-display text-3xl font-semibold tracking-tight">
+            Interessado em {athlete.full_name}?
+          </h2>
+          <p className="mx-auto max-w-xl text-muted-foreground">
+            Fale diretamente com a equipe da Go Team Go pelo WhatsApp e receba o dossiê completo do
+            atleta.
+          </p>
+          <div>
+            <a
+              href={buildRecruitWhatsappUrl(athlete.full_name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="liquid-button inline-flex h-12 items-center rounded-md px-7 text-sm font-semibold uppercase tracking-[0.16em]"
+            >
+              Recrutar
+            </a>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
