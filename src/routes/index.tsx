@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, Search, Sparkles } from "lucide-react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ConfigurationNotice } from "@/components/configuration-notice";
@@ -12,6 +12,23 @@ import type { AthleteCard } from "@/types/db";
 
 export const Route = createFileRoute("/")({
   loader: () => listPublicAthletes(),
+  head: () => ({
+    meta: [
+      { title: "Catálogo de atletas — Go Team Go" },
+      {
+        name: "description",
+        content:
+          "Catálogo de atletas brasileiros prontos para estudar e competir nos Estados Unidos. Perfis por esporte, posição e faixa etária.",
+      },
+      { property: "og:title", content: "Catálogo de atletas — Go Team Go" },
+      {
+        property: "og:description",
+        content: "Perfis esportivos e acadêmicos de atletas brasileiros para programas nos EUA.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Catalog,
 });
 
@@ -26,8 +43,7 @@ function Catalog() {
   const [country, setCountry] = useState("");
   const [ageRange, setAgeRange] = useState("");
 
-  const volleyballAthletes = useMemo(() => athletes.filter(isVolleyball), [athletes]);
-  const catalogAthletes = volleyballAthletes.length ? volleyballAthletes : athletes;
+  const catalogAthletes = athletes;
 
   const positions = Array.from(
     new Set(catalogAthletes.map((item) => item.position?.name_pt).filter(Boolean)),
@@ -85,26 +101,13 @@ function Catalog() {
               Explore perfis por posição, descubra destaques e encontre talentos brasileiros com
               contexto esportivo, acadêmico e visual de alto nível.
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <a
-                href="#catalog"
-                className="liquid-button group inline-flex h-12 items-center gap-2 rounded-md px-6 text-sm font-medium"
-              >
-                Ver atletas
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </a>
-              <div className="glass-panel inline-flex h-12 items-center gap-3 rounded-md px-5 text-sm font-medium">
-                <Sparkles className="h-4 w-4 text-primary" />
-                {filtered.length} perfis publicados
-              </div>
-            </div>
           </div>
           <div className="relative lg:col-span-5">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-surface shadow-2xl">
+            <div className="relative aspect-[16/10] overflow-hidden rounded-md bg-surface shadow-xl lg:aspect-[4/3]">
               <img
                 src={catalogHeroImage}
                 alt=""
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover object-top"
                 aria-hidden="true"
               />
               <div className="absolute inset-0 bg-linear-to-tr from-primary/55 via-primary/10 to-transparent" />
@@ -119,6 +122,9 @@ function Catalog() {
       </section>
 
       <section id="catalog" className="container-edge py-10 md:py-14">
+        <p className="mb-4 text-sm text-muted-foreground">
+          {filtered.length} {filtered.length === 1 ? "atleta publicado" : "atletas publicados"}
+        </p>
         <div className="glass-panel grid gap-3 rounded-md p-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
           <label className="flex h-11 min-w-0 items-center gap-2 rounded-md border border-white/50 bg-background/50 px-3">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -162,13 +168,15 @@ function Catalog() {
         </div>
 
         {filtered.length ? (
-          <div className="mt-12 space-y-14">
-            <AthleteShelf
-              title="Aces do saque"
-              description="Destaques selecionados para abrir a conversa com coaches."
-              athletes={aces}
-              pick={pick}
-            />
+          <div className="mt-10 space-y-12">
+            {aces.length > 0 && (
+              <AthleteShelf
+                title="Destaques"
+                description="Perfis selecionados pela agência."
+                athletes={aces}
+                pick={pick}
+              />
+            )}
             {shelves.map((shelf) => (
               <AthleteShelf
                 key={shelf.key}
@@ -202,16 +210,13 @@ function AthleteShelf({
 
   return (
     <section>
-      <div className="mb-5 flex items-end justify-between gap-4 border-b border-border/70 pb-4">
-        <div>
-          <p className="eyebrow text-primary">Vôlei</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">{title}</h2>
-        </div>
-        <p className="hidden max-w-sm text-right text-sm text-muted-foreground md:block">
-          {description}
-        </p>
+      <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border/70 pb-3">
+        <h2 className="truncate font-display text-xl font-semibold tracking-tight md:text-2xl">
+          {title}
+        </h2>
+        <p className="shrink-0 text-sm text-muted-foreground">{description}</p>
       </div>
-      <div className="scrollbar-none -mx-4 flex gap-4 overflow-x-auto px-4 pb-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {athletes.map((athlete) => (
           <AthleteCardItem key={athlete.id} athlete={athlete} pick={pick} />
         ))}
@@ -231,39 +236,30 @@ function AthleteCardItem({
     <Link
       to="/athlete/$slug"
       params={{ slug: athlete.slug }}
-      className="group relative min-w-[15rem] overflow-hidden rounded-md bg-surface text-surface-foreground shadow-xl transition duration-300 hover:-translate-y-1 hover:shadow-2xl md:min-w-[18rem]"
+      className="group overflow-hidden rounded-md border border-border/70 bg-card transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="relative aspect-[4/5] overflow-hidden">
+      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
         <img
           src={getAthleteDisplayImage(athlete)}
           alt={athlete.full_name}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+          loading="lazy"
+          className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]"
         />
-        <div className="absolute inset-0 bg-linear-to-t from-surface via-surface/25 to-transparent" />
         {athlete.is_featured && (
-          <span className="glass-dark absolute left-3 top-3 rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+          <span className="glass-dark absolute left-2 top-2 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]">
             Destaque
           </span>
         )}
       </div>
-      <div className="absolute inset-x-0 bottom-0 p-4">
-        <h3 className="font-display text-2xl font-semibold tracking-tight">{athlete.full_name}</h3>
-        <p className="mt-2 text-sm text-surface-foreground/72">
+      <div className="p-3">
+        <h3 className="truncate font-display text-base font-semibold tracking-tight">
+          {athlete.full_name}
+        </h3>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
           {pick(athlete.position?.name_pt, athlete.position?.name_en) || "Posição"} ·{" "}
           {pick(athlete.country?.name_pt, athlete.country?.name_en) || "País"}
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground">
-          Ver perfil <ArrowRight className="h-3.5 w-3.5" />
-        </div>
       </div>
     </Link>
   );
-}
-
-function isVolleyball(athlete: AthleteCard) {
-  const values = [athlete.sport?.slug, athlete.sport?.name_pt, athlete.sport?.name_en]
-    .filter(Boolean)
-    .join(" ")
-    .toLocaleLowerCase();
-  return values.includes("volleyball") || values.includes("vôlei") || values.includes("volei");
 }
