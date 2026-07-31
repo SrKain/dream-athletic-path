@@ -118,7 +118,12 @@ export function AthleteAccessCard({
             {reveal ? "Ocultar" : "Exibir"}
           </button>
         </div>
-        <button type="button" className={`${buttonClass} w-full`} disabled={saving} onClick={submit}>
+        <button
+          type="button"
+          className={`${buttonClass} w-full`}
+          disabled={saving}
+          onClick={submit}
+        >
           {hasAccess ? "Redefinir senha" : "Criar acesso"}
         </button>
         {hasAccess && (

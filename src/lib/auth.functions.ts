@@ -87,15 +87,8 @@ export const revokeAthleteAccess = createServerFn({ method: "POST" })
     if (!athlete) throw new Response("Atleta não encontrado", { status: 404 });
     if (!athlete.user_id) return { success: true };
 
-    await admin
-      .from("user_roles")
-      .delete()
-      .eq("user_id", athlete.user_id)
-      .eq("role", "athlete");
-    const { error } = await admin
-      .from("athletes")
-      .update({ user_id: null })
-      .eq("id", athlete.id);
+    await admin.from("user_roles").delete().eq("user_id", athlete.user_id).eq("role", "athlete");
+    const { error } = await admin.from("athletes").update({ user_id: null }).eq("id", athlete.id);
     if (error) throw new Response(error.message, { status: 400 });
     return { success: true };
   });
