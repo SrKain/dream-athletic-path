@@ -3,6 +3,7 @@ import { ArrowLeft, Award, Calendar, GraduationCap, MapPin, Ruler, Weight } from
 
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge } from "@/lib/catalog";
+import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { useI18n } from "@/i18n/i18n-provider";
 
@@ -94,12 +95,20 @@ function PublicAthleteProfile() {
                 value={pick(athlete.position?.name_pt, athlete.position?.name_en) ?? "—"}
               />
             </dl>
+            <a
+              href={buildRecruitWhatsappUrl(athlete.full_name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="liquid-button mt-8 inline-flex h-12 items-center rounded-md px-7 text-sm font-semibold uppercase tracking-[0.16em]"
+            >
+              Recrutar
+            </a>
           </div>
-          <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-white/10 shadow-2xl lg:col-span-5">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-white/10 shadow-2xl lg:col-span-5">
             <img
               src={getAthleteDisplayImage(athlete)}
               alt={athlete.full_name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-top"
             />
             <div className="absolute inset-0 bg-linear-to-tr from-primary/35 via-transparent to-transparent" />
           </div>
