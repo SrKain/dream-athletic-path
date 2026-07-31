@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
+import { AthleteAccessCard } from "@/components/athlete-access-card";
 import { SearchableSelect } from "@/components/searchable-select";
 import {
   Panel,
@@ -641,31 +642,39 @@ function AthleteEditor() {
               </div>
             </Panel>
           </div>
-          <Panel title="Publicação">
-            <div className="space-y-5 p-5">
-              <label className="flex items-center justify-between gap-4">
-                <span>
-                  <b className="block text-sm">Perfil público</b>
-                  <small className="text-muted-foreground">Aparece no catálogo</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={athlete.is_public}
-                  onChange={(e) => update("is_public", e.target.checked)}
-                />
-              </label>
-              {athlete.is_public && (
-                <a
-                  href={`/athlete/${athlete.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={secondaryButtonClass + " w-full"}
-                >
-                  Abrir perfil público
-                </a>
-              )}
-            </div>
-          </Panel>
+          <div className="space-y-6">
+            <Panel title="Publicação">
+              <div className="space-y-5 p-5">
+                <label className="flex items-center justify-between gap-4">
+                  <span>
+                    <b className="block text-sm">Perfil público</b>
+                    <small className="text-muted-foreground">Aparece no catálogo</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={athlete.is_public}
+                    onChange={(e) => update("is_public", e.target.checked)}
+                  />
+                </label>
+                {athlete.is_public && (
+                  <a
+                    href={`/athlete/${athlete.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={secondaryButtonClass + " w-full"}
+                  >
+                    Abrir perfil público
+                  </a>
+                )}
+              </div>
+            </Panel>
+            <AthleteAccessCard
+              athleteId={athlete.id}
+              athleteEmail={athlete.email}
+              hasAccess={Boolean(athlete.user_id)}
+              onChanged={load}
+            />
+          </div>
         </div>
       </AppShell>
     </ProtectedPage>

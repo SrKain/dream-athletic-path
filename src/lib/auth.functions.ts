@@ -3,16 +3,18 @@ import { z } from "zod";
 
 import { requireAgency, requireAuth } from "@/lib/supabase/auth-middleware";
 
-const accessSchema = z.object({
-  athleteId: z.string().uuid(),
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8).max(72),
-});
-
 /** Cria ou redefine a credencial de acesso do atleta ao portal. */
 export const setAthleteAccess = createServerFn({ method: "POST" })
   .middleware([requireAgency])
-  .validator((input: unknown) => accessSchema.parse(input))
+  .validator((input: unknown) =>
+    z
+      .object({
+        athleteId: z.string().uuid(),
+        email: z.string().trim().toLowerCase().email(),
+        password: z.string().min(8).max(72),
+      })
+      .parse(input),
+  )
   .handler(async ({ data }) => {
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
     const admin = getAdminClient();
