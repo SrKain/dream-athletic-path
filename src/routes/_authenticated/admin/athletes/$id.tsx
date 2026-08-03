@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { AthleteAccessCard } from "@/components/athlete-access-card";
 import { SearchableSelect } from "@/components/searchable-select";
+import { StageTimeline } from "@/components/stage-timeline";
 import {
   Panel,
   buttonClass,
@@ -21,8 +22,10 @@ import { validateUpload } from "@/lib/uploads";
 import type {
   Achievement,
   Athlete,
+  AthleteStageProgress,
   AthleteMedia,
   AthleteProfile,
+  ChecklistItem,
   Country,
   PipelineStage,
   Position,
@@ -41,6 +44,8 @@ function AthleteEditor() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [stageProgress, setStageProgress] = useState<AthleteStageProgress[]>([]);
+  const [checklistDefinitions, setChecklistDefinitions] = useState<ChecklistItem[]>([]);
   const [media, setMedia] = useState<AthleteMedia[]>([]);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -65,6 +70,8 @@ function AthleteEditor() {
       positionsResult,
       countriesResult,
       stagesResult,
+      progressResult,
+      checklistResult,
       mediaResult,
       achievementsResult,
     ] = await Promise.all([
@@ -74,6 +81,8 @@ function AthleteEditor() {
       supabase.from("positions").select("*").order("name_pt"),
       supabase.from("countries").select("*").order("name_pt"),
       supabase.from("pipeline_stages").select("*").eq("is_active", true).order("order_index"),
+      supabase.from("athlete_stage_progress").select("*").eq("athlete_id", id),
+      supabase.from("checklist_items").select("*").order("sort_order"),
       supabase
         .from("athlete_media")
         .select("*")
@@ -92,6 +101,8 @@ function AthleteEditor() {
     setPositions((positionsResult.data ?? []) as Position[]);
     setCountries((countriesResult.data ?? []) as Country[]);
     setStages((stagesResult.data ?? []) as PipelineStage[]);
+    setStageProgress((progressResult.data ?? []) as AthleteStageProgress[]);
+    setChecklistDefinitions((checklistResult.data ?? []) as ChecklistItem[]);
     const loadedMedia = (mediaResult.data ?? []) as AthleteMedia[];
     setMedia(loadedMedia);
     const resolvedMedia = await Promise.all(
