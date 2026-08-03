@@ -80,25 +80,24 @@ export function StageTimeline({
       due_date: patch.due_date !== undefined ? patch.due_date : (existing?.due_date ?? null),
       notes: patch.notes !== undefined ? patch.notes : (existing?.notes ?? null),
     };
-    const operations: Promise<{ error: { message: string } | null }>[] = [
-      supabase
-        .from("athlete_stage_progress")
-        .upsert(payload, { onConflict: "athlete_id,stage_id" })
-        .then((result) => ({ error: result.error })),
-    ];
-    if (patch.status === "in_progress" || patch.status === "blocked") {
-      operations.push(
-        supabase
-          .from("athletes")
-          .update({ current_stage_id: stageId })
-          .eq("id", athleteId)
-          .then((result) => ({ error: result.error })),
-      );
+    const upserted = await supabase
+      .from("athlete_stage_progress")
+      .upsert(payload, { onConflict: "athlete_id,stage_id" });
+    if (upserted.error) {
+      setSaving(null);
+      return toast.error(upserted.error.message);
     }
-    const results = await Promise.all(operations);
-    const failure = results.find((result) => result.error);
+    if (patch.status === "in_progress" || patch.status === "blocked") {
+      const moved = await supabase
+        .from("athletes")
+        .update({ current_stage_id: stageId })
+        .eq("id", athleteId);
+      if (moved.error) {
+        setSaving(null);
+        return toast.error(moved.error.message);
+      }
+    }
     setSaving(null);
-    if (failure?.error) return toast.error(failure.error.message);
     toast.success("Fase atualizada.");
     await onChanged?.();
   }
