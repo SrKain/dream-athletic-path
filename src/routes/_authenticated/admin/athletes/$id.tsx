@@ -317,6 +317,22 @@ function AthleteEditor() {
         </div>
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
+            <Panel
+              title="Jornada do atleta"
+              description="Acompanhe e atualize as fases do pipeline."
+            >
+              <div className="p-5">
+                <StageTimeline
+                  athleteId={athlete.id}
+                  stages={stages}
+                  progress={stageProgress}
+                  checklistDefinitions={checklistDefinitions}
+                  currentStageId={athlete.current_stage_id}
+                  editable
+                  onChanged={load}
+                />
+              </div>
+            </Panel>
             <Panel title="Dados do atleta">
               <div className="grid gap-4 p-5 md:grid-cols-2">
                 <Field label="Nome">
@@ -640,22 +656,6 @@ function AthleteEditor() {
             </Panel>
           </div>
           <div className="space-y-6">
-            <Panel
-              title="Jornada do atleta"
-              description="Acompanhe e atualize as fases do pipeline."
-            >
-              <div className="p-5">
-                <StageTimeline
-                  athleteId={athlete.id}
-                  stages={stages}
-                  progress={stageProgress}
-                  checklistDefinitions={checklistDefinitions}
-                  currentStageId={athlete.current_stage_id}
-                  editable
-                  onChanged={load}
-                />
-              </div>
-            </Panel>
             <Panel title="Publicação">
               <div className="space-y-5 p-5">
                 <label className="flex items-center justify-between gap-4">
