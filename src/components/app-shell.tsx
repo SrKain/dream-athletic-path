@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Send,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -20,6 +21,7 @@ const adminLinks = [
   { to: "/admin/athletes", label: "Atletas", icon: Users },
   { to: "/admin/pipeline", label: "Pipeline", icon: ClipboardList },
   { to: "/admin/documents", label: "Documentos", icon: FileText },
+  { to: "/admin/proposals", label: "Propostas", icon: Send },
   { to: "/admin/notifications", label: "Notificações", icon: Bell },
   { to: "/admin/settings", label: "Configurações", icon: Settings },
 ] as const;

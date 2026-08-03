@@ -171,3 +171,20 @@
     0 16px 38px oklch(0.33 0.09 165 / 28%);
   color: var(--color-primary-foreground);
 }
+
+@keyframes proposal-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.proposal-theme section > div {
+  animation: proposal-rise .7s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proposal-theme *, .proposal-theme section > div {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

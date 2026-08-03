@@ -5,6 +5,9 @@ export type AppRole = "agency_admin" | "athlete" | "coach";
 export type DocumentStatus = "pending" | "submitted" | "approved" | "rejected" | "resubmit";
 export type StageStatus = "not_started" | "in_progress" | "blocked" | "completed";
 export type MediaKind = "photo" | "video";
+export type ProposalStatus = "draft" | "published" | "accepted" | "declined" | "archived";
+export type ProposalDecision = "accepted" | "declined";
+export type ProposalLanguage = "pt" | "en";
 
 export interface Profile {
   id: string;
@@ -164,6 +167,112 @@ export interface AppNotification {
   link: string | null;
   read_at: string | null;
   created_at: string;
+}
+
+export interface Proposal {
+  id: string;
+  agency_id: string;
+  athlete_id: string | null;
+  recipient_name: string;
+  recipient_email: string;
+  recipient_sport: string | null;
+  recipient_photo_url: string | null;
+  title: string;
+  language: ProposalLanguage;
+  public_token: string;
+  status: ProposalStatus;
+  expires_at: string | null;
+  active_version_id: string | null;
+  draft_content: ProposalContent;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProposalVersion {
+  id: string;
+  proposal_id: string;
+  version_number: number;
+  language: ProposalLanguage;
+  content: ProposalContent;
+  created_by: string | null;
+  published_at: string;
+}
+
+export interface ProposalResponse {
+  id: string;
+  proposal_id: string;
+  proposal_version_id: string;
+  decision: ProposalDecision;
+  respondent_name: string;
+  respondent_email: string;
+  responded_at: string;
+}
+
+export type ProposalBlockType =
+  | "cover"
+  | "school"
+  | "location"
+  | "team"
+  | "scholarship"
+  | "school_costs"
+  | "general_costs"
+  | "information"
+  | "payment"
+  | "links"
+  | "closing";
+
+export interface ProposalRow {
+  id: string;
+  label: string;
+  value?: string;
+  amount?: number;
+  frequency?: string;
+  timing?: string;
+  month?: string;
+  notes?: string;
+  url?: string;
+}
+
+export interface ProposalBlock {
+  id: string;
+  type: ProposalBlockType;
+  enabled: boolean;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  imageUrl?: string;
+  logoUrl?: string;
+  rows?: ProposalRow[];
+  data?: Record<string, string | number | boolean | null>;
+}
+
+export interface ProposalContent {
+  schemaVersion: 1;
+  currency: string;
+  accent?: string;
+  blocks: ProposalBlock[];
+}
+
+export interface PublicProposalPayload {
+  id: string;
+  recipientName: string;
+  recipientEmailHint: string;
+  recipientSport: string | null;
+  recipientPhotoUrl: string | null;
+  title: string;
+  language: ProposalLanguage;
+  status: ProposalStatus;
+  expiresAt: string | null;
+  versionId: string;
+  versionNumber: number;
+  publishedAt: string;
+  content: ProposalContent;
+  response: null | {
+    decision: ProposalDecision;
+    respondentName: string;
+    respondedAt: string;
+  };
 }
 
 /** Atleta com relações resolvidas, usado no feed e no perfil público. */
