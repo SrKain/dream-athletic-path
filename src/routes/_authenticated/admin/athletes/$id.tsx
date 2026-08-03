@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
+import { AthleteAccessCard } from "@/components/athlete-access-card";
 import { SearchableSelect } from "@/components/searchable-select";
+import { StageTimeline } from "@/components/stage-timeline";
 import {
   Panel,
   buttonClass,
@@ -20,8 +22,10 @@ import { validateUpload } from "@/lib/uploads";
 import type {
   Achievement,
   Athlete,
+  AthleteStageProgress,
   AthleteMedia,
   AthleteProfile,
+  ChecklistItem,
   Country,
   PipelineStage,
   Position,
@@ -40,6 +44,8 @@ function AthleteEditor() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [stageProgress, setStageProgress] = useState<AthleteStageProgress[]>([]);
+  const [checklistDefinitions, setChecklistDefinitions] = useState<ChecklistItem[]>([]);
   const [media, setMedia] = useState<AthleteMedia[]>([]);
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -64,6 +70,8 @@ function AthleteEditor() {
       positionsResult,
       countriesResult,
       stagesResult,
+      progressResult,
+      checklistResult,
       mediaResult,
       achievementsResult,
     ] = await Promise.all([
@@ -73,6 +81,8 @@ function AthleteEditor() {
       supabase.from("positions").select("*").order("name_pt"),
       supabase.from("countries").select("*").order("name_pt"),
       supabase.from("pipeline_stages").select("*").eq("is_active", true).order("order_index"),
+      supabase.from("athlete_stage_progress").select("*").eq("athlete_id", id),
+      supabase.from("checklist_items").select("*").order("sort_order"),
       supabase
         .from("athlete_media")
         .select("*")
@@ -91,6 +101,8 @@ function AthleteEditor() {
     setPositions((positionsResult.data ?? []) as Position[]);
     setCountries((countriesResult.data ?? []) as Country[]);
     setStages((stagesResult.data ?? []) as PipelineStage[]);
+    setStageProgress((progressResult.data ?? []) as AthleteStageProgress[]);
+    setChecklistDefinitions((checklistResult.data ?? []) as ChecklistItem[]);
     const loadedMedia = (mediaResult.data ?? []) as AthleteMedia[];
     setMedia(loadedMedia);
     const resolvedMedia = await Promise.all(
@@ -305,6 +317,22 @@ function AthleteEditor() {
         </div>
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
+            <Panel
+              title="Jornada do atleta"
+              description="Acompanhe e atualize as fases do pipeline."
+            >
+              <div className="p-5">
+                <StageTimeline
+                  athleteId={athlete.id}
+                  stages={stages}
+                  progress={stageProgress}
+                  checklistDefinitions={checklistDefinitions}
+                  currentStageId={athlete.current_stage_id}
+                  editable
+                  onChanged={load}
+                />
+              </div>
+            </Panel>
             <Panel title="Dados do atleta">
               <div className="grid gap-4 p-5 md:grid-cols-2">
                 <Field label="Nome">
@@ -349,20 +377,6 @@ function AthleteEditor() {
                           {item.name_pt}
                         </option>
                       ))}
-                  </select>
-                </Field>
-                <Field label="Etapa do pipeline">
-                  <select
-                    className={inputClass}
-                    value={athlete.current_stage_id ?? ""}
-                    onChange={(e) => update("current_stage_id", e.target.value || null)}
-                  >
-                    <option value="">Sem etapa</option>
-                    {stages.map((stage) => (
-                      <option key={stage.id} value={stage.id}>
-                        {stage.name_pt ?? stage.name_en}
-                      </option>
-                    ))}
                   </select>
                 </Field>
                 <Field label="Nacionalidade">
@@ -641,31 +655,39 @@ function AthleteEditor() {
               </div>
             </Panel>
           </div>
-          <Panel title="Publicação">
-            <div className="space-y-5 p-5">
-              <label className="flex items-center justify-between gap-4">
-                <span>
-                  <b className="block text-sm">Perfil público</b>
-                  <small className="text-muted-foreground">Aparece no catálogo</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={athlete.is_public}
-                  onChange={(e) => update("is_public", e.target.checked)}
-                />
-              </label>
-              {athlete.is_public && (
-                <a
-                  href={`/athlete/${athlete.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={secondaryButtonClass + " w-full"}
-                >
-                  Abrir perfil público
-                </a>
-              )}
-            </div>
-          </Panel>
+          <div className="space-y-6">
+            <Panel title="Publicação">
+              <div className="space-y-5 p-5">
+                <label className="flex items-center justify-between gap-4">
+                  <span>
+                    <b className="block text-sm">Perfil público</b>
+                    <small className="text-muted-foreground">Aparece no catálogo</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={athlete.is_public}
+                    onChange={(e) => update("is_public", e.target.checked)}
+                  />
+                </label>
+                {athlete.is_public && (
+                  <a
+                    href={`/athlete/${athlete.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={secondaryButtonClass + " w-full"}
+                  >
+                    Abrir perfil público
+                  </a>
+                )}
+              </div>
+            </Panel>
+            <AthleteAccessCard
+              athleteId={athlete.id}
+              athleteEmail={athlete.email}
+              hasAccess={Boolean(athlete.user_id)}
+              onChanged={load}
+            />
+          </div>
         </div>
       </AppShell>
     </ProtectedPage>
