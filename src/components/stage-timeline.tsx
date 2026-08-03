@@ -164,10 +164,12 @@ export function StageTimeline({
               <span
                 className={cn(
                   "absolute top-5 -left-10 grid h-10 w-10 place-items-center rounded-full border text-xs font-semibold sm:-left-14",
-                  phase.state === "completed" && "border-primary bg-primary text-primary-foreground",
+                  phase.state === "completed" &&
+                    "border-primary bg-primary text-primary-foreground",
                   phase.state === "current" &&
                     "border-primary bg-background text-primary ring-4 ring-primary/15",
-                  phase.state === "blocked" && "border-destructive/50 bg-background text-destructive",
+                  phase.state === "blocked" &&
+                    "border-destructive/50 bg-background text-destructive",
                   phase.state === "upcoming" && "border-border bg-background text-muted-foreground",
                 )}
               >
