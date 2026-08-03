@@ -363,20 +363,6 @@ function AthleteEditor() {
                       ))}
                   </select>
                 </Field>
-                <Field label="Etapa do pipeline">
-                  <select
-                    className={inputClass}
-                    value={athlete.current_stage_id ?? ""}
-                    onChange={(e) => update("current_stage_id", e.target.value || null)}
-                  >
-                    <option value="">Sem etapa</option>
-                    {stages.map((stage) => (
-                      <option key={stage.id} value={stage.id}>
-                        {stage.name_pt ?? stage.name_en}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
                 <Field label="Nacionalidade">
                   <SearchableSelect
                     value={athlete.nationality ?? ""}
