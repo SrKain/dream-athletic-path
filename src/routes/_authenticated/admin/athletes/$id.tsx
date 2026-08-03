@@ -640,6 +640,22 @@ function AthleteEditor() {
             </Panel>
           </div>
           <div className="space-y-6">
+            <Panel
+              title="Jornada do atleta"
+              description="Acompanhe e atualize as fases do pipeline."
+            >
+              <div className="p-5">
+                <StageTimeline
+                  athleteId={athlete.id}
+                  stages={stages}
+                  progress={stageProgress}
+                  checklistDefinitions={checklistDefinitions}
+                  currentStageId={athlete.current_stage_id}
+                  editable
+                  onChanged={load}
+                />
+              </div>
+            </Panel>
             <Panel title="Publicação">
               <div className="space-y-5 p-5">
                 <label className="flex items-center justify-between gap-4">
