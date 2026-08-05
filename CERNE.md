@@ -46,10 +46,12 @@ bun run validate
 - [`tsconfig.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/tsconfig.json) — TypeScript 5+ com path alias `@/*` apontando para `src/*`
 - [`vitest.config.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vitest.config.ts) — Configuração de testes unitários com ambiente Node.js
 - [`bunfig.toml`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/bunfig.toml) — Configurações específicas do Bun runtime
+- [`vercel.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vercel.json) — **[CRÍTICO]** Configuração de deploy forçando uso do Bun na Vercel (`installCommand: bun install`, `buildCommand: bun run build`). Sem este arquivo, Vercel usa npm e causa conflitos de peer dependencies.
 
 **Deploy**:
 - Build command para Vercel/Netlify/Cloudflare: `bun run build`
 - Output directory: `.output/` (gerado pelo Nitro com preset Vercel)
+- **Vercel**: O arquivo `vercel.json` é **obrigatório** para forçar uso do Bun. Sem ele, a Vercel usa npm por padrão, causando erros ERESOLVE com vite@8.1.5 vs vite@^5.0.0-7.0.0.
 - Variáveis de ambiente: Consulte [`.env.example`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/.env.example) e [`docs/SETUP.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/docs/SETUP.md)
 
 **Troubleshooting de build**: Consulte a seção 🔧 Troubleshooting no [`README.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/README.md) para soluções de erros comuns.

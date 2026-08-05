@@ -172,6 +172,40 @@ bun run typecheck
    ```
 2. Reinicie o TypeScript server no VS Code: `Ctrl+Shift+P` → "TypeScript: Restart TS Server"
 
+### ❌ Deploy na Vercel falha com `npm warn ERESOLVE`
+
+**Causa**: Vercel está usando npm em vez de Bun para instalar dependências.
+
+**Sintomas no build log**:
+```
+npm warn ERESOLVE overriding peer dependency
+npm warn Found: vite@8.1.5
+npm warn Could not resolve dependency:
+npm warn peerOptional vite@"^5.0.0 || ^6.0.0 || ^7.0.0-0"
+```
+
+**Solução**:
+1. Verifique que o arquivo [`vercel.json`](vercel.json) existe na raiz do projeto
+2. Conteúdo esperado:
+   ```json
+   {
+     "buildCommand": "bun run build",
+     "installCommand": "bun install",
+     "framework": null,
+     "outputDirectory": ".output"
+   }
+   ```
+3. No dashboard da Vercel, vá em **Project Settings → General → Build & Development Settings**
+4. Verifique que:
+   - **Install Command**: `bun install`
+   - **Build Command**: `bun run build`
+5. Se ainda usar npm, delete o cache: **Project Settings → General → Reset Cache**
+6. Faça novo deploy e verifique no log:
+   - ✅ Deve aparecer `Running "bun install"`
+   - ❌ NÃO deve aparecer `npm install` ou `npm warn`
+
+**Para detalhes**, consulte [`docs/SETUP.md`](docs/SETUP.md) seção "⚠️ CRÍTICO: Configuração do Package Manager na Vercel".
+
 ---
 
 # Regras obrigatórias

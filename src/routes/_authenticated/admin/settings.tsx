@@ -112,7 +112,31 @@ function SettingsPage() {
   }
 
   function getPreviewMessage() {
-    if (!celebrationMe className="flex-1">
+    if (!celebrationMessage.trim()) return "";
+    const exampleData = getExamplePlaceholderData();
+    return replacePlaceholders(celebrationMessage, exampleData);
+  }
+
+  return (
+    <ProtectedPage role="agency_admin">
+      <AppShell role="agency_admin" title="Configurações">
+        <Panel title="Configurações do Pipeline">
+          <form onSubmit={addStage} className="mb-5 flex items-center gap-3">
+            <input
+              placeholder="Nome da nova etapa"
+              className={inputClass}
+              value={stageName}
+              onChange={(e) => setStageName(e.target.value)}
+            />
+            <button className={buttonClass}>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar
+            </button>
+          </form>
+          {stages.length ? (
+            <div className="divide-y divide-border/70">
+              {stages.map((stage) => (
+                <div key={stage.id} className="flex items-start justify-between gap-5 p-4">
+                  <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-display text-lg font-semibold">
                         {stage.name_pt ?? stage.name_en}
@@ -145,25 +169,14 @@ function SettingsPage() {
                     >
                       + Checklist
                     </button>
-                  </div
-              value={stageName}
-              onChange={(e) => setStageName(e.target.value)}
-            />
-            <button className={buttonClass}>
-              <Plus className="mr-2 h-4 w-4" /> Adicionar
-            </button>
-          </form>
-          {stages.length ? (
-            <div className="divide-y divide-border/70">
-              {stages.map((stage) => (
-                <div key={stage.id} className="flex items-start justify-between gap-5 p-4">
-                  <div>
-                    <h3 className="font-display text-lg font-semibold">
-                      {stage.name_pt ?? stage.name_en}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {items
-                        .filter((item) => item.stage_id === stage.id)
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState>Nenhuma etapa configurada.</EmptyState>
+          )}
+        </Panel>
 
         {/* Celebration Message Editor Dialog */}
         <Dialog open={!!editingStage} onOpenChange={(open) => !open && setEditingStage(null)}>
@@ -213,7 +226,7 @@ function SettingsPage() {
                   value={celebrationMessage}
                   onChange={(e) => setCelebrationMessage(e.target.value)}
                   placeholder="Example: Congratulations {{athlete_first_name}}! You've successfully advanced to {{new_stage}}. This is a huge milestone in your athletic journey!"
-                  className="min-h-[120px] font-mono text-sm"
+                  className="min-h-30 font-mono text-sm"
                 />
               </div>
 
@@ -245,23 +258,6 @@ function SettingsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-                        .map((item) => item.label_pt ?? item.label_en)
-                        .join(" · ") || "Sem itens"}
-                    </p>
-                  </div>
-                  <button
-                    className="text-sm font-medium text-primary"
-                    onClick={() => addChecklist(stage.id)}
-                  >
-                    + Checklist
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState>Nenhuma etapa configurada.</EmptyState>
-          )}
-        </Panel>
       </AppShell>
     </ProtectedPage>
   );

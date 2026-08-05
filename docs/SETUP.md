@@ -49,9 +49,55 @@ Para preparar a apresentação, execute opcionalmente `db/demo_seed.sql` depois
 de todas as migrations. O seed cria atletas e conteúdo, mas nunca cria usuários
 Auth ou senhas.
 
-## Vercel
+## ⚠️ CRÍTICO: Configuração do Package Manager na Vercel
 
-Use `bun run build` como Build Command. Cadastre todas as variáveis de
+**Problema**: Por padrão, a Vercel usa **npm** para instalar dependências, mas este projeto **requer Bun**.
+
+**Sintoma**: Build logs mostram `npm warn ERESOLVE` e conflitos de peer dependencies (vite@8 vs vite@5-7).
+
+**Solução**: O arquivo [`vercel.json`](../vercel.json) na raiz do projeto já está configurado para forçar o uso do Bun:
+
+```json
+{
+  "buildCommand": "bun run build",
+  "installCommand": "bun install",
+  "framework": null,
+  "outputDirectory": ".output"
+}
+```
+
+### Verificação no Dashboard da Vercel
+
+1. Vá em **Project Settings → General → Build & Development Settings**
+2. Verifique:
+   - **Framework Preset**: Other (ou detectado automaticamente)
+   - **Build Command**: `bun run build`
+   - **Install Command**: `bun install`
+   - **Output Directory**: `.output`
+
+3. **Importante**: Se você modificar as configurações manualmente no dashboard, elas **sobrescrevem** o `vercel.json`. Para garantir consistência:
+   - Deixe os campos vazios no dashboard (a Vercel usará automaticamente o vercel.json)
+   - **OU** preencha com os mesmos valores do vercel.json
+
+### Validação após Deploy
+
+No build log da Vercel, você deve ver:
+
+```bash
+✅ Running "bun install"          (NÃO "npm install")
+✅ Running "bun run build"        (NÃO "npm run build")
+❌ ZERO mensagens "npm warn ERESOLVE"
+✅ Build completed
+```
+
+Se o log mostrar `npm install`, delete o cache do projeto:
+**Project Settings → General → Reset Cache**
+
+---
+
+## Vercel — Variáveis de Ambiente e Configuração
+
+Use `bun run build` como Build Command (já configurado no vercel.json). Cadastre todas as variáveis de
 `.env.example` no ambiente Preview e defina `APP_URL` com a URL da homologação.
 `SUPABASE_SECRET_KEY` é server-only e nunca deve usar o prefixo `VITE_`.
 Convites e recuperação usam temporariamente o serviço de e-mail do Supabase Auth.
