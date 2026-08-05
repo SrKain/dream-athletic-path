@@ -14,7 +14,6 @@ import {
 import { buildAthleteSlug } from "@/lib/athlete-slugs";
 import { buildStageProgressPayload, getFirstActiveStage } from "@/lib/pipeline.helpers";
 import { supabase } from "@/lib/supabase/client";
-import { notifyStageAdvancementServerFn } from "@/lib/email/stage-change.server";
 import type { Athlete, AthleteStageProgress, PipelineStage, StageStatus } from "@/types/db";
 
 export const Route = createFileRoute("/_authenticated/admin/pipeline")({ component: PipelinePage });
@@ -82,10 +81,6 @@ function PipelinePage() {
   }
 
   async function moveAthleteToStage(athleteId: string, stageId: string) {
-    // Get current stage before updating
-    const athlete = athletes.find((a) => a.id === athleteId);
-    const previousStageId = athlete?.current_stage_id ?? null;
-    
     const existing = progress.find(
       (item) => item.athlete_id === athleteId && item.stage_id === stageId,
     );
@@ -102,31 +97,6 @@ function PipelinePage() {
     else {
       toast.success("Atleta movido no pipeline.");
       await load();
-      
-      // Trigger celebration email if configured for this stage
-      try {
-        const result = await notifyStageAdvancementServerFn({
-          data: {
-            athleteId,
-            previousStageId,
-            newStageId: stageId,
-          },
-        });
-        
-        if (result.success && !result.skipped) {
-          if ("scheduled" in result && result.scheduled) {
-            toast.info(
-              `🎉 Celebration email scheduled for ${result.windowDescription}`,
-              { duration: 5000 }
-            );
-          } else {
-            toast.success("🎉 Celebration email sent to athlete!");
-          }
-        }
-      } catch (error) {
-        console.error("[celebration] Failed to send email:", error);
-        // Don't show error toast - email failure shouldn't block stage movement
-      }
     }
   }
 

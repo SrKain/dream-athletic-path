@@ -43,6 +43,7 @@ function stage(id: string, orderIndex: number, isActive: boolean): PipelineStage
     key: id,
     name_en: id,
     name_pt: id,
+    celebration_message_en: null,
     order_index: orderIndex,
   };
 }

@@ -9,20 +9,20 @@ import confetti from "canvas-confetti";
 export function ConfettiCelebration() {
   const search = useSearch({ from: "/_authenticated/portal/" });
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     // Check if celebrate parameter is present
     const shouldCelebrate = "celebrate" in search && search.celebrate === "true";
-    
+
     if (!shouldCelebrate) return;
-    
+
     // Fire confetti bursts with emerald and gold colors
     const duration = 3000; // 3 seconds
     const animationEnd = Date.now() + duration;
-    const defaults = { 
-      startVelocity: 30, 
-      spread: 360, 
-      ticks: 60, 
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
       zIndex: 9999,
       colors: [
         "#30b884", // Emerald (primary)
@@ -30,7 +30,7 @@ export function ConfettiCelebration() {
         "#eab308", // Gold
         "#f5d042", // Gold light
         "#ffffff", // White accent
-      ]
+      ],
     };
 
     function randomInRange(min: number, max: number) {
@@ -44,29 +44,29 @@ export function ConfettiCelebration() {
         clearInterval(interval);
         // Remove celebrate parameter from URL after animation completes
         navigate({
-          search: (prev) => {
+          search: ((prev: Record<string, unknown>) => {
             const newSearch = { ...prev };
             delete newSearch.celebrate;
             return newSearch;
-          },
+          }) as never,
           replace: true,
         });
         return;
       }
 
       const particleCount = 50 * (timeLeft / duration);
-      
+
       // Fire two bursts - one from each side
       confetti({
         ...defaults,
         particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
       });
-      
+
       confetti({
         ...defaults,
         particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
       });
     }, 250);
 

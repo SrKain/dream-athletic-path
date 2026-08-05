@@ -136,7 +136,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return afternoon window when during lunch break", () => {
       const tuesday = new Date("2026-08-04T12:15:00"); // Tuesday 12:15pm
       const next = getNextSendingWindowStart(tuesday);
-      
+
       expect(next.getDay()).toBe(2); // Still Tuesday
       expect(next.getHours()).toBe(13);
       expect(next.getMinutes()).toBe(0);
@@ -145,7 +145,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return afternoon window when in morning window", () => {
       const monday = new Date("2026-08-03T09:00:00"); // Monday 9am
       const next = getNextSendingWindowStart(monday);
-      
+
       // Should still find afternoon window same day
       expect(next.getDay()).toBe(1); // Still Monday
       expect(next.getHours()).toBe(13);
@@ -156,7 +156,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return Monday 08:00 when Sunday evening", () => {
       const sunday = new Date("2026-08-09T20:00:00"); // Sunday 8pm
       const next = getNextSendingWindowStart(sunday);
-      
+
       expect(next.getDay()).toBe(1); // Monday
       expect(next.getHours()).toBe(8);
       expect(next.getMinutes()).toBe(0);
@@ -165,7 +165,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return Monday 08:00 when Saturday night", () => {
       const saturday = new Date("2026-08-08T20:00:00"); // Saturday 8pm
       const next = getNextSendingWindowStart(saturday);
-      
+
       expect(next.getDay()).toBe(1); // Monday
       expect(next.getHours()).toBe(8);
       expect(next.getMinutes()).toBe(0);
@@ -174,7 +174,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return Tuesday 08:00 when Monday night", () => {
       const monday = new Date("2026-08-03T22:00:00"); // Monday 10pm
       const next = getNextSendingWindowStart(monday);
-      
+
       expect(next.getDay()).toBe(2); // Tuesday
       expect(next.getHours()).toBe(8);
       expect(next.getMinutes()).toBe(0);
@@ -185,7 +185,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return Saturday 09:00 when Friday night", () => {
       const friday = new Date("2026-08-07T21:00:00"); // Friday 9pm
       const next = getNextSendingWindowStart(friday);
-      
+
       expect(next.getDay()).toBe(6); // Saturday
       expect(next.getHours()).toBe(9);
       expect(next.getMinutes()).toBe(0);
@@ -194,7 +194,7 @@ describe("getNextSendingWindowStart", () => {
     it("should return Saturday 13:00 when Saturday 12:30pm", () => {
       const saturday = new Date("2026-08-08T12:30:00"); // Saturday 12:30pm
       const next = getNextSendingWindowStart(saturday);
-      
+
       expect(next.getDay()).toBe(6); // Still Saturday
       expect(next.getHours()).toBe(13);
       expect(next.getMinutes()).toBe(0);
@@ -205,7 +205,7 @@ describe("getNextSendingWindowStart", () => {
     it("should handle exact window start time", () => {
       const monday = new Date("2026-08-03T08:00:00"); // Monday 8am exact
       const next = getNextSendingWindowStart(monday);
-      
+
       // Should find the afternoon window since we're at the start of morning
       expect(next.getDay()).toBe(1); // Monday
       expect(next.getHours()).toBe(13);
@@ -214,7 +214,7 @@ describe("getNextSendingWindowStart", () => {
     it("should handle midnight", () => {
       const wednesday = new Date("2026-08-06T00:00:00"); // Wednesday midnight
       const next = getNextSendingWindowStart(wednesday);
-      
+
       expect(next.getDay()).toBe(3); // Wednesday
       expect(next.getHours()).toBe(8);
       expect(next.getMinutes()).toBe(0);
@@ -226,21 +226,21 @@ describe("getNextWindowDescription", () => {
   it("should return 'Today at HH:MM' for same day", () => {
     const tuesday = new Date("2026-08-04T12:00:00"); // Tuesday noon
     const description = getNextWindowDescription(tuesday);
-    
+
     expect(description).toBe("Today at 13:00");
   });
 
   it("should return 'Tomorrow (DayName) at HH:MM' for next day", () => {
     const sunday = new Date("2026-08-09T20:00:00"); // Sunday evening
     const description = getNextWindowDescription(sunday);
-    
+
     expect(description).toBe("Tomorrow (Monday) at 08:00");
   });
 
   it("should return 'DayName at HH:MM' for future days", () => {
     const friday = new Date("2026-08-07T20:00:00"); // Friday evening
     const description = getNextWindowDescription(friday);
-    
+
     expect(description).toBe("Saturday at 09:00");
   });
 });

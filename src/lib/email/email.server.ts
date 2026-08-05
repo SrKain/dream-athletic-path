@@ -2,10 +2,10 @@ import { Resend } from "resend";
 
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { renderEmail, type EmailTemplate } from "./templates";
-import { 
-  isWithinSendingWindow, 
+import {
+  isWithinSendingWindow,
   getNextSendingWindowStart,
-  getNextWindowDescription 
+  getNextWindowDescription,
 } from "./sending-window";
 
 /**
@@ -23,14 +23,14 @@ export interface SendEmailInput {
   respectSendingWindow?: boolean;
 }
 
-export async function sendEmail({ 
-  template, 
-  to, 
-  data = {}, 
-  respectSendingWindow = false 
+export async function sendEmail({
+  template,
+  to,
+  data = {},
+  respectSendingWindow = false,
 }: SendEmailInput) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "no-reply@example.com";
+  const from = process.env.EMAIL_FROM ?? "Go Team Go <onboarding@resend.dev>";
   const { subject, html } = renderEmail(template, data);
 
   if (!apiKey) {
@@ -44,23 +44,23 @@ export async function sendEmail({
 
   try {
     const resend = new Resend(apiKey);
-    
+
     if (shouldSchedule) {
       // Schedule for next available window
       const nextWindow = getNextSendingWindowStart(now);
       const scheduledAt = nextWindow.toISOString();
       const windowDesc = getNextWindowDescription(now);
-      
-      const result = await resend.emails.send({ 
-        from, 
-        to, 
-        subject, 
+
+      const result = await resend.emails.send({
+        from,
+        to,
+        subject,
         html,
-        scheduledAt 
+        scheduledAt,
       });
-      
+
       if (result.error) throw new Error(result.error.message);
-      
+
       await logEmail({
         template,
         to,
@@ -70,19 +70,19 @@ export async function sendEmail({
         scheduledFor: scheduledAt,
         data,
       });
-      
-      return { 
-        sent: true as const, 
+
+      return {
+        sent: true as const,
         scheduled: true as const,
         scheduledFor: scheduledAt,
         windowDescription: windowDesc,
-        id: result.data?.id 
+        id: result.data?.id,
       };
     } else {
       // Send immediately
       const result = await resend.emails.send({ from, to, subject, html });
       if (result.error) throw new Error(result.error.message);
-      
+
       await logEmail({
         template,
         to,
@@ -91,7 +91,7 @@ export async function sendEmail({
         providerId: result.data?.id,
         data,
       });
-      
+
       return { sent: true as const, scheduled: false as const, id: result.data?.id };
     }
   } catch (error) {

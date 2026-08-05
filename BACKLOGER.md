@@ -27,3 +27,10 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 ## Fila de Tarefas Pendentes `[PENDENTE]`
 
 *Nenhuma outra tarefa pendente no momento.*
+
+## 2026-08-05 — Integração Resend nas passagens de etapa
+- **Solicitante:** Kauan
+- **Executor:** Lovable (agente)
+- **Pedido:** Ativar os disparos de e-mail via conta Resend própria nas transições de etapa.
+- **Entrega:** Gatilho no `StageTimeline` ao marcar etapa como *Concluída*; server fn `notifyStageAdvancementServerFn` (`src/lib/email/stage-change.functions.ts`) protegida por `requireAgency`; lógica server-only em `stage-change.server.ts` com anti-duplicidade via `email_log`, link do portal por `APP_URL` e janela de envio (agendamento no Resend). Disparo removido do Kanban (agora só na conclusão).
+- **Status:** [CONCLUÍDO] — pendente da chave `RESEND_API_KEY` e do domínio remetente no ambiente.

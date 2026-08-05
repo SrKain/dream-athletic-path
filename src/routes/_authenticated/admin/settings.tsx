@@ -18,10 +18,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase/client";
-import { 
-  AVAILABLE_PLACEHOLDERS, 
+import {
+  AVAILABLE_PLACEHOLDERS,
   replacePlaceholders,
-  getExamplePlaceholderData 
+  getExamplePlaceholderData,
 } from "@/lib/email/placeholders";
 import type { ChecklistItem, PipelineStage } from "@/types/db";
 
@@ -96,12 +96,12 @@ function SettingsPage() {
 
   async function saveCelebrationMessage() {
     if (!editingStage) return;
-    
+
     const { error } = await supabase
       .from("pipeline_stages")
       .update({ celebration_message_en: celebrationMessage || null })
       .eq("id", editingStage.id);
-    
+
     if (error) {
       toast.error(error.message);
     } else {
@@ -252,9 +252,7 @@ function SettingsPage() {
               <Button variant="outline" onClick={() => setEditingStage(null)}>
                 Cancel
               </Button>
-              <Button onClick={saveCelebrationMessage}>
-                Save Celebration Message
-              </Button>
+              <Button onClick={saveCelebrationMessage}>Save Celebration Message</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

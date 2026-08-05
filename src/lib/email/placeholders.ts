@@ -50,11 +50,11 @@ export const AVAILABLE_PLACEHOLDERS = [
 
 /**
  * Replaces all placeholders in a template string with actual values.
- * 
+ *
  * @param template - The template string containing {{placeholder}} markers
  * @param data - Object containing the values to replace placeholders with
  * @returns The template with all placeholders replaced. Unreplaced placeholders remain as-is.
- * 
+ *
  * @example
  * ```typescript
  * const message = "Congratulations {{athlete_first_name}}! You've reached {{new_stage}}!";
@@ -65,33 +65,30 @@ export const AVAILABLE_PLACEHOLDERS = [
  * // Result: "Congratulations Maria! You've reached Negotiation!"
  * ```
  */
-export function replacePlaceholders(
-  template: string,
-  data: PlaceholderData
-): string {
+export function replacePlaceholders(template: string, data: PlaceholderData): string {
   let result = template;
 
   // Replace each placeholder with its corresponding value
   if (data.athlete_name) {
     result = result.replace(/\{\{athlete_name\}\}/g, data.athlete_name);
   }
-  
+
   if (data.athlete_first_name) {
     result = result.replace(/\{\{athlete_first_name\}\}/g, data.athlete_first_name);
   }
-  
+
   if (data.previous_stage) {
     result = result.replace(/\{\{previous_stage\}\}/g, data.previous_stage);
   }
-  
+
   if (data.new_stage) {
     result = result.replace(/\{\{new_stage\}\}/g, data.new_stage);
   }
-  
+
   if (data.agency_name) {
     result = result.replace(/\{\{agency_name\}\}/g, data.agency_name);
   }
-  
+
   if (data.portal_link) {
     result = result.replace(/\{\{portal_link\}\}/g, data.portal_link);
   }
@@ -101,7 +98,7 @@ export function replacePlaceholders(
 
 /**
  * Extracts the first name from a full name string.
- * 
+ *
  * @param fullName - The full name (e.g., "John Smith")
  * @returns The first name (e.g., "John")
  */
