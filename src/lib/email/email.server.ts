@@ -62,19 +62,15 @@ export async function sendEmail({
       if (result.error) throw new Error(result.error.message);
       
       await logEmail({
-  scheduledFor?: string;
-  data?: Record<string, unknown>;
-}) {
-  try {
-    const admin = getAdminClient();
-    await admin.from("email_log").insert({
-      template: entry.template,
-      to_email: entry.to,
-      subject: entry.subject,
-      status: entry.status,
-      provider_id: entry.providerId ?? null,
-      error: entry.error ?? null,
-      scheduled_for: entry.scheduledF
+        template,
+        to,
+        subject,
+        status: "scheduled",
+        providerId: result.data?.id,
+        scheduledFor: scheduledAt,
+        data,
+      });
+      
       return { 
         sent: true as const, 
         scheduled: true as const,
@@ -113,6 +109,7 @@ async function logEmail(entry: {
   status: string;
   providerId?: string;
   error?: string;
+  scheduledFor?: string;
   data?: Record<string, unknown>;
 }) {
   try {
@@ -124,6 +121,7 @@ async function logEmail(entry: {
       status: entry.status,
       provider_id: entry.providerId ?? null,
       error: entry.error ?? null,
+      scheduled_for: entry.scheduledFor ?? null,
       payload: entry.data ?? null,
     });
   } catch {
