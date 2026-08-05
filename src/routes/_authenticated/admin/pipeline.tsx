@@ -81,10 +81,6 @@ function PipelinePage() {
   }
 
   async function moveAthleteToStage(athleteId: string, stageId: string) {
-    // Get current stage before updating
-    const athlete = athletes.find((a) => a.id === athleteId);
-    const previousStageId = athlete?.current_stage_id ?? null;
-    
     const existing = progress.find(
       (item) => item.athlete_id === athleteId && item.stage_id === stageId,
     );
