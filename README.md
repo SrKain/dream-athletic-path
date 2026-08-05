@@ -2,6 +2,17 @@
 
 # MVP — Plataforma de Gestão para Agência de Intercâmbio Esportivo
 
+> [!IMPORTANT]
+> ## PROTOCOLO OBRIGATÓRIO DE GOVERNANÇA PARA INTELIGÊNCIAS ARTIFICIAIS (IAs)
+> 
+> Qualquer agente de IA atuando neste repositório **DEVE OBRIGATORIAMENTE** seguir este protocolo:
+> 
+> 1. **LEITURA OBRIGATÓRIA**: Antes de tomar qualquer ação ou responder, a IA deve ler integralmente o [`README.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/README.md), a documentação viva [`CERNE.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/CERNE.md), o diário de bordo [`BACKLOGER.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/BACKLOGER.md) e as diretrizes de interface [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
+> 2. **PLANEJAMENTO E APROVAÇÃO HUMANA**: **NENHUMA** alteração de código (inclusão, alteração ou exclusão) pode ser executada sem primeiro apresentar um plano detalhado e receber a **aprovação explícita de um usuário humano**.
+> 3. **DOCUMENTAÇÃO VIVA (`CERNE.md`)**: Toda alteração de código (funções, componentes, rotas, telas ou modelos) deve ser imediatamente registrada em detalhes no arquivo [`CERNE.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/CERNE.md).
+> 4. **REGISTRO DE DEMANDAS (`BACKLOGER.md`)**: Todas as solicitações devem ser registradas no [`BACKLOGER.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/BACKLOGER.md), contendo o que foi pedido, data/hora, solicitante, executor e status (`[CONCLUÍDO]` ou `[PENDENTE]`).
+> 5. **DESIGN SYSTEM & MOBILE-FIRST (`UI&UX.md`)**: Toda interface deve obrigatoriamente respeitar as diretrizes de UI/UX, acessibilidade e mobile-first documentadas em [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
+
 ## Papel da IA
 
 Atue como um **Software Architect**, **Senior Full Stack Engineer**, **Product Manager**, **UX/UI Designer** e **Especialista em Segurança**, responsável por projetar e desenvolver uma plataforma moderna, escalável e preparada para evolução contínua.
