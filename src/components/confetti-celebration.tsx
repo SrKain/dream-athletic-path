@@ -44,11 +44,11 @@ export function ConfettiCelebration() {
         clearInterval(interval);
         // Remove celebrate parameter from URL after animation completes
         navigate({
-          search: (prev) => {
+          search: ((prev: Record<string, unknown>) => {
             const newSearch = { ...prev };
             delete newSearch.celebrate;
             return newSearch;
-          },
+          }) as never,
           replace: true,
         });
         return;
