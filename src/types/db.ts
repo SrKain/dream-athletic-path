@@ -107,6 +107,7 @@ export interface PipelineStage {
   name_pt: string | null;
   description_en: string | null;
   description_pt: string | null;
+  celebration_message_en: string | null;
   order_index: number;
   is_active: boolean;
 }

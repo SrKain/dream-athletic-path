@@ -3,6 +3,7 @@ import { Bell, CheckCircle2, Clock, FileText } from "lucide-react";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { Panel, StatusBadge } from "@/components/admin-ui";
 import { usePortalData } from "@/hooks/use-portal-data";
+import { ConfettiCelebration } from "@/components/confetti-celebration";
 
 export const Route = createFileRoute("/_authenticated/portal/")({ component: PortalDashboard });
 function PortalDashboard() {
@@ -15,6 +16,7 @@ function PortalDashboard() {
   const unread = data.notifications.filter((item) => !item.read_at).length;
   return (
     <ProtectedPage role="athlete">
+      <ConfettiCelebration />
       <AppShell
         role="athlete"
         title={`Olá${data.athlete ? `, ${data.athlete.full_name.split(" ")[0]}` : ""}`}

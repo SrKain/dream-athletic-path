@@ -2,6 +2,11 @@ import { Resend } from "resend";
 
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { renderEmail, type EmailTemplate } from "./templates";
+import { 
+  isWithinSendingWindow, 
+  getNextSendingWindowStart,
+  getNextWindowDescription 
+} from "./sending-window";
 
 /**
  * Serviço centralizado de e-mail (Resend).
@@ -11,9 +16,19 @@ export interface SendEmailInput {
   template: EmailTemplate;
   to: string;
   data?: Record<string, string | number | undefined>;
+  /**
+   * If true, checks sending window and schedules email if outside allowed hours.
+   * Default: false (sends immediately regardless of time)
+   */
+  respectSendingWindow?: boolean;
 }
 
-export async function sendEmail({ template, to, data = {} }: SendEmailInput) {
+export async function sendEmail({ 
+  template, 
+  to, 
+  data = {}, 
+  respectSendingWindow = false 
+}: SendEmailInput) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM ?? "no-reply@example.com";
   const { subject, html } = renderEmail(template, data);
@@ -24,19 +39,65 @@ export async function sendEmail({ template, to, data = {} }: SendEmailInput) {
     return { sent: false as const, reason: "not_configured" as const };
   }
 
+  const now = new Date();
+  const shouldSchedule = respectSendingWindow && !isWithinSendingWindow(now);
+
   try {
     const resend = new Resend(apiKey);
-    const result = await resend.emails.send({ from, to, subject, html });
-    if (result.error) throw new Error(result.error.message);
-    await logEmail({
-      template,
-      to,
-      subject,
-      status: "sent",
-      providerId: result.data?.id,
-      data,
-    });
-    return { sent: true as const, id: result.data?.id };
+    
+    if (shouldSchedule) {
+      // Schedule for next available window
+      const nextWindow = getNextSendingWindowStart(now);
+      const scheduledAt = nextWindow.toISOString();
+      const windowDesc = getNextWindowDescription(now);
+      
+      const result = await resend.emails.send({ 
+        from, 
+        to, 
+        subject, 
+        html,
+        scheduledAt 
+      });
+      
+      if (result.error) throw new Error(result.error.message);
+      
+      await logEmail({
+  scheduledFor?: string;
+  data?: Record<string, unknown>;
+}) {
+  try {
+    const admin = getAdminClient();
+    await admin.from("email_log").insert({
+      template: entry.template,
+      to_email: entry.to,
+      subject: entry.subject,
+      status: entry.status,
+      provider_id: entry.providerId ?? null,
+      error: entry.error ?? null,
+      scheduled_for: entry.scheduledF
+      return { 
+        sent: true as const, 
+        scheduled: true as const,
+        scheduledFor: scheduledAt,
+        windowDescription: windowDesc,
+        id: result.data?.id 
+      };
+    } else {
+      // Send immediately
+      const result = await resend.emails.send({ from, to, subject, html });
+      if (result.error) throw new Error(result.error.message);
+      
+      await logEmail({
+        template,
+        to,
+        subject,
+        status: "sent",
+        providerId: result.data?.id,
+        data,
+      });
+      
+      return { sent: true as const, scheduled: false as const, id: result.data?.id };
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     console.error(`[email] falha ao enviar "${template}":`, message);
