@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/start";
+import { createServerFn } from "@tanstack/react-start";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { sendEmail } from "./email.server";
 import { replacePlaceholders, getFirstName, type PlaceholderData } from "./placeholders";
