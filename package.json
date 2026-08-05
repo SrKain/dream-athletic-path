@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "validate": "bun run lint && bun run typecheck && bun run test && bun run build",
     "format": "prettier --write ."
   },
   "dependencies": {

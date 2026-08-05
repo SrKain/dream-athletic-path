@@ -17,6 +17,43 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 - **Serviço de E-mail**: Arquitetura integrada ao **Resend** para notificações transacionais.
 - **Qualidade & Testes**: **Vitest**, **ESLint**, **Prettier**.
 
+### Build System & Package Manager
+
+> **⚠️ CRÍTICO**: Este projeto utiliza exclusivamente **[Bun](https://bun.sh)** como package manager e runtime. **NÃO use npm, yarn ou pnpm** — tentativas de build com outros package managers resultarão em erros de dependências e compilação.
+
+**Requisitos obrigatórios**:
+- **Bun** >= 1.3.14 *(especificado em `package.json` → `"packageManager": "bun@1.3.14"`)*
+- **Node.js** >= 20.19.0 *(especificado em `package.json` → `"engines": {"node": ">=20.19.0"}`)*
+
+**Comandos de build**:
+```bash
+# Instalação de dependências
+bun install
+
+# Desenvolvimento local
+bun run dev
+
+# Build de produção
+bun run build
+
+# Validação completa (lint + typecheck + test + build)
+bun run validate
+```
+
+**Arquivos de configuração**:
+- [`package.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/package.json) — Scripts de build, dependências e versões fixadas de Bun/Node.js
+- [`vite.config.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vite.config.ts) — Configuração do Vite usando `@lovable.dev/vite-tanstack-config` com preset `vercel` para Nitro
+- [`tsconfig.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/tsconfig.json) — TypeScript 5+ com path alias `@/*` apontando para `src/*`
+- [`vitest.config.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vitest.config.ts) — Configuração de testes unitários com ambiente Node.js
+- [`bunfig.toml`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/bunfig.toml) — Configurações específicas do Bun runtime
+
+**Deploy**:
+- Build command para Vercel/Netlify/Cloudflare: `bun run build`
+- Output directory: `.output/` (gerado pelo Nitro com preset Vercel)
+- Variáveis de ambiente: Consulte [`.env.example`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/.env.example) e [`docs/SETUP.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/docs/SETUP.md)
+
+**Troubleshooting de build**: Consulte a seção 🔧 Troubleshooting no [`README.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/README.md) para soluções de erros comuns.
+
 ---
 
 ## 2. Conceitos Principais de Negócio

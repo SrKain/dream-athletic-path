@@ -1,5 +1,10 @@
 # Go Team Go — configuração
 
+> **Para comandos de build, instalação do Bun e Quick Start, consulte o [README.md principal](../README.md).**  
+> Este guia cobre apenas a configuração detalhada de Supabase, Vercel e primeiro administrador.
+
+---
+
 ## Pré-requisitos
 
 - Bun 1.3.14
