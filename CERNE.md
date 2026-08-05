@@ -182,3 +182,13 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Agendamento Nativo**: Usa Resend `scheduled_at`, não cron jobs customizados.
 - **Placeholders Type-Safe**: Interface `PlaceholderData` garante segurança de tipos na substituição.
 - **Failure Graceful**: Falha no envio de e-mail não bloqueia movimentação de atleta no pipeline.
+
+## Atualização 2026-08-05 — Disparo Resend na conclusão de etapa
+
+- **Gatilho**: `src/components/stage-timeline.tsx` (modo editável/admin) chama `notifyStageAdvancementServerFn` via `useServerFn` quando uma etapa passa a `completed`. Falha de e-mail nunca bloqueia o salvamento da fase; o admin recebe toast de enviado, agendado ou aviso de falha.
+- **Server Function**: `src/lib/email/stage-change.functions.ts` — wrapper fino com `inputValidator` e middleware `requireAgency` (somente a agência dispara). Importa a lógica sob demanda.
+- **Lógica server-only**: `src/lib/email/stage-change.server.ts` — `sendStageCelebration()` carrega atleta, etapa, agência, aplica placeholders, monta `portal_link` a partir de `APP_URL` e envia com `respectSendingWindow: true`.
+- **Anti-duplicidade**: consulta `email_log` por `template = stage_advancement_celebration` + `payload->>athleteId` + `payload->>stageId` com status `sent`/`scheduled`; se já existir, o envio é ignorado.
+- **Kanban**: `src/routes/_authenticated/admin/pipeline.tsx` não dispara mais e-mail ao mover o atleta (o gatilho oficial é a conclusão da etapa).
+- **Remetente**: `EMAIL_FROM` (fallback `Go Team Go <onboarding@resend.dev>` para testes até o domínio próprio ser verificado no Resend).
+- **Variáveis de ambiente**: `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` — server-only, nunca expostas ao navegador.
