@@ -32,7 +32,13 @@ function layout(title: string, body: string) {
  * Premium celebration email layout following UI&UX.md specifications.
  * Dark Premium theme with emerald and gold accents, mobile-first design.
  */
-function celebrationLayout(athleteName: string, previousStage: string, newStage: string, customMessage: string, portalLink: string) {
+function celebrationLayout(
+  athleteName: string,
+  previousStage: string,
+  newStage: string,
+  customMessage: string,
+  portalLink: string,
+) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -140,8 +146,11 @@ export function renderEmail(template: EmailTemplate, data: Data = {}): RenderedE
           name,
           String(data.previousStage ?? "Previous Stage"),
           String(data.newStage ?? "New Stage"),
-          String(data.customMessage ?? "<p>You've successfully advanced to the next stage of your athletic journey!</p>"),
-          String(data.portalLink ?? "#")
+          String(
+            data.customMessage ??
+              "<p>You've successfully advanced to the next stage of your athletic journey!</p>",
+          ),
+          String(data.portalLink ?? "#"),
         ),
       };
     case "document_requested":
