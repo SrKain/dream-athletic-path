@@ -30,7 +30,7 @@ export async function sendEmail({
   respectSendingWindow = false,
 }: SendEmailInput) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "no-reply@example.com";
+  const from = process.env.EMAIL_FROM ?? "Go Team Go <onboarding@resend.dev>";
   const { subject, html } = renderEmail(template, data);
 
   if (!apiKey) {
