@@ -2,7 +2,10 @@ import { Check, CircleDot, Lock, Minus, RotateCcw, TriangleAlert } from "lucide-
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useServerFn } from "@tanstack/react-start";
+
 import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
+import { notifyStageAdvancementServerFn } from "@/lib/email/stage-change.functions";
 import { supabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type {
@@ -42,6 +45,7 @@ export function StageTimeline({
   onChanged?: () => void | Promise<void>;
 }) {
   const [saving, setSaving] = useState<string | null>(null);
+  const notifyStageAdvancement = useServerFn(notifyStageAdvancementServerFn);
 
   const ordered = useMemo(
     () => [...stages].sort((a, b) => a.order_index - b.order_index),
@@ -74,6 +78,7 @@ export function StageTimeline({
   ) {
     setSaving(stageId);
     const existing = progress.find((item) => item.stage_id === stageId) ?? null;
+    const previousStatus = existing?.status ?? "not_started";
     const status = patch.status ?? existing?.status ?? "not_started";
     const payload = {
       ...buildStageProgressPayload({ athleteId, stageId, existing, status }),
@@ -100,6 +105,36 @@ export function StageTimeline({
     setSaving(null);
     toast.success("Fase atualizada.");
     await onChanged?.();
+
+    if (patch.status === "completed" && previousStatus !== "completed") {
+      await notifyCelebration(stageId);
+    }
+  }
+
+  async function notifyCelebration(stageId: string) {
+    const index = ordered.findIndex((stage) => stage.id === stageId);
+    const previousStageId = index > 0 ? ordered[index - 1].id : null;
+    try {
+      const result = await notifyStageAdvancement({
+        data: { athleteId, previousStageId, newStageId: stageId },
+      });
+      if (!result.success) {
+        toast.warning("Fase salva, mas o e-mail de celebração não foi enviado.");
+        return;
+      }
+      if (result.skipped) return;
+      if (result.scheduled) {
+        toast.info(
+          `E-mail de celebração agendado para ${result.windowDescription ?? "a próxima janela de envio"}.`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success("E-mail de celebração enviado ao atleta.");
+      }
+    } catch (error) {
+      console.error("[celebration] falha ao disparar e-mail:", error);
+      toast.warning("Fase salva, mas o e-mail de celebração não foi enviado.");
+    }
   }
 
   if (!phases.length) {
