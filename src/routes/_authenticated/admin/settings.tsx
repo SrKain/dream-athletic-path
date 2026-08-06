@@ -321,13 +321,87 @@ function SettingsPage() {
                   </p>
                 </div>
               )}
+
+              {/* Pop-up no portal */}
+              <div className="border-t border-border pt-4">
+                <Label htmlFor="portal-message" className="text-sm font-medium mb-2 block">
+                  Pop-up no portal do atleta
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Exibido em um dialog assim que o atleta acessa a timeline. Deixe vazio para não
+                  exibir nada. Aceita os mesmos placeholders acima.
+                </p>
+                <Textarea
+                  id="portal-message"
+                  value={portalMessage}
+                  onChange={(e) => setPortalMessage(e.target.value)}
+                  placeholder="Parabéns {{athlete_first_name}}! Você avançou para {{new_stage}}. Os próximos passos são..."
+                  className="min-h-30 font-mono text-sm"
+                />
+
+                <Label className="text-sm font-medium mt-4 mb-2 block">
+                  Imagens do slider (opcional)
+                </Label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  disabled={uploading}
+                  onChange={(e) => {
+                    void uploadStageImages(e.target.files);
+                    e.target.value = "";
+                  }}
+                  className="text-sm"
+                />
+                {portalImages.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {portalImages.map((image, index) => (
+                      <div key={image.id} className="overflow-hidden rounded-lg border">
+                        <img
+                          src={stageImageUrl(image.storage_path)}
+                          alt=""
+                          className="aspect-video w-full object-cover"
+                        />
+                        <div className="flex items-center justify-between px-2 py-1">
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground hover:text-primary disabled:opacity-40"
+                              disabled={index === 0}
+                              onClick={() => void moveStageImage(image, -1)}
+                            >
+                              ←
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground hover:text-primary disabled:opacity-40"
+                              disabled={index === portalImages.length - 1}
+                              onClick={() => void moveStageImage(image, 1)}
+                            >
+                              →
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            aria-label="Remover imagem"
+                            className="text-destructive"
+                            onClick={() => void removeStageImage(image)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingStage(null)}>
                 Cancel
               </Button>
-              <Button onClick={saveCelebrationMessage}>Save Celebration Message</Button>
+              <Button onClick={saveCelebrationMessage}>Salvar configurações</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
