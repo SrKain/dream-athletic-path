@@ -192,3 +192,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Kanban**: `src/routes/_authenticated/admin/pipeline.tsx` não dispara mais e-mail ao mover o atleta (o gatilho oficial é a conclusão da etapa).
 - **Remetente**: `EMAIL_FROM` (fallback `Go Team Go <onboarding@resend.dev>` para testes até o domínio próprio ser verificado no Resend).
 - **Variáveis de ambiente**: `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` — server-only, nunca expostas ao navegador.
+
+## Atualização 2026-08-06 — Pop-up de celebração no portal do atleta
+- **Migração `0008_stage_portal_announcement.sql`**: colunas `portal_message_pt` / `portal_message_en` em `pipeline_stages`; tabelas `stage_celebration_images` (slider por etapa) e `athlete_stage_announcements` (controle de "já visto" por atleta+etapa) com GRANTs e RLS; bucket público `stage-celebrations` com escrita restrita a `is_agency_admin()`.
+- **`src/hooks/use-stage-announcement.ts`**: detecta a etapa avançada ainda não vista (com mensagem configurada), resolve placeholders, carrega as imagens e expõe `dismiss()` que grava em `athlete_stage_announcements`.
+- **`src/components/stage-celebration-dialog.tsx`**: dialog com título da etapa, mensagem e slider próprio (setas/indicadores só com múltiplas imagens; nada é renderizado sem imagens). Confetes disparam uma vez atrás do dialog.
+- **`src/components/confetti-celebration.tsx`**: rotina extraída para `fireConfetti({ duration, zIndex })`, reutilizada pelo dialog.
+- **Telas**: dialog montado em `portal/pipeline.tsx` e `portal/index.tsx`; configuração (texto + upload/reordenar/remover imagens) na edição de etapa em `admin/settings.tsx`.

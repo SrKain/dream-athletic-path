@@ -4,10 +4,17 @@ import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { Panel, StatusBadge } from "@/components/admin-ui";
 import { usePortalData } from "@/hooks/use-portal-data";
 import { ConfettiCelebration } from "@/components/confetti-celebration";
+import { StageCelebrationDialog } from "@/components/stage-celebration-dialog";
+import { useStageAnnouncement } from "@/hooks/use-stage-announcement";
 
 export const Route = createFileRoute("/_authenticated/portal/")({ component: PortalDashboard });
 function PortalDashboard() {
   const { data } = usePortalData();
+  const { announcement, dismiss } = useStageAnnouncement({
+    athlete: data.athlete,
+    stages: data.stages,
+    progress: data.progress,
+  });
   const current =
     data.progress.find((item) => item.status === "in_progress") ??
     data.progress.find((item) => item.status !== "completed");
@@ -17,6 +24,15 @@ function PortalDashboard() {
   return (
     <ProtectedPage role="athlete">
       <ConfettiCelebration />
+      {announcement && (
+        <StageCelebrationDialog
+          open
+          title={announcement.stage.name_pt ?? announcement.stage.name_en}
+          message={announcement.message}
+          images={announcement.images}
+          onClose={() => void dismiss()}
+        />
+      )}
       <AppShell
         role="athlete"
         title={`Olá${data.athlete ? `, ${data.athlete.full_name.split(" ")[0]}` : ""}`}

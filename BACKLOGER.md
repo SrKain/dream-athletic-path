@@ -34,3 +34,10 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Pedido:** Ativar os disparos de e-mail via conta Resend própria nas transições de etapa.
 - **Entrega:** Gatilho no `StageTimeline` ao marcar etapa como *Concluída*; server fn `notifyStageAdvancementServerFn` (`src/lib/email/stage-change.functions.ts`) protegida por `requireAgency`; lógica server-only em `stage-change.server.ts` com anti-duplicidade via `email_log`, link do portal por `APP_URL` e janela de envio (agendamento no Resend). Disparo removido do Kanban (agora só na conclusão).
 - **Status:** [CONCLUÍDO] — pendente da chave `RESEND_API_KEY` e do domínio remetente no ambiente.
+
+## 2026-08-06 — Pop-up de celebração na timeline do atleta
+- **Solicitante:** Kauan
+- **Executor:** Lovable (agente)
+- **Pedido:** Ao avançar de fase, exibir um dialog no portal com mensagem pré-configurada pela agência e slider de imagens (nada renderizado quando não houver imagens), com confetes atrás do dialog.
+- **Entrega:** Migração `0008_stage_portal_announcement.sql`; hook `use-stage-announcement`; componente `stage-celebration-dialog`; `fireConfetti` reutilizável; integração nas telas do portal e configuração por etapa em Admin → Configurações.
+- **Status:** [CONCLUÍDO] — requer execução da migração 0008 no Supabase.
