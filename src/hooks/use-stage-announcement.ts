@@ -10,7 +10,9 @@ export function stageImageUrl(path: string) {
   return supabase.storage.from(STAGE_CELEBRATION_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-export function stageMessageOf(stage: Pick<PipelineStage, "portal_message_pt" | "portal_message_en">) {
+export function stageMessageOf(
+  stage: Pick<PipelineStage, "portal_message_pt" | "portal_message_en">,
+) {
   return (stage.portal_message_pt ?? stage.portal_message_en ?? "").trim();
 }
 
