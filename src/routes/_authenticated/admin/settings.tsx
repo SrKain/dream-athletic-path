@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Edit2, Plus, Sparkles } from "lucide-react";
+import { Edit2, Image as ImageIcon, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,12 +18,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase/client";
+import { STAGE_CELEBRATION_BUCKET, stageImageUrl } from "@/hooks/use-stage-announcement";
 import {
   AVAILABLE_PLACEHOLDERS,
   replacePlaceholders,
   getExamplePlaceholderData,
 } from "@/lib/email/placeholders";
-import type { ChecklistItem, PipelineStage } from "@/types/db";
+import type { ChecklistItem, PipelineStage, StageCelebrationImage } from "@/types/db";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: SettingsPage,
@@ -35,6 +36,9 @@ function SettingsPage() {
   const [stageName, setStageName] = useState("");
   const [editingStage, setEditingStage] = useState<PipelineStage | null>(null);
   const [celebrationMessage, setCelebrationMessage] = useState("");
+  const [portalMessage, setPortalMessage] = useState("");
+  const [portalImages, setPortalImages] = useState<StageCelebrationImage[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   async function load() {
     const [s, i] = await Promise.all([
@@ -92,6 +96,68 @@ function SettingsPage() {
   function openEditStage(stage: PipelineStage) {
     setEditingStage(stage);
     setCelebrationMessage(stage.celebration_message_en ?? "");
+    setPortalMessage(stage.portal_message_pt ?? stage.portal_message_en ?? "");
+    void loadStageImages(stage.id);
+  }
+
+  async function loadStageImages(stageId: string) {
+    const { data, error } = await supabase
+      .from("stage_celebration_images")
+      .select("*")
+      .eq("stage_id", stageId)
+      .order("sort_order");
+    if (error) toast.error(error.message);
+    setPortalImages((data ?? []) as StageCelebrationImage[]);
+  }
+
+  async function uploadStageImages(files: FileList | null) {
+    if (!editingStage || !files?.length) return;
+    setUploading(true);
+    let order = portalImages.length;
+    for (const file of Array.from(files)) {
+      const extension = file.name.split(".").pop() ?? "jpg";
+      const path = `${editingStage.id}/${crypto.randomUUID()}.${extension}`;
+      const uploaded = await supabase.storage
+        .from(STAGE_CELEBRATION_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (uploaded.error) {
+        toast.error(uploaded.error.message);
+        continue;
+      }
+      const inserted = await supabase.from("stage_celebration_images").insert({
+        stage_id: editingStage.id,
+        storage_path: path,
+        sort_order: order * 10,
+      });
+      if (inserted.error) toast.error(inserted.error.message);
+      order += 1;
+    }
+    setUploading(false);
+    await loadStageImages(editingStage.id);
+  }
+
+  async function removeStageImage(image: StageCelebrationImage) {
+    const { error } = await supabase.from("stage_celebration_images").delete().eq("id", image.id);
+    if (error) return toast.error(error.message);
+    await supabase.storage.from(STAGE_CELEBRATION_BUCKET).remove([image.storage_path]);
+    await loadStageImages(image.stage_id);
+  }
+
+  async function moveStageImage(image: StageCelebrationImage, delta: number) {
+    const index = portalImages.findIndex((item) => item.id === image.id);
+    const target = portalImages[index + delta];
+    if (!target) return;
+    await Promise.all([
+      supabase
+        .from("stage_celebration_images")
+        .update({ sort_order: target.sort_order })
+        .eq("id", image.id),
+      supabase
+        .from("stage_celebration_images")
+        .update({ sort_order: image.sort_order })
+        .eq("id", target.id),
+    ]);
+    await loadStageImages(image.stage_id);
   }
 
   async function saveCelebrationMessage() {
@@ -99,13 +165,16 @@ function SettingsPage() {
 
     const { error } = await supabase
       .from("pipeline_stages")
-      .update({ celebration_message_en: celebrationMessage || null })
+      .update({
+        celebration_message_en: celebrationMessage || null,
+        portal_message_pt: portalMessage || null,
+      })
       .eq("id", editingStage.id);
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Celebration message saved!");
+      toast.success("Configurações da etapa salvas!");
       setEditingStage(null);
       await load();
     }
@@ -145,6 +214,12 @@ function SettingsPage() {
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
                           Celebration email
+                        </Badge>
+                      )}
+                      {(stage.portal_message_pt ?? stage.portal_message_en) && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <ImageIcon className="h-3 w-3" />
+                          Pop-up no portal
                         </Badge>
                       )}
                     </div>
