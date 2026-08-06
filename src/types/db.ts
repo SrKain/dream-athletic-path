@@ -108,8 +108,25 @@ export interface PipelineStage {
   description_en: string | null;
   description_pt: string | null;
   celebration_message_en: string | null;
+  portal_message_pt: string | null;
+  portal_message_en: string | null;
   order_index: number;
   is_active: boolean;
+}
+
+export interface StageCelebrationImage {
+  id: string;
+  stage_id: string;
+  storage_path: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+export interface AthleteStageAnnouncement {
+  id: string;
+  athlete_id: string;
+  stage_id: string;
+  seen_at: string;
 }
 
 export interface AthleteStageProgress {
