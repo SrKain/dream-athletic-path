@@ -72,6 +72,34 @@ export interface AthleteProfile {
   graduation_year: number | null;
 }
 
+export type AthleteVideoKind = "presentation" | "highlight" | "feature";
+
+export interface AthleteVideo {
+  id: string;
+  athlete_id: string;
+  kind: AthleteVideoKind;
+  youtube_url: string;
+  title: string | null;
+  sort_order: number;
+  created_at?: string;
+}
+
+export interface AgencyVisualSettings {
+  agency_id: string;
+  hero_title_pt: string | null;
+  hero_title_en: string | null;
+  hero_subtitle_pt: string | null;
+  hero_subtitle_en: string | null;
+  catalog_heading_pt: string | null;
+  catalog_heading_en: string | null;
+  updated_at?: string;
+}
+
+export interface CatalogPositionOrder {
+  position_id: string;
+  sort_order: number;
+}
+
 export interface AthleteMedia {
   id: string;
   athlete_id: string;
