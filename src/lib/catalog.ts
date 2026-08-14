@@ -54,28 +54,35 @@ export function filterAthletes(
   });
 }
 
-export function buildAthleteShelves(athletes: AthleteCard[]): AthleteShelf[] {
-  const groups = new Map<string, { sport: string; position: string; athletes: AthleteCard[] }>();
+export function buildAthleteShelves(
+  athletes: AthleteCard[],
+  positionOrder: string[] = [],
+): AthleteShelf[] {
+  const groups = new Map<string, { position: string; positionId: string; athletes: AthleteCard[] }>();
   for (const athlete of athletes) {
-    const sport = athlete.sport?.name_pt ?? athlete.sport?.name_en ?? "Outros esportes";
-    const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "";
-    const key = `${sport}::${position}`;
-    const current = groups.get(key) ?? { athletes: [], position, sport };
+    const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "Outras posições";
+    const positionId = athlete.position_id ?? position;
+    const current = groups.get(positionId) ?? { athletes: [], position, positionId };
     current.athletes.push(athlete);
-    groups.set(key, current);
+    groups.set(positionId, current);
   }
 
-  return [...groups.entries()]
+  const manualRank = (positionId: string) => {
+    const index = positionOrder.indexOf(positionId);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
+
+  return [...groups.values()]
     .sort(
-      ([, a], [, b]) =>
-        a.sport.localeCompare(b.sport, "pt-BR") ||
+      (a, b) =>
+        manualRank(a.positionId) - manualRank(b.positionId) ||
         shelfRank(a.position) - shelfRank(b.position) ||
         a.position.localeCompare(b.position, "pt-BR"),
     )
-    .map(([key, group]) => ({
-      key: slugify(key),
-      title: group.position ? pluralizePosition(group.position) : group.sport,
-      description: `${group.sport} · ${group.athletes.length} ${
+    .map((group) => ({
+      key: slugify(group.positionId),
+      title: pluralizePosition(group.position),
+      description: `${group.athletes.length} ${
         group.athletes.length === 1 ? "perfil publicado" : "perfis publicados"
       }`,
       athletes: group.athletes,
