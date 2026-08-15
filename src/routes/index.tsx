@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import { ConfigurationNotice } from "@/components/configuration-notice";
 import { useI18n } from "@/i18n/i18n-provider";
 import { buildAthleteShelves, filterAthletes, pickAceAthletes } from "@/lib/catalog";
-import { listPublicAthletes } from "@/lib/athletes.functions";
+import { listPublicAthletes, type PublicCatalogPayload } from "@/lib/athletes.functions";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
+import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
+import { WhatsappFab } from "@/components/whatsapp-fab";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { AthleteCard } from "@/types/db";
 
@@ -33,10 +35,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Catalog() {
-  const { athletes, configured } = Route.useLoaderData() as {
-    athletes: AthleteCard[];
-    configured: boolean;
-  };
+  const { athletes, configured, visual, positionOrder, featureVideos } =
+    Route.useLoaderData() as PublicCatalogPayload;
   const { locale, setLocale, pick } = useI18n();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
@@ -56,8 +56,20 @@ function Catalog() {
     () => filterAthletes(catalogAthletes, { ageRange, country, position, search }),
     [ageRange, catalogAthletes, country, position, search],
   );
-  const shelves = useMemo(() => buildAthleteShelves(filtered), [filtered]);
+  const shelves = useMemo(
+    () => buildAthleteShelves(filtered, positionOrder),
+    [filtered, positionOrder],
+  );
   const aces = useMemo(() => pickAceAthletes(filtered), [filtered]);
+
+  const heroTitle =
+    pick(visual?.hero_title_pt, visual?.hero_title_en) ||
+    "Atletas prontos para jogar, estudar e competir nos EUA.";
+  const heroSubtitle =
+    pick(visual?.hero_subtitle_pt, visual?.hero_subtitle_en) ||
+    "Explore perfis por posição, descubra destaques e encontre talentos brasileiros com contexto esportivo, acadêmico e visual de alto nível.";
+  const catalogHeading =
+    pick(visual?.catalog_heading_pt, visual?.catalog_heading_en) || "Nossos Atletas";
 
   if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;
 
@@ -91,19 +103,18 @@ function Catalog() {
       <section className="relative overflow-hidden border-b border-border/70">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.72_0.13_146_/_0.2),transparent_30%),linear-gradient(135deg,oklch(0.968_0.018_102),oklch(0.9_0.035_148))]" />
         <div className="absolute inset-y-0 right-0 w-2/3 opacity-20 [background:repeating-linear-gradient(90deg,transparent_0_22px,oklch(0.46_0.11_162_/_0.35)_22px_24px),linear-gradient(180deg,oklch(0.55_0.12_250_/_0.35),oklch(0.62_0.18_25_/_0.28))]" />
-        <div className="container-edge relative grid gap-10 py-12 md:py-16 lg:grid-cols-12 lg:items-center lg:py-20">
+        <div className="container-edge relative grid gap-8 py-8 md:py-10 lg:grid-cols-12 lg:items-center lg:py-12">
           <div className="lg:col-span-7">
             <p className="eyebrow text-primary">Catálogo premium de vôlei · USA pathway</p>
-            <h1 className="mt-5 max-w-3xl font-display text-[clamp(2.6rem,6vw,5.4rem)] font-semibold leading-[0.98] tracking-tight">
-              Atletas prontos para jogar, estudar e competir nos EUA.
+            <h1 className="mt-4 max-w-3xl font-display text-[clamp(2.1rem,4.4vw,3.6rem)] font-semibold leading-[1] tracking-tight">
+              {heroTitle}
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Explore perfis por posição, descubra destaques e encontre talentos brasileiros com
-              contexto esportivo, acadêmico e visual de alto nível.
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
+              {heroSubtitle}
             </p>
           </div>
           <div className="relative lg:col-span-5">
-            <div className="relative aspect-[16/10] overflow-hidden rounded-md bg-surface shadow-xl lg:aspect-[4/3]">
+            <div className="relative aspect-[16/9] overflow-hidden rounded-md bg-surface shadow-xl lg:aspect-[16/10]">
               <img
                 src={catalogHeroImage}
                 alt=""
@@ -122,6 +133,11 @@ function Catalog() {
       </section>
 
       <section id="catalog" className="container-edge py-10 md:py-14">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-2 border-b border-border/70 pb-3">
+          <h2 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">
+            {catalogHeading}
+          </h2>
+        </div>
         <p className="mb-4 text-sm text-muted-foreground">
           {filtered.length} {filtered.length === 1 ? "atleta publicado" : "atletas publicados"}
         </p>
@@ -175,6 +191,7 @@ function Catalog() {
                 description="Perfis selecionados pela agência."
                 athletes={aces}
                 pick={pick}
+                featureVideos={featureVideos}
               />
             )}
             {shelves.map((shelf) => (
@@ -184,6 +201,7 @@ function Catalog() {
                 description={shelf.description}
                 athletes={shelf.athletes}
                 pick={pick}
+                featureVideos={featureVideos}
               />
             ))}
           </div>
@@ -191,6 +209,7 @@ function Catalog() {
           <div className="py-24 text-center text-muted-foreground">Nenhum atleta encontrado.</div>
         )}
       </section>
+      <WhatsappFab />
     </main>
   );
 }
@@ -200,11 +219,13 @@ function AthleteShelf({
   description,
   athletes,
   pick,
+  featureVideos,
 }: {
   title: string;
   description: string;
   athletes: AthleteCard[];
   pick: (pt?: string | null, en?: string | null) => string | null;
+  featureVideos: Record<string, string>;
 }) {
   if (!athletes.length) return null;
 
@@ -218,7 +239,12 @@ function AthleteShelf({
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {athletes.map((athlete) => (
-          <AthleteCardItem key={athlete.id} athlete={athlete} pick={pick} />
+          <AthleteCardItem
+            key={athlete.id}
+            athlete={athlete}
+            pick={pick}
+            videoUrl={featureVideos[athlete.id]}
+          />
         ))}
       </div>
     </section>
@@ -228,9 +254,11 @@ function AthleteShelf({
 function AthleteCardItem({
   athlete,
   pick,
+  videoUrl,
 }: {
   athlete: AthleteCard;
   pick: (pt?: string | null, en?: string | null) => string | null;
+  videoUrl?: string | null;
 }) {
   return (
     <Link
@@ -238,19 +266,17 @@ function AthleteCardItem({
       params={{ slug: athlete.slug }}
       className="group overflow-hidden rounded-md border border-border/70 bg-card transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-        <img
-          src={getAthleteDisplayImage(athlete)}
-          alt={athlete.full_name}
-          loading="lazy"
-          className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]"
-        />
+      <AthleteVideoCardMedia
+        photoUrl={getAthleteDisplayImage(athlete)}
+        alt={athlete.full_name}
+        videoUrl={videoUrl}
+      >
         {athlete.is_featured && (
-          <span className="glass-dark absolute left-2 top-2 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]">
+          <span className="absolute left-2 top-2 rounded-md bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-surface-foreground shadow-md">
             Destaque
           </span>
         )}
-      </div>
+      </AthleteVideoCardMedia>
       <div className="p-3">
         <h3 className="truncate font-display text-base font-semibold tracking-tight">
           {athlete.full_name}
