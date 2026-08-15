@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Upload } from "lucide-react";
+import { Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,12 +19,15 @@ import { buildAthleteSlug } from "@/lib/athlete-slugs";
 import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
 import { supabase } from "@/lib/supabase/client";
 import { validateUpload } from "@/lib/uploads";
+import { isValidYoutubeUrl, youtubeThumbnail } from "@/lib/youtube";
 import type {
   Achievement,
   Athlete,
   AthleteStageProgress,
   AthleteMedia,
   AthleteProfile,
+  AthleteVideo,
+  AthleteVideoKind,
   ChecklistItem,
   Country,
   PipelineStage,
@@ -61,6 +64,14 @@ function AthleteEditor() {
     type: "",
   });
   const [showAchievementForm, setShowAchievementForm] = useState(false);
+  const [videos, setVideos] = useState<AthleteVideo[]>([]);
+  const [videoDraft, setVideoDraft] = useState<{
+    kind: AthleteVideoKind;
+    youtube_url: string;
+    title: string;
+  }>({ kind: "highlight", title: "", youtube_url: "" });
+  const [uploadingAchievementImage, setUploadingAchievementImage] = useState(false);
+  const [tab, setTab] = useState<"timeline" | "data" | "profile">("timeline");
 
   const load = useCallback(async () => {
     const [
@@ -74,6 +85,7 @@ function AthleteEditor() {
       checklistResult,
       mediaResult,
       achievementsResult,
+      videosResult,
     ] = await Promise.all([
       supabase.from("athletes").select("*").eq("id", id).single(),
       supabase.from("athlete_profiles").select("*").eq("athlete_id", id).maybeSingle(),
@@ -93,6 +105,11 @@ function AthleteEditor() {
         .select("*")
         .eq("athlete_id", id)
         .order("achieved_on", { ascending: false }),
+      supabase
+        .from("athlete_videos")
+        .select("*")
+        .eq("athlete_id", id)
+        .order("sort_order", { ascending: true }),
     ]);
     if (athleteResult.error) toast.error(athleteResult.error.message);
     else setAthlete(athleteResult.data as Athlete);
@@ -116,6 +133,7 @@ function AthleteEditor() {
     );
     setMediaUrls(Object.fromEntries(resolvedMedia));
     setAchievements((achievementsResult.data ?? []) as Achievement[]);
+    setVideos((videosResult.data ?? []) as AthleteVideo[]);
   }, [id]);
   useEffect(() => void load(), [load]);
 
@@ -291,6 +309,48 @@ function AthleteEditor() {
       setShowAchievementForm(false);
       await load();
     }
+  }
+
+  async function addVideo() {
+    if (!isValidYoutubeUrl(videoDraft.youtube_url))
+      return toast.error("Informe um link válido do YouTube.");
+    const sameKind = videos.filter((item) => item.kind === videoDraft.kind);
+    if (videoDraft.kind !== "highlight" && sameKind.length)
+      return toast.error("Já existe um vídeo desse tipo. Remova o atual antes de adicionar outro.");
+    const { error } = await supabase.from("athlete_videos").insert({
+      athlete_id: id,
+      kind: videoDraft.kind,
+      youtube_url: videoDraft.youtube_url.trim(),
+      title: videoDraft.title || null,
+      sort_order: sameKind.length,
+    });
+    if (error) return toast.error(error.message);
+    setVideoDraft({ kind: videoDraft.kind, title: "", youtube_url: "" });
+    await load();
+  }
+
+  async function deleteVideo(item: AthleteVideo) {
+    const { error } = await supabase.from("athlete_videos").delete().eq("id", item.id);
+    if (error) toast.error(error.message);
+    else await load();
+  }
+
+  async function uploadAchievementImage(file?: File) {
+    if (!file || !currentAthlete) return;
+    const validation = validateUpload("photo", file);
+    if (!validation.valid) return toast.error("Imagem inválida ou acima do limite.");
+    setUploadingAchievementImage(true);
+    const path = `${currentAthlete.id}/achievements/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+    const stored = await supabase.storage
+      .from("athlete-media")
+      .upload(path, file, { upsert: true });
+    if (stored.error) toast.error(stored.error.message);
+    else {
+      const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
+      setAchievementDraft((draft) => ({ ...draft, imageUrl: publicUrl }));
+      toast.success("Imagem da conquista enviada.");
+    }
+    setUploadingAchievementImage(false);
   }
 
   async function deleteAchievement(item: Achievement) {
