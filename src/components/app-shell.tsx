@@ -10,7 +10,6 @@ import {
   Menu,
   Settings,
   Send,
-  Palette,
   Users,
 } from "lucide-react";
 import { useState } from "react";
