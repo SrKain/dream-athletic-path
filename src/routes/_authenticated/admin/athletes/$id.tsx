@@ -375,345 +375,498 @@ function AthleteEditor() {
             {athlete.deleted_at ? "Restaurar" : "Arquivar"}
           </button>
         </div>
+        <div
+          role="tablist"
+          aria-label="Seções do atleta"
+          className="mb-6 flex w-full gap-1 overflow-x-auto rounded-md border border-border/70 bg-background/60 p-1"
+        >
+          {(
+            [
+              ["timeline", "Timeline"],
+              ["data", "Dados do atleta"],
+              ["profile", "Perfil & mídia"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className={`flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition ${
+                tab === value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
-            <Panel
-              title="Jornada do atleta"
-              description="Acompanhe e atualize as fases do pipeline."
-            >
-              <div className="p-5">
-                <StageTimeline
-                  athleteId={athlete.id}
-                  stages={stages}
-                  progress={stageProgress}
-                  checklistDefinitions={checklistDefinitions}
-                  currentStageId={athlete.current_stage_id}
-                  editable
-                  onChanged={load}
-                />
-              </div>
-            </Panel>
-            <Panel title="Dados do atleta">
-              <div className="grid gap-4 p-5 md:grid-cols-2">
-                <Field label="Nome">
-                  <input
-                    className={inputClass}
-                    value={athlete.full_name}
-                    onChange={(e) => update("full_name", e.target.value)}
+            {tab === "timeline" && (
+              <Panel
+                title="Jornada do atleta"
+                description="Acompanhe e atualize as fases do pipeline."
+              >
+                <div className="p-5">
+                  <StageTimeline
+                    athleteId={athlete.id}
+                    stages={stages}
+                    progress={stageProgress}
+                    checklistDefinitions={checklistDefinitions}
+                    currentStageId={athlete.current_stage_id}
+                    editable
+                    onChanged={load}
                   />
-                </Field>
-                <Field label="E-mail">
-                  <input
-                    className={inputClass}
-                    type="email"
-                    value={athlete.email ?? ""}
-                    onChange={(e) => update("email", e.target.value || null)}
-                  />
-                </Field>
-                <Field label="Slug">
-                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                    {athlete.slug || "Será gerado automaticamente ao salvar"}
-                  </div>
-                </Field>
-                <Field label="Nascimento">
-                  <input
-                    className={inputClass}
-                    type="date"
-                    value={athlete.birth_date ?? ""}
-                    onChange={(e) => update("birth_date", e.target.value || null)}
-                  />
-                </Field>
-                <Field label="Posição">
-                  <select
-                    className={inputClass}
-                    value={athlete.position_id ?? ""}
-                    onChange={(e) => update("position_id", e.target.value || null)}
-                  >
-                    <option value="">Selecione</option>
-                    {positions
-                      .filter((item) => !athlete.sport_id || item.sport_id === athlete.sport_id)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name_pt}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-                <Field label="Nacionalidade">
-                  <SearchableSelect
-                    value={athlete.nationality ?? ""}
-                    placeholder="Buscar país"
-                    options={countries.map((item) => ({
-                      value: item.code,
-                      label: `${item.flag_emoji ?? ""} ${item.name_pt}`.trim(),
-                    }))}
-                    onChange={(value) => update("nationality", value || null)}
-                  />
-                </Field>
-                <Field label="Altura (cm)">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    value={athlete.height_cm ?? ""}
-                    onChange={(e) =>
-                      update("height_cm", e.target.value ? Number(e.target.value) : null)
-                    }
-                  />
-                </Field>
-                <Field label="Peso (kg)">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    value={athlete.weight_kg ?? ""}
-                    onChange={(e) =>
-                      update("weight_kg", e.target.value ? Number(e.target.value) : null)
-                    }
-                  />
-                </Field>
-                <Field label="Foto">
-                  <label
-                    className={
-                      secondaryButtonClass +
-                      " mt-1 flex cursor-pointer items-center justify-center gap-2"
-                    }
-                  >
-                    <Upload className="h-4 w-4" />
-                    {uploadingPhoto ? "Enviando..." : "Selecionar foto"}
-                    <input
-                      className="hidden"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => void uploadPhoto(e.target.files?.[0])}
-                    />
-                  </label>
-                  {athlete.photo_url && (
-                    <img
-                      src={athlete.photo_url}
-                      alt="Preview da foto"
-                      className="mt-3 h-40 w-full rounded-md object-cover"
-                    />
-                  )}
-                </Field>
-              </div>
-            </Panel>
-            <Panel title="Perfil público e acadêmico">
-              <div className="grid gap-4 p-5 md:grid-cols-2">
-                <Field label="Biografia PT" wide>
-                  <textarea
-                    className={textareaClass}
-                    value={profile.bio_pt ?? ""}
-                    onChange={(e) => setProfile({ ...profile, bio_pt: e.target.value })}
-                  />
-                </Field>
-                <Field label="Biografia EN" wide>
-                  <textarea
-                    className={textareaClass}
-                    value={profile.bio_en ?? ""}
-                    onChange={(e) => setProfile({ ...profile, bio_en: e.target.value })}
-                  />
-                </Field>
-                <Field label="Ano de conclusão">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    value={profile.graduation_year ?? ""}
-                    onChange={(e) =>
-                      setProfile({
-                        ...profile,
-                        graduation_year: e.target.value ? Number(e.target.value) : null,
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="GPA">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    step="0.01"
-                    value={profile.gpa ?? ""}
-                    onChange={(e) =>
-                      setProfile({
-                        ...profile,
-                        gpa: e.target.value ? Number(e.target.value) : null,
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Nível de inglês">
-                  <input
-                    className={inputClass}
-                    value={profile.english_level ?? ""}
-                    onChange={(e) => setProfile({ ...profile, english_level: e.target.value })}
-                  />
-                </Field>
-                <Field label="Vídeo destaque">
-                  <label
-                    className={
-                      secondaryButtonClass +
-                      " mt-1 flex cursor-pointer items-center justify-center gap-2"
-                    }
-                  >
-                    <Upload className="h-4 w-4" />
-                    {uploadingVideo ? "Enviando..." : "Selecionar vídeo"}
-                    <input
-                      className="hidden"
-                      type="file"
-                      accept="video/mp4,video/quicktime"
-                      onChange={(e) => void uploadHighlightVideo(e.target.files?.[0])}
-                    />
-                  </label>
-                  {profile.highlight_video_url && (
-                    <video
-                      src={profile.highlight_video_url}
-                      controls
-                      className="mt-3 h-40 w-full rounded-md object-cover"
-                    />
-                  )}
-                </Field>
-              </div>
-            </Panel>
-            <Panel
-              title="Mídia enviada"
-              action={
-                <button
-                  className={secondaryButtonClass}
-                  onClick={() => setShowAchievementForm((value) => !value)}
-                >
-                  {showAchievementForm ? "Fechar" : "+ Conquista"}
-                </button>
-              }
-            >
-              {media.length ? (
-                <div className="grid gap-4 p-5 sm:grid-cols-2">
-                  {media.map((item) => (
-                    <article key={item.id}>
-                      <div className="aspect-video overflow-hidden rounded-md bg-muted">
-                        {item.kind === "photo" ? (
-                          <img
-                            src={mediaUrls[item.id] ?? ""}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <video
-                            src={mediaUrls[item.id] ?? ""}
-                            controls
-                            className="h-full w-full"
-                          />
-                        )}
-                      </div>
-                      <button
-                        className={secondaryButtonClass + " mt-2 w-full"}
-                        onClick={() => toggleMedia(item)}
-                      >
-                        {item.is_public ? "Retirar do público" : "Aprovar e publicar"}
-                      </button>
-                    </article>
-                  ))}
                 </div>
-              ) : (
-                <p className="p-5 text-sm text-muted-foreground">Nenhuma mídia enviada.</p>
-              )}
-              {showAchievementForm && (
-                <div className="border-t p-5">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Field label="Título">
+              </Panel>
+            )}
+            {tab === "data" && (
+              <Panel title="Dados do atleta">
+                <div className="grid gap-4 p-5 md:grid-cols-2">
+                  <Field label="Nome">
+                    <input
+                      className={inputClass}
+                      value={athlete.full_name}
+                      onChange={(e) => update("full_name", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="E-mail">
+                    <input
+                      className={inputClass}
+                      type="email"
+                      value={athlete.email ?? ""}
+                      onChange={(e) => update("email", e.target.value || null)}
+                    />
+                  </Field>
+                  <Field label="Slug">
+                    <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                      {athlete.slug || "Será gerado automaticamente ao salvar"}
+                    </div>
+                  </Field>
+                  <Field label="Nascimento">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={athlete.birth_date ?? ""}
+                      onChange={(e) => update("birth_date", e.target.value || null)}
+                    />
+                  </Field>
+                  <Field label="Posição">
+                    <select
+                      className={inputClass}
+                      value={athlete.position_id ?? ""}
+                      onChange={(e) => update("position_id", e.target.value || null)}
+                    >
+                      <option value="">Selecione</option>
+                      {positions
+                        .filter((item) => !athlete.sport_id || item.sport_id === athlete.sport_id)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name_pt}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <Field label="Nacionalidade">
+                    <SearchableSelect
+                      value={athlete.nationality ?? ""}
+                      placeholder="Buscar país"
+                      options={countries.map((item) => ({
+                        value: item.code,
+                        label: `${item.flag_emoji ?? ""} ${item.name_pt}`.trim(),
+                      }))}
+                      onChange={(value) => update("nationality", value || null)}
+                    />
+                  </Field>
+                  <Field label="Altura (cm)">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      value={athlete.height_cm ?? ""}
+                      onChange={(e) =>
+                        update("height_cm", e.target.value ? Number(e.target.value) : null)
+                      }
+                    />
+                  </Field>
+                  <Field label="Peso (kg)">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      value={athlete.weight_kg ?? ""}
+                      onChange={(e) =>
+                        update("weight_kg", e.target.value ? Number(e.target.value) : null)
+                      }
+                    />
+                  </Field>
+                  <Field label="Foto">
+                    <label
+                      className={
+                        secondaryButtonClass +
+                        " mt-1 flex cursor-pointer items-center justify-center gap-2"
+                      }
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploadingPhoto ? "Enviando..." : "Selecionar foto"}
                       <input
-                        className={inputClass}
-                        value={achievementDraft.title}
-                        onChange={(e) =>
-                          setAchievementDraft({ ...achievementDraft, title: e.target.value })
-                        }
+                        className="hidden"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(e) => void uploadPhoto(e.target.files?.[0])}
                       />
-                    </Field>
-                    <Field label="Tipo">
-                      <input
-                        className={inputClass}
-                        value={achievementDraft.type}
-                        onChange={(e) =>
-                          setAchievementDraft({ ...achievementDraft, type: e.target.value })
-                        }
+                    </label>
+                    {athlete.photo_url && (
+                      <img
+                        src={athlete.photo_url}
+                        alt="Preview da foto"
+                        className="mt-3 h-40 w-full rounded-md object-cover"
                       />
-                    </Field>
-                    <Field label="Descrição" wide>
+                    )}
+                  </Field>
+                </div>
+              </Panel>
+            )}
+            {tab === "profile" && (
+              <>
+                <Panel title="Perfil público e acadêmico">
+                  <div className="grid gap-4 p-5 md:grid-cols-2">
+                    <Field label="Biografia PT" wide>
                       <textarea
                         className={textareaClass}
-                        value={achievementDraft.description}
-                        onChange={(e) =>
-                          setAchievementDraft({ ...achievementDraft, description: e.target.value })
-                        }
+                        value={profile.bio_pt ?? ""}
+                        onChange={(e) => setProfile({ ...profile, bio_pt: e.target.value })}
                       />
                     </Field>
-                    <Field label="Data">
+                    <Field label="Biografia EN" wide>
+                      <textarea
+                        className={textareaClass}
+                        value={profile.bio_en ?? ""}
+                        onChange={(e) => setProfile({ ...profile, bio_en: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Ano de conclusão">
                       <input
                         className={inputClass}
-                        type="date"
-                        value={achievementDraft.achievedOn}
+                        type="number"
+                        value={profile.graduation_year ?? ""}
                         onChange={(e) =>
-                          setAchievementDraft({ ...achievementDraft, achievedOn: e.target.value })
+                          setProfile({
+                            ...profile,
+                            graduation_year: e.target.value ? Number(e.target.value) : null,
+                          })
                         }
                       />
                     </Field>
-                    <Field label="Imagem(URL)">
+                    <Field label="GPA">
                       <input
                         className={inputClass}
-                        value={achievementDraft.imageUrl}
+                        type="number"
+                        step="0.01"
+                        value={profile.gpa ?? ""}
                         onChange={(e) =>
-                          setAchievementDraft({ ...achievementDraft, imageUrl: e.target.value })
+                          setProfile({
+                            ...profile,
+                            gpa: e.target.value ? Number(e.target.value) : null,
+                          })
                         }
                       />
                     </Field>
-                    <Field label="Medalha">
-                      <label className="flex items-center gap-2 text-sm font-medium">
+                    <Field label="Nível de inglês">
+                      <input
+                        className={inputClass}
+                        value={profile.english_level ?? ""}
+                        onChange={(e) => setProfile({ ...profile, english_level: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Vídeo destaque">
+                      <label
+                        className={
+                          secondaryButtonClass +
+                          " mt-1 flex cursor-pointer items-center justify-center gap-2"
+                        }
+                      >
+                        <Upload className="h-4 w-4" />
+                        {uploadingVideo ? "Enviando..." : "Selecionar vídeo"}
                         <input
-                          type="checkbox"
-                          checked={achievementDraft.medal}
+                          className="hidden"
+                          type="file"
+                          accept="video/mp4,video/quicktime"
+                          onChange={(e) => void uploadHighlightVideo(e.target.files?.[0])}
+                        />
+                      </label>
+                      {profile.highlight_video_url && (
+                        <video
+                          src={profile.highlight_video_url}
+                          controls
+                          className="mt-3 h-40 w-full rounded-md object-cover"
+                        />
+                      )}
+                    </Field>
+                  </div>
+                </Panel>
+                <Panel
+                  title="Vídeos do YouTube"
+                  description="Apresentação, Highlights (reels) e Destaque (vídeo do hero) exibidos no perfil público."
+                >
+                  <div className="space-y-5 p-5">
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] md:items-end">
+                      <Field label="Tipo">
+                        <select
+                          className={inputClass}
+                          value={videoDraft.kind}
                           onChange={(e) =>
-                            setAchievementDraft({ ...achievementDraft, medal: e.target.checked })
+                            setVideoDraft({
+                              ...videoDraft,
+                              kind: e.target.value as AthleteVideoKind,
+                            })
+                          }
+                        >
+                          <option value="presentation">Apresentação</option>
+                          <option value="highlight">Highlight (reel)</option>
+                          <option value="feature">Destaque (hero)</option>
+                        </select>
+                      </Field>
+                      <Field label="Link do YouTube">
+                        <input
+                          className={inputClass}
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          value={videoDraft.youtube_url}
+                          onChange={(e) =>
+                            setVideoDraft({ ...videoDraft, youtube_url: e.target.value })
                           }
                         />
-                        Marcar como medalha
-                      </label>
-                    </Field>
+                      </Field>
+                      <button className={buttonClass} onClick={() => void addVideo()}>
+                        Adicionar
+                      </button>
+                    </div>
+                    {videos.length ? (
+                      <ul className="grid gap-3 sm:grid-cols-2">
+                        {videos.map((item) => (
+                          <li
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-md border border-border/70 p-3"
+                          >
+                            <img
+                              src={youtubeThumbnail(item.youtube_url) ?? ""}
+                              alt=""
+                              className="h-14 w-24 rounded object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium">
+                                {item.kind === "presentation"
+                                  ? "Apresentação"
+                                  : item.kind === "feature"
+                                    ? "Destaque"
+                                    : "Highlight"}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {item.youtube_url}
+                              </p>
+                            </div>
+                            <button
+                              aria-label="Remover vídeo"
+                              className="text-destructive"
+                              onClick={() => void deleteVideo(item)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nenhum vídeo cadastrado.</p>
+                    )}
                   </div>
-                  <div className="mt-4 flex gap-3">
-                    <button className={buttonClass} onClick={() => void saveAchievement()}>
-                      Salvar conquista
-                    </button>
+                </Panel>
+                <Panel
+                  title="Mídia enviada"
+                  action={
                     <button
                       className={secondaryButtonClass}
-                      onClick={() => setShowAchievementForm(false)}
+                      onClick={() => setShowAchievementForm((value) => !value)}
                     >
-                      Cancelar
+                      {showAchievementForm ? "Fechar" : "+ Conquista"}
                     </button>
-                  </div>
-                </div>
-              )}
-              <div className="border-t p-5">
-                <h3 className="font-medium">Conquistas publicadas</h3>
-                <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
-                  {achievements.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-start justify-between gap-3 rounded-md border p-3"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {item.title_pt ?? item.title_en}
-                        </p>
-                        <p className="mt-1 text-xs">{item.description_pt ?? item.description_en}</p>
+                  }
+                >
+                  {media.length ? (
+                    <div className="grid gap-4 p-5 sm:grid-cols-2">
+                      {media.map((item) => (
+                        <article key={item.id}>
+                          <div className="aspect-video overflow-hidden rounded-md bg-muted">
+                            {item.kind === "photo" ? (
+                              <img
+                                src={mediaUrls[item.id] ?? ""}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <video
+                                src={mediaUrls[item.id] ?? ""}
+                                controls
+                                className="h-full w-full"
+                              />
+                            )}
+                          </div>
+                          <button
+                            className={secondaryButtonClass + " mt-2 w-full"}
+                            onClick={() => toggleMedia(item)}
+                          >
+                            {item.is_public ? "Retirar do público" : "Aprovar e publicar"}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-5 text-sm text-muted-foreground">Nenhuma mídia enviada.</p>
+                  )}
+                  {showAchievementForm && (
+                    <div className="border-t p-5">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <Field label="Título">
+                          <input
+                            className={inputClass}
+                            value={achievementDraft.title}
+                            onChange={(e) =>
+                              setAchievementDraft({ ...achievementDraft, title: e.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field label="Tipo">
+                          <input
+                            className={inputClass}
+                            value={achievementDraft.type}
+                            onChange={(e) =>
+                              setAchievementDraft({ ...achievementDraft, type: e.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field label="Descrição" wide>
+                          <textarea
+                            className={textareaClass}
+                            value={achievementDraft.description}
+                            onChange={(e) =>
+                              setAchievementDraft({
+                                ...achievementDraft,
+                                description: e.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field label="Data">
+                          <input
+                            className={inputClass}
+                            type="date"
+                            value={achievementDraft.achievedOn}
+                            onChange={(e) =>
+                              setAchievementDraft({
+                                ...achievementDraft,
+                                achievedOn: e.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field label="Imagem da conquista">
+                          <input
+                            className={inputClass}
+                            placeholder="URL da imagem"
+                            value={achievementDraft.imageUrl}
+                            onChange={(e) =>
+                              setAchievementDraft({ ...achievementDraft, imageUrl: e.target.value })
+                            }
+                          />
+                          <label
+                            className={
+                              secondaryButtonClass +
+                              " mt-2 flex cursor-pointer items-center justify-center gap-2"
+                            }
+                          >
+                            <Upload className="h-4 w-4" />
+                            {uploadingAchievementImage ? "Enviando..." : "Enviar imagem"}
+                            <input
+                              className="hidden"
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={(e) => void uploadAchievementImage(e.target.files?.[0])}
+                            />
+                          </label>
+                          {achievementDraft.imageUrl && (
+                            <img
+                              src={achievementDraft.imageUrl}
+                              alt="Pré-visualização da conquista"
+                              className="mt-2 h-28 w-full rounded-md object-cover"
+                            />
+                          )}
+                        </Field>
+                        <Field label="Medalha">
+                          <label className="flex items-center gap-2 text-sm font-medium">
+                            <input
+                              type="checkbox"
+                              checked={achievementDraft.medal}
+                              onChange={(e) =>
+                                setAchievementDraft({
+                                  ...achievementDraft,
+                                  medal: e.target.checked,
+                                })
+                              }
+                            />
+                            Marcar como medalha
+                          </label>
+                        </Field>
                       </div>
-                      <button
-                        className="text-xs text-destructive"
-                        onClick={() => void deleteAchievement(item)}
-                      >
-                        Excluir
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Panel>
+                      <div className="mt-4 flex gap-3">
+                        <button className={buttonClass} onClick={() => void saveAchievement()}>
+                          Salvar conquista
+                        </button>
+                        <button
+                          className={secondaryButtonClass}
+                          onClick={() => setShowAchievementForm(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="border-t p-5">
+                    <h3 className="font-medium">Conquistas publicadas</h3>
+                    <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
+                      {achievements.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-start justify-between gap-3 rounded-md border p-3"
+                        >
+                          <div className="flex gap-3">
+                            {item.image_url && (
+                              <img
+                                src={item.image_url}
+                                alt=""
+                                className="h-14 w-20 shrink-0 rounded object-cover"
+                              />
+                            )}
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {item.title_pt ?? item.title_en}
+                              </p>
+                              <p className="mt-1 text-xs">
+                                {item.description_pt ?? item.description_en}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            className="text-xs text-destructive"
+                            onClick={() => void deleteAchievement(item)}
+                          >
+                            Excluir
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Panel>
+              </>
+            )}
           </div>
           <div className="space-y-6">
             <Panel title="Publicação">
