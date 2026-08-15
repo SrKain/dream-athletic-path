@@ -41,3 +41,10 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Pedido:** Ao avançar de fase, exibir um dialog no portal com mensagem pré-configurada pela agência e slider de imagens (nada renderizado quando não houver imagens), com confetes atrás do dialog.
 - **Entrega:** Migração `0008_stage_portal_announcement.sql`; hook `use-stage-announcement`; componente `stage-celebration-dialog`; `fireConfetti` reutilizável; integração nas telas do portal e configuração por etapa em Admin → Configurações.
 - **Status:** [CONCLUÍDO] — requer execução da migração 0008 no Supabase.
+
+## TASK-011 — 2026-08-15 — Aba Visual e catálogo público em formato portfólio
+- **Solicitante:** Usuário Humano
+- **Executor:** GitHub Copilot
+- **Pedido:** Criar aba Visual, textos configuráveis do catálogo, ordem manual de posições, previews e reels YouTube, perfil público em formato portfólio, WhatsApp flutuante e edição de mídias na ficha do atleta.
+- **Entrega:** Migration 0009, tipos e loaders públicos, helpers YouTube, preview/autoplay, ReelsViewer, WhatsApp FAB, catálogo por posição, rota `/admin/visual`, vídeos YouTube na ficha e documentação viva atualizada.
+- **Status:** [PENDENTE] — executar a migration 0009 no Supabase externo e concluir validação local quando o ambiente Bun/dependências estiver disponível.

@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileText,
   Images,
+  Palette,
   LayoutDashboard,
   LogOut,
   Menu,

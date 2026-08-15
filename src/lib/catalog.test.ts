@@ -10,8 +10,8 @@ const athletes = [
 ];
 
 describe("catalog helpers", () => {
-  it("groups athletes into volleyball position shelves", () => {
-    const shelves = buildAthleteShelves(athletes);
+  it("groups athletes by the manually configured position order", () => {
+    const shelves = buildAthleteShelves(athletes, ["position-1", "position-2", "position-3"]);
     expect(shelves.map((shelf) => shelf.title)).toEqual(["Levantadores", "Ponteiros", "Líberos"]);
     expect(shelves[0].athletes[0].full_name).toBe("Ana");
   });
@@ -55,7 +55,7 @@ function athlete(
     nationality: "BR",
     photo_url: null,
     position: { abbreviation: null, name_en: position, name_pt: position },
-    position_id: null,
+    position_id: `position-${id}`,
     slug,
     sport: { name_en: "Volleyball", name_pt: "Vôlei", slug: "volleyball" },
     sport_id: null,

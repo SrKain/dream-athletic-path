@@ -199,3 +199,13 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **`src/components/stage-celebration-dialog.tsx`**: dialog com título da etapa, mensagem e slider próprio (setas/indicadores só com múltiplas imagens; nada é renderizado sem imagens). Confetes disparam uma vez atrás do dialog.
 - **`src/components/confetti-celebration.tsx`**: rotina extraída para `fireConfetti({ duration, zIndex })`, reutilizada pelo dialog.
 - **Telas**: dialog montado em `portal/pipeline.tsx` e `portal/index.tsx`; configuração (texto + upload/reordenar/remover imagens) na edição de etapa em `admin/settings.tsx`.
+
+## Atualização 2026-08-15 — Aba Visual e catálogo portfólio
+
+- **Migration `0009_visual_settings_media.sql`**: adiciona `agency_visual_settings`, `catalog_position_order` e `athlete_videos`, com grants públicos de leitura, escrita protegida por `is_agency_admin()` e leitura de vídeos limitada a atletas publicados.
+- **Dados públicos**: `src/lib/athletes.functions.ts` passa a retornar configurações visuais, ordem de posições e vídeos YouTube. `sport_id` continua no schema, mas não participa do agrupamento público.
+- **YouTube**: `src/lib/youtube.ts` valida URLs `watch`, `youtu.be`, `shorts` e `embed`, gerando embeds mudos e thumbnails. `YoutubeHoverPreview`, `use-in-view-autoplay` e `ReelsViewer` compõem a experiência de preview e reels.
+- **Catálogo**: `src/routes/index.tsx` usa hero compacto, cabeçalho configurável, prateleiras por posição, selo semântico de destaque e WhatsApp flutuante.
+- **Perfil público**: `src/routes/athlete.$slug.tsx` usa vídeos de destaque/apresentação, reels circulares, conquistas com imagem e WhatsApp flutuante.
+- **Admin**: `src/routes/_authenticated/admin/visual.tsx` permite editar textos e ordenar posições; a ficha do atleta ganhou gerenciamento de links YouTube e thumbnails.
+- **Operação**: a migration 0009 precisa ser executada no Supabase externo antes de usar a aba Visual.
