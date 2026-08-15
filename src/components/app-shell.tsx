@@ -9,6 +9,7 @@ import {
   Menu,
   Settings,
   Send,
+  Palette,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -23,6 +24,7 @@ const adminLinks = [
   { to: "/admin/documents", label: "Documentos", icon: FileText },
   { to: "/admin/proposals", label: "Propostas", icon: Send },
   { to: "/admin/notifications", label: "Notificações", icon: Bell },
+  { to: "/admin/visual", label: "Visual", icon: Palette },
   { to: "/admin/settings", label: "Configurações", icon: Settings },
 ] as const;
 
