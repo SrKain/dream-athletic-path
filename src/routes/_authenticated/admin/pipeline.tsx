@@ -48,7 +48,7 @@ function PipelinePage() {
   async function createAthlete(event: React.FormEvent) {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
-    if (!agency) return toast.error("Crie a agência antes do primeiro atleta.");
+    if (!agency) return toast.error("Create the agency before adding the first athlete.");
 
     const existingSlugs = athletes.map((item) => item.slug);
     const { data, error } = await supabase
@@ -73,7 +73,7 @@ function PipelinePage() {
       if (progressError) return toast.error(progressError.message);
     }
 
-    toast.success("Atleta criado na primeira etapa.");
+    toast.success("Athlete created in the first stage.");
     setName("");
     setEmail("");
     setOpenQuickAdd(false);
@@ -95,7 +95,7 @@ function PipelinePage() {
     if (progressResult.error) toast.error(progressResult.error.message);
     else if (athleteResult.error) toast.error(athleteResult.error.message);
     else {
-      toast.success("Atleta movido no pipeline.");
+      toast.success("Athlete moved in the pipeline.");
       await load();
     }
   }
@@ -111,7 +111,7 @@ function PipelinePage() {
       });
     if (error) toast.error(error.message);
     else {
-      toast.success("Pipeline atualizado.");
+      toast.success("Pipeline updated.");
       await load();
     }
   }
@@ -120,11 +120,11 @@ function PipelinePage() {
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title="Pipeline">
         <Panel
-          title="Acompanhamento em Kanban"
-          description="Arraste atletas entre as etapas e acompanhe a jornada operacional."
+          title="Kanban tracking"
+          description="Drag athletes between stages and track the operational journey."
           action={
             <button className={buttonClass} onClick={() => setOpenQuickAdd((value) => !value)}>
-              <UserPlus className="mr-2 h-4 w-4" /> Adicionar atleta
+              <UserPlus className="mr-2 h-4 w-4" /> Add athlete
             </button>
           }
         >
@@ -135,14 +135,14 @@ function PipelinePage() {
             >
               <input
                 className={inputClass}
-                placeholder="Nome completo"
+                placeholder="Full name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <input
                 className={inputClass}
-                placeholder="E-mail do atleta"
+                placeholder="Athlete email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -177,7 +177,7 @@ function PipelinePage() {
                         {stage.name_pt ?? stage.name_en}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        {stageAthletes.length} atletas
+                        {stageAthletes.length} athletes
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -219,17 +219,17 @@ function PipelinePage() {
                                   )
                                 }
                               >
-                                <option value="not_started">Não iniciado</option>
-                                <option value="in_progress">Em andamento</option>
-                                <option value="blocked">Bloqueado</option>
-                                <option value="completed">Concluído</option>
+                                <option value="not_started">Not started</option>
+                                <option value="in_progress">In progress</option>
+                                <option value="blocked">Blocked</option>
+                                <option value="completed">Completed</option>
                               </select>
                             </div>
                           );
                         })
                       ) : (
                         <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                          Nenhum atleta aqui.
+                          No athletes here.
                         </div>
                       )}
                     </div>
@@ -240,8 +240,8 @@ function PipelinePage() {
               {athletesWithoutStage.length > 0 && (
                 <div className="min-h-80 rounded-md border border-dashed border-primary/50 bg-primary/5 p-3">
                   <div className="mb-3 border-b border-primary/20 pb-3">
-                    <h3 className="font-display text-lg font-semibold">Sem etapa</h3>
-                    <p className="text-xs text-muted-foreground">Envie para a primeira etapa.</p>
+                    <h3 className="font-display text-lg font-semibold">No stage</h3>
+                    <p className="text-xs text-muted-foreground">Send to the first stage.</p>
                   </div>
                   <div className="space-y-2">
                     {athletesWithoutStage.map((athlete) => (
@@ -252,7 +252,7 @@ function PipelinePage() {
                             className={`${secondaryButtonClass} mt-3 w-full`}
                             onClick={() => void moveAthleteToStage(athlete.id, firstStage.id)}
                           >
-                            Mover para {firstStage.name_pt ?? firstStage.name_en}
+                            Move to {firstStage.name_pt ?? firstStage.name_en}
                           </button>
                         )}
                       </div>
@@ -262,7 +262,7 @@ function PipelinePage() {
               )}
             </div>
           ) : (
-            <EmptyState>Configure as etapas do pipeline antes de adicionar atletas.</EmptyState>
+            <EmptyState>Set up pipeline stages before adding athletes.</EmptyState>
           )}
         </Panel>
       </AppShell>
