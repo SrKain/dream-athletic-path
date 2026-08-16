@@ -55,3 +55,11 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Pedido:** Melhorar visualmente a tela pública do atleta usando os vídeos cadastrados no Admin para criar uma apresentação mais impressionante, com vídeo de apresentação, highlights e outros destaques.
 - **Entrega:** Hero editorial com foto em primeiro plano e vídeo de destaque como ambiente, CTA para o destaque, apresentação com título configurável, seção de destaque ancorada e compatibilidade restaurada para thumbnails YouTube.
 - **Status:** [CONCLUÍDO] — typecheck, lint focado, testes de YouTube e build passaram. A suíte completa mantém duas falhas preexistentes em `sending-window.test.ts`, fora do escopo visual; a validação visual com dados reais depende da migration 0009 aplicada no Supabase externo.
+
+## [CONCLUÍDO] Aba Visual + catálogo em formato portfólio
+- Solicitante: usuário | Executor: Lovable
+- Aba **Visual** no admin (`/admin/visual`): títulos do hero, cabeçalho "Nossos Atletas" e ordenação manual das posições.
+- Catálogo: hero mais baixo, cabeçalho antes da busca, badge "Destaque" com contraste corrigido, prévia em vídeo (hover no desktop / centro da tela no mobile), FAB do WhatsApp.
+- Perfil público: hero com vídeo destaque ao fundo, reels (highlights) antes do "Sobre", vídeo de apresentação, bloco do vídeo destaque, conquistas com imagem + texto, FAB do WhatsApp.
+- Ficha do atleta no admin dividida em abas (Timeline / Dados / Perfil & mídia) com gestão de links do YouTube e upload de imagem da conquista.
+- Pendente do usuário: aplicar `db/migrations/0009_visual_settings_media.sql` no Supabase.

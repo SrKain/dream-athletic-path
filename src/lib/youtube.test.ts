@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseYoutubeId, youtubeEmbedUrl, youtubeThumbnailUrl } from "./youtube";
+import { parseYoutubeId, youtubeEmbedUrl, youtubeThumbnail } from "./youtube";
 
 describe("youtube helpers", () => {
   it.each([
@@ -14,6 +14,6 @@ describe("youtube helpers", () => {
 
   it("builds muted looping embed and thumbnail URLs", () => {
     expect(youtubeEmbedUrl("https://youtu.be/abc123XYZ_1", { autoplay: true, loop: true })).toContain("autoplay=1");
-    expect(youtubeThumbnailUrl("https://youtu.be/abc123XYZ_1")).toBe("https://img.youtube.com/vi/abc123XYZ_1/hqdefault.jpg");
+    expect(youtubeThumbnail("https://youtu.be/abc123XYZ_1")).toBe("https://i.ytimg.com/vi/abc123XYZ_1/hqdefault.jpg");
   });
 });

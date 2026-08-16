@@ -216,3 +216,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Vídeos**: a sequência pública fica organizada em Apresentação, Highlights e Destaque. Apresentação usa o título cadastrado quando disponível; Highlights continuam no `ReelsRow` com navegação vertical; Destaque ganha uma seção completa com âncora própria.
 - **Compatibilidade YouTube**: `src/lib/youtube.ts` expõe `youtubeThumbnailUrl` como alias type-safe de `youtubeThumbnail` e usa o contrato de thumbnail `img.youtube.com`, mantendo os consumidores existentes compatíveis.
 - **Fallbacks**: a informação essencial permanece disponível sem vídeo `feature`; o hero usa foto e dados do atleta mesmo quando o autoplay externo não estiver disponível.
+
+## Camada visual do catálogo (migration 0009)
+- `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
+- `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).
+- `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature`.
+- Componentes: `athlete-video-card-media.tsx` (prévia em vídeo nos cards), `reels-viewer.tsx` (highlights em doom scroll), `whatsapp-fab.tsx` (botão flutuante).
+- Helpers: `src/lib/youtube.ts` (`parseYoutubeId`, `youtubeThumbnail`, `youtubeEmbedUrl`).
