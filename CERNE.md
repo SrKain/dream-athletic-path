@@ -238,6 +238,21 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Novos campos adicionados na aba "Perfil & mídia" para preenchimento de todos os 8 novos atributos.
   - Cadastro de vídeos do YouTube atualizado com suporte ao tipo "Em quadra (jogo)" (`in_court`), permitindo múltiplos vídeos com títulos opcionais.
 
+## Atualização 2026-08-16 — Correção do pipeline de vídeos do YouTube & Reels (TASK-015)
+
+- **Parser Resiliente (`src/lib/youtube.ts`)**:
+  - `parseYoutubeId()` reescrito com estratégia combinada (Web `URL` API nativa + 5 regexes de fallback). Suporta 100% dos links do YouTube: `watch?v=ID`, URLs com parâmetros adicionais (`&feature=shared`, `&t=10s`, `?si=...`), `youtu.be/ID`, `shorts/ID`, `embed/ID`, `live/ID`, `v/ID` e `m.youtube.com`.
+  - `youtubeEmbedUrl()` atualizado para usar o domínio universal `https://www.youtube.com/embed/${id}` com `enablejsapi=1`, `playsinline=1`, `rel=0` e `modestbranding=1`, eliminando restrições de embedding que falhavam em `youtube-nocookie.com`.
+  - `youtubeThumbnail()` com geração canônica via `img.youtube.com`.
+- **Reels Viewer Interativo (`src/components/reels-viewer.tsx`)**:
+  - Carrossel de Highlights com miniaturas e fallback com ícone para evitar círculos vazios.
+  - Overlay em tela cheia com controle reativo de índice ativo (`currentIndex`), botões de navegação lateral (setas para cima/baixo), suporte a toque/swipe vertical em smartphones e teclas do teclado (↑/↓/ESC).
+  - Player vertical 9:16 com `allowFullScreen`, `gyroscope`, `picture-in-picture` e `web-share`.
+- **Frames no Perfil Público (`src/routes/athlete.$slug.tsx`)**:
+  - `YoutubePlayerFrame` atualizado com a propriedade explícita `allowFullScreen` e lista completa de permissões de reprodução.
+  - Hero com fundo atmosférico com loop do vídeo de destaque e fallback para `profile.highlight_video_url`.
+  - Testes unitários atualizados em `src/lib/youtube.test.ts`.
+
 ## Camada visual do catálogo (migration 0009)
 - `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
 - `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).

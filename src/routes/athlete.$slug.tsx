@@ -60,12 +60,14 @@ function PublicAthleteProfile() {
   const age = calculateAge(athlete.birth_date);
   const firstName = athlete.full_name.split(" ")[0];
 
-  const highlights = videos.filter((item) => item.kind === "highlight");
-  const inCourtVideos = videos.filter((item) => item.kind === "in_court");
-  const featureVideo = videos.find((item) => item.kind === "feature");
-  const presentationVideo = videos.find((item) => item.kind === "presentation");
+  const safeVideos = Array.isArray(videos) ? videos : [];
+  const highlights = safeVideos.filter((item) => item.kind === "highlight");
+  const inCourtVideos = safeVideos.filter((item) => item.kind === "in_court");
+  const featureVideo = safeVideos.find((item) => item.kind === "feature");
+  const presentationVideo = safeVideos.find((item) => item.kind === "presentation");
 
-  const heroBackground = youtubeEmbedUrl(featureVideo?.youtube_url, {
+  const featureUrl = featureVideo?.youtube_url || profile?.highlight_video_url;
+  const heroBackground = youtubeEmbedUrl(featureUrl, {
     autoplay: true,
     controls: false,
     loop: true,
@@ -514,7 +516,8 @@ function loaderPhotoOrFallback(athlete: PublicAthletePayload["athlete"]) {
   return athlete.photo_url ?? getAthleteDisplayImage(athlete);
 }
 
-function YoutubePlayerFrame({ url, title }: { url: string; title: string }) {
+function YoutubePlayerFrame({ url, title }: { url?: string | null; title: string }) {
+  if (!url) return null;
   const embed = youtubeEmbedUrl(url);
   if (!embed) return null;
   return (
@@ -522,7 +525,8 @@ function YoutubePlayerFrame({ url, title }: { url: string; title: string }) {
       <iframe
         src={embed}
         title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
         className="h-full w-full border-0"
       />
     </div>
