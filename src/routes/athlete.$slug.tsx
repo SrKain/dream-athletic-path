@@ -130,9 +130,9 @@ function PublicAthleteProfile() {
             </dl>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <a
-              href={buildRecruitWhatsappUrl(athlete.full_name)}
-              target="_blank"
-              rel="noopener noreferrer"
+                href={buildRecruitWhatsappUrl(athlete.full_name)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="liquid-button inline-flex h-12 items-center rounded-md px-7 text-sm font-semibold uppercase tracking-[0.16em]"
               >
                 Recrutar atleta

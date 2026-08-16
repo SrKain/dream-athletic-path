@@ -209,3 +209,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Perfil público**: `src/routes/athlete.$slug.tsx` usa vídeos de destaque/apresentação, reels circulares, conquistas com imagem e WhatsApp flutuante.
 - **Admin**: `src/routes/_authenticated/admin/visual.tsx` permite editar textos e ordenar posições; a ficha do atleta ganhou gerenciamento de links YouTube e thumbnails.
 - **Operação**: a migration 0009 precisa ser executada no Supabase externo antes de usar a aba Visual.
+
+## Atualização 2026-08-16 — Perfil público cinematográfico
+
+- **Rota pública**: `src/routes/athlete.$slug.tsx` reforça a narrativa editorial do atleta com foto como âncora visual, vídeo `feature` como atmosfera do hero, CTA de recrutamento e atalho acessível para o destaque principal.
+- **Vídeos**: a sequência pública fica organizada em Apresentação, Highlights e Destaque. Apresentação usa o título cadastrado quando disponível; Highlights continuam no `ReelsRow` com navegação vertical; Destaque ganha uma seção completa com âncora própria.
+- **Compatibilidade YouTube**: `src/lib/youtube.ts` expõe `youtubeThumbnailUrl` como alias type-safe de `youtubeThumbnail` e usa o contrato de thumbnail `img.youtube.com`, mantendo os consumidores existentes compatíveis.
+- **Fallbacks**: a informação essencial permanece disponível sem vídeo `feature`; o hero usa foto e dados do atleta mesmo quando o autoplay externo não estiver disponível.

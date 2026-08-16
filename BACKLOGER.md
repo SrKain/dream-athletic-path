@@ -48,3 +48,10 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Pedido:** Criar aba Visual, textos configuráveis do catálogo, ordem manual de posições, previews e reels YouTube, perfil público em formato portfólio, WhatsApp flutuante e edição de mídias na ficha do atleta.
 - **Entrega:** Migration 0009, tipos e loaders públicos, helpers YouTube, preview/autoplay, ReelsViewer, WhatsApp FAB, catálogo por posição, rota `/admin/visual`, vídeos YouTube na ficha e documentação viva atualizada.
 - **Status:** [PENDENTE] — executar a migration 0009 no Supabase externo e concluir validação local quando o ambiente Bun/dependências estiver disponível.
+
+## TASK-012 — 2026-08-16 — Evolução visual do perfil público do atleta
+- **Solicitante:** Usuário Humano
+- **Executor:** GitHub Copilot
+- **Pedido:** Melhorar visualmente a tela pública do atleta usando os vídeos cadastrados no Admin para criar uma apresentação mais impressionante, com vídeo de apresentação, highlights e outros destaques.
+- **Entrega:** Hero editorial com foto em primeiro plano e vídeo de destaque como ambiente, CTA para o destaque, apresentação com título configurável, seção de destaque ancorada e compatibilidade restaurada para thumbnails YouTube.
+- **Status:** [CONCLUÍDO] — typecheck, lint focado, testes de YouTube e build passaram. A suíte completa mantém duas falhas preexistentes em `sending-window.test.ts`, fora do escopo visual; a validação visual com dados reais depende da migration 0009 aplicada no Supabase externo.

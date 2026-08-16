@@ -17,7 +17,7 @@ export function isValidYoutubeUrl(url?: string | null) {
 
 export function youtubeThumbnail(url?: string | null) {
   const id = parseYoutubeId(url);
-  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
 }
 
 export const youtubeThumbnailUrl = youtubeThumbnail;
