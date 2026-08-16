@@ -1,40 +1,31 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 
 import { messages, type Locale, type MessageKey } from "./messages";
 
 interface I18nValue {
   locale: Locale;
+  /** Mantido por compatibilidade: a aplicação é somente em inglês (EUA). */
   setLocale: (locale: Locale) => void;
   t: (key: MessageKey) => string;
-  /** Escolhe o campo `_pt` ou `_en` de um registro multilíngue. */
+  /** Escolhe o texto em inglês, com fallback para o valor legado cadastrado. */
   pick: (pt?: string | null, en?: string | null) => string;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
-const STORAGE_KEY = "app.locale";
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("pt");
-
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "pt" || stored === "en") setLocaleState(stored);
-  }, []);
-
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
-    document.documentElement.lang = next === "pt" ? "pt-BR" : "en";
+    document.documentElement.lang = "en-US";
   }, []);
 
   const value = useMemo<I18nValue>(
     () => ({
-      locale,
-      setLocale,
-      t: (key) => messages[locale][key] ?? key,
-      pick: (pt, en) => (locale === "pt" ? (pt ?? en ?? "") : (en ?? pt ?? "")),
+      locale: "en",
+      setLocale: () => {},
+      t: (key) => messages.en[key] ?? key,
+      pick: (pt, en) => en ?? pt ?? "",
     }),
-    [locale, setLocale],
+    [],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -42,6 +33,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
 export function useI18n() {
   const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error("useI18n deve ser usado dentro de <I18nProvider>");
+  if (!ctx) throw new Error("useI18n must be used inside <I18nProvider>");
   return ctx;
 }

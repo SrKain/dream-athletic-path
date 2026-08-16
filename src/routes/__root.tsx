@@ -83,13 +83,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Catálogo e plataforma de acompanhamento para atletas brasileiros em busca de oportunidades nos Estados Unidos.",
+          "Catalog and tracking platform for Brazilian athletes pursuing opportunities in the United States.",
       },
       { name: "author", content: "Go Team Go" },
       { property: "og:title", content: "Go Team Go — Athlete Platform" },
       {
         property: "og:description",
-        content: "Talento esportivo, organização e oportunidades em um só lugar.",
+        content: "Athletic talent, organization, and opportunity in one place.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -111,7 +111,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="en-US">
       <head>
         <HeadContent />
       </head>

@@ -15,8 +15,8 @@ function PortalNotifications() {
   }
   return (
     <ProtectedPage role="athlete">
-      <AppShell role="athlete" title="Notificações">
-        <Panel title="Atualizações">
+      <AppShell role="athlete" title="Notifications">
+        <Panel title="Updates">
           {data.notifications.length ? (
             <div className="divide-y">
               {data.notifications.map((item) => (
@@ -34,7 +34,7 @@ function PortalNotifications() {
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhuma notificação.</EmptyState>
+            <EmptyState>No notifications.</EmptyState>
           )}
         </Panel>
       </AppShell>

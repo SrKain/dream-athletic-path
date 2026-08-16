@@ -34,7 +34,7 @@ function AthletesPage() {
   async function create(event: React.FormEvent) {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
-    if (!agency) return toast.error("Crie a agência antes do primeiro atleta.");
+    if (!agency) return toast.error("Create the agency before adding the first athlete.");
     const { data: firstStage } = await supabase
       .from("pipeline_stages")
       .select("*")
@@ -66,7 +66,7 @@ function AthletesPage() {
       if (progressError) return toast.error(progressError.message);
     }
 
-    toast.success("Atleta criado na primeira etapa.");
+    toast.success("Athlete created in the first stage.");
     setName("");
     setEmail("");
     setOpen(false);
@@ -80,13 +80,13 @@ function AthletesPage() {
 
   return (
     <ProtectedPage role="agency_admin">
-      <AppShell role="agency_admin" title="Atletas">
+      <AppShell role="agency_admin" title="Athletes">
         <Panel
-          title="Todos os atletas"
-          description={`${athletes.filter((item) => !item.deleted_at).length} atletas ativos`}
+          title="All athletes"
+          description={`${athletes.filter((item) => !item.deleted_at).length} active athletes`}
           action={
             <button className={buttonClass} onClick={() => setOpen(!open)}>
-              <Plus className="mr-2 h-4 w-4" /> Novo atleta
+              <Plus className="mr-2 h-4 w-4" /> New athlete
             </button>
           }
         >
@@ -97,19 +97,19 @@ function AthletesPage() {
             >
               <input
                 className={inputClass}
-                placeholder="Nome completo"
+                placeholder="Full name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <input
                 className={inputClass}
-                placeholder="E-mail do atleta"
+                placeholder="Athlete email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <button className={buttonClass}>Criar perfil</button>
+              <button className={buttonClass}>Create profile</button>
             </form>
           )}
           <div className="border-b border-white/40 p-4">
@@ -117,7 +117,7 @@ function AthletesPage() {
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 className="h-10 w-full bg-transparent text-sm outline-none"
-                placeholder="Buscar atleta"
+                placeholder="Search athletes"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -147,19 +147,19 @@ function AthletesPage() {
                     <div>
                       <p className="font-medium">{athlete.full_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {athlete.email ?? "Sem convite"}
+                        {athlete.email ?? "No invite"}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     {athlete.deleted_at && (
                       <span className="rounded-full bg-destructive/10 px-2 py-1 text-xs text-destructive">
-                        Arquivado
+                        Archived
                       </span>
                     )}
                     {athlete.is_public && (
                       <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
-                        Publicado
+                        Published
                       </span>
                     )}
                   </div>
@@ -167,7 +167,7 @@ function AthletesPage() {
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhum atleta encontrado.</EmptyState>
+            <EmptyState>No athletes found.</EmptyState>
           )}
         </Panel>
       </AppShell>

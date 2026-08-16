@@ -3,9 +3,9 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase/client";
 
 /**
- * Portão único das áreas restritas.
- * `ssr: false` porque a sessão do Supabase vive no localStorage — renderizar
- * o HTML da área restrita no servidor não teria sessão e vazaria shell logado.
+ * Single gateway for restricted areas.
+ * `ssr: false` because the Supabase session lives in localStorage — rendering
+ * the restricted area's HTML on the server would have no session and would leak a logged-out shell.
  */
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,

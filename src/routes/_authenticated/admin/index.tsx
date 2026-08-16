@@ -36,14 +36,14 @@ function AdminDashboard() {
     );
   }, []);
   const cards = [
-    ["Atletas ativos", metrics.athletes, Users],
-    ["Perfis publicados", metrics.published, CheckCircle2],
-    ["Documentos pendentes", metrics.documents, FileClock],
-    ["Etapas bloqueadas", metrics.blocked, AlertTriangle],
+    ["Active athletes", metrics.athletes, Users],
+    ["Published profiles", metrics.published, CheckCircle2],
+    ["Pending documents", metrics.documents, FileClock],
+    ["Blocked stages", metrics.blocked, AlertTriangle],
   ] as const;
   return (
     <ProtectedPage role="agency_admin">
-      <AppShell role="agency_admin" title="Visão geral">
+      <AppShell role="agency_admin" title="Overview">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map(([label, value, Icon]) => (
             <div key={label} className="rounded-md border bg-card p-5">

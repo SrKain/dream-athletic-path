@@ -55,7 +55,7 @@ function SettingsPage() {
   async function addStage(event: React.FormEvent) {
     event.preventDefault();
     const { data: agency } = await supabase.from("agencies").select("id").limit(1).single();
-    if (!agency) return toast.error("Crie a agência antes de configurar o pipeline.");
+    if (!agency) return toast.error("Create the agency before configuring the pipeline.");
     const key = stageName
       .toLowerCase()
       .normalize("NFD")
@@ -71,14 +71,14 @@ function SettingsPage() {
     });
     if (error) toast.error(error.message);
     else {
-      toast.success("Etapa adicionada.");
+      toast.success("Stage added.");
       setStageName("");
       await load();
     }
   }
 
   async function addChecklist(stageId: string) {
-    const label = window.prompt("Nome do item solicitado");
+    const label = window.prompt("Name of the requested item");
     if (!label) return;
     const { error } = await supabase.from("checklist_items").insert({
       stage_id: stageId,
@@ -88,7 +88,7 @@ function SettingsPage() {
     });
     if (error) toast.error(error.message);
     else {
-      toast.success("Item adicionado.");
+      toast.success("Item added.");
       await load();
     }
   }
@@ -174,7 +174,7 @@ function SettingsPage() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Configurações da etapa salvas!");
+      toast.success("Stage settings saved!");
       setEditingStage(null);
       await load();
     }
@@ -188,17 +188,17 @@ function SettingsPage() {
 
   return (
     <ProtectedPage role="agency_admin">
-      <AppShell role="agency_admin" title="Configurações">
-        <Panel title="Configurações do Pipeline">
+      <AppShell role="agency_admin" title="Settings">
+        <Panel title="Pipeline settings">
           <form onSubmit={addStage} className="mb-5 flex items-center gap-3">
             <input
-              placeholder="Nome da nova etapa"
+              placeholder="New stage name"
               className={inputClass}
               value={stageName}
               onChange={(e) => setStageName(e.target.value)}
             />
             <button className={buttonClass}>
-              <Plus className="mr-2 h-4 w-4" /> Adicionar
+              <Plus className="mr-2 h-4 w-4" /> Add
             </button>
           </form>
           {stages.length ? (
@@ -219,7 +219,7 @@ function SettingsPage() {
                       {(stage.portal_message_pt ?? stage.portal_message_en) && (
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <ImageIcon className="h-3 w-3" />
-                          Pop-up no portal
+                          Portal pop-up
                         </Badge>
                       )}
                     </div>
@@ -227,7 +227,7 @@ function SettingsPage() {
                       {items
                         .filter((item) => item.stage_id === stage.id)
                         .map((item) => item.label_pt ?? item.label_en)
-                        .join(" · ") || "Sem itens"}
+                        .join(" · ") || "No items"}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -249,7 +249,7 @@ function SettingsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhuma etapa configurada.</EmptyState>
+            <EmptyState>No stages configured.</EmptyState>
           )}
         </Panel>
 
@@ -325,22 +325,22 @@ function SettingsPage() {
               {/* Pop-up no portal */}
               <div className="border-t border-border pt-4">
                 <Label htmlFor="portal-message" className="text-sm font-medium mb-2 block">
-                  Pop-up no portal do atleta
+                  Athlete portal pop-up
                 </Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Exibido em um dialog assim que o atleta acessa a timeline. Deixe vazio para não
-                  exibir nada. Aceita os mesmos placeholders acima.
+                  Shown in a dialog as soon as the athlete opens the timeline. Leave empty to
+                  show nothing. Accepts the same placeholders above.
                 </p>
                 <Textarea
                   id="portal-message"
                   value={portalMessage}
                   onChange={(e) => setPortalMessage(e.target.value)}
-                  placeholder="Parabéns {{athlete_first_name}}! Você avançou para {{new_stage}}. Os próximos passos são..."
+                  placeholder="Congratulations {{athlete_first_name}}! You have advanced to {{new_stage}}. The next steps are..."
                   className="min-h-30 font-mono text-sm"
                 />
 
                 <Label className="text-sm font-medium mt-4 mb-2 block">
-                  Imagens do slider (opcional)
+                  Slider images (optional)
                 </Label>
                 <input
                   type="file"
@@ -383,7 +383,7 @@ function SettingsPage() {
                           </div>
                           <button
                             type="button"
-                            aria-label="Remover imagem"
+                            aria-label="Remove image"
                             className="text-destructive"
                             onClick={() => void removeStageImage(image)}
                           >
@@ -401,7 +401,7 @@ function SettingsPage() {
               <Button variant="outline" onClick={() => setEditingStage(null)}>
                 Cancel
               </Button>
-              <Button onClick={saveCelebrationMessage}>Salvar configurações</Button>
+              <Button onClick={saveCelebrationMessage}>Save settings</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

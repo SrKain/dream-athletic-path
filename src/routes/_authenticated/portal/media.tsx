@@ -37,7 +37,7 @@ function PortalMedia() {
     if (!file || !data.athlete) return;
     const kind: UploadKind = file.type.startsWith("video/") ? "video" : "photo";
     const validation = validateUpload(kind, file);
-    if (!validation.valid) return toast.error("Arquivo inválido ou acima do limite.");
+    if (!validation.valid) return toast.error("Invalid file or over the size limit.");
     setUploading(true);
     const path = `${data.athlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage.from("athlete-media-pending").upload(path, file);
@@ -51,7 +51,7 @@ function PortalMedia() {
       });
       if (result.error) toast.error(result.error.message);
       else {
-        toast.success("Mídia enviada para aprovação.");
+        toast.success("Media submitted for approval.");
         await reload();
       }
     }
@@ -59,14 +59,14 @@ function PortalMedia() {
   }
   return (
     <ProtectedPage role="athlete">
-      <AppShell role="athlete" title="Mídia esportiva">
+      <AppShell role="athlete" title="Sports media">
         <Panel
-          title="Fotos e vídeos"
-          description="Todo conteúdo permanece privado até aprovação da agência."
+          title="Photos and videos"
+          description="All content remains private until approved by the agency."
           action={
             <label className={secondaryButtonClass + " cursor-pointer"}>
               <Upload className="mr-2 h-4 w-4" />
-              {uploading ? "Enviando..." : "Enviar mídia"}
+              {uploading ? "Uploading..." : "Upload media"}
               <input
                 className="hidden"
                 type="file"
@@ -93,13 +93,13 @@ function PortalMedia() {
                     )}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {item.is_public ? "Publicado" : "Aguardando aprovação"}
+                    {item.is_public ? "Published" : "Awaiting approval"}
                   </p>
                 </article>
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhuma mídia enviada.</EmptyState>
+            <EmptyState>No media uploaded.</EmptyState>
           )}
         </Panel>
       </AppShell>
