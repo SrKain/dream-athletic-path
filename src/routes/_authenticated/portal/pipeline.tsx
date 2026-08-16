@@ -17,7 +17,7 @@ function PortalPipeline() {
   });
   return (
     <ProtectedPage role="athlete">
-      <AppShell role="athlete" title="Meu pipeline">
+      <AppShell role="athlete" title="My pipeline">
         {announcement && (
           <StageCelebrationDialog
             open

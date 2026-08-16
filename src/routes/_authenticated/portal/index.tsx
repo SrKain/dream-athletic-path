@@ -35,23 +35,23 @@ function PortalDashboard() {
       )}
       <AppShell
         role="athlete"
-        title={`Olá${data.athlete ? `, ${data.athlete.full_name.split(" ")[0]}` : ""}`}
+        title={`Hello${data.athlete ? `, ${data.athlete.full_name.split(" ")[0]}` : ""}`}
       >
         <div className="grid gap-4 md:grid-cols-3">
           <Metric
             icon={Clock}
-            label="Etapa atual"
-            value={stage?.name_pt ?? stage?.name_en ?? "Aguardando"}
+            label="Current stage"
+            value={stage?.name_pt ?? stage?.name_en ?? "Waiting"}
           />
-          <Metric icon={FileText} label="Pendências" value={pending} />
-          <Metric icon={Bell} label="Notificações" value={unread} />
+          <Metric icon={FileText} label="Pending items" value={pending} />
+          <Metric icon={Bell} label="Notifications" value={unread} />
         </div>
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <Panel title="Seu progresso">
+          <Panel title="Your progress">
             <div className="p-5">
-              <p className="text-sm text-muted-foreground">Etapa atual</p>
+              <p className="text-sm text-muted-foreground">Current stage</p>
               <h2 className="mt-2 font-display text-2xl font-semibold">
-                {stage?.name_pt ?? stage?.name_en ?? "Em preparação"}
+                {stage?.name_pt ?? stage?.name_en ?? "In preparation"}
               </h2>
               {current && (
                 <div className="mt-4">
@@ -60,7 +60,7 @@ function PortalDashboard() {
               )}
             </div>
           </Panel>
-          <Panel title="Próximas pendências">
+          <Panel title="Upcoming items">
             <div className="divide-y">
               {data.checklist.slice(0, 4).map((item) => {
                 const definition = data.checklistDefinitions.find(

@@ -19,7 +19,7 @@ function PortalDocuments() {
     const validation = validateUpload("document", file);
     if (!validation.valid)
       return toast.error(
-        validation.reason === "invalid_type" ? "Formato não permitido." : "Arquivo acima de 25 MB.",
+        validation.reason === "invalid_type" ? "File type not allowed." : "File over 25 MB.",
       );
     setUploading(checklistId);
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -47,17 +47,17 @@ function PortalDocuments() {
       .single();
     if (documentResult.error) toast.error(documentResult.error.message);
     else {
-      toast.success("Documento enviado.");
+      toast.success("Document uploaded.");
       await reload();
     }
     setUploading("");
   }
   return (
     <ProtectedPage role="athlete">
-      <AppShell role="athlete" title="Documentos">
+      <AppShell role="athlete" title="Documents">
         <Panel
-          title="Checklist documental"
-          description="Envie apenas os arquivos solicitados pela agência."
+          title="Document checklist"
+          description="Only upload files requested by the agency."
         >
           {data.checklist.length ? (
             <div className="divide-y">
@@ -83,10 +83,10 @@ function PortalDocuments() {
                     <label className={secondaryButtonClass + " cursor-pointer"}>
                       <Upload className="mr-2 h-4 w-4" />
                       {uploading === item.checklist_item_id
-                        ? "Enviando..."
+                        ? "Uploading..."
                         : item.document_id
-                          ? "Reenviar"
-                          : "Enviar arquivo"}
+                          ? "Re-upload"
+                          : "Upload file"}
                       <input
                         type="file"
                         className="hidden"
@@ -100,7 +100,7 @@ function PortalDocuments() {
               })}
             </div>
           ) : (
-            <EmptyState>Nenhum documento solicitado.</EmptyState>
+            <EmptyState>No documents requested.</EmptyState>
           )}
         </Panel>
       </AppShell>
