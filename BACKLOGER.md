@@ -48,3 +48,11 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Pedido:** Criar aba Visual, textos configuráveis do catálogo, ordem manual de posições, previews e reels YouTube, perfil público em formato portfólio, WhatsApp flutuante e edição de mídias na ficha do atleta.
 - **Entrega:** Migration 0009, tipos e loaders públicos, helpers YouTube, preview/autoplay, ReelsViewer, WhatsApp FAB, catálogo por posição, rota `/admin/visual`, vídeos YouTube na ficha e documentação viva atualizada.
 - **Status:** [PENDENTE] — executar a migration 0009 no Supabase externo e concluir validação local quando o ambiente Bun/dependências estiver disponível.
+
+## [CONCLUÍDO] Aba Visual + catálogo em formato portfólio
+- Solicitante: usuário | Executor: Lovable
+- Aba **Visual** no admin (`/admin/visual`): títulos do hero, cabeçalho "Nossos Atletas" e ordenação manual das posições.
+- Catálogo: hero mais baixo, cabeçalho antes da busca, badge "Destaque" com contraste corrigido, prévia em vídeo (hover no desktop / centro da tela no mobile), FAB do WhatsApp.
+- Perfil público: hero com vídeo destaque ao fundo, reels (highlights) antes do "Sobre", vídeo de apresentação, bloco do vídeo destaque, conquistas com imagem + texto, FAB do WhatsApp.
+- Ficha do atleta no admin dividida em abas (Timeline / Dados / Perfil & mídia) com gestão de links do YouTube e upload de imagem da conquista.
+- Pendente do usuário: aplicar `db/migrations/0009_visual_settings_media.sql` no Supabase.

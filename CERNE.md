@@ -209,3 +209,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Perfil público**: `src/routes/athlete.$slug.tsx` usa vídeos de destaque/apresentação, reels circulares, conquistas com imagem e WhatsApp flutuante.
 - **Admin**: `src/routes/_authenticated/admin/visual.tsx` permite editar textos e ordenar posições; a ficha do atleta ganhou gerenciamento de links YouTube e thumbnails.
 - **Operação**: a migration 0009 precisa ser executada no Supabase externo antes de usar a aba Visual.
+
+## Camada visual do catálogo (migration 0009)
+- `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
+- `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).
+- `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature`.
+- Componentes: `athlete-video-card-media.tsx` (prévia em vídeo nos cards), `reels-viewer.tsx` (highlights em doom scroll), `whatsapp-fab.tsx` (botão flutuante).
+- Helpers: `src/lib/youtube.ts` (`parseYoutubeId`, `youtubeThumbnail`, `youtubeEmbedUrl`).
