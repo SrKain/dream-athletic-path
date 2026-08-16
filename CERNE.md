@@ -217,9 +217,30 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Compatibilidade YouTube**: `src/lib/youtube.ts` expõe `youtubeThumbnailUrl` como alias type-safe de `youtubeThumbnail` e usa o contrato de thumbnail `img.youtube.com`, mantendo os consumidores existentes compatíveis.
 - **Fallbacks**: a informação essencial permanece disponível sem vídeo `feature`; o hero usa foto e dados do atleta mesmo quando o autoplay externo não estiver disponível.
 
+## Atualização 2026-08-16 — Redesign do perfil público & campos estendidos (TASK-014)
+
+- **Migration `0010_athlete_profile_fields.sql`**:
+  - Adiciona 8 novos campos à tabela `athlete_profiles`: `subtitle` (subtítulo editável do hero), `current_school`, `high_school_graduation`, `seeking_opportunities`, `toefl_duolingo_score`, `budget`, `seasons_eligibility`, `team_contribution_en` (*What she/he brings to the team*).
+  - Adiciona o valor `'in_court'` ao enum `public.athlete_video_kind`.
+- **Tipos (`src/types/db.ts`)**: `AthleteProfile` e `AthleteVideoKind` atualizados com os novos campos e o novo tipo `'in_court'`.
+- **Página Pública do Atleta (`src/routes/athlete.$slug.tsx`)**:
+  - **100% em Inglês dos EUA**: Todos os textos, títulos, estatísticas e botões formatados em inglês americano.
+  - **Hero Compacto com Efeito Atmosférico**: Foto como âncora visual (4:5) em destaque, vídeo *feature* ao fundo com camada verde esmeralda translúcida + blur (`[oklch(0.22_0.08_162_/_0.78)] backdrop-blur-[5px]`), subtítulo editável por atleta vindo do admin, remoção do texto "Perfil de recrutamento", badges de posição/país/busca e botões "Recruit Athlete" + "Watch Featured".
+  - **Highlights Instagram**: Bolinhas circulares com miniatura e título de reels, disparando player de tela cheia vertical com scroll infinito.
+  - **Ficha Completa de Recrutamento (Key Recruiting Details)**: Grid estilizado com Position, Height, DOB, Current School, High School Graduation, Country, Seeking Opportunities, TOEFL/Duolingo Score, GPA, Budget e Seasons of Eligibility Left.
+  - **Seção "What She/He Brings to the Team"**: Destaque editorial com o diferencial técnico e comportamental do atleta.
+  - **Vídeo de Apresentação**: Player de apresentação do atleta.
+  - **Vídeos "In Court"**: Grid dedicado para vídeos de jogos, partidas e jogadas em quadra (`kind: in_court`).
+  - **Vídeo Destaque (Featured)**: Bloco completo com âncora `#featured-video`.
+  - **Conquistas & Galeria**: Cards com troféus/medalhas e galeria de fotos.
+  - **CTA de Recrutamento**: Bloco com botão WhatsApp e floating action button (`WhatsappFab`).
+- **Painel Admin (`src/routes/_authenticated/admin/athletes/$id.tsx`)**:
+  - Novos campos adicionados na aba "Perfil & mídia" para preenchimento de todos os 8 novos atributos.
+  - Cadastro de vídeos do YouTube atualizado com suporte ao tipo "Em quadra (jogo)" (`in_court`), permitindo múltiplos vídeos com títulos opcionais.
+
 ## Camada visual do catálogo (migration 0009)
 - `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
 - `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).
-- `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature`.
+- `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature` | `in_court`.
 - Componentes: `athlete-video-card-media.tsx` (prévia em vídeo nos cards), `reels-viewer.tsx` (highlights em doom scroll), `whatsapp-fab.tsx` (botão flutuante).
 - Helpers: `src/lib/youtube.ts` (`parseYoutubeId`, `youtubeThumbnail`, `youtubeEmbedUrl`).

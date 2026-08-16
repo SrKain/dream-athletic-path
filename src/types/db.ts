@@ -70,9 +70,17 @@ export interface AthleteProfile {
   gpa: number | null;
   english_level: string | null;
   graduation_year: number | null;
+  subtitle: string | null;
+  current_school: string | null;
+  high_school_graduation: string | null;
+  seeking_opportunities: string | null;
+  toefl_duolingo_score: string | null;
+  budget: string | null;
+  seasons_eligibility: string | null;
+  team_contribution_en: string | null;
 }
 
-export type AthleteVideoKind = "presentation" | "highlight" | "feature";
+export type AthleteVideoKind = "presentation" | "highlight" | "feature" | "in_court";
 
 export interface AthleteVideo {
   id: string;

@@ -315,7 +315,7 @@ function AthleteEditor() {
     if (!isValidYoutubeUrl(videoDraft.youtube_url))
       return toast.error("Informe um link válido do YouTube.");
     const sameKind = videos.filter((item) => item.kind === videoDraft.kind);
-    if (videoDraft.kind !== "highlight" && sameKind.length)
+    if (videoDraft.kind !== "highlight" && videoDraft.kind !== "in_court" && sameKind.length)
       return toast.error("Já existe um vídeo desse tipo. Remova o atual antes de adicionar outro.");
     const { error } = await supabase.from("athlete_videos").insert({
       athlete_id: id,
@@ -531,38 +531,88 @@ function AthleteEditor() {
               <>
                 <Panel title="Perfil público e acadêmico">
                   <div className="grid gap-4 p-5 md:grid-cols-2">
-                    <Field label="Biografia PT" wide>
-                      <textarea
-                        className={textareaClass}
-                        value={profile.bio_pt ?? ""}
-                        onChange={(e) => setProfile({ ...profile, bio_pt: e.target.value })}
+                    <Field label="Subtítulo do Hero (ex: Performance · Personality · Potential)" wide>
+                      <input
+                        className={inputClass}
+                        placeholder="Performance · Personality · Potential"
+                        value={profile.subtitle ?? ""}
+                        onChange={(e) => setProfile({ ...profile, subtitle: e.target.value })}
                       />
                     </Field>
-                    <Field label="Biografia EN" wide>
+                    <Field label="Biografia EN (Descrição do atleta)" wide>
                       <textarea
                         className={textareaClass}
+                        rows={4}
+                        placeholder="Detailed athletic and academic background..."
                         value={profile.bio_en ?? ""}
                         onChange={(e) => setProfile({ ...profile, bio_en: e.target.value })}
                       />
                     </Field>
-                    <Field label="Ano de conclusão">
-                      <input
-                        className={inputClass}
-                        type="number"
-                        value={profile.graduation_year ?? ""}
+                    <Field label="What She/He Brings to the Team (EN)" wide>
+                      <textarea
+                        className={textareaClass}
+                        rows={3}
+                        placeholder="Explique o diferencial técnico, tático e comportamental que o atleta agrega à equipe..."
+                        value={profile.team_contribution_en ?? ""}
                         onChange={(e) =>
-                          setProfile({
-                            ...profile,
-                            graduation_year: e.target.value ? Number(e.target.value) : null,
-                          })
+                          setProfile({ ...profile, team_contribution_en: e.target.value })
                         }
                       />
                     </Field>
-                    <Field label="GPA">
+                    <Field label="Biografia PT" wide>
+                      <textarea
+                        className={textareaClass}
+                        rows={3}
+                        value={profile.bio_pt ?? ""}
+                        onChange={(e) => setProfile({ ...profile, bio_pt: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Current School (Escola / Universidade Atual)">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Colégio Santa Cruz / Mackenzie"
+                        value={profile.current_school ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, current_school: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="High School Graduation (ex: Class of 2025)">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Class of 2025 / Dez 2025"
+                        value={profile.high_school_graduation ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, high_school_graduation: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Seeking Opportunities For">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Fall 2026 / D1, D2, NAIA Scholarships"
+                        value={profile.seeking_opportunities ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, seeking_opportunities: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="TOEFL / Duolingo Score">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Duolingo 120 / TOEFL 88"
+                        value={profile.toefl_duolingo_score ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, toefl_duolingo_score: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Current GPA">
                       <input
                         className={inputClass}
                         type="number"
                         step="0.01"
+                        placeholder="ex: 3.85"
                         value={profile.gpa ?? ""}
                         onChange={(e) =>
                           setProfile({
@@ -575,11 +625,44 @@ function AthleteEditor() {
                     <Field label="Nível de inglês">
                       <input
                         className={inputClass}
+                        placeholder="ex: Fluent / Advanced"
                         value={profile.english_level ?? ""}
                         onChange={(e) => setProfile({ ...profile, english_level: e.target.value })}
                       />
                     </Field>
-                    <Field label="Vídeo destaque">
+                    <Field label="Budget / Orçamento anual">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Up to $15,000/yr / Flexible"
+                        value={profile.budget ?? ""}
+                        onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Seasons of Eligibility Left">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: 4 seasons / 4 years"
+                        value={profile.seasons_eligibility ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, seasons_eligibility: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Ano de conclusão numérico">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        placeholder="ex: 2025"
+                        value={profile.graduation_year ?? ""}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            graduation_year: e.target.value ? Number(e.target.value) : null,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Vídeo arquivo direto (opcional)">
                       <label
                         className={
                           secondaryButtonClass +
@@ -607,10 +690,10 @@ function AthleteEditor() {
                 </Panel>
                 <Panel
                   title="Vídeos do YouTube"
-                  description="Apresentação, Highlights (reels) e Destaque (vídeo do hero) exibidos no perfil público."
+                  description="Apresentação (fala do atleta), Highlights (reels em bolinha), Destaque (fundo do hero) e Em quadra (jogos/lances)."
                 >
                   <div className="space-y-5 p-5">
-                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] md:items-end">
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_1fr_auto] md:items-end">
                       <Field label="Tipo">
                         <select
                           className={inputClass}
@@ -625,7 +708,18 @@ function AthleteEditor() {
                           <option value="presentation">Apresentação</option>
                           <option value="highlight">Highlight (reel)</option>
                           <option value="feature">Destaque (hero)</option>
+                          <option value="in_court">Em quadra (jogo)</option>
                         </select>
+                      </Field>
+                      <Field label="Título (opcional)">
+                        <input
+                          className={inputClass}
+                          placeholder="ex: Ataques 1º Set / Highlights"
+                          value={videoDraft.title}
+                          onChange={(e) =>
+                            setVideoDraft({ ...videoDraft, title: e.target.value })
+                          }
+                        />
                       </Field>
                       <Field label="Link do YouTube">
                         <input
@@ -658,8 +752,11 @@ function AthleteEditor() {
                                 {item.kind === "presentation"
                                   ? "Apresentação"
                                   : item.kind === "feature"
-                                    ? "Destaque"
-                                    : "Highlight"}
+                                    ? "Destaque (Hero)"
+                                    : item.kind === "in_court"
+                                      ? "Em Quadra"
+                                      : "Highlight (Reel)"}
+                                {item.title ? ` — ${item.title}` : ""}
                               </p>
                               <p className="truncate text-xs text-muted-foreground">
                                 {item.youtube_url}
