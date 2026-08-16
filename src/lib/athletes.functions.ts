@@ -61,17 +61,48 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
     const athletes = (athletesResult.data ?? []) as unknown as AthleteCard[];
     const featureVideos: Record<string, string> = {};
     if (athletes.length) {
-      const { data: videos } = await client
-        .from("athlete_videos")
-        .select("athlete_id, youtube_url, sort_order")
-        .eq("kind", "feature")
-        .in(
-          "athlete_id",
-          athletes.map((item) => item.id),
-        )
-        .order("sort_order");
-      for (const video of (videos ?? []) as { athlete_id: string; youtube_url: string }[]) {
-        if (!featureVideos[video.athlete_id]) featureVideos[video.athlete_id] = video.youtube_url;
+      const athleteIds = athletes.map((item) => item.id);
+      const [videosResult, profilesResult] = await Promise.all([
+        client
+          .from("athlete_videos")
+          .select("athlete_id, youtube_url, sort_order, kind")
+          .in("athlete_id", athleteIds)
+          .order("sort_order"),
+        client
+          .from("athlete_profiles")
+          .select("athlete_id, highlight_video_url")
+          .in("athlete_id", athleteIds),
+      ]);
+
+      const allVideos = (videosResult.data ?? []) as {
+        athlete_id: string;
+        youtube_url: string;
+        kind: string;
+      }[];
+      const profiles = (profilesResult.data ?? []) as {
+        athlete_id: string;
+        highlight_video_url: string | null;
+      }[];
+
+      // Prioridade para o card do catálogo: feature > highlight > presentation > in_court > profile.highlight_video_url
+      for (const athleteId of athleteIds) {
+        const athleteVids = allVideos.filter((v) => v.athlete_id === athleteId);
+        const feature = athleteVids.find((v) => v.kind === "feature");
+        const highlight = athleteVids.find((v) => v.kind === "highlight");
+        const presentation = athleteVids.find((v) => v.kind === "presentation");
+        const inCourt = athleteVids.find((v) => v.kind === "in_court");
+        const prof = profiles.find((p) => p.athlete_id === athleteId);
+
+        const chosenUrl =
+          feature?.youtube_url ||
+          highlight?.youtube_url ||
+          presentation?.youtube_url ||
+          inCourt?.youtube_url ||
+          prof?.highlight_video_url;
+
+        if (chosenUrl) {
+          featureVideos[athleteId] = chosenUrl;
+        }
       }
     }
 

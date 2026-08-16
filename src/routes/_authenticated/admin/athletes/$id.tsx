@@ -189,7 +189,36 @@ function AthleteEditor() {
       .from("athlete_profiles")
       .upsert({ ...profile, athlete_id: id });
     if (profileError) toast.error(profileError.message);
-    else toast.success("Perfil salvo.");
+
+    // Se houver um rascunho de vídeo pendente com link válido, salva automaticamente
+    if (videoDraft.youtube_url && isValidYoutubeUrl(videoDraft.youtube_url)) {
+      const existingSameKind = videos.find((item) => item.kind === videoDraft.kind);
+      if (
+        (videoDraft.kind === "feature" || videoDraft.kind === "presentation") &&
+        existingSameKind
+      ) {
+        await supabase
+          .from("athlete_videos")
+          .update({
+            youtube_url: videoDraft.youtube_url.trim(),
+            title: videoDraft.title || null,
+          })
+          .eq("id", existingSameKind.id);
+      } else {
+        const sameKindCount = videos.filter((item) => item.kind === videoDraft.kind).length;
+        await supabase.from("athlete_videos").insert({
+          athlete_id: id,
+          kind: videoDraft.kind,
+          youtube_url: videoDraft.youtube_url.trim(),
+          title: videoDraft.title || null,
+          sort_order: sameKindCount,
+        });
+      }
+      setVideoDraft({ kind: videoDraft.kind, title: "", youtube_url: "" });
+      await load();
+    }
+
+    if (!profileError) toast.success("Perfil salvo.");
   }
   async function invite() {
     if (!currentAthlete.email) return toast.error("Informe o e-mail do atleta.");
@@ -311,21 +340,47 @@ function AthleteEditor() {
     }
   }
 
-  async function addVideo() {
-    if (!isValidYoutubeUrl(videoDraft.youtube_url))
+  async function addVideo(overrideDraft?: {
+    kind: AthleteVideoKind;
+    youtube_url: string;
+    title?: string | null;
+  }) {
+    const draft = overrideDraft || videoDraft;
+    if (!isValidYoutubeUrl(draft.youtube_url))
       return toast.error("Informe um link válido do YouTube.");
-    const sameKind = videos.filter((item) => item.kind === videoDraft.kind);
-    if (videoDraft.kind !== "highlight" && videoDraft.kind !== "in_court" && sameKind.length)
-      return toast.error("Já existe um vídeo desse tipo. Remova o atual antes de adicionar outro.");
-    const { error } = await supabase.from("athlete_videos").insert({
-      athlete_id: id,
-      kind: videoDraft.kind,
-      youtube_url: videoDraft.youtube_url.trim(),
-      title: videoDraft.title || null,
-      sort_order: sameKind.length,
-    });
-    if (error) return toast.error(error.message);
-    setVideoDraft({ kind: videoDraft.kind, title: "", youtube_url: "" });
+
+    // Se for 'feature' ou 'presentation', e já existir um do mesmo tipo, atualiza/substitui
+    const existingSameKind = videos.find((item) => item.kind === draft.kind);
+    if ((draft.kind === "feature" || draft.kind === "presentation") && existingSameKind) {
+      const { error } = await supabase
+        .from("athlete_videos")
+        .update({
+          youtube_url: draft.youtube_url.trim(),
+          title: draft.title || null,
+        })
+        .eq("id", existingSameKind.id);
+      if (error) return toast.error(error.message);
+      toast.success(
+        draft.kind === "feature"
+          ? "Vídeo de destaque atualizado."
+          : "Vídeo de apresentação atualizado.",
+      );
+    } else {
+      const sameKindCount = videos.filter((item) => item.kind === draft.kind).length;
+      const { error } = await supabase.from("athlete_videos").insert({
+        athlete_id: id,
+        kind: draft.kind,
+        youtube_url: draft.youtube_url.trim(),
+        title: draft.title || null,
+        sort_order: sameKindCount,
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Vídeo salvo com sucesso.");
+    }
+
+    if (!overrideDraft) {
+      setVideoDraft({ kind: videoDraft.kind, title: "", youtube_url: "" });
+    }
     await load();
   }
 
@@ -679,102 +734,208 @@ function AthleteEditor() {
                         />
                       </label>
                       {profile.highlight_video_url && (
-                        <video
-                          src={profile.highlight_video_url}
-                          controls
-                          className="mt-3 h-40 w-full rounded-md object-cover"
-                        />
+                        isValidYoutubeUrl(profile.highlight_video_url) ? (
+                          <div className="mt-3 flex items-center gap-3 rounded-md border p-2.5 bg-muted/40">
+                            <img
+                              src={youtubeThumbnail(profile.highlight_video_url) ?? ""}
+                              alt=""
+                              className="h-14 w-24 rounded object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-primary">YouTube URL configurada no perfil</p>
+                              <p className="truncate text-xs text-muted-foreground">{profile.highlight_video_url}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <video
+                            src={profile.highlight_video_url}
+                            controls
+                            className="mt-3 h-40 w-full rounded-md object-cover"
+                          />
+                        )
                       )}
                     </Field>
                   </div>
                 </Panel>
                 <Panel
-                  title="Vídeos do YouTube"
-                  description="Apresentação (fala do atleta), Highlights (reels em bolinha), Destaque (fundo do hero) e Em quadra (jogos/lances)."
+                  title="Vídeos do YouTube & Mídias Públicas"
+                  description="Configure os vídeos que alimentam a atmosfera cinemática do hero, os reels de highlights, o vídeo de apresentação e as partidas em quadra."
                 >
-                  <div className="space-y-5 p-5">
-                    <div className="grid gap-3 md:grid-cols-[160px_1fr_1fr_auto] md:items-end">
-                      <Field label="Tipo">
-                        <select
-                          className={inputClass}
-                          value={videoDraft.kind}
-                          onChange={(e) =>
-                            setVideoDraft({
-                              ...videoDraft,
-                              kind: e.target.value as AthleteVideoKind,
-                            })
-                          }
-                        >
-                          <option value="presentation">Apresentação</option>
-                          <option value="highlight">Highlight (reel)</option>
-                          <option value="feature">Destaque (hero)</option>
-                          <option value="in_court">Em quadra (jogo)</option>
-                        </select>
-                      </Field>
-                      <Field label="Título (opcional)">
-                        <input
-                          className={inputClass}
-                          placeholder="ex: Ataques 1º Set / Highlights"
-                          value={videoDraft.title}
-                          onChange={(e) =>
-                            setVideoDraft({ ...videoDraft, title: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field label="Link do YouTube">
-                        <input
-                          className={inputClass}
-                          placeholder="https://www.youtube.com/watch?v=..."
-                          value={videoDraft.youtube_url}
-                          onChange={(e) =>
-                            setVideoDraft({ ...videoDraft, youtube_url: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <button className={buttonClass} onClick={() => void addVideo()}>
-                        Adicionar
-                      </button>
-                    </div>
-                    {videos.length ? (
-                      <ul className="grid gap-3 sm:grid-cols-2">
-                        {videos.map((item) => (
-                          <li
-                            key={item.id}
-                            className="flex items-center gap-3 rounded-md border border-border/70 p-3"
+                  <div className="space-y-6 p-5">
+                    {/* Formulário rápido de adição com Live Preview */}
+                    <div className="rounded-lg border border-border/80 bg-background/50 p-4 space-y-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        + Adicionar ou atualizar vídeo do YouTube
+                      </p>
+                      <div className="grid gap-3 md:grid-cols-[200px_1fr_1fr_auto] md:items-end">
+                        <Field label="Finalidade / Destino">
+                          <select
+                            className={inputClass}
+                            value={videoDraft.kind}
+                            onChange={(e) =>
+                              setVideoDraft({
+                                ...videoDraft,
+                                kind: e.target.value as AthleteVideoKind,
+                              })
+                            }
                           >
-                            <img
-                              src={youtubeThumbnail(item.youtube_url) ?? ""}
-                              alt=""
-                              className="h-14 w-24 rounded object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium">
-                                {item.kind === "presentation"
-                                  ? "Apresentação"
-                                  : item.kind === "feature"
-                                    ? "Destaque (Hero)"
-                                    : item.kind === "in_court"
-                                      ? "Em Quadra"
-                                      : "Highlight (Reel)"}
-                                {item.title ? ` — ${item.title}` : ""}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {item.youtube_url}
-                              </p>
-                            </div>
-                            <button
-                              aria-label="Remover vídeo"
-                              className="text-destructive"
-                              onClick={() => void deleteVideo(item)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Nenhum vídeo cadastrado.</p>
-                    )}
+                            <option value="feature">🎬 Destaque (Fundo Hero & Catálogo)</option>
+                            <option value="presentation">🗣️ Apresentação (Fala do Atleta)</option>
+                            <option value="highlight">📱 Highlight (Reel / Stories)</option>
+                            <option value="in_court">🏐 Em Quadra (Jogos / Lances)</option>
+                          </select>
+                        </Field>
+                        <Field label="Título descritivo (opcional)">
+                          <input
+                            className={inputClass}
+                            placeholder="ex: Highlights 2025 / Melhores Lances"
+                            value={videoDraft.title}
+                            onChange={(e) =>
+                              setVideoDraft({ ...videoDraft, title: e.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field label="Link do YouTube (Watch, Shorts, Embed...)">
+                          <input
+                            className={inputClass}
+                            placeholder="https://www.youtube.com/watch?v=..."
+                            value={videoDraft.youtube_url}
+                            onChange={(e) =>
+                              setVideoDraft({ ...videoDraft, youtube_url: e.target.value })
+                            }
+                          />
+                        </Field>
+                        <button className={buttonClass} onClick={() => void addVideo()}>
+                          Salvar vídeo
+                        </button>
+                      </div>
+
+                      {/* Live Thumbnail Preview */}
+                      {videoDraft.youtube_url && (
+                        <div className="mt-2 flex items-center gap-3 rounded-md bg-muted/40 p-2.5">
+                          {youtubeThumbnail(videoDraft.youtube_url) ? (
+                            <>
+                              <img
+                                src={youtubeThumbnail(videoDraft.youtube_url) ?? ""}
+                                alt="Prévia"
+                                className="h-12 w-20 rounded object-cover shadow-xs"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                                  ✓ Link do YouTube reconhecido
+                                </span>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {videoDraft.youtube_url}
+                                </p>
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-xs text-destructive">
+                              ⚠️ Link do YouTube inválido ou incompleto. Verifique a URL digitada.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lista dos vídeos agrupados por finalidade */}
+                    <div className="space-y-5">
+                      {/* Destaque / Hero */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          🎬 Vídeo de Destaque / Hero (Fundo cinemático e capa do catálogo)
+                        </h4>
+                        {videos.filter((v) => v.kind === "feature").length > 0 ? (
+                          videos
+                            .filter((v) => v.kind === "feature")
+                            .map((item) => (
+                              <VideoItemCard
+                                key={item.id}
+                                item={item}
+                                label="Destaque (Hero)"
+                                onDelete={() => void deleteVideo(item)}
+                              />
+                            ))
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum vídeo de destaque específico cadastrado. O sistema usará o primeiro vídeo disponível como atmosfera do hero.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Apresentação */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          🗣️ Vídeo de Apresentação (Fala e objetivos do atleta)
+                        </h4>
+                        {videos.filter((v) => v.kind === "presentation").length > 0 ? (
+                          videos
+                            .filter((v) => v.kind === "presentation")
+                            .map((item) => (
+                              <VideoItemCard
+                                key={item.id}
+                                item={item}
+                                label="Apresentação"
+                                onDelete={() => void deleteVideo(item)}
+                              />
+                            ))
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum vídeo de apresentação cadastrado.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Highlights / Reels */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          📱 Highlights (Bolinhas de Reels / Stories verticais)
+                        </h4>
+                        {videos.filter((v) => v.kind === "highlight").length > 0 ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {videos
+                              .filter((v) => v.kind === "highlight")
+                              .map((item) => (
+                                <VideoItemCard
+                                  key={item.id}
+                                  item={item}
+                                  label="Highlight (Reel)"
+                                  onDelete={() => void deleteVideo(item)}
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum reel cadastrado. Adicione vídeos/shorts para exibir os Stories de highlights.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Em Quadra / Jogos */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          🏐 Em Quadra (Jogos completos e lances de partida)
+                        </h4>
+                        {videos.filter((v) => v.kind === "in_court").length > 0 ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {videos
+                              .filter((v) => v.kind === "in_court")
+                              .map((item) => (
+                                <VideoItemCard
+                                  key={item.id}
+                                  item={item}
+                                  label="Em Quadra"
+                                  onDelete={() => void deleteVideo(item)}
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum vídeo de jogo/quadra cadastrado.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Panel>
                 <Panel
@@ -1018,5 +1179,41 @@ function Field({
       {label}
       <div className="mt-1.5">{children}</div>
     </label>
+  );
+}
+
+function VideoItemCard({
+  item,
+  label,
+  onDelete,
+}: {
+  item: AthleteVideo;
+  label: string;
+  onDelete: () => void;
+}) {
+  const thumb = youtubeThumbnail(item.youtube_url);
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card p-3 shadow-xs">
+      {thumb ? (
+        <img src={thumb} alt="" className="h-14 w-24 rounded-md object-cover shrink-0" />
+      ) : (
+        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
+          Sem preview
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground truncate">
+          {item.title || label}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{item.youtube_url}</p>
+      </div>
+      <button
+        aria-label="Remover vídeo"
+        className="rounded-md p-1.5 text-destructive hover:bg-destructive/10 transition cursor-pointer"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
   );
 }

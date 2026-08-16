@@ -60,19 +60,54 @@ function PublicAthleteProfile() {
   const age = calculateAge(athlete.birth_date);
   const firstName = athlete.full_name.split(" ")[0];
 
-  const safeVideos = Array.isArray(videos) ? videos : [];
-  const highlights = safeVideos.filter((item) => item.kind === "highlight");
-  const inCourtVideos = safeVideos.filter((item) => item.kind === "in_court");
+  const safeVideos = Array.isArray(videos) ? [...videos] : [];
+
+  // Se houver highlight_video_url no perfil e nenhum vídeo 'feature' cadastrado em athlete_videos, sintetizar
+  if (profile?.highlight_video_url && !safeVideos.some((item) => item.kind === "feature")) {
+    safeVideos.unshift({
+      id: "profile-feature-video",
+      athlete_id: athlete.id,
+      kind: "feature",
+      youtube_url: profile.highlight_video_url,
+      title: "Featured Highlights",
+      sort_order: 0,
+      created_at: new Date().toISOString(),
+    });
+  }
+
   const featureVideo = safeVideos.find((item) => item.kind === "feature");
   const presentationVideo = safeVideos.find((item) => item.kind === "presentation");
+  const highlights = safeVideos.filter((item) => item.kind === "highlight");
+  const inCourtVideos = safeVideos.filter((item) => item.kind === "in_court");
 
-  const featureUrl = featureVideo?.youtube_url || profile?.highlight_video_url;
-  const heroBackground = youtubeEmbedUrl(featureUrl, {
+  // Fallback inteligente para o Hero: feature > profile > presentation > primeiro highlight > primeiro in_court
+  const heroVideoUrl =
+    featureVideo?.youtube_url ||
+    profile?.highlight_video_url ||
+    presentationVideo?.youtube_url ||
+    highlights[0]?.youtube_url ||
+    inCourtVideos[0]?.youtube_url;
+
+  const heroBackground = youtubeEmbedUrl(heroVideoUrl, {
     autoplay: true,
     controls: false,
     loop: true,
     muted: true,
   });
+
+  const featuredVideoToDisplay =
+    featureVideo ||
+    (heroVideoUrl
+      ? {
+          id: "active-featured",
+          athlete_id: athlete.id,
+          kind: "feature" as const,
+          youtube_url: heroVideoUrl,
+          title: `${athlete.full_name} — Highlights`,
+          sort_order: 0,
+          created_at: new Date().toISOString(),
+        }
+      : null);
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
@@ -203,7 +238,7 @@ function PublicAthleteProfile() {
                 >
                   Recruit Athlete
                 </a>
-                {featureVideo && (
+                {featuredVideoToDisplay && (
                   <a
                     href="#featured-video"
                     className="inline-flex h-11 items-center gap-2 rounded-md border border-white/25 px-5 text-xs font-semibold uppercase tracking-wider text-surface-foreground transition hover:border-white/50 hover:bg-white/10"
@@ -377,7 +412,7 @@ function PublicAthleteProfile() {
       )}
 
       {/* ── FEATURED VIDEO SECTION ── */}
-      {featureVideo && (
+      {featuredVideoToDisplay && (
         <section
           id="featured-video"
           className="border-y border-border bg-surface py-16 text-surface-foreground lg:py-20"
@@ -385,11 +420,11 @@ function PublicAthleteProfile() {
           <div className="container-edge">
             <p className="eyebrow text-primary">Featured Video</p>
             <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              {featureVideo.title || `${athlete.full_name} — Key Highlights`}
+              {featuredVideoToDisplay.title || `${athlete.full_name} — Key Highlights`}
             </h2>
             <div className="mt-6">
               <YoutubePlayerFrame
-                url={featureVideo.youtube_url}
+                url={featuredVideoToDisplay.youtube_url}
                 title={`Featured Video — ${athlete.full_name}`}
               />
             </div>
