@@ -1,5 +1,5 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
-import { ArrowLeft, Award, Calendar, GraduationCap, MapPin } from "lucide-react";
+import { ArrowLeft, Award, Calendar, GraduationCap, MapPin, Play } from "lucide-react";
 
 import { ReelsRow } from "@/components/reels-viewer";
 import { WhatsappFab } from "@/components/whatsapp-fab";
@@ -96,12 +96,15 @@ function PublicAthleteProfile() {
           </div>
         )}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,oklch(0.66_0.13_146_/_0.28),transparent_35%),linear-gradient(135deg,oklch(0.19_0.05_162_/_0.92),oklch(0.11_0.025_162_/_0.96))]" />
-        <div className="container-edge relative grid gap-10 py-12 lg:grid-cols-12 lg:py-20">
-          <div className="lg:col-span-7 lg:self-end">
-            <p className="eyebrow text-primary-foreground/70">Go Team Go</p>
-            <h1 className="mt-5 font-display text-[clamp(2.6rem,6vw,5.2rem)] font-semibold leading-[0.94] tracking-tight">
+        <div className="container-edge relative grid gap-8 py-10 sm:py-14 lg:grid-cols-12 lg:gap-12 lg:py-20">
+          <div className="order-2 lg:order-1 lg:col-span-7 lg:self-end">
+            <p className="eyebrow text-primary-foreground/70">Perfil de recrutamento</p>
+            <h1 className="mt-4 max-w-3xl font-display text-[clamp(2.6rem,6vw,5.2rem)] font-semibold leading-[0.94] tracking-tight">
               {athlete.full_name}
             </h1>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-surface-foreground/70 sm:text-lg">
+              Performance, personalidade e potencial acadêmico em uma só visão.
+            </p>
             <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-surface-foreground/70">
               {athlete.position && (
                 <span>{pick(athlete.position.name_pt, athlete.position.name_en)}</span>
@@ -125,16 +128,26 @@ function PublicAthleteProfile() {
                 value={pick(athlete.position?.name_pt, athlete.position?.name_en) ?? "—"}
               />
             </dl>
-            <a
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <a
               href={buildRecruitWhatsappUrl(athlete.full_name)}
               target="_blank"
               rel="noopener noreferrer"
-              className="liquid-button mt-8 inline-flex h-12 items-center rounded-md px-7 text-sm font-semibold uppercase tracking-[0.16em]"
-            >
-              Recrutar
-            </a>
+                className="liquid-button inline-flex h-12 items-center rounded-md px-7 text-sm font-semibold uppercase tracking-[0.16em]"
+              >
+                Recrutar atleta
+              </a>
+              {featureVideo && (
+                <a
+                  href="#video-destaque"
+                  className="inline-flex h-12 items-center gap-2 rounded-md border border-white/20 px-5 text-sm font-semibold text-surface-foreground transition hover:border-white/40 hover:bg-white/10"
+                >
+                  <Play className="h-4 w-4 fill-current" /> Ver destaque
+                </a>
+              )}
+            </div>
           </div>
-          <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-white/10 shadow-2xl lg:col-span-5">
+          <div className="order-1 relative aspect-[4/5] overflow-hidden rounded-md bg-white/10 shadow-2xl sm:aspect-[3/4] lg:order-2 lg:col-span-5">
             <img
               src={getAthleteDisplayImage(athlete)}
               alt={athlete.full_name}
@@ -148,15 +161,21 @@ function PublicAthleteProfile() {
       {/* REELS — antes do "Sobre" */}
       <ReelsRow videos={highlights} athleteName={athlete.full_name} />
 
-      <section className="container-edge grid gap-10 py-14 lg:grid-cols-12 lg:py-18">
+      <section className="container-edge grid gap-10 py-14 lg:grid-cols-12 lg:py-20">
         <div className="lg:col-span-7">
-          <p className="eyebrow text-primary">Sobre</p>
-          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+          <p className="eyebrow text-primary">A história por trás da performance</p>
+          <h2 className="mt-3 max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Um atleta pronto para o próximo nível.
+          </h2>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             {pick(profile?.bio_pt, profile?.bio_en) || "Perfil esportivo em preparação."}
           </p>
           {presentationVideo && (
-            <div className="mt-8">
-              <h2 className="font-display text-2xl font-semibold">Apresentação</h2>
+            <div className="mt-10">
+              <VideoSectionHeading
+                eyebrow="Apresentação"
+                title={presentationVideo.title || `Conheça ${athlete.full_name}`}
+              />
               <YoutubeFrame
                 url={presentationVideo.youtube_url}
                 title={`Apresentação de ${athlete.full_name}`}
@@ -190,12 +209,16 @@ function PublicAthleteProfile() {
 
       {/* DESTAQUE — reaparece em bloco cheio no meio da apresentação */}
       {featureVideo && (
-        <section className="border-y border-border bg-surface py-16 text-surface-foreground">
+        <section
+          id="video-destaque"
+          className="border-y border-border bg-surface py-16 text-surface-foreground lg:py-24"
+        >
           <div className="container-edge">
-            <p className="eyebrow text-primary">Vídeo destaque</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight">
-              {athlete.full_name} em quadra
-            </h2>
+            <VideoSectionHeading
+              eyebrow="Destaque principal"
+              title={featureVideo.title || `${athlete.full_name} em quadra`}
+              dark
+            />
             <YoutubeFrame
               url={featureVideo.youtube_url}
               title={`Vídeo destaque de ${athlete.full_name}`}
@@ -305,6 +328,25 @@ function YoutubeFrame({ url, title }: { url: string; title: string }) {
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
         className="h-full w-full border-0"
       />
+    </div>
+  );
+}
+
+function VideoSectionHeading({
+  eyebrow,
+  title,
+  dark = false,
+}: {
+  eyebrow: string;
+  title: string;
+  dark?: boolean;
+}) {
+  return (
+    <div>
+      <p className={`eyebrow ${dark ? "text-primary" : "text-primary"}`}>{eyebrow}</p>
+      <h2 className="mt-3 max-w-3xl font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+        {title}
+      </h2>
     </div>
   );
 }

@@ -20,6 +20,8 @@ export function youtubeThumbnail(url?: string | null) {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+export const youtubeThumbnailUrl = youtubeThumbnail;
+
 type EmbedOptions = {
   autoplay?: boolean;
   muted?: boolean;
