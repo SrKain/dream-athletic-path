@@ -1,51 +1,6 @@
-export type Locale = "pt" | "en";
+export type Locale = "en";
 
 export const messages = {
-  pt: {
-    "nav.catalog": "Catálogo",
-    "nav.about": "A agência",
-    "nav.login": "Entrar",
-    "nav.dashboard": "Painel",
-    "nav.logout": "Sair",
-    "feed.title": "Talentos prontos para o próximo nível",
-    "feed.subtitle":
-      "Atletas brasileiros selecionados, verificados e apresentados a coaches do mundo inteiro.",
-    "feed.cta": "Explorar atletas",
-    "feed.featured": "Em destaque",
-    "feed.recent": "Adicionados recentemente",
-    "feed.empty": "Nenhum atleta publicado ainda.",
-    "feed.search": "Buscar atleta, posição ou esporte",
-    "athlete.position": "Posição",
-    "athlete.height": "Altura",
-    "athlete.weight": "Peso",
-    "athlete.age": "Idade",
-    "athlete.nationality": "Nacionalidade",
-    "athlete.achievements": "Conquistas",
-    "athlete.gallery": "Galeria",
-    "athlete.videos": "Vídeos",
-    "athlete.stats": "Estatísticas",
-    "athlete.about": "Sobre",
-    "athlete.share": "Compartilhar perfil",
-    "auth.login.title": "Acessar plataforma",
-    "auth.login.subtitle": "Área restrita para agência e atletas.",
-    "auth.email": "E-mail",
-    "auth.password": "Senha",
-    "auth.submit": "Entrar",
-    "auth.forgot": "Esqueci minha senha",
-    "auth.forgot.title": "Recuperar senha",
-    "auth.forgot.submit": "Enviar link de recuperação",
-    "auth.reset.title": "Definir nova senha",
-    "auth.reset.submit": "Salvar nova senha",
-    "auth.back": "Voltar ao login",
-    "auth.noSignup": "O cadastro de atletas é feito exclusivamente pela agência.",
-    "common.loading": "Carregando...",
-    "common.save": "Salvar",
-    "common.cancel": "Cancelar",
-    "common.years": "anos",
-    "role.agency_admin": "Agência",
-    "role.athlete": "Atleta",
-    "role.coach": "Coach",
-  },
   en: {
     "nav.catalog": "Catalog",
     "nav.about": "The agency",
@@ -53,12 +8,12 @@ export const messages = {
     "nav.dashboard": "Dashboard",
     "nav.logout": "Sign out",
     "feed.title": "Talent ready for the next level",
-    "feed.subtitle": "Hand-picked Brazilian athletes, verified and presented to coaches worldwide.",
+    "feed.subtitle": "Hand-picked Brazilian athletes, verified and presented to coaches nationwide.",
     "feed.cta": "Browse athletes",
     "feed.featured": "Featured",
     "feed.recent": "Recently added",
     "feed.empty": "No athletes published yet.",
-    "feed.search": "Search athlete, position or sport",
+    "feed.search": "Search athlete, position, or sport",
     "athlete.position": "Position",
     "athlete.height": "Height",
     "athlete.weight": "Weight",
@@ -92,4 +47,4 @@ export const messages = {
   },
 } as const;
 
-export type MessageKey = keyof (typeof messages)["pt"];
+export type MessageKey = keyof (typeof messages)["en"];

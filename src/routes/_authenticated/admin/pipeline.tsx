@@ -148,7 +148,7 @@ function PipelinePage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
               <button className={buttonClass}>
-                <Plus className="mr-2 h-4 w-4" /> Criar
+                <Plus className="mr-2 h-4 w-4" /> Create
               </button>
             </form>
           )}

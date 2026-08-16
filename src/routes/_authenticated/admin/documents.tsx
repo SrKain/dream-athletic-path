@@ -26,7 +26,7 @@ function DocumentsAdmin() {
   async function review(document: DocumentRow, status: DocumentStatus) {
     const notes =
       status === "rejected" || status === "resubmit"
-        ? window.prompt("Observação para o atleta")
+        ? window.prompt("Note for the athlete")
         : null;
     const { data: user } = await supabase.auth.getUser();
     const { error } = await supabase
@@ -40,7 +40,7 @@ function DocumentsAdmin() {
       .eq("id", document.id);
     if (error) toast.error(error.message);
     else {
-      toast.success("Documento atualizado.");
+      toast.success("Document updated.");
       await load();
     }
   }
@@ -51,8 +51,8 @@ function DocumentsAdmin() {
   }
   return (
     <ProtectedPage role="agency_admin">
-      <AppShell role="agency_admin" title="Documentos">
-        <Panel title="Revisão documental" description="Arquivos enviados pelos atletas.">
+      <AppShell role="agency_admin" title="Documents">
+        <Panel title="Document review" description="Files uploaded by athletes.">
           {documents.length ? (
             <div className="divide-y">
               {documents.map((doc) => (
@@ -64,7 +64,7 @@ function DocumentsAdmin() {
                     <p className="font-medium">{doc.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {doc.athletes?.full_name} ·{" "}
-                      {new Date(doc.created_at).toLocaleDateString("pt-BR")}
+                      {new Date(doc.created_at).toLocaleDateString("en-US")}
                     </p>
                     <div className="mt-2">
                       <StatusBadge value={doc.status} />
@@ -78,32 +78,32 @@ function DocumentsAdmin() {
                       className={secondaryButtonClass}
                       onClick={() => download(doc.storage_path)}
                     >
-                      Visualizar
+                      View
                     </button>
                     <button
                       className={secondaryButtonClass}
                       onClick={() => review(doc, "approved")}
                     >
-                      Aprovar
+                      Approve
                     </button>
                     <button
                       className={secondaryButtonClass}
                       onClick={() => review(doc, "resubmit")}
                     >
-                      Solicitar reenvio
+                      Request resubmission
                     </button>
                     <button
                       className={secondaryButtonClass}
                       onClick={() => review(doc, "rejected")}
                     >
-                      Reprovar
+                      Reject
                     </button>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhum documento enviado.</EmptyState>
+            <EmptyState>No documents submitted.</EmptyState>
           )}
         </Panel>
       </AppShell>

@@ -20,8 +20,8 @@ function AdminNotifications() {
   }, []);
   return (
     <ProtectedPage role="agency_admin">
-      <AppShell role="agency_admin" title="Notificações">
-        <Panel title="Atividade recente">
+      <AppShell role="agency_admin" title="Notifications">
+        <Panel title="Recent activity">
           {items.length ? (
             <div className="divide-y">
               {items.map((item) => (
@@ -29,13 +29,13 @@ function AdminNotifications() {
                   <p className="font-medium">{item.title}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
                   <time className="mt-2 block text-xs text-muted-foreground">
-                    {new Date(item.created_at).toLocaleString("pt-BR")}
+                    {new Date(item.created_at).toLocaleString("en-US")}
                   </time>
                 </article>
               ))}
             </div>
           ) : (
-            <EmptyState>Nenhuma notificação.</EmptyState>
+            <EmptyState>No notifications.</EmptyState>
           )}
         </Panel>
       </AppShell>

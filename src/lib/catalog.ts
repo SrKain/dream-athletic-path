@@ -60,7 +60,7 @@ export function buildAthleteShelves(
 ): AthleteShelf[] {
   const groups = new Map<string, { position: string; positionId: string; athletes: AthleteCard[] }>();
   for (const athlete of athletes) {
-    const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "Outras posições";
+    const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "Other positions";
     const positionId = athlete.position_id ?? position;
     const current = groups.get(positionId) ?? { athletes: [], position, positionId };
     current.athletes.push(athlete);
@@ -77,13 +77,13 @@ export function buildAthleteShelves(
       (a, b) =>
         manualRank(a.positionId) - manualRank(b.positionId) ||
         shelfRank(a.position) - shelfRank(b.position) ||
-        a.position.localeCompare(b.position, "pt-BR"),
+        a.position.localeCompare(b.position, "en-US"),
     )
     .map((group) => ({
       key: slugify(group.positionId),
       title: pluralizePosition(group.position),
       description: `${group.athletes.length} ${
-        group.athletes.length === 1 ? "perfil publicado" : "perfis publicados"
+        group.athletes.length === 1 ? "published profile" : "published profiles"
       }`,
       athletes: group.athletes,
     }));
@@ -102,11 +102,11 @@ function shelfRank(title: string) {
 
 function pluralizePosition(title: string) {
   const normalized = title.toLocaleLowerCase();
-  if (normalized.includes("levantador")) return "Levantadores";
-  if (normalized.includes("ponteiro")) return "Ponteiros";
-  if (normalized.includes("central")) return "Centrais";
-  if (normalized.includes("líbero") || normalized.includes("libero")) return "Líberos";
-  if (normalized.includes("oposto")) return "Opostos";
+  if (normalized.includes("levantador")) return "Setters";
+  if (normalized.includes("ponteiro")) return "Outside Hitters";
+  if (normalized.includes("central")) return "Middle Blockers";
+  if (normalized.includes("líbero") || normalized.includes("libero")) return "Liberos";
+  if (normalized.includes("oposto")) return "Opposites";
   return title;
 }
 

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { messages } from "./messages";
 
 describe("message catalog", () => {
-  it("keeps Portuguese and English keys aligned", () => {
-    expect(Object.keys(messages.en).sort()).toEqual(Object.keys(messages.pt).sort());
+  it("ships a single US English catalog", () => {
+    expect(Object.keys(messages)).toEqual(["en"]);
+    expect(messages.en["nav.login"]).toBe("Sign in");
   });
 });

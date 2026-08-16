@@ -21,7 +21,7 @@ export const Route = createFileRoute("/proposal/$token")({
           { title: `${loaderData.title} · ${loaderData.recipientName}` },
           {
             name: "description",
-            content: `Proposta personalizada para ${loaderData.recipientName}.`,
+            content: `Personalized proposal for ${loaderData.recipientName}.`,
           },
           { name: "robots", content: "noindex,nofollow" },
         ]
@@ -47,12 +47,12 @@ function PublicProposalPage() {
     setSending(true);
     try {
       await respondToProposal({ data: { token, name, email, decision } });
-      toast.success(decision === "accepted" ? "Proposta aceita." : "Resposta registrada.");
+      toast.success(decision === "accepted" ? "Proposal accepted." : "Response recorded.");
       setDecision(null);
       await router.invalidate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Não foi possível registrar a resposta.",
+        error instanceof Error ? error.message : "Could not record the response.",
       );
     } finally {
       setSending(false);
@@ -72,32 +72,32 @@ function PublicProposalPage() {
           <h2 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-semibold tracking-[-.04em] md:text-7xl">
             {closed
               ? proposal.status === "accepted"
-                ? "Proposta aceita"
-                : "Resposta registrada"
+                ? "Proposal accepted"
+                : "Response recorded"
               : expired
-                ? "Prazo encerrado"
+                ? "Deadline closed"
                 : proposal.language === "pt"
                   ? "Vamos construir essa história?"
                   : "Ready to write this story?"}
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-white/55">
             {closed
-              ? `Resposta registrada na versão ${proposal.versionNumber}.`
+              ? `Response recorded on version ${proposal.versionNumber}.`
               : expired
-                ? "A proposta continua disponível para consulta, mas não aceita novas respostas."
-                : `Confirme sua decisão usando o e-mail ${proposal.recipientEmailHint}.`}
+                ? "The proposal is still available to view, but no longer accepts new responses."
+                : `Confirm your decision using the email ${proposal.recipientEmailHint}.`}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a className={secondaryButtonClass} href={`/proposal/${token}/pdf`}>
-              <Download className="mr-2 h-4 w-4" /> Baixar PDF
+              <Download className="mr-2 h-4 w-4" /> Download PDF
             </a>
             {!closed && !expired && (
               <>
                 <button className={buttonClass} onClick={() => setDecision("accepted")}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" /> Aceitar proposta
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Accept proposal
                 </button>
                 <button className={secondaryButtonClass} onClick={() => setDecision("declined")}>
-                  <XCircle className="mr-2 h-4 w-4" /> Recusar
+                  <XCircle className="mr-2 h-4 w-4" /> Decline
                 </button>
               </>
             )}
@@ -108,13 +108,13 @@ function PublicProposalPage() {
               className="mx-auto mt-8 grid max-w-lg gap-3 rounded-xl border border-white/15 bg-white/[.05] p-5 text-left"
             >
               <h3 className="font-display text-xl font-semibold">
-                Confirmar {decision === "accepted" ? "aceite" : "recusa"}
+                Confirm {decision === "accepted" ? "acceptance" : "decline"}
               </h3>
               <input
                 className={inputClass}
                 required
                 minLength={2}
-                placeholder="Nome completo"
+                placeholder="Full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -122,20 +122,20 @@ function PublicProposalPage() {
                 className={inputClass}
                 required
                 type="email"
-                placeholder="E-mail do destinatário"
+                placeholder="Recipient's email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <div className="flex gap-3">
                 <button disabled={sending} className={buttonClass}>
-                  {sending ? "Registrando..." : "Confirmar"}
+                  {sending ? "Submitting..." : "Confirm"}
                 </button>
                 <button
                   type="button"
                   className={secondaryButtonClass}
                   onClick={() => setDecision(null)}
                 >
-                  Cancelar
+                  Cancel
                 </button>
               </div>
             </form>

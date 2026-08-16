@@ -41,14 +41,14 @@ function ProposalPdfDownloadPage() {
       <div className="max-w-md text-center">
         <p className="text-xs font-semibold uppercase tracking-[.2em] text-[#dfff1f]">GO TEAM GO</p>
         <h1 className="mt-4 font-display text-4xl font-semibold">
-          {error ? "Não foi possível gerar o PDF" : url ? "PDF pronto" : "Preparando sua proposta"}
+          {error ? "Could not generate the PDF" : url ? "PDF ready" : "Preparing your proposal"}
         </h1>
         <p className="mt-3 text-sm text-white/55">
-          Versão {data.versionNumber} · {data.recipientName}
+          Version {data.versionNumber} · {data.recipientName}
         </p>
         {url && (
           <a href={url} download={filename} className={buttonClass + " mt-8"}>
-            <Download className="mr-2 h-4 w-4" /> Baixar PDF
+            <Download className="mr-2 h-4 w-4" /> Download PDF
           </a>
         )}
       </div>
