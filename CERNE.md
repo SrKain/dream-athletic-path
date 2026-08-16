@@ -200,6 +200,14 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **`src/components/confetti-celebration.tsx`**: rotina extraída para `fireConfetti({ duration, zIndex })`, reutilizada pelo dialog.
 - **Telas**: dialog montado em `portal/pipeline.tsx` e `portal/index.tsx`; configuração (texto + upload/reordenar/remover imagens) na edição de etapa em `admin/settings.tsx`.
 
+## Atualização 2026-08-16 — Correção de falhas silenciosas no pipeline de vídeos
+
+- **`src/routes/_authenticated/admin/athletes/$id.tsx` → `load()`**: adicionado `if (videosResult.error) toast.error(...)` — se a tabela `athlete_videos` não existir ou a RLS bloquear, o admin exibe mensagem de erro em vez de listar vazio sem aviso.
+- **`src/routes/_authenticated/admin/athletes/$id.tsx` → `save()`**: removido bloco duplicado de insert/update de vídeo sem tratamento de erro; substituído por `await addVideo()` que já possui `if (error) return toast.error(...)` correto.
+- **`src/lib/athletes.functions.ts` → `getPublicAthlete()`**: adicionado `if (videos.error) console.error(...)` para surfaçar falhas da query `athlete_videos` nos logs do servidor.
+- **`src/lib/athletes.functions.ts` → `listPublicAthletes()`**: adicionado `if (videosResult.error) console.error(...)` pelo mesmo motivo.
+- **Pré-requisito para vídeos funcionarem**: migrations `0009_visual_settings_media.sql` e `0010_athlete_profile_fields.sql` precisam ser aplicadas no Supabase externo antes de qualquer operação com `athlete_videos`.
+
 ## Atualização 2026-08-15 — Aba Visual e catálogo portfólio
 
 - **Migration `0009_visual_settings_media.sql`**: adiciona `agency_visual_settings`, `catalog_position_order` e `athlete_videos`, com grants públicos de leitura, escrita protegida por `is_agency_admin()` e leitura de vídeos limitada a atletas publicados.

@@ -133,6 +133,7 @@ function AthleteEditor() {
     );
     setMediaUrls(Object.fromEntries(resolvedMedia));
     setAchievements((achievementsResult.data ?? []) as Achievement[]);
+    if (videosResult.error) toast.error(`Erro ao carregar vídeos: ${videosResult.error.message}`);
     setVideos((videosResult.data ?? []) as AthleteVideo[]);
   }, [id]);
   useEffect(() => void load(), [load]);
@@ -190,32 +191,8 @@ function AthleteEditor() {
       .upsert({ ...profile, athlete_id: id });
     if (profileError) toast.error(profileError.message);
 
-    // Se houver um rascunho de vídeo pendente com link válido, salva automaticamente
     if (videoDraft.youtube_url && isValidYoutubeUrl(videoDraft.youtube_url)) {
-      const existingSameKind = videos.find((item) => item.kind === videoDraft.kind);
-      if (
-        (videoDraft.kind === "feature" || videoDraft.kind === "presentation") &&
-        existingSameKind
-      ) {
-        await supabase
-          .from("athlete_videos")
-          .update({
-            youtube_url: videoDraft.youtube_url.trim(),
-            title: videoDraft.title || null,
-          })
-          .eq("id", existingSameKind.id);
-      } else {
-        const sameKindCount = videos.filter((item) => item.kind === videoDraft.kind).length;
-        await supabase.from("athlete_videos").insert({
-          athlete_id: id,
-          kind: videoDraft.kind,
-          youtube_url: videoDraft.youtube_url.trim(),
-          title: videoDraft.title || null,
-          sort_order: sameKindCount,
-        });
-      }
-      setVideoDraft({ kind: videoDraft.kind, title: "", youtube_url: "" });
-      await load();
+      await addVideo();
     }
 
     if (!profileError) toast.success("Perfil salvo.");

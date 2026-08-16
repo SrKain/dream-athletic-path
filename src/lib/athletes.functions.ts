@@ -74,6 +74,7 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
           .in("athlete_id", athleteIds),
       ]);
 
+      if (videosResult.error) console.error("[listPublicAthletes] athlete_videos:", videosResult.error.message);
       const allVideos = (videosResult.data ?? []) as {
         athlete_id: string;
         youtube_url: string;
@@ -168,6 +169,7 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       client.from("athlete_videos").select("*").eq("athlete_id", athleteId).order("sort_order"),
     ]);
 
+    if (videos.error) console.error("[getPublicAthlete] athlete_videos:", videos.error.message);
     return {
       athlete: athlete as unknown as AthleteCard,
       profile: (profile.data ?? null) as AthleteProfile | null,
