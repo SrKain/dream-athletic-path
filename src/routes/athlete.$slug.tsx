@@ -12,7 +12,9 @@ import {
   School,
   Sparkles,
   Trophy,
+  Video,
 } from "lucide-react";
+import { useMemo } from "react";
 
 import { ReelsRow } from "@/components/reels-viewer";
 import { PublicYoutubePlayer } from "@/components/public-youtube-player";
@@ -22,6 +24,7 @@ import { calculateAge } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
+import { isValidYoutubeUrl } from "@/lib/youtube";
 
 export const Route = createFileRoute("/athlete/$slug")({
   loader: async ({ params }) => {
@@ -65,6 +68,42 @@ function PublicAthleteProfile() {
     videos,
     profile?.highlight_video_url,
   );
+
+  // Consolidar todos os links válidos de vídeo do YouTube cadastrados para exibição direta
+  const allEmbeddedVideos = useMemo(() => {
+    const list: Array<{ id: string; url: string; title: string; kind?: string }> = [];
+    const seenUrls = new Set<string>();
+
+    for (const v of videos ?? []) {
+      if (v?.youtube_url && isValidYoutubeUrl(v.youtube_url)) {
+        const trimmed = v.youtube_url.trim();
+        if (!seenUrls.has(trimmed)) {
+          seenUrls.add(trimmed);
+          list.push({
+            id: v.id || `video-${list.length}`,
+            url: trimmed,
+            title: v.title || `${v.kind ? v.kind.toUpperCase() : "Video"} — ${athlete.full_name}`,
+            kind: v.kind,
+          });
+        }
+      }
+    }
+
+    if (profile?.highlight_video_url && isValidYoutubeUrl(profile.highlight_video_url)) {
+      const trimmed = profile.highlight_video_url.trim();
+      if (!seenUrls.has(trimmed)) {
+        seenUrls.add(trimmed);
+        list.push({
+          id: "profile-highlight",
+          url: trimmed,
+          title: `Highlight Film — ${athlete.full_name}`,
+          kind: "highlight",
+        });
+      }
+    }
+
+    return list;
+  }, [videos, profile?.highlight_video_url, athlete.full_name]);
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
@@ -449,6 +488,46 @@ function PublicAthleteProfile() {
                   />
                 ),
               )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── ALL REGISTERED VIDEOS (EMBEDDED FILM) ── */}
+      {allEmbeddedVideos.length > 0 && (
+        <section id="all-registered-videos" className="border-t border-border bg-muted/20 py-16">
+          <div className="container-edge">
+            <div className="flex items-center gap-2">
+              <Video className="h-4 w-4 text-primary" />
+              <p className="eyebrow text-primary">All Registered Videos</p>
+            </div>
+            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+              Embedded Film & Footage
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground mb-8">
+              All YouTube videos registered for {athlete.full_name} are embedded below for direct
+              viewing and evaluation.
+            </p>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+              {allEmbeddedVideos.map((vid, idx) => (
+                <article
+                  key={vid.id}
+                  className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="font-display text-base font-semibold truncate text-foreground">
+                      {vid.title || `Video #${idx + 1}`}
+                    </h3>
+                    {vid.kind && (
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        {vid.kind}
+                      </span>
+                    )}
+                  </div>
+                  <PublicYoutubePlayer url={vid.url} title={vid.title} autoPlay={false} />
+                </article>
+              ))}
             </div>
           </div>
         </section>
