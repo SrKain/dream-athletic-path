@@ -1,6 +1,6 @@
 /**
  * Utilitários para links do YouTube (watch, youtu.be, shorts, live, embed, mobile).
- * Implementa estratégia combinada de Web URL API + regex fallbacks para suportar 100% dos formatos.
+ * Aceita IDs diretos e links dos domínios oficiais do YouTube.
  */
 
 export function parseYoutubeId(url?: string | null): string | null {
@@ -17,15 +17,19 @@ export function parseYoutubeId(url?: string | null): string | null {
     const host = parsed.hostname.toLowerCase();
 
     // Formato youtu.be/ID
-    if (host.includes("youtu.be")) {
-      const pathId = parsed.pathname.replace(/^\/+/, "").split("/")[0]?.split("?")[0]?.split("&")[0];
+    if (host === "youtu.be" || host === "www.youtu.be") {
+      const pathId = parsed.pathname
+        .replace(/^\/+/, "")
+        .split("/")[0]
+        ?.split("?")[0]
+        ?.split("&")[0];
       if (pathId && /^[a-zA-Z0-9_-]{11}$/.test(pathId)) {
         return pathId;
       }
     }
 
     // Formato youtube.com/watch?v=ID (e m.youtube.com)
-    if (host.includes("youtube.com")) {
+    if (["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"].includes(host)) {
       const v = parsed.searchParams.get("v");
       if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) {
         return v;
@@ -44,23 +48,7 @@ export function parseYoutubeId(url?: string | null): string | null {
       }
     }
   } catch {
-    // URL inválida para construtor nativo, prossegue para os regexes
-  }
-
-  // 2. Fallbacks de Regex resilientes
-  const patterns: RegExp[] = [
-    /[?&]v=([a-zA-Z0-9_-]{11})(?:[&#]|$)/,
-    /youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/,
-    /youtube\.com\/(?:shorts|embed|live|v)\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/,
-    /youtube\.com\/watch\/([a-zA-Z0-9_-]{11})(?:[?&#]|$)/,
-    /([a-zA-Z0-9_-]{11})/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = raw.match(pattern);
-    if (match?.[1] && /^[a-zA-Z0-9_-]{11}$/.test(match[1])) {
-      return match[1];
-    }
+    return null;
   }
 
   return null;
@@ -76,6 +64,11 @@ export function youtubeThumbnail(url?: string | null): string | null {
 }
 
 export const youtubeThumbnailUrl = youtubeThumbnail;
+
+export function youtubeWatchUrl(url?: string | null): string | null {
+  const id = parseYoutubeId(url);
+  return id ? `https://www.youtube.com/watch?v=${id}` : null;
+}
 
 export type EmbedOptions = {
   autoplay?: boolean;

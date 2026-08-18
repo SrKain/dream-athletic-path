@@ -15,12 +15,13 @@ import {
 } from "lucide-react";
 
 import { ReelsRow } from "@/components/reels-viewer";
+import { PublicYoutubePlayer } from "@/components/public-youtube-player";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
-import { youtubeEmbedUrl } from "@/lib/youtube";
+import { groupPublicVideos } from "@/lib/public-videos";
 
 export const Route = createFileRoute("/athlete/$slug")({
   loader: async ({ params }) => {
@@ -54,60 +55,16 @@ export const Route = createFileRoute("/athlete/$slug")({
 });
 
 function PublicAthleteProfile() {
-  const { athlete, profile, media, achievements, videos } =
+  const { athlete, profile, media, achievements, videos, videosAvailable } =
     Route.useLoaderData() as PublicAthletePayload;
 
   const age = calculateAge(athlete.birth_date);
   const firstName = athlete.full_name.split(" ")[0];
 
-  const safeVideos = Array.isArray(videos) ? [...videos] : [];
-
-  // Se houver highlight_video_url no perfil e nenhum vídeo 'feature' cadastrado em athlete_videos, sintetizar
-  if (profile?.highlight_video_url && !safeVideos.some((item) => item.kind === "feature")) {
-    safeVideos.unshift({
-      id: "profile-feature-video",
-      athlete_id: athlete.id,
-      kind: "feature",
-      youtube_url: profile.highlight_video_url,
-      title: "Featured Highlights",
-      sort_order: 0,
-      created_at: new Date().toISOString(),
-    });
-  }
-
-  const featureVideo = safeVideos.find((item) => item.kind === "feature");
-  const presentationVideo = safeVideos.find((item) => item.kind === "presentation");
-  const highlights = safeVideos.filter((item) => item.kind === "highlight");
-  const inCourtVideos = safeVideos.filter((item) => item.kind === "in_court");
-
-  // Fallback inteligente para o Hero: feature > profile > presentation > primeiro highlight > primeiro in_court
-  const heroVideoUrl =
-    featureVideo?.youtube_url ||
-    profile?.highlight_video_url ||
-    presentationVideo?.youtube_url ||
-    highlights[0]?.youtube_url ||
-    inCourtVideos[0]?.youtube_url;
-
-  const heroBackground = youtubeEmbedUrl(heroVideoUrl, {
-    autoplay: true,
-    controls: false,
-    loop: true,
-    muted: true,
-  });
-
-  const featuredVideoToDisplay =
-    featureVideo ||
-    (heroVideoUrl
-      ? {
-          id: "active-featured",
-          athlete_id: athlete.id,
-          kind: "feature" as const,
-          youtube_url: heroVideoUrl,
-          title: `${athlete.full_name} — Highlights`,
-          sort_order: 0,
-          created_at: new Date().toISOString(),
-        }
-      : null);
+  const { presentations, highlights, inCourt, heroUrl } = groupPublicVideos(
+    videos,
+    profile?.highlight_video_url,
+  );
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
@@ -141,27 +98,10 @@ function PublicAthleteProfile() {
 
       {/* ── HERO SECTION ── */}
       <section className="relative overflow-hidden bg-surface text-surface-foreground">
-        {/* Background: Atmospheric YouTube Feature Video with Emerald Layer & Blur */}
-        {heroBackground ? (
-          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-            <iframe
-              src={heroBackground}
-              title=""
-              tabIndex={-1}
-              allow="autoplay; encrypted-media"
-              className="absolute left-1/2 top-1/2 h-[190%] w-[190%] -translate-x-1/2 -translate-y-1/2 scale-105 border-0 opacity-70"
-            />
-            {/* Green emerald tint + blur overlay so the video acts purely as background kinetic texture */}
-            <div className="absolute inset-0 bg-[oklch(0.22_0.08_162_/_0.78)] backdrop-blur-[5px]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-surface to-surface" />
-        )}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,oklch(0.52_0.13_160_/_0.32),transparent_36%),linear-gradient(135deg,oklch(0.19_0.05_162),oklch(0.13_0.045_162))]" />
 
-        <div className="container-edge relative z-10 py-10 sm:py-14 lg:py-16">
+        <div className="container-edge relative z-10 grid gap-8 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)] lg:items-center lg:py-16">
           <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:gap-10">
-            {/* Athlete Photo (Visual Anchor - 4:5 ratio) */}
             <div className="relative aspect-[4/5] w-36 shrink-0 overflow-hidden rounded-xl bg-white/10 shadow-2xl ring-2 ring-white/20 sm:w-48 md:w-56">
               <img
                 src={photoUrl}
@@ -171,7 +111,6 @@ function PublicAthleteProfile() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
             </div>
 
-            {/* Athlete Info */}
             <div className="flex-1 space-y-4">
               <div>
                 <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -182,7 +121,6 @@ function PublicAthleteProfile() {
                 </p>
               </div>
 
-              {/* Badges */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {positionLabel && (
                   <span className="inline-flex items-center rounded-full bg-primary/25 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-foreground border border-primary/30">
@@ -202,7 +140,6 @@ function PublicAthleteProfile() {
                 )}
               </div>
 
-              {/* Key Quick Stats */}
               <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-surface-foreground/80 pt-2">
                 {athlete.height_cm && (
                   <span className="flex items-center gap-1.5">
@@ -228,7 +165,6 @@ function PublicAthleteProfile() {
                 )}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <a
                   href={buildRecruitWhatsappUrl(athlete.full_name)}
@@ -238,19 +174,42 @@ function PublicAthleteProfile() {
                 >
                   Recruit Athlete
                 </a>
-                {featuredVideoToDisplay && (
+                {heroUrl && (
                   <a
-                    href="#featured-video"
+                    href="#hero-video"
                     className="inline-flex h-11 items-center gap-2 rounded-md border border-white/25 px-5 text-xs font-semibold uppercase tracking-wider text-surface-foreground transition hover:border-white/50 hover:bg-white/10"
                   >
-                    <Play className="h-3.5 w-3.5 fill-current" /> Watch Featured
+                    <Play className="h-3.5 w-3.5 fill-current" /> Watch Film
                   </a>
                 )}
               </div>
             </div>
           </div>
+          {heroUrl && (
+            <div id="hero-video" className="rounded-xl border border-white/15 bg-black/30 p-2 shadow-2xl">
+              <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground/75">
+                Featured Film
+              </p>
+              <PublicYoutubePlayer
+                url={heroUrl}
+                title={`Featured video — ${athlete.full_name}`}
+                autoPlay
+              />
+            </div>
+          )}
         </div>
       </section>
+
+      {!videosAvailable && (
+        <section className="container-edge py-6">
+          <p
+            role="status"
+            className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          >
+            Videos are temporarily unavailable. Please try again shortly.
+          </p>
+        </section>
+      )}
 
       {/* ── HIGHLIGHTS (INSTAGRAM-STYLE REELS) ── */}
       {highlights.length > 0 && <ReelsRow videos={highlights} athleteName={athlete.full_name} />}
@@ -365,35 +324,32 @@ function PublicAthleteProfile() {
         </section>
       )}
 
-      {/* ── PRESENTATION VIDEO ── */}
-      {presentationVideo && (
+      {/* ── ATHLETE PRESENTATION ── */}
+      {(presentations.length > 0 || inCourt.length > 0) && (
         <section className="container-edge py-12 border-t border-border/70">
-          <p className="eyebrow text-primary">Presentation</p>
+          <p className="eyebrow text-primary">Athlete Presentation</p>
           <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            {presentationVideo.title || `Meet ${athlete.full_name}`}
+            Meet {athlete.full_name} On and Off the Court
           </h2>
           <p className="mt-1 text-sm text-muted-foreground mb-6">
-            Personal statement, journey, and recruiting goals.
+            Personal story, recruiting goals, and match footage.
           </p>
-          <YoutubePlayerFrame
-            url={presentationVideo.youtube_url}
-            title={`Presentation — ${athlete.full_name}`}
-          />
-        </section>
-      )}
-
-      {/* ── IN COURT VIDEOS (NEW) ── */}
-      {inCourtVideos.length > 0 && (
-        <section className="container-edge py-12 border-t border-border/70">
-          <p className="eyebrow text-primary">In Action</p>
-          <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            In-Court Footage & Match Play
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground mb-6">
-            Live game performances, set sequences, and tactical execution.
-          </p>
-          <div className="grid gap-6 md:grid-cols-2">
-            {inCourtVideos.map((video, idx) => (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {presentations.map((video, idx) => (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+              >
+                <h3 className="font-display text-base font-semibold mb-3">
+                  {video.title || `Meet ${athlete.full_name} — Video ${idx + 1}`}
+                </h3>
+                <PublicYoutubePlayer
+                  url={video.youtube_url}
+                  title={video.title || `Presentation ${idx + 1} — ${athlete.full_name}`}
+                />
+              </article>
+            ))}
+            {inCourt.map((video, idx) => (
               <article
                 key={video.id}
                 className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
@@ -401,33 +357,12 @@ function PublicAthleteProfile() {
                 <h3 className="font-display text-base font-semibold mb-3 truncate">
                   {video.title || `Match Play Footage ${idx + 1}`}
                 </h3>
-                <YoutubePlayerFrame
+                <PublicYoutubePlayer
                   url={video.youtube_url}
                   title={video.title || `In Court ${idx + 1}`}
                 />
               </article>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── FEATURED VIDEO SECTION ── */}
-      {featuredVideoToDisplay && (
-        <section
-          id="featured-video"
-          className="border-y border-border bg-surface py-16 text-surface-foreground lg:py-20"
-        >
-          <div className="container-edge">
-            <p className="eyebrow text-primary">Featured Video</p>
-            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              {featuredVideoToDisplay.title || `${athlete.full_name} — Key Highlights`}
-            </h2>
-            <div className="mt-6">
-              <YoutubePlayerFrame
-                url={featuredVideoToDisplay.youtube_url}
-                title={`Featured Video — ${athlete.full_name}`}
-              />
-            </div>
           </div>
         </section>
       )}
@@ -549,23 +484,6 @@ function PublicAthleteProfile() {
 
 function loaderPhotoOrFallback(athlete: PublicAthletePayload["athlete"]) {
   return athlete.photo_url ?? getAthleteDisplayImage(athlete);
-}
-
-function YoutubePlayerFrame({ url, title }: { url?: string | null; title: string }) {
-  if (!url) return null;
-  const embed = youtubeEmbedUrl(url);
-  if (!embed) return null;
-  return (
-    <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-lg">
-      <iframe
-        src={embed}
-        title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-        className="h-full w-full border-0"
-      />
-    </div>
-  );
 }
 
 function ProfileFact({

@@ -15,6 +15,7 @@ export type PublicAthletePayload = {
   media: AthleteMedia[];
   achievements: Achievement[];
   videos: AthleteVideo[];
+  videosAvailable: boolean;
 };
 
 export type PublicCatalogPayload = {
@@ -74,7 +75,8 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
           .in("athlete_id", athleteIds),
       ]);
 
-      if (videosResult.error) console.error("[listPublicAthletes] athlete_videos:", videosResult.error.message);
+      if (videosResult.error)
+        console.error("[listPublicAthletes] athlete_videos:", videosResult.error.message);
       const allVideos = (videosResult.data ?? []) as {
         athlete_id: string;
         youtube_url: string;
@@ -169,12 +171,18 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       client.from("athlete_videos").select("*").eq("athlete_id", athleteId).order("sort_order"),
     ]);
 
-    if (videos.error) console.error("[getPublicAthlete] athlete_videos:", videos.error.message);
+    if (videos.error) {
+      console.error(
+        "[getPublicAthlete] athlete_videos indisponível. Verifique a migration 0009 e as políticas RLS:",
+        videos.error.message,
+      );
+    }
     return {
       athlete: athlete as unknown as AthleteCard,
       profile: (profile.data ?? null) as AthleteProfile | null,
       media: (media.data ?? []) as unknown as AthleteMedia[],
       achievements: (achievements.data ?? []) as unknown as Achievement[],
       videos: (videos.data ?? []) as unknown as AthleteVideo[],
+      videosAvailable: !videos.error,
     };
   });

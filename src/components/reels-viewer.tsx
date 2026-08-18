@@ -1,20 +1,15 @@
 import { ChevronDown, ChevronUp, Play, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { youtubeEmbedUrl, youtubeThumbnail } from "@/lib/youtube";
+import { PublicYoutubePlayer } from "@/components/public-youtube-player";
+import { youtubeThumbnail } from "@/lib/youtube";
 import type { AthleteVideo } from "@/types/db";
 
 /**
- * Carrossel horizontal de Highlights em formato de Stories do Instagram.
- * Ao clicar, abre o player vertical em tela cheia (Reels / Shorts).
+ * Highlights públicos com players verticais autoplay e um visualizador de tela
+ * cheia opcional para acompanhar os clips em sequência.
  */
-export function ReelsRow({
-  videos,
-  athleteName,
-}: {
-  videos: AthleteVideo[];
-  athleteName: string;
-}) {
+export function ReelsRow({ videos, athleteName }: { videos: AthleteVideo[]; athleteName: string }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   if (!videos || videos.length === 0) return null;
@@ -28,39 +23,41 @@ export function ReelsRow({
         </span>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none">
+      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 scrollbar-none md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3">
         {videos.map((video, index) => {
           const thumb = youtubeThumbnail(video.youtube_url);
           const title = video.title || `Highlight ${index + 1}`;
-
           return (
-            <button
+            <article
               key={video.id || index}
-              onClick={() => setOpenIndex(index)}
-              className="group shrink-0 flex flex-col items-center text-center cursor-pointer transition hover:scale-105"
-              aria-label={`Watch highlight: ${title}`}
+              className="group w-[72vw] max-w-[19rem] shrink-0 snap-center overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:w-auto md:max-w-none"
             >
-              {/* Instagram-style colorful ring */}
-              <span className="block rounded-full bg-gradient-to-tr from-primary via-[var(--gold)] to-accent p-[2.5px] shadow-md transition group-hover:shadow-primary/30">
-                <span className="block h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-full border-2 border-background bg-surface">
-                  {thumb ? (
-                    <img
-                      src={thumb}
-                      alt={title}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-primary/20 text-primary">
-                      <Play className="h-7 w-7 fill-current ml-0.5" />
-                    </div>
-                  )}
+              <button
+                type="button"
+                onClick={() => setOpenIndex(index)}
+                className="relative block aspect-[9/16] w-full bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                aria-label={`Play highlight: ${title}`}
+              >
+                {thumb ? (
+                  <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="h-full w-full bg-surface" />
+                )}
+                <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition hover:bg-black/40">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                    <Play className="ml-0.5 h-4 w-4 fill-current" />
+                  </span>
                 </span>
-              </span>
-              <span className="mt-2 block max-w-[84px] sm:max-w-[96px] truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                {title}
-              </span>
-            </button>
+              </button>
+              <button
+                onClick={() => setOpenIndex(index)}
+                className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`Open highlight: ${title}`}
+              >
+                <span className="truncate">{title}</span>
+                <Play className="h-4 w-4 shrink-0 fill-current text-primary" />
+              </button>
+            </article>
           );
         })}
       </div>
@@ -137,12 +134,6 @@ function ReelsOverlay({
   };
 
   const currentVideo = videos[currentIndex];
-  const embedUrl = currentVideo
-    ? youtubeEmbedUrl(currentVideo.youtube_url, {
-        autoplay: true,
-        playsinline: true,
-      })
-    : null;
 
   return (
     <div
@@ -171,15 +162,14 @@ function ReelsOverlay({
       </div>
 
       {/* Main Video Frame (9:16 vertical ratio) */}
-      <div className="relative aspect-[9/16] h-full max-h-[82vh] sm:max-h-[86vh] w-full max-w-[min(100%,50vh)] overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/10 my-auto">
-        {embedUrl ? (
-          <iframe
+      <div className="relative my-auto w-full max-w-[min(100%,43vh)] rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/10">
+        {currentVideo ? (
+          <PublicYoutubePlayer
             key={`${currentVideo.id}-${currentIndex}`}
-            src={embedUrl}
+            url={currentVideo.youtube_url}
             title={currentVideo.title || `${athleteName} Highlight ${currentIndex + 1}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="h-full w-full border-0"
+            autoPlay
+            aspectClass="aspect-[9/16]"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">

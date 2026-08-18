@@ -21,13 +21,15 @@ export function AthleteVideoCardMedia({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverCapable, setHoverCapable] = useState(true);
   const [hovered, setHovered] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
     setHoverCapable(window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+    setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }, []);
 
   const centered = useCenterInView(containerRef, !hoverCapable && Boolean(videoUrl));
-  const active = Boolean(videoUrl) && (hoverCapable ? hovered : centered);
+  const active = Boolean(videoUrl) && !reducedMotion && (hoverCapable ? hovered : centered);
   const embed = active
     ? youtubeEmbedUrl(videoUrl, { autoplay: true, controls: false, loop: true, muted: true })
     : null;

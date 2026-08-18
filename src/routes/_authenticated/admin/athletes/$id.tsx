@@ -133,7 +133,7 @@ function AthleteEditor() {
     );
     setMediaUrls(Object.fromEntries(resolvedMedia));
     setAchievements((achievementsResult.data ?? []) as Achievement[]);
-    if (videosResult.error) toast.error(`Erro ao carregar vídeos: ${videosResult.error.message}`);
+    if (videosResult.error) toast.error(videoDatabaseErrorMessage(videosResult.error.message));
     setVideos((videosResult.data ?? []) as AthleteVideo[]);
   }, [id]);
   useEffect(() => void load(), [load]);
@@ -168,7 +168,7 @@ function AthleteEditor() {
       .from("athletes")
       .update({ ...currentAthlete, slug: nextSlug })
       .eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(videoDatabaseErrorMessage(error.message));
     if (currentAthlete.current_stage_id) {
       const { data: existingProgress } = await supabase
         .from("athlete_stage_progress")
@@ -336,7 +336,7 @@ function AthleteEditor() {
           title: draft.title || null,
         })
         .eq("id", existingSameKind.id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(videoDatabaseErrorMessage(error.message));
       toast.success(
         draft.kind === "feature"
           ? "Vídeo de destaque atualizado."
@@ -1157,6 +1157,13 @@ function Field({
       <div className="mt-1.5">{children}</div>
     </label>
   );
+}
+
+function videoDatabaseErrorMessage(message: string) {
+  if (message.includes("athlete_videos") || message.includes("athlete_video_kind")) {
+    return "Vídeos indisponíveis. Aplique as migrations 0009 e 0010 no Supabase externo e tente novamente.";
+  }
+  return `Erro ao salvar vídeo: ${message}`;
 }
 
 function VideoItemCard({

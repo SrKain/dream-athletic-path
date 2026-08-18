@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")({
 function Catalog() {
   const { athletes, configured, visual, positionOrder, featureVideos } =
     Route.useLoaderData() as PublicCatalogPayload;
-  const { locale, setLocale, pick } = useI18n();
+  const { pick } = useI18n();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
   const [country, setCountry] = useState("");
@@ -83,12 +83,6 @@ function Catalog() {
             <span className="eyebrow hidden text-muted-foreground md:block">NCAA</span>
           </Link>
           <div className="flex items-center gap-3">
-            <button
-              className="glass-panel rounded-full px-3 py-1.5 text-xs font-semibold"
-              onClick={() => setLocale(locale === "pt" ? "en" : "pt")}
-            >
-              {locale === "pt" ? "EN" : "PT"}
-            </button>
             <Link
               to="/login"
               search={{ redirect: undefined }}

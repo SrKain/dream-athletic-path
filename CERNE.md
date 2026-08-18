@@ -17,6 +17,12 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 - **Serviço de E-mail**: Arquitetura integrada ao **Resend** para notificações transacionais.
 - **Qualidade & Testes**: **Vitest**, **ESLint**, **Prettier**.
 
+### Governança de Planejamento Compartilhado
+
+- **Pasta `think/`**: Repositório versionado dos raciocínios e planos de solução aprovados ou em análise. Todos os agentes devem ler integralmente seus arquivos Markdown antes de decidir ou alterar o projeto.
+- **Registro prévio**: Todo plano apresentado ao usuário deve existir previamente como `think/YYYY-MM-DD-HHmm-descricao-curta.md`, contendo contexto, escopo, etapas, impactos, estratégia de validação e status de aprovação.
+- **Continuidade entre agentes**: Os planos registram as decisões e alternativas consideradas, para que o agente seguinte preserve o contexto e não repita ou contradiga raciocínios anteriores.
+
 ### Build System & Package Manager
 
 > **⚠️ CRÍTICO**: Este projeto utiliza exclusivamente **[Bun](https://bun.sh)** como package manager e runtime. **NÃO use npm, yarn ou pnpm** — tentativas de build com outros package managers resultarão em erros de dependências e compilação.
@@ -261,9 +267,26 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Hero com fundo atmosférico com loop do vídeo de destaque e fallback para `profile.highlight_video_url`.
   - Testes unitários atualizados em `src/lib/youtube.test.ts`.
 
+## Atualização 2026-08-18 — Experiência audiovisual no perfil público (TASK-019)
+
+- **Hero com player funcional (`src/routes/athlete.$slug.tsx`)**: o vídeo `feature` (ou o melhor fallback disponível) deixou de ser uma textura de fundo sem interação e passou a ser um player acessível dentro do hero. Em mobile, ele segue o conteúdo em fluxo vertical; em desktop, compõe uma segunda coluna editorial.
+- **Apresentação unificada**: a seção `Athlete Presentation` reúne o vídeo `presentation` e todos os vídeos `in_court`, com um player por vídeo e grid responsivo de uma coluna no mobile e duas no desktop.
+- **Autoplay compatível**: todos os players da página pública usam `autoplay=1`, `mute=1` e `playsinline=1`. A reprodução sem áudio é necessária para que navegadores permitam autoplay consistente; controles e fullscreen continuam disponíveis para reprodução com áudio por decisão do visitante.
+- **Reels visíveis (`src/components/reels-viewer.tsx`)**: highlights agora possuem players verticais 9:16 visíveis e em autoplay na página, além do visualizador em tela cheia com swipe, teclado e navegação por botões.
+- **Dados seguros**: apenas URLs que geram embed válido são renderizadas; a consulta continua restrita pela RLS a atletas publicados e não arquivados.
+
 ## Camada visual do catálogo (migration 0009)
 - `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
 - `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).
 - `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature` | `in_court`.
 - Componentes: `athlete-video-card-media.tsx` (prévia em vídeo nos cards), `reels-viewer.tsx` (highlights em doom scroll), `whatsapp-fab.tsx` (botão flutuante).
 - Helpers: `src/lib/youtube.ts` (`parseYoutubeId`, `youtubeThumbnail`, `youtubeEmbedUrl`).
+
+## Atualização 2026-08-18 — Perfil público e vídeo confiável (TASK-022)
+
+- **Contrato público de vídeos**: `src/lib/public-videos.ts` centraliza a validação, ordenação por `sort_order` e agrupamento em `feature`, `presentation`, `highlight` e `in_court`. Todas as apresentações e todos os vídeos em quadra válidos são exibidos; o hero usa a prioridade feature, destaque legado, apresentação, highlight e vídeo em quadra.
+- **Player reutilizável**: `src/components/public-youtube-player.tsx` substitui embeds diretos no perfil e no visualizador de reels. Ele exibe thumbnail antes do carregamento, inicia o hero/reels automaticamente apenas sem áudio e quando movimento reduzido não foi solicitado, preserva controles/fullscreen e sempre fornece o link seguro “Watch on YouTube”.
+- **Segurança e compatibilidade do YouTube**: `parseYoutubeId()` aceita somente IDs diretos e hosts oficiais (`youtube.com`, subdomínios oficiais e `youtu.be`), evitando que domínios arbitrários sejam convertidos em embeds. `youtubeWatchUrl()` fornece a URL canônica usada na contingência.
+- **Reels e catálogo**: reels agora iniciam pelo poster e carregam somente o vídeo escolhido no overlay; cards do catálogo mantêm a foto e a prévia sob interação, desativando autoplay quando `prefers-reduced-motion` estiver ativo.
+- **Diagnóstico operacional**: `getPublicAthlete()` expõe `videosAvailable`; a tela pública comunica indisponibilidade sem simular que o atleta não possui vídeos. O Admin orienta aplicar as migrations `0009` e `0010` quando a tabela ou o enum de vídeos não estiverem disponíveis.
+- **Qualidade**: adicionados testes de agrupamento/ordenação e de rejeição de domínios indevidos. `bun run typecheck`, lint dos módulos alterados e `bun run build` concluíram. O Vitest focado não iniciou no Windows por `TypeError: File URL path must be an absolute path`, antes de carregar qualquer teste.
