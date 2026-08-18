@@ -31,6 +31,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 | **TASK-020** | 2026-08-18 15:27 | Usuário Humano | GitHub Copilot | Instalar Bun, restaurar dependências locais e executar a validação automatizada completa. | `[PENDENTE]` | Execução operacional em andamento. |
 | **TASK-021** | 2026-08-18 15:44 | Usuário Humano | GitHub Copilot | Assimilar o contexto completo do projeto antes de iniciar novas demandas. | `[CONCLUÍDO]` | README.md, CERNE.md, BACKLOGER.md, UI&UX.md e todos os planos em think/ foram lidos; arquitetura, regras de negócio, governança e pendências operacionais foram consolidadas. |
 | **TASK-022** | 2026-08-18 15:47 | Usuário Humano | GitHub Copilot | Verificar a entrega audiovisual anterior, organizar a conclusão do perfil público no catálogo e resolver definitivamente a exibição de vídeos. | `[CONCLUÍDO]` | Implementado contrato de vídeos, player reutilizável com fallback YouTube, exibição completa por categoria, diagnóstico de migrations e proteção de performance/acessibilidade. Typecheck, lint focado e build concluíram; Vitest foi bloqueado antes de carregar testes por limitação do runner no Windows. |
+| **TASK-023** | 2026-08-18 16:13 | Usuário Humano | GitHub Copilot | Confirmar e publicar as regras de governança que obrigam registrar planos em `think/`. | `[CONCLUÍDO]` | README.md e AGENTS.md confirmados e enviados com leitura obrigatória de `think/` e salvamento do plano antes de sua apresentação. |
 
 ---
 
