@@ -3,10 +3,11 @@
 # MVP — Plataforma de Gestão para Agência de Intercâmbio Esportivo
 
 > [!IMPORTANT]
+>
 > ## PROTOCOLO OBRIGATÓRIO DE GOVERNANÇA PARA INTELIGÊNCIAS ARTIFICIAIS (IAs)
-> 
+>
 > Qualquer agente de IA atuando neste repositório **DEVE OBRIGATORIAMENTE** seguir este protocolo:
-> 
+>
 > 1. **LEITURA OBRIGATÓRIA**: Antes de tomar qualquer ação ou responder, a IA deve ler integralmente o [`README.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/README.md), a documentação viva [`CERNE.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/CERNE.md), o diário de bordo [`BACKLOGER.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/BACKLOGER.md), as diretrizes de interface [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md) e todos os planos em [`think/`](think/README.md).
 > 2. **PLANEJAMENTO, REGISTRO E APROVAÇÃO HUMANA**: Todo planejamento de solução deve ser salvo em Markdown na pasta [`think/`](think/README.md) **antes de ser apresentado**. **NENHUMA** alteração de código (inclusão, alteração ou exclusão) pode ser executada sem primeiro apresentar esse plano detalhado e receber a **aprovação explícita de um usuário humano**.
 > 3. **DOCUMENTAÇÃO VIVA (`CERNE.md`)**: Toda alteração de código (funções, componentes, rotas, telas ou modelos) deve ser imediatamente registrada em detalhes no arquivo [`CERNE.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/CERNE.md).
@@ -22,6 +23,7 @@ Seu objetivo **não é apenas programar**, mas também tomar decisões arquitetu
 ---
 
 > [!WARNING]
+>
 > ## ⚠️ OBRIGATÓRIO: Package Manager
 >
 > **Este projeto usa exclusivamente [Bun](https://bun.sh) como package manager.**  
@@ -38,6 +40,7 @@ Seu objetivo **não é apenas programar**, mas também tomar decisões arquitetu
 > ```
 >
 > **Verificar instalação**:
+>
 > ```bash
 > bun --version  # Deve retornar >= 1.3.14
 > ```
@@ -48,8 +51,8 @@ Seu objetivo **não é apenas programar**, mas também tomar decisões arquitetu
 
 ### Pré-requisitos
 
-- **[Bun](https://bun.sh)** >= 1.3.14 *(obrigatório)*
-- **Node.js** >= 20.19.0 *(LTS 22 recomendado)*
+- **[Bun](https://bun.sh)** >= 1.3.14 _(obrigatório)_
+- **Node.js** >= 20.19.0 _(LTS 22 recomendado)_
 - **Supabase** — Projeto externo configurado (veja [`docs/SETUP.md`](docs/SETUP.md))
 
 ### Instalação
@@ -68,15 +71,15 @@ cp .env.example .env
 
 ### Comandos Disponíveis
 
-| Comando | Descrição |
-| :--- | :--- |
-| `bun run dev` | Inicia servidor de desenvolvimento (http://localhost:3000) |
-| `bun run build` | Compila aplicação para produção |
-| `bun run preview` | Preview da build de produção localmente |
-| `bun run typecheck` | Verifica erros de TypeScript sem compilar |
-| `bun run lint` | Executa ESLint em todo o projeto |
-| `bun run test` | Executa testes unitários com Vitest |
-| `bun run validate` | **Executa lint + typecheck + test + build** (pré-deploy) |
+| Comando             | Descrição                                                  |
+| :------------------ | :--------------------------------------------------------- |
+| `bun run dev`       | Inicia servidor de desenvolvimento (http://localhost:3000) |
+| `bun run build`     | Compila aplicação para produção                            |
+| `bun run preview`   | Preview da build de produção localmente                    |
+| `bun run typecheck` | Verifica erros de TypeScript sem compilar                  |
+| `bun run lint`      | Executa ESLint em todo o projeto                           |
+| `bun run test`      | Executa testes unitários com Vitest                        |
+| `bun run validate`  | **Executa lint + typecheck + test + build** (pré-deploy)   |
 
 **Para deploy em Vercel/Netlify/Cloudflare**, consulte [`docs/SETUP.md`](docs/SETUP.md) para configuração detalhada.
 
@@ -89,6 +92,7 @@ cp .env.example .env
 **Causa**: Bun não está instalado ou não está no PATH.
 
 **Solução**:
+
 ```bash
 # Instale o Bun seguindo o guia oficial
 # Windows PowerShell:
@@ -106,6 +110,7 @@ bun --version
 **Causa**: Você está usando o package manager errado.
 
 **Solução**: Este projeto **requer Bun**. Substitua todos os comandos:
+
 - ❌ `npm install` → ✅ `bun install`
 - ❌ `npm run dev` → ✅ `bun run dev`
 - ❌ `npm run build` → ✅ `bun run build`
@@ -115,6 +120,7 @@ bun --version
 **Causa**: Código TypeScript com erros de tipo ou dependências desatualizadas.
 
 **Diagnóstico**:
+
 ```bash
 # Verifique erros detalhados:
 bun run typecheck
@@ -129,6 +135,7 @@ bun install
 **Causa**: Erros de lint, typecheck ou testes bloqueando a build.
 
 **Diagnóstico progressivo**:
+
 ```bash
 # 1. Verificar linting:
 bun run lint
@@ -148,6 +155,7 @@ bun run validate
 **Causa**: Lock file desatualizado ou instalação parcial.
 
 **Solução**:
+
 ```bash
 # Re-instalar dependências limpando cache:
 rm -rf node_modules bun.lockb
@@ -162,6 +170,7 @@ bun run typecheck
 **Causa**: Path alias `@/` não resolvido ou arquivo movido/renomeado.
 
 **Solução**:
+
 1. Verifique se `tsconfig.json` tem o path alias configurado:
    ```json
    {
@@ -177,6 +186,7 @@ bun run typecheck
 **Causa**: Vercel está usando npm em vez de Bun para instalar dependências.
 
 **Sintomas no build log**:
+
 ```
 npm warn ERESOLVE overriding peer dependency
 npm warn Found: vite@8.1.5
@@ -185,6 +195,7 @@ npm warn peerOptional vite@"^5.0.0 || ^6.0.0 || ^7.0.0-0"
 ```
 
 **Solução**:
+
 1. Verifique que o arquivo [`vercel.json`](vercel.json) existe na raiz do projeto
 2. Conteúdo esperado:
    ```json

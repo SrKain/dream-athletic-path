@@ -111,7 +111,7 @@ carregar players em massa.
 4. Confirmar que vídeo inválido, privado ou não incorporável não quebra o
    layout e apresenta alternativa compreensível.
 5. Executar `bun run typecheck`, os testes focados, `bun run lint` e `bun run
-   build`.
+build`.
 
 ## Aprovação humana e resultado
 

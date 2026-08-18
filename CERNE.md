@@ -10,6 +10,7 @@
 O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de Intercâmbio Esportivo** realizarem a gestão completa de atletas brasileiros em busca de bolsas e oportunidades esportivas/acadêmicas internacionais (especialmente nos EUA), além de disponibilizar um catálogo público de recrutamento para **Coaches (técnicos internacionais)**.
 
 ### Stack Técnica
+
 - **Core / Framework**: [TanStack Start](https://tanstack.com/router/latest/docs/framework/react/start/overview) (`@tanstack/react-start`, `@tanstack/react-router`, `@tanstack/react-query`) sobre **Vite** e **TypeScript 5**.
 - **Interface & Estilização**: **Tailwind CSS v4** (`@tailwindcss/vite`), **shadcn UI** / **Radix UI**, Lucide Icons, design **Mobile-First** e regras consolidadas no guia oficial [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
 - **Backend, Autenticação e Armazenamento**: **Supabase externo** (`@supabase/supabase-js`) com autenticação por E-mail/Senha, Row Level Security (RLS) e Buckets de Storage para mídias e documentos.
@@ -28,10 +29,12 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 > **⚠️ CRÍTICO**: Este projeto utiliza exclusivamente **[Bun](https://bun.sh)** como package manager e runtime. **NÃO use npm, yarn ou pnpm** — tentativas de build com outros package managers resultarão em erros de dependências e compilação.
 
 **Requisitos obrigatórios**:
-- **Bun** >= 1.3.14 *(especificado em `package.json` → `"packageManager": "bun@1.3.14"`)*
-- **Node.js** >= 20.19.0 *(especificado em `package.json` → `"engines": {"node": ">=20.19.0"}`)*
+
+- **Bun** >= 1.3.14 _(especificado em `package.json` → `"packageManager": "bun@1.3.14"`)_
+- **Node.js** >= 20.19.0 _(especificado em `package.json` → `"engines": {"node": ">=20.19.0"}`)_
 
 **Comandos de build**:
+
 ```bash
 # Instalação de dependências
 bun install
@@ -47,6 +50,7 @@ bun run validate
 ```
 
 **Arquivos de configuração**:
+
 - [`package.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/package.json) — Scripts de build, dependências e versões fixadas de Bun/Node.js
 - [`vite.config.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vite.config.ts) — Configuração do Vite usando `@lovable.dev/vite-tanstack-config` com preset `vercel` para Nitro
 - [`tsconfig.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/tsconfig.json) — TypeScript 5+ com path alias `@/*` apontando para `src/*`
@@ -55,6 +59,7 @@ bun run validate
 - [`vercel.json`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/vercel.json) — **[CRÍTICO]** Configuração de deploy forçando uso do Bun na Vercel (`installCommand: bun install`, `buildCommand: bun run build`). Sem este arquivo, Vercel usa npm e causa conflitos de peer dependencies.
 
 **Deploy**:
+
 - Build command para Vercel/Netlify/Cloudflare: `bun run build`
 - Output directory: `.output/` (gerado pelo Nitro com preset Vercel)
 - **Vercel**: O arquivo `vercel.json` é **obrigatório** para forçar uso do Bun. Sem ele, a Vercel usa npm por padrão, causando erros ERESOLVE com vite@8.1.5 vs vite@^5.0.0-7.0.0.
@@ -76,26 +81,26 @@ bun run validate
 
 ## 3. Mapeamento de Rotas e Telas (`src/routes`)
 
-| Rota / Arquivo | Acesso / Perfil | Descrição e Problema Resolvido |
-| :--- | :--- | :--- |
-| [`src/routes/__root.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/__root.tsx) | Público | Shell raiz da aplicação com `QueryClientProvider`, `AppProviders`, injeção de CSS global e manipulador de erros 404/Error Boundary. |
-| [`src/routes/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/index.tsx) | Público | **Feed Público / Catálogo de Atletas**: Layout estilo streaming (cards de atletas, busca por nome, filtros por esporte/posição, carrosséis de destaques). |
-| [`src/routes/athlete.$slug.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/athlete.$slug.tsx) | Público | **Perfil Público do Atleta**: Exibe bio, fotos, vídeos de destaques, estatísticas, GPA, nível de inglês e conquistas para Coaches. |
-| [`src/routes/login.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/login.tsx) | Público | **Tela de Login**: Autenticação por e-mail e senha usando Supabase Auth. |
-| [`src/routes/forgot-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/forgot-password.tsx) | Público | Solicitante de e-mail para recuperação de senha. |
-| [`src/routes/reset-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/reset-password.tsx) | Autenticado (Token) | Redefinição de senha do usuário. |
-| [`src/routes/auth.accept-invite.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/auth.accept-invite.tsx) | Público (Token) | Aceite de convite por novos atletas para definição de senha. |
-| [`src/routes/proposal.$token.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.tsx) | Público (Token) | **Experiência Interativa da Proposta Esportiva**: Exibição da proposta enviada ao atleta com botões de aceite/recusa. |
-| [`src/routes/proposal.$token.pdf.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.pdf.tsx) | Público (Token) | **Download/Stream de PDF**: Renderiza a proposta formatada em documento PDF via `@react-pdf/renderer`. |
-| [`src/routes/_authenticated/route.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/route.tsx) | Autenticado | Layout pai autenticado com proteção de rotas e redirecionamento caso não haja sessão. |
-| [`src/routes/_authenticated/admin/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/index.tsx) | Agência (Admin) | Dashboard da Agência: Visão geral de métricas, atletas cadastrados e atalhos de gestão. |
-| [`src/routes/_authenticated/admin/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx) | Agência (Admin) | **Gestão de Pipeline**: Quadro Kanban/Linha do tempo dos atletas em cada etapa de recrutamento. |
-| [`src/routes/_authenticated/admin/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/documents.tsx) | Agência (Admin) | **Central de Documentos**: Aprovação, reprovação e acompanhamento de arquivos enviados pelos atletas. |
-| [`src/routes/_authenticated/admin/settings.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx) | Agência (Admin) | Configurações da Agência, etapas do pipeline e parâmetros do sistema. |
-| [`src/routes/_authenticated/portal/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx) | Atleta | **Home do Atleta**: Resumo do progresso, alertas de pendências de documentos e etapa atual. **Atualizado**: Integrado componente `<ConfettiCelebration />` que dispara animação quando URL contém `?celebrate=true`. |
-| [`src/routes/_authenticated/portal/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/pipeline.tsx) | Atleta | Visualização detalhada do pipeline e etapas a cumprir. |
-| [`src/routes/_authenticated/portal/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/documents.tsx) | Atleta | **Envio de Documentos do Atleta**: Upload de PDFs, histórico de status e correções solicitadas pela agência. |
-| [`src/routes/_authenticated/portal/media.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/media.tsx) | Atleta | **Envio de Mídias**: Upload de fotos e links/vídeos de destaque para o perfil público. |
+| Rota / Arquivo                                                                                                                                                                                    | Acesso / Perfil     | Descrição e Problema Resolvido                                                                                                                                                                                       |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`src/routes/__root.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/__root.tsx)                                                   | Público             | Shell raiz da aplicação com `QueryClientProvider`, `AppProviders`, injeção de CSS global e manipulador de erros 404/Error Boundary.                                                                                  |
+| [`src/routes/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/index.tsx)                                                     | Público             | **Feed Público / Catálogo de Atletas**: Layout estilo streaming (cards de atletas, busca por nome, filtros por esporte/posição, carrosséis de destaques).                                                            |
+| [`src/routes/athlete.$slug.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/athlete.$slug.tsx)                                     | Público             | **Perfil Público do Atleta**: Exibe bio, fotos, vídeos de destaques, estatísticas, GPA, nível de inglês e conquistas para Coaches.                                                                                   |
+| [`src/routes/login.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/login.tsx)                                                     | Público             | **Tela de Login**: Autenticação por e-mail e senha usando Supabase Auth.                                                                                                                                             |
+| [`src/routes/forgot-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/forgot-password.tsx)                                 | Público             | Solicitante de e-mail para recuperação de senha.                                                                                                                                                                     |
+| [`src/routes/reset-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/reset-password.tsx)                                   | Autenticado (Token) | Redefinição de senha do usuário.                                                                                                                                                                                     |
+| [`src/routes/auth.accept-invite.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/auth.accept-invite.tsx)                           | Público (Token)     | Aceite de convite por novos atletas para definição de senha.                                                                                                                                                         |
+| [`src/routes/proposal.$token.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.tsx)                                 | Público (Token)     | **Experiência Interativa da Proposta Esportiva**: Exibição da proposta enviada ao atleta com botões de aceite/recusa.                                                                                                |
+| [`src/routes/proposal.$token.pdf.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.pdf.tsx)                         | Público (Token)     | **Download/Stream de PDF**: Renderiza a proposta formatada em documento PDF via `@react-pdf/renderer`.                                                                                                               |
+| [`src/routes/_authenticated/route.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/route.tsx)                       | Autenticado         | Layout pai autenticado com proteção de rotas e redirecionamento caso não haja sessão.                                                                                                                                |
+| [`src/routes/_authenticated/admin/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/index.tsx)           | Agência (Admin)     | Dashboard da Agência: Visão geral de métricas, atletas cadastrados e atalhos de gestão.                                                                                                                              |
+| [`src/routes/_authenticated/admin/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx)     | Agência (Admin)     | **Gestão de Pipeline**: Quadro Kanban/Linha do tempo dos atletas em cada etapa de recrutamento.                                                                                                                      |
+| [`src/routes/_authenticated/admin/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/documents.tsx)   | Agência (Admin)     | **Central de Documentos**: Aprovação, reprovação e acompanhamento de arquivos enviados pelos atletas.                                                                                                                |
+| [`src/routes/_authenticated/admin/settings.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx)     | Agência (Admin)     | Configurações da Agência, etapas do pipeline e parâmetros do sistema.                                                                                                                                                |
+| [`src/routes/_authenticated/portal/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx)         | Atleta              | **Home do Atleta**: Resumo do progresso, alertas de pendências de documentos e etapa atual. **Atualizado**: Integrado componente `<ConfettiCelebration />` que dispara animação quando URL contém `?celebrate=true`. |
+| [`src/routes/_authenticated/portal/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/pipeline.tsx)   | Atleta              | Visualização detalhada do pipeline e etapas a cumprir.                                                                                                                                                               |
+| [`src/routes/_authenticated/portal/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/documents.tsx) | Atleta              | **Envio de Documentos do Atleta**: Upload de PDFs, histórico de status e correções solicitadas pela agência.                                                                                                         |
+| [`src/routes/_authenticated/portal/media.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/media.tsx)         | Atleta              | **Envio de Mídias**: Upload de fotos e links/vídeos de destaque para o perfil público.                                                                                                                               |
 
 ---
 
@@ -141,6 +146,7 @@ bun run validate
 ## 6. Modelo de Banco de Dados (`src/types/db.ts` e `db/migrations`)
 
 Entidades do PostgreSQL executadas no Supabase Externo:
+
 - `agencies`: Dados da agência proprietária.
 - `user_roles`: Mapeamento de usuários Auth e papéis (`agency_admin`, `athlete`, `coach`).
 - `athletes`: Tabela principal do atleta (slug, nome, esporte, posição, agência, estágio atual, público/destaque).
@@ -158,6 +164,7 @@ Entidades do PostgreSQL executadas no Supabase Externo:
 **Arquivo**: [`db/migrations/0007_stage_celebration_messages.sql`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/db/migrations/0007_stage_celebration_messages.sql)
 
 Esta migração adiciona:
+
 1. Coluna `celebration_message_en TEXT` à tabela `pipeline_stages` - Permite agências configurarem mensagens celebrativas por etapa com suporte a 6 placeholders dinâmicos.
 2. Coluna `scheduled_for TIMESTAMPTZ` à tabela `email_log` - Rastreia timestamp de agendamento para e-mails enviados fora da janela permitida.
 
@@ -166,6 +173,7 @@ Esta migração adiciona:
 ## 7. Fluxo Completo: E-mail Celebrativo de Avanço de Etapa
 
 ### Visão Geral
+
 Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-drop no Kanban), o sistema automaticamente:
 
 1. **Verifica Configuração**: Checa se a etapa de destino possui uma mensagem celebrativa configurada (`celebration_message_en`).
@@ -177,12 +185,14 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 7. **Notifica Admin**: Toast informativo no painel da agência indicando se e-mail foi enviado ou agendado, com horário previsto de envio.
 
 ### Componentes Envolvidos
+
 - **UI**: [settings.tsx](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx) (configuração), [pipeline.tsx](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx) (trigger), [portal/index.tsx](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx) (confetti)
 - **Lógica**: [stage-change.server.ts](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/stage-change.server.ts) (orquestração), [sending-window.ts](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/sending-window.ts) (janela), [placeholders.ts](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/placeholders.ts) (substituição)
 - **Infraestrutura**: [email.server.ts](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/email.server.ts) (Resend), [templates.ts](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/templates.ts) (HTML), [confetti-celebration.tsx](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/confetti-celebration.tsx) (animação)
 - **Dados**: Migration 0007, `pipeline_stages.celebration_message_en`, `email_log.scheduled_for`
 
 ### Decisões de Design
+
 - **Opcional por Etapa**: Mensagem vazia = sem e-mail enviado (silenciosamente).
 - **Apenas Inglês**: Campo `celebration_message_en` por decisão do usuário. Expansível para PT no futuro.
 - **Agendamento Nativo**: Usa Resend `scheduled_at`, não cron jobs customizados.
@@ -200,6 +210,7 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Variáveis de ambiente**: `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` — server-only, nunca expostas ao navegador.
 
 ## Atualização 2026-08-06 — Pop-up de celebração no portal do atleta
+
 - **Migração `0008_stage_portal_announcement.sql`**: colunas `portal_message_pt` / `portal_message_en` em `pipeline_stages`; tabelas `stage_celebration_images` (slider por etapa) e `athlete_stage_announcements` (controle de "já visto" por atleta+etapa) com GRANTs e RLS; bucket público `stage-celebrations` com escrita restrita a `is_agency_admin()`.
 - **`src/hooks/use-stage-announcement.ts`**: detecta a etapa avançada ainda não vista (com mensagem configurada), resolve placeholders, carrega as imagens e expõe `dismiss()` que grava em `athlete_stage_announcements`.
 - **`src/components/stage-celebration-dialog.tsx`**: dialog com título da etapa, mensagem e slider próprio (setas/indicadores só com múltiplas imagens; nada é renderizado sem imagens). Confetes disparam uma vez atrás do dialog.
@@ -234,12 +245,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 ## Atualização 2026-08-16 — Redesign do perfil público & campos estendidos (TASK-014)
 
 - **Migration `0010_athlete_profile_fields.sql`**:
-  - Adiciona 8 novos campos à tabela `athlete_profiles`: `subtitle` (subtítulo editável do hero), `current_school`, `high_school_graduation`, `seeking_opportunities`, `toefl_duolingo_score`, `budget`, `seasons_eligibility`, `team_contribution_en` (*What she/he brings to the team*).
+  - Adiciona 8 novos campos à tabela `athlete_profiles`: `subtitle` (subtítulo editável do hero), `current_school`, `high_school_graduation`, `seeking_opportunities`, `toefl_duolingo_score`, `budget`, `seasons_eligibility`, `team_contribution_en` (_What she/he brings to the team_).
   - Adiciona o valor `'in_court'` ao enum `public.athlete_video_kind`.
 - **Tipos (`src/types/db.ts`)**: `AthleteProfile` e `AthleteVideoKind` atualizados com os novos campos e o novo tipo `'in_court'`.
 - **Página Pública do Atleta (`src/routes/athlete.$slug.tsx`)**:
   - **100% em Inglês dos EUA**: Todos os textos, títulos, estatísticas e botões formatados em inglês americano.
-  - **Hero Compacto com Efeito Atmosférico**: Foto como âncora visual (4:5) em destaque, vídeo *feature* ao fundo com camada verde esmeralda translúcida + blur (`[oklch(0.22_0.08_162_/_0.78)] backdrop-blur-[5px]`), subtítulo editável por atleta vindo do admin, remoção do texto "Perfil de recrutamento", badges de posição/país/busca e botões "Recruit Athlete" + "Watch Featured".
+  - **Hero Compacto com Efeito Atmosférico**: Foto como âncora visual (4:5) em destaque, vídeo _feature_ ao fundo com camada verde esmeralda translúcida + blur (`[oklch(0.22_0.08_162_/_0.78)] backdrop-blur-[5px]`), subtítulo editável por atleta vindo do admin, remoção do texto "Perfil de recrutamento", badges de posição/país/busca e botões "Recruit Athlete" + "Watch Featured".
   - **Highlights Instagram**: Bolinhas circulares com miniatura e título de reels, disparando player de tela cheia vertical com scroll infinito.
   - **Ficha Completa de Recrutamento (Key Recruiting Details)**: Grid estilizado com Position, Height, DOB, Current School, High School Graduation, Country, Seeking Opportunities, TOEFL/Duolingo Score, GPA, Budget e Seasons of Eligibility Left.
   - **Seção "What She/He Brings to the Team"**: Destaque editorial com o diferencial técnico e comportamental do atleta.
@@ -276,6 +287,7 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Dados seguros**: apenas URLs que geram embed válido são renderizadas; a consulta continua restrita pela RLS a atletas publicados e não arquivados.
 
 ## Camada visual do catálogo (migration 0009)
+
 - `agency_visual_settings`: textos do hero e cabeçalho do catálogo (PT/EN), editáveis em `/admin/visual`.
 - `catalog_position_order`: ordem manual das prateleiras por posição (consumida em `buildAthleteShelves`).
 - `athlete_videos`: links do YouTube por atleta com `kind` = `presentation` | `highlight` | `feature` | `in_court`.

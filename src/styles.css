@@ -173,16 +173,23 @@
 }
 
 @keyframes proposal-rise {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .proposal-theme section > div {
-  animation: proposal-rise .7s ease both;
+  animation: proposal-rise 0.7s ease both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .proposal-theme *, .proposal-theme section > div {
+  .proposal-theme *,
+  .proposal-theme section > div {
     animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;

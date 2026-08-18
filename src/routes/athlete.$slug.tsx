@@ -186,7 +186,10 @@ function PublicAthleteProfile() {
             </div>
           </div>
           {heroUrl && (
-            <div id="hero-video" className="rounded-xl border border-white/15 bg-black/30 p-2 shadow-2xl">
+            <div
+              id="hero-video"
+              className="rounded-xl border border-white/15 bg-black/30 p-2 shadow-2xl"
+            >
               <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground/75">
                 Featured Film
               </p>
@@ -459,8 +462,8 @@ function PublicAthleteProfile() {
             Interested in Recruiting {athlete.full_name}?
           </h2>
           <p className="mx-auto max-w-xl text-base text-muted-foreground leading-relaxed">
-            Connect directly with the Go Team Go agency team on WhatsApp to request full match
-            film, academic transcripts, and recruitment dossiers.
+            Connect directly with the Go Team Go agency team on WhatsApp to request full match film,
+            academic transcripts, and recruitment dossiers.
           </p>
           <div className="pt-2">
             <a

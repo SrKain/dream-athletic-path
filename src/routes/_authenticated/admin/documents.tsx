@@ -25,9 +25,7 @@ function DocumentsAdmin() {
   useEffect(() => void load(), []);
   async function review(document: DocumentRow, status: DocumentStatus) {
     const notes =
-      status === "rejected" || status === "resubmit"
-        ? window.prompt("Note for the athlete")
-        : null;
+      status === "rejected" || status === "resubmit" ? window.prompt("Note for the athlete") : null;
     const { data: user } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("documents")

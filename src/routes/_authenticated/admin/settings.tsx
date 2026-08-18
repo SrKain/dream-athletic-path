@@ -328,8 +328,8 @@ function SettingsPage() {
                   Athlete portal pop-up
                 </Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Shown in a dialog as soon as the athlete opens the timeline. Leave empty to
-                  show nothing. Accepts the same placeholders above.
+                  Shown in a dialog as soon as the athlete opens the timeline. Leave empty to show
+                  nothing. Accepts the same placeholders above.
                 </p>
                 <Textarea
                   id="portal-message"

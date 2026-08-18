@@ -51,9 +51,7 @@ function PublicProposalPage() {
       setDecision(null);
       await router.invalidate();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not record the response.",
-      );
+      toast.error(error instanceof Error ? error.message : "Could not record the response.");
     } finally {
       setSending(false);
     }

@@ -58,7 +58,10 @@ export function buildAthleteShelves(
   athletes: AthleteCard[],
   positionOrder: string[] = [],
 ): AthleteShelf[] {
-  const groups = new Map<string, { position: string; positionId: string; athletes: AthleteCard[] }>();
+  const groups = new Map<
+    string,
+    { position: string; positionId: string; athletes: AthleteCard[] }
+  >();
   for (const athlete of athletes) {
     const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "Other positions";
     const positionId = athlete.position_id ?? position;

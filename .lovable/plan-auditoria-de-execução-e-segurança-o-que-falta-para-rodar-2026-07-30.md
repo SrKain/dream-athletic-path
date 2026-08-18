@@ -21,19 +21,21 @@ Revisei o código atual (clients Supabase, server functions, rotas privadas, mig
 ## Checklist para rodar (Supabase + Vercel)
 
 **No Supabase**
+
 - Rodar em ordem `db/migrations/0001` → `0004` no SQL Editor (idempotentes).
 - Criar o primeiro usuário no painel Auth e rodar o bloco de bootstrap de `docs/SETUP.md` (cria a agência e o papel `agency_admin`).
 - Authentication → URL Configuration: `Site URL` = domínio Vercel e adicionar em Redirect URLs `https://<dominio>/reset-password` e `https://<dominio>/auth/accept-invite` (sem isso, convite e recuperação de senha quebram).
 - Confirmar que os três buckets existem após as migrations.
 
 **Na Vercel (Preview e Production)**
-| Variável | Escopo |
-|---|---|
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | build/browser (públicas) |
-| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | servidor |
-| `SUPABASE_SECRET_KEY` | servidor — **nunca** com prefixo `VITE_` |
-| `APP_URL` | URL pública do ambiente |
-| `RESEND_API_KEY`, `EMAIL_FROM` | servidor (sem eles, e-mails são apenas registrados como `skipped`) |
+
+| Variável                                             | Escopo                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | build/browser (públicas)                                           |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`           | servidor                                                           |
+| `SUPABASE_SECRET_KEY`                                | servidor — **nunca** com prefixo `VITE_`                           |
+| `APP_URL`                                            | URL pública do ambiente                                            |
+| `RESEND_API_KEY`, `EMAIL_FROM`                       | servidor (sem eles, e-mails são apenas registrados como `skipped`) |
 
 Build Command `bun run build`; `vite.config.ts` já usa `nitro: { preset: "vercel" }`.
 

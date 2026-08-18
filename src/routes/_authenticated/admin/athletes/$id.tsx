@@ -563,7 +563,10 @@ function AthleteEditor() {
               <>
                 <Panel title="Perfil público e acadêmico">
                   <div className="grid gap-4 p-5 md:grid-cols-2">
-                    <Field label="Subtítulo do Hero (ex: Performance · Personality · Potential)" wide>
+                    <Field
+                      label="Subtítulo do Hero (ex: Performance · Personality · Potential)"
+                      wide
+                    >
                       <input
                         className={inputClass}
                         placeholder="Performance · Personality · Potential"
@@ -604,9 +607,7 @@ function AthleteEditor() {
                         className={inputClass}
                         placeholder="ex: Colégio Santa Cruz / Mackenzie"
                         value={profile.current_school ?? ""}
-                        onChange={(e) =>
-                          setProfile({ ...profile, current_school: e.target.value })
-                        }
+                        onChange={(e) => setProfile({ ...profile, current_school: e.target.value })}
                       />
                     </Field>
                     <Field label="High School Graduation (ex: Class of 2025)">
@@ -710,8 +711,8 @@ function AthleteEditor() {
                           onChange={(e) => void uploadHighlightVideo(e.target.files?.[0])}
                         />
                       </label>
-                      {profile.highlight_video_url && (
-                        isValidYoutubeUrl(profile.highlight_video_url) ? (
+                      {profile.highlight_video_url &&
+                        (isValidYoutubeUrl(profile.highlight_video_url) ? (
                           <div className="mt-3 flex items-center gap-3 rounded-md border p-2.5 bg-muted/40">
                             <img
                               src={youtubeThumbnail(profile.highlight_video_url) ?? ""}
@@ -719,8 +720,12 @@ function AthleteEditor() {
                               className="h-14 w-24 rounded object-cover"
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-primary">YouTube URL configurada no perfil</p>
-                              <p className="truncate text-xs text-muted-foreground">{profile.highlight_video_url}</p>
+                              <p className="text-xs font-semibold text-primary">
+                                YouTube URL configurada no perfil
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {profile.highlight_video_url}
+                              </p>
                             </div>
                           </div>
                         ) : (
@@ -729,8 +734,7 @@ function AthleteEditor() {
                             controls
                             className="mt-3 h-40 w-full rounded-md object-cover"
                           />
-                        )
-                      )}
+                        ))}
                     </Field>
                   </div>
                 </Panel>
@@ -835,7 +839,8 @@ function AthleteEditor() {
                             ))
                         ) : (
                           <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                            Nenhum vídeo de destaque específico cadastrado. O sistema usará o primeiro vídeo disponível como atmosfera do hero.
+                            Nenhum vídeo de destaque específico cadastrado. O sistema usará o
+                            primeiro vídeo disponível como atmosfera do hero.
                           </p>
                         )}
                       </div>
@@ -883,7 +888,8 @@ function AthleteEditor() {
                           </div>
                         ) : (
                           <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                            Nenhum reel cadastrado. Adicione vídeos/shorts para exibir os Stories de highlights.
+                            Nenhum reel cadastrado. Adicione vídeos/shorts para exibir os Stories de
+                            highlights.
                           </p>
                         )}
                       </div>
@@ -1186,9 +1192,7 @@ function VideoItemCard({
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-foreground truncate">
-          {item.title || label}
-        </p>
+        <p className="text-sm font-semibold text-foreground truncate">{item.title || label}</p>
         <p className="truncate text-xs text-muted-foreground">{item.youtube_url}</p>
       </div>
       <button

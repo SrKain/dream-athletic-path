@@ -55,10 +55,7 @@ function PortalDocuments() {
   return (
     <ProtectedPage role="athlete">
       <AppShell role="athlete" title="Documents">
-        <Panel
-          title="Document checklist"
-          description="Only upload files requested by the agency."
-        >
+        <Panel title="Document checklist" description="Only upload files requested by the agency.">
           {data.checklist.length ? (
             <div className="divide-y">
               {data.checklist.map((item) => {
