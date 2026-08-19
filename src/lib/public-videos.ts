@@ -29,9 +29,9 @@ export function groupPublicVideos(
     highlights,
     inCourt,
     heroUrl:
+      presentations[0]?.youtube_url ??
       feature?.youtube_url ??
       fallbackHighlight ??
-      presentations[0]?.youtube_url ??
       highlights[0]?.youtube_url ??
       inCourt[0]?.youtube_url ??
       null,

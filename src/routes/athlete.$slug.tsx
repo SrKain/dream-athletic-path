@@ -14,7 +14,6 @@ import {
   Trophy,
   Video,
 } from "lucide-react";
-import { useMemo } from "react";
 
 import { ReelsRow } from "@/components/reels-viewer";
 import { PublicYoutubePlayer } from "@/components/public-youtube-player";
@@ -24,7 +23,7 @@ import { calculateAge } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
-import { isValidYoutubeUrl } from "@/lib/youtube";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 export const Route = createFileRoute("/athlete/$slug")({
   loader: async ({ params }) => {
@@ -64,46 +63,10 @@ function PublicAthleteProfile() {
   const age = calculateAge(athlete.birth_date);
   const firstName = athlete.full_name.split(" ")[0];
 
-  const { presentations, highlights, inCourt, heroUrl } = groupPublicVideos(
+  const { feature, presentations, highlights, inCourt, heroUrl } = groupPublicVideos(
     videos,
     profile?.highlight_video_url,
   );
-
-  // Consolidar todos os links válidos de vídeo do YouTube cadastrados para exibição direta
-  const allEmbeddedVideos = useMemo(() => {
-    const list: Array<{ id: string; url: string; title: string; kind?: string }> = [];
-    const seenUrls = new Set<string>();
-
-    for (const v of videos ?? []) {
-      if (v?.youtube_url && isValidYoutubeUrl(v.youtube_url)) {
-        const trimmed = v.youtube_url.trim();
-        if (!seenUrls.has(trimmed)) {
-          seenUrls.add(trimmed);
-          list.push({
-            id: v.id || `video-${list.length}`,
-            url: trimmed,
-            title: v.title || `${v.kind ? v.kind.toUpperCase() : "Video"} — ${athlete.full_name}`,
-            kind: v.kind,
-          });
-        }
-      }
-    }
-
-    if (profile?.highlight_video_url && isValidYoutubeUrl(profile.highlight_video_url)) {
-      const trimmed = profile.highlight_video_url.trim();
-      if (!seenUrls.has(trimmed)) {
-        seenUrls.add(trimmed);
-        list.push({
-          id: "profile-highlight",
-          url: trimmed,
-          title: `Highlight Film — ${athlete.full_name}`,
-          kind: "highlight",
-        });
-      }
-    }
-
-    return list;
-  }, [videos, profile?.highlight_video_url, athlete.full_name]);
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
@@ -136,10 +99,33 @@ function PublicAthleteProfile() {
       </header>
 
       {/* ── HERO SECTION ── */}
-      <section className="relative overflow-hidden bg-surface text-surface-foreground">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,oklch(0.52_0.13_160_/_0.32),transparent_36%),linear-gradient(135deg,oklch(0.19_0.05_162),oklch(0.13_0.045_162))]" />
+      <section className="relative overflow-hidden bg-surface text-surface-foreground min-h-[480px] sm:min-h-[520px] flex items-center">
+        {/* Background YouTube Video */}
+        {heroUrl && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            <iframe
+              src={
+                youtubeEmbedUrl(heroUrl, {
+                  autoplay: true,
+                  muted: true,
+                  loop: true,
+                  controls: false,
+                }) ?? ""
+              }
+              title={`Hero Background Video — ${athlete.full_name}`}
+              className="absolute top-1/2 left-1/2 w-[160vw] h-[160vh] min-w-[100%] min-h-[100%] -translate-x-1/2 -translate-y-1/2 object-cover opacity-45 pointer-events-none scale-125"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
+        )}
 
-        <div className="container-edge relative z-10 grid gap-8 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)] lg:items-center lg:py-16">
+        {/* Máscara Verde Esmeralda (Green Mask Overlay) */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-r from-[oklch(0.16_0.07_162_/_0.95)] via-[oklch(0.18_0.08_162_/_0.88)] to-[oklch(0.13_0.05_162_/_0.94)] backdrop-blur-[2px]" />
+        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_12%_10%,oklch(0.52_0.13_160_/_0.32),transparent_40%)]" />
+
+        <div className="container-edge relative z-10 grid gap-8 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.85fr)] lg:items-center lg:py-16 w-full">
           <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:gap-10">
             <div className="relative aspect-[4/5] w-36 shrink-0 overflow-hidden rounded-xl bg-white/10 shadow-2xl ring-2 ring-white/20 sm:w-48 md:w-56">
               <img
@@ -213,9 +199,9 @@ function PublicAthleteProfile() {
                 >
                   Recruit Athlete
                 </a>
-                {heroUrl && (
+                {(heroUrl || presentations.length > 0 || inCourt.length > 0) && (
                   <a
-                    href="#hero-video"
+                    href="#athlete-film"
                     className="inline-flex h-11 items-center gap-2 rounded-md border border-white/25 px-5 text-xs font-semibold uppercase tracking-wider text-surface-foreground transition hover:border-white/50 hover:bg-white/10"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" /> Watch Film
@@ -224,21 +210,6 @@ function PublicAthleteProfile() {
               </div>
             </div>
           </div>
-          {heroUrl && (
-            <div
-              id="hero-video"
-              className="rounded-xl border border-white/15 bg-black/30 p-2 shadow-2xl"
-            >
-              <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground/75">
-                Featured Film
-              </p>
-              <PublicYoutubePlayer
-                url={heroUrl}
-                title={`Featured video — ${athlete.full_name}`}
-                autoPlay
-              />
-            </div>
-          )}
         </div>
       </section>
 
@@ -258,7 +229,7 @@ function PublicAthleteProfile() {
 
       {/* ── ABOUT & FACT SHEET SECTION ── */}
       <section className="container-edge py-12 lg:py-16">
-        <div className="space-y-8">
+        <div className="space-y-10">
           <div>
             <p className="eyebrow text-primary">Athlete Profile</p>
             <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
@@ -270,6 +241,87 @@ function PublicAthleteProfile() {
               </p>
             )}
           </div>
+
+          {/* VÍDEOS DE IN COURT E SOBRE LOGO ABAIXO DO TEXTO DE APRESENTAÇÃO */}
+          {(inCourt.length > 0 || presentations.length > 0 || feature) && (
+            <div id="athlete-film" className="space-y-4 pt-2">
+              <div className="flex items-center gap-2">
+                <Video className="h-4 w-4 text-primary" />
+                <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                  In Court & Presentation Film
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Match play footage, technical actions, and personal presentation film.
+              </p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {presentations.map((video, idx) => (
+                  <article
+                    key={video.id}
+                    className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h4 className="font-display text-base font-semibold truncate text-foreground">
+                        {video.title || `Presentation Film ${idx + 1}`}
+                      </h4>
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        About & Goals
+                      </span>
+                    </div>
+                    <PublicYoutubePlayer
+                      url={video.youtube_url}
+                      title={video.title || `Presentation ${idx + 1} — ${athlete.full_name}`}
+                      autoPlay={false}
+                    />
+                  </article>
+                ))}
+
+                {inCourt.map((video, idx) => (
+                  <article
+                    key={video.id}
+                    className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h4 className="font-display text-base font-semibold truncate text-foreground">
+                        {video.title || `In Court Footage ${idx + 1}`}
+                      </h4>
+                      <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        In Court
+                      </span>
+                    </div>
+                    <PublicYoutubePlayer
+                      url={video.youtube_url}
+                      title={video.title || `In Court ${idx + 1}`}
+                      autoPlay={false}
+                    />
+                  </article>
+                ))}
+
+                {feature &&
+                  !presentations.some((p) => p.youtube_url === feature.youtube_url) &&
+                  !inCourt.some((c) => c.youtube_url === feature.youtube_url) && (
+                    <article
+                      key={feature.id}
+                      className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <h4 className="font-display text-base font-semibold truncate text-foreground">
+                          {feature.title || `Featured Film`}
+                        </h4>
+                        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                          Feature
+                        </span>
+                      </div>
+                      <PublicYoutubePlayer
+                        url={feature.youtube_url}
+                        title={feature.title || `Featured Film — ${athlete.full_name}`}
+                        autoPlay={false}
+                      />
+                    </article>
+                  )}
+              </div>
+            </div>
+          )}
 
           {/* Complete Fact Sheet Grid */}
           <div className="rounded-xl border border-border/80 bg-card p-6 sm:p-8 shadow-sm">
@@ -366,52 +418,9 @@ function PublicAthleteProfile() {
         </section>
       )}
 
-      {/* ── ATHLETE PRESENTATION ── */}
-      {(presentations.length > 0 || inCourt.length > 0) && (
-        <section className="container-edge py-12 border-t border-border/70">
-          <p className="eyebrow text-primary">Athlete Presentation</p>
-          <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Meet {athlete.full_name} On and Off the Court
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground mb-6">
-            Personal story, recruiting goals, and match footage.
-          </p>
-          <div className="grid gap-6 lg:grid-cols-2">
-            {presentations.map((video, idx) => (
-              <article
-                key={video.id}
-                className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
-              >
-                <h3 className="font-display text-base font-semibold mb-3">
-                  {video.title || `Meet ${athlete.full_name} — Video ${idx + 1}`}
-                </h3>
-                <PublicYoutubePlayer
-                  url={video.youtube_url}
-                  title={video.title || `Presentation ${idx + 1} — ${athlete.full_name}`}
-                />
-              </article>
-            ))}
-            {inCourt.map((video, idx) => (
-              <article
-                key={video.id}
-                className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
-              >
-                <h3 className="font-display text-base font-semibold mb-3 truncate">
-                  {video.title || `Match Play Footage ${idx + 1}`}
-                </h3>
-                <PublicYoutubePlayer
-                  url={video.youtube_url}
-                  title={video.title || `In Court ${idx + 1}`}
-                />
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ── ACHIEVEMENTS ── */}
       {achievements.length > 0 && (
-        <section className="container-edge py-16">
+        <section className="container-edge py-16 border-t border-border/70">
           <p className="eyebrow text-primary">Track Record</p>
           <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
             Achievements & Awards
@@ -488,46 +497,6 @@ function PublicAthleteProfile() {
                   />
                 ),
               )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── ALL REGISTERED VIDEOS (EMBEDDED FILM) ── */}
-      {allEmbeddedVideos.length > 0 && (
-        <section id="all-registered-videos" className="border-t border-border bg-muted/20 py-16">
-          <div className="container-edge">
-            <div className="flex items-center gap-2">
-              <Video className="h-4 w-4 text-primary" />
-              <p className="eyebrow text-primary">All Registered Videos</p>
-            </div>
-            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              Embedded Film & Footage
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground mb-8">
-              All YouTube videos registered for {athlete.full_name} are embedded below for direct
-              viewing and evaluation.
-            </p>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
-              {allEmbeddedVideos.map((vid, idx) => (
-                <article
-                  key={vid.id}
-                  className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="font-display text-base font-semibold truncate text-foreground">
-                      {vid.title || `Video #${idx + 1}`}
-                    </h3>
-                    {vid.kind && (
-                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                        {vid.kind}
-                      </span>
-                    )}
-                  </div>
-                  <PublicYoutubePlayer url={vid.url} title={vid.title} autoPlay={false} />
-                </article>
-              ))}
             </div>
           </div>
         </section>

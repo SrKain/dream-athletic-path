@@ -740,16 +740,16 @@ function AthleteEditor() {
                 </Panel>
                 <Panel
                   title="Vídeos do YouTube & Mídias Públicas"
-                  description="Configure os vídeos que alimentam a atmosfera cinemática do hero, os reels de highlights, o vídeo de apresentação e as partidas em quadra."
+                  description="Cadastre os links do YouTube que serão exibidos no perfil público do atleta: vídeo de apresentação no fundo do hero com máscara verde, e vídeos em quadra (in court) e sobre o atleta logo abaixo do texto de apresentação."
                 >
                   <div className="space-y-6 p-5">
                     {/* Formulário rápido de adição com Live Preview */}
                     <div className="rounded-lg border border-border/80 bg-background/50 p-4 space-y-3">
                       <p className="text-sm font-semibold text-foreground">
-                        + Adicionar ou atualizar vídeo do YouTube
+                        + Adicionar ou atualizar link do YouTube
                       </p>
-                      <div className="grid gap-3 md:grid-cols-[200px_1fr_1fr_auto] md:items-end">
-                        <Field label="Finalidade / Destino">
+                      <div className="grid gap-3 md:grid-cols-[220px_1fr_1fr_auto] md:items-end">
+                        <Field label="Destino no Catálogo">
                           <select
                             className={inputClass}
                             value={videoDraft.kind}
@@ -760,16 +760,20 @@ function AthleteEditor() {
                               })
                             }
                           >
-                            <option value="feature">🎬 Destaque (Fundo Hero & Catálogo)</option>
-                            <option value="presentation">🗣️ Apresentação (Fala do Atleta)</option>
-                            <option value="highlight">📱 Highlight (Reel / Stories)</option>
-                            <option value="in_court">🏐 Em Quadra (Jogos / Lances)</option>
+                            <option value="presentation">
+                              🗣️ Apresentação (Fundo do Hero & Bio)
+                            </option>
+                            <option value="in_court">
+                              🏐 Em Quadra / In Court (Abaixo da Bio)
+                            </option>
+                            <option value="feature">🎬 Sobre / Destaque (Abaixo da Bio)</option>
+                            <option value="highlight">📱 Highlight (Reels / Stories)</option>
                           </select>
                         </Field>
                         <Field label="Título descritivo (opcional)">
                           <input
                             className={inputClass}
-                            placeholder="ex: Highlights 2025 / Melhores Lances"
+                            placeholder="ex: Vídeo de Apresentação / Lances em Quadra"
                             value={videoDraft.title}
                             onChange={(e) =>
                               setVideoDraft({ ...videoDraft, title: e.target.value })
@@ -821,34 +825,10 @@ function AthleteEditor() {
 
                     {/* Lista dos vídeos agrupados por finalidade */}
                     <div className="space-y-5">
-                      {/* Destaque / Hero */}
+                      {/* Apresentação / Hero */}
                       <div className="space-y-2">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          🎬 Vídeo de Destaque / Hero (Fundo cinemático e capa do catálogo)
-                        </h4>
-                        {videos.filter((v) => v.kind === "feature").length > 0 ? (
-                          videos
-                            .filter((v) => v.kind === "feature")
-                            .map((item) => (
-                              <VideoItemCard
-                                key={item.id}
-                                item={item}
-                                label="Destaque (Hero)"
-                                onDelete={() => void deleteVideo(item)}
-                              />
-                            ))
-                        ) : (
-                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                            Nenhum vídeo de destaque específico cadastrado. O sistema usará o
-                            primeiro vídeo disponível como atmosfera do hero.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Apresentação */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          🗣️ Vídeo de Apresentação (Fala e objetivos do atleta)
+                          🗣️ Vídeo de Apresentação (Fundo do Hero com Máscara Verde & Seção About)
                         </h4>
                         {videos.filter((v) => v.kind === "presentation").length > 0 ? (
                           videos
@@ -857,13 +837,64 @@ function AthleteEditor() {
                               <VideoItemCard
                                 key={item.id}
                                 item={item}
-                                label="Apresentação"
+                                label="Apresentação (Hero & About)"
                                 onDelete={() => void deleteVideo(item)}
                               />
                             ))
                         ) : (
                           <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                            Nenhum vídeo de apresentação cadastrado.
+                            Nenhum vídeo de apresentação cadastrado. Cadastre o vídeo principal para
+                            gerar a atmosfera do Hero com máscara verde.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Em Quadra / Jogos */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          🏐 Em Quadra / In Court (Exibidos logo abaixo do texto de apresentação)
+                        </h4>
+                        {videos.filter((v) => v.kind === "in_court").length > 0 ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {videos
+                              .filter((v) => v.kind === "in_court")
+                              .map((item) => (
+                                <VideoItemCard
+                                  key={item.id}
+                                  item={item}
+                                  label="Em Quadra"
+                                  onDelete={() => void deleteVideo(item)}
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum vídeo de jogo/quadra cadastrado.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Sobre / Trajetória / Destaque */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          🎬 Sobre / Trajetória / Destaque (Exibidos na seção de apresentação)
+                        </h4>
+                        {videos.filter((v) => v.kind === "feature").length > 0 ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {videos
+                              .filter((v) => v.kind === "feature")
+                              .map((item) => (
+                                <VideoItemCard
+                                  key={item.id}
+                                  item={item}
+                                  label="Sobre / Destaque"
+                                  onDelete={() => void deleteVideo(item)}
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+                            Nenhum vídeo sobre/destaque adicional cadastrado.
                           </p>
                         )}
                       </div>
@@ -890,31 +921,6 @@ function AthleteEditor() {
                           <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
                             Nenhum reel cadastrado. Adicione vídeos/shorts para exibir os Stories de
                             highlights.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Em Quadra / Jogos */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          🏐 Em Quadra (Jogos completos e lances de partida)
-                        </h4>
-                        {videos.filter((v) => v.kind === "in_court").length > 0 ? (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {videos
-                              .filter((v) => v.kind === "in_court")
-                              .map((item) => (
-                                <VideoItemCard
-                                  key={item.id}
-                                  item={item}
-                                  label="Em Quadra"
-                                  onDelete={() => void deleteVideo(item)}
-                                />
-                              ))}
-                          </div>
-                        ) : (
-                          <p className="rounded-md border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                            Nenhum vídeo de jogo/quadra cadastrado.
                           </p>
                         )}
                       </div>
