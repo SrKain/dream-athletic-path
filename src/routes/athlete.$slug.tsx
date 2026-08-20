@@ -63,8 +63,10 @@ function PublicAthleteProfile() {
   const age = calculateAge(athlete.birth_date);
   const firstName = athlete.full_name.split(" ")[0];
 
-  const { allVideos, feature, presentations, highlights, inCourt, heroUrl, hasVideos } =
-    groupPublicVideos(videos, profile?.highlight_video_url);
+  const { feature, presentations, highlights, inCourt, heroUrl } = groupPublicVideos(
+    videos,
+    profile?.highlight_video_url,
+  );
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
@@ -240,8 +242,8 @@ function PublicAthleteProfile() {
             )}
           </div>
 
-          {/* VÍDEOS DE APRESENTAÇÃO, IN COURT E HIGHLIGHTS EMBEDADOS DIRETAMENTE */}
-          {hasVideos && (
+          {/* VÍDEOS DE IN COURT E SOBRE LOGO ABAIXO DO TEXTO DE APRESENTAÇÃO */}
+          {(inCourt.length > 0 || presentations.length > 0 || feature) && (
             <div id="athlete-film" className="space-y-4 pt-2">
               <div className="flex items-center gap-2">
                 <Video className="h-4 w-4 text-primary" />
@@ -250,61 +252,73 @@ function PublicAthleteProfile() {
                 </h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Match play footage, technical actions, highlights, and personal presentation film.
+                Match play footage, technical actions, and personal presentation film.
               </p>
               <div className="grid gap-6 sm:grid-cols-2">
-                {allVideos.map((video, idx) => {
-                  let badgeText = "Video";
-                  let badgeClass = "border-primary/30 bg-primary/10 text-primary";
+                {presentations.map((video, idx) => (
+                  <article
+                    key={video.id}
+                    className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h4 className="font-display text-base font-semibold truncate text-foreground">
+                        {video.title || `Presentation Film ${idx + 1}`}
+                      </h4>
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        About & Goals
+                      </span>
+                    </div>
+                    <PublicYoutubePlayer
+                      url={video.youtube_url}
+                      title={video.title || `Presentation ${idx + 1} — ${athlete.full_name}`}
+                      autoPlay={false}
+                    />
+                  </article>
+                ))}
 
-                  if (video.kind === "presentation") {
-                    badgeText = "About & Goals";
-                    badgeClass = "border-primary/30 bg-primary/10 text-primary";
-                  } else if (video.kind === "in_court") {
-                    badgeText = "In Court";
-                    badgeClass =
-                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
-                  } else if (video.kind === "highlight") {
-                    badgeText = "Highlight Reel";
-                    badgeClass = "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400";
-                  } else if (video.kind === "feature") {
-                    badgeText = "Featured Film";
-                    badgeClass =
-                      "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
-                  }
+                {inCourt.map((video, idx) => (
+                  <article
+                    key={video.id}
+                    className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h4 className="font-display text-base font-semibold truncate text-foreground">
+                        {video.title || `In Court Footage ${idx + 1}`}
+                      </h4>
+                      <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        In Court
+                      </span>
+                    </div>
+                    <PublicYoutubePlayer
+                      url={video.youtube_url}
+                      title={video.title || `In Court ${idx + 1}`}
+                      autoPlay={false}
+                    />
+                  </article>
+                ))}
 
-                  const defaultTitle =
-                    video.kind === "presentation"
-                      ? `Presentation Film ${idx + 1}`
-                      : video.kind === "in_court"
-                        ? `In Court Footage ${idx + 1}`
-                        : video.kind === "highlight"
-                          ? `Highlight Reel ${idx + 1}`
-                          : `Featured Film`;
-
-                  return (
+                {feature &&
+                  !presentations.some((p) => p.youtube_url === feature.youtube_url) &&
+                  !inCourt.some((c) => c.youtube_url === feature.youtube_url) && (
                     <article
-                      key={video.id || `${video.youtube_url}-${idx}`}
+                      key={feature.id}
                       className="overflow-hidden rounded-xl border border-border/80 bg-card p-4 shadow-sm"
                     >
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <h4 className="font-display text-base font-semibold truncate text-foreground">
-                          {video.title || defaultTitle}
+                          {feature.title || `Featured Film`}
                         </h4>
-                        <span
-                          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}
-                        >
-                          {badgeText}
+                        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                          Feature
                         </span>
                       </div>
                       <PublicYoutubePlayer
-                        url={video.youtube_url}
-                        title={video.title || `${defaultTitle} — ${athlete.full_name}`}
+                        url={feature.youtube_url}
+                        title={feature.title || `Featured Film — ${athlete.full_name}`}
                         autoPlay={false}
                       />
                     </article>
-                  );
-                })}
+                  )}
               </div>
             </div>
           )}
