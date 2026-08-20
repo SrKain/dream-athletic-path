@@ -2,7 +2,7 @@
   "name": "tanstack_start_ts",
   "private": true,
   "engines": {
-    "node": "\u003e\u003d20.19.0"
+    "node": ">=20.19.0"
   },
   "sideEffects": false,
   "type": "module",
@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "bun run lint \u0026\u0026 bun run typecheck \u0026\u0026 bun run test \u0026\u0026 bun run build",
+    "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -85,13 +85,14 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "destr": "^2.0.5",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "nitro": "3.0.260603-beta",
+    "nitro": "^3.0.260610-beta",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
