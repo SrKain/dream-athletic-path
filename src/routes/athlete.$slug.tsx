@@ -13,6 +13,7 @@ import {
   Sparkles,
   Trophy,
   Video,
+  Weight,
 } from "lucide-react";
 
 import { ReelsRow } from "@/components/reels-viewer";
@@ -23,6 +24,7 @@ import { calculateAge } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
+import { formatHeightImperial, formatWeightImperial } from "@/lib/units";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 
 export const Route = createFileRoute("/athlete/$slug")({
@@ -168,7 +170,14 @@ function PublicAthleteProfile() {
               <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-surface-foreground/80 pt-2">
                 {athlete.height_cm && (
                   <span className="flex items-center gap-1.5">
-                    <Ruler className="h-4 w-4 text-primary" /> {athlete.height_cm} cm
+                    <Ruler className="h-4 w-4 text-primary" />{" "}
+                    {formatHeightImperial(athlete.height_cm)}
+                  </span>
+                )}
+                {athlete.weight_kg && (
+                  <span className="flex items-center gap-1.5">
+                    <Weight className="h-4 w-4 text-primary" />{" "}
+                    {formatWeightImperial(athlete.weight_kg)}
                   </span>
                 )}
                 {birthDateFormatted && (
@@ -336,9 +345,16 @@ function PublicAthleteProfile() {
               />
               <ProfileFact
                 label="Height"
-                value={athlete.height_cm ? `${athlete.height_cm} cm` : "—"}
+                value={formatHeightImperial(athlete.height_cm) ?? "—"}
                 icon={<Ruler className="h-4 w-4" />}
               />
+              {athlete.weight_kg && (
+                <ProfileFact
+                  label="Weight"
+                  value={formatWeightImperial(athlete.weight_kg) ?? "—"}
+                  icon={<Weight className="h-4 w-4" />}
+                />
+              )}
               <ProfileFact
                 label="Date of Birth"
                 value={

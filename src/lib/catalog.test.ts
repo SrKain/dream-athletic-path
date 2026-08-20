@@ -12,7 +12,7 @@ const athletes = [
 describe("catalog helpers", () => {
   it("groups athletes by the manually configured position order", () => {
     const shelves = buildAthleteShelves(athletes, ["position-1", "position-2", "position-3"]);
-    expect(shelves.map((shelf) => shelf.title)).toEqual(["Levantadores", "Ponteiros", "Líberos"]);
+    expect(shelves.map((shelf) => shelf.title)).toEqual(["Setters", "Outside Hitters", "Liberos"]);
     expect(shelves[0].athletes[0].full_name).toBe("Ana");
   });
 

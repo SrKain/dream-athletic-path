@@ -26,11 +26,27 @@ export function filterAthletes(
 ) {
   const term = filters.search?.trim().toLocaleLowerCase() ?? "";
   return athletes.filter((athlete) => {
-    const positionName = athlete.position?.name_pt ?? "";
-    const countryName = athlete.country?.name_pt ?? "";
+    const positionPt = athlete.position?.name_pt?.toLowerCase() ?? "";
+    const positionEn = athlete.position?.name_en?.toLowerCase() ?? "";
+    const selectedPosition = filters.position?.toLowerCase() ?? "";
+
+    const matchesPosition =
+      !selectedPosition ||
+      positionPt === selectedPosition ||
+      positionEn === selectedPosition ||
+      athlete.position_id === filters.position;
+
+    const countryPt = athlete.country?.name_pt?.toLowerCase() ?? "";
+    const countryEn = athlete.country?.name_en?.toLowerCase() ?? "";
+    const selectedCountry = filters.country?.toLowerCase() ?? "";
+
+    const matchesCountry =
+      !selectedCountry ||
+      countryPt === selectedCountry ||
+      countryEn === selectedCountry ||
+      athlete.nationality?.toLowerCase() === selectedCountry;
+
     const age = calculateAge(athlete.birth_date, now);
-    const matchesPosition = !filters.position || positionName === filters.position;
-    const matchesCountry = !filters.country || countryName === filters.country;
     const matchesAge =
       !filters.ageRange ||
       age === null ||
@@ -39,12 +55,14 @@ export function filterAthletes(
         : filters.ageRange === "19-22"
           ? age >= 19 && age <= 22
           : age >= 23);
+
     const haystack = [
       athlete.full_name,
       athlete.position?.name_pt,
       athlete.position?.name_en,
       athlete.country?.name_pt,
       athlete.country?.name_en,
+      athlete.nationality,
     ]
       .filter(Boolean)
       .join(" ")
@@ -63,7 +81,7 @@ export function buildAthleteShelves(
     { position: string; positionId: string; athletes: AthleteCard[] }
   >();
   for (const athlete of athletes) {
-    const position = athlete.position?.name_pt ?? athlete.position?.name_en ?? "Other positions";
+    const position = athlete.position?.name_en ?? athlete.position?.name_pt ?? "Other positions";
     const positionId = athlete.position_id ?? position;
     const current = groups.get(positionId) ?? { athletes: [], position, positionId };
     current.athletes.push(athlete);
@@ -105,11 +123,11 @@ function shelfRank(title: string) {
 
 function pluralizePosition(title: string) {
   const normalized = title.toLocaleLowerCase();
-  if (normalized.includes("levantador")) return "Setters";
-  if (normalized.includes("ponteiro")) return "Outside Hitters";
-  if (normalized.includes("central")) return "Middle Blockers";
-  if (normalized.includes("líbero") || normalized.includes("libero")) return "Liberos";
-  if (normalized.includes("oposto")) return "Opposites";
+  if (normalized.includes("setter") || normalized.includes("levantador")) return "Setters";
+  if (normalized.includes("outside") || normalized.includes("ponteiro")) return "Outside Hitters";
+  if (normalized.includes("middle") || normalized.includes("central")) return "Middle Blockers";
+  if (normalized.includes("libero") || normalized.includes("líbero")) return "Liberos";
+  if (normalized.includes("opposite") || normalized.includes("oposto")) return "Opposites";
   return title;
 }
 

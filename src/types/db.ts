@@ -100,6 +100,8 @@ export interface AgencyVisualSettings {
   hero_subtitle_en: string | null;
   catalog_heading_pt: string | null;
   catalog_heading_en: string | null;
+  logo_url?: string | null;
+  hero_background_url?: string | null;
   updated_at?: string;
 }
 

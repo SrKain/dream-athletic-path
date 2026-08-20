@@ -302,3 +302,26 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Reels e catálogo**: reels agora iniciam pelo poster e carregam somente o vídeo escolhido no overlay; cards do catálogo mantêm a foto e a prévia sob interação, desativando autoplay quando `prefers-reduced-motion` estiver ativo.
 - **Diagnóstico operacional**: `getPublicAthlete()` expõe `videosAvailable`; a tela pública comunica indisponibilidade sem simular que o atleta não possui vídeos. O Admin orienta aplicar as migrations `0009` e `0010` quando a tabela ou o enum de vídeos não estiverem disponíveis.
 - **Qualidade**: adicionados testes de agrupamento/ordenação e de rejeição de domínios indevidos. `bun run typecheck`, lint dos módulos alterados e `bun run build` concluíram. O Vitest focado não iniciou no Windows por `TypeError: File URL path must be an absolute path`, antes de carregar qualquer teste.
+
+## Atualização 2026-08-20 — Entrega Home Pública, Identidade Visual & Sistema Imperial (TASK-030)
+
+- **Bloco 1: Header & Navegação Pública**:
+  - Removido o botão "Área restrita" e a tag "NCAA" do cabeçalho público (`src/routes/index.tsx`). O acesso ao painel de agência/atleta permanece direto e seguro pela rota `/login`.
+  - Header adaptativo exibindo o logo da agência (`visual.logo_url`) ou o nome em tipografia display de alto contraste.
+- **Blocos 2 e 3: Identidade Visual e Branding da Agência**:
+  - **Migration `0012_agency_branding.sql`**: Adicionadas colunas `logo_url TEXT` e `hero_background_url TEXT` na tabela `agency_visual_settings`.
+  - **Admin Visual (`src/routes/_authenticated/admin/visual.tsx`)**: Gerenciamento completo com upload para o bucket público do Supabase, pré-visualização ao vivo do logo e do banner do hero, validação de arquivo e botão de exclusão.
+  - **Tipagem (`src/types/db.ts`)**: Interface `AgencyVisualSettings` atualizada.
+- **Blocos 4 e 5.1: Redesign e Internacionalização do Catálogo (100% US English)**:
+  - Textos, cabeçalhos, filtros, placeholders e badges padronizados em inglês americano no catálogo e na home.
+  - Cards de atleta (`AthleteCardItem`) com foto/prévia em vídeo, nome e linha unificada de dados: Posição, Altura (Imperial) e País com bandeira.
+  - Footer com logo/nome da agência, descrição da missão e direitos autorais.
+  - Metatags Open Graph em inglês com fallback para fotos dos atletas.
+- **Blocos 5.2 e 5.3: Sistema Imperial & Países ISO 3166**:
+  - **Módulo `src/lib/units.ts`**: Funções `cmToFeetAndInches`, `formatHeightImperial` (ex: `5'11"`), `kgToLbs` e `formatWeightImperial` (ex: `172 lbs`) com cobertura completa de testes unitários (`src/lib/units.test.ts`).
+  - **Perfil Público (`src/routes/athlete.$slug.tsx`)**: Altura e peso exibidos no formato imperial tanto no Hero quanto na lista de dados de recrutamento.
+  - **Migration `0011_countries_iso.sql`**: Seed completo de 249 países e territórios no padrão ISO 3166-1 com nomes em inglês, português e emoji da bandeira.
+- **Bloco 6: Centralização do WhatsApp**:
+  - **Módulo `src/lib/contact.ts`**: Constante oficial `WHATSAPP_NUMBER = "5511917028611"` e funções auxiliares `buildWhatsappUrl()` e `buildRecruitWhatsappUrl(athleteName)`.
+  - Mensagens em inglês formatadas para coaches internacionais (`"Hello, I am interested in recruiting..."`).
+

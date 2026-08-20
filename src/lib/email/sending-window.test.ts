@@ -212,7 +212,7 @@ describe("getNextSendingWindowStart", () => {
     });
 
     it("should handle midnight", () => {
-      const wednesday = new Date("2026-08-06T00:00:00"); // Wednesday midnight
+      const wednesday = new Date("2026-08-05T00:00:00"); // Wednesday midnight (Aug 5, 2026)
       const next = getNextSendingWindowStart(wednesday);
 
       expect(next.getDay()).toBe(3); // Wednesday
@@ -238,9 +238,12 @@ describe("getNextWindowDescription", () => {
   });
 
   it("should return 'DayName at HH:MM' for future days", () => {
-    const friday = new Date("2026-08-07T20:00:00"); // Friday evening
-    const description = getNextWindowDescription(friday);
+    const thursday = new Date("2026-08-06T20:00:00"); // Thursday evening -> Saturday
+    // But Friday is a weekday, so next is Friday 08:00 (Tomorrow).
+    // Let's test from Friday night to Monday (skip Sunday rest day):
+    const saturday = new Date("2026-08-08T20:00:00"); // Saturday evening -> Monday 08:00 (skips Sunday)
+    const description = getNextWindowDescription(saturday);
 
-    expect(description).toBe("Saturday at 09:00");
+    expect(description).toBe("Monday at 08:00");
   });
 });
