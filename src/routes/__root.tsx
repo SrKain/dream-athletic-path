@@ -13,6 +13,7 @@ import { Analytics } from "@vercel/analytics/react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProviders } from "../providers/app-providers";
+import { getAgencyVisual } from "../lib/athletes.functions";
 
 function NotFoundComponent() {
   return (
@@ -75,34 +76,41 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Go Team Go — Athlete Platform" },
-      {
-        name: "description",
-        content:
-          "Catalog and tracking platform for Brazilian athletes pursuing opportunities in the United States.",
-      },
-      { name: "author", content: "Go Team Go" },
-      { property: "og:title", content: "Go Team Go — Athlete Platform" },
-      {
-        property: "og:description",
-        content: "Athletic talent, organization, and opportunity in one place.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#fcfbf8" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-    ],
-  }),
+  loader: () => getAgencyVisual(),
+  head: ({ loaderData }) => {
+    const logoUrl = loaderData?.logo_url;
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: "Go Team Go — Athlete Platform" },
+        {
+          name: "description",
+          content:
+            "Catalog and tracking platform for Brazilian athletes pursuing opportunities in the United States.",
+        },
+        { name: "author", content: "Go Team Go" },
+        { property: "og:title", content: "Go Team Go — Athlete Platform" },
+        {
+          property: "og:description",
+          content: "Athletic talent, organization, and opportunity in one place.",
+        },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "theme-color", content: "#fcfbf8" },
+      ],
+      links: [
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+        logoUrl
+          ? { rel: "icon", href: logoUrl }
+          : { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+        ...(logoUrl ? [{ rel: "apple-touch-icon", href: logoUrl }] : []),
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

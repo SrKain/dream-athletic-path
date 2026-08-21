@@ -17,6 +17,7 @@ export type PublicAthletePayload = {
   videos: AthleteVideo[];
   videosAvailable: boolean;
   nextAthlete?: AthleteCard | null;
+  visual: AgencyVisualSettings | null;
 };
 
 export type PublicCatalogPayload = {
@@ -29,6 +30,17 @@ export type PublicCatalogPayload = {
 
 export const PUBLIC_ATHLETE_SELECT =
   "id, slug, full_name, birth_date, height_cm, weight_kg, nationality, sport_id, position_id, photo_url, cover_url, is_public, is_featured, created_at, position:positions(name_en,name_pt,abbreviation), sport:sports(name_en,name_pt,slug), country:countries(name_en,name_pt,flag_emoji)";
+
+/** Configuração visual da agência (logotipo, favicon, etc.). */
+export const getAgencyVisual = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AgencyVisualSettings | null> => {
+    const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
+    const client = getPublicServerClient();
+    if (!client) return null;
+    const { data } = await client.from("agency_visual_settings").select("*").limit(1).maybeSingle();
+    return (data ?? null) as AgencyVisualSettings | null;
+  },
+);
 
 /** Feed público — leitura anônima via RLS no Supabase externo. */
 export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
@@ -157,7 +169,7 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
     const athleteId = (athlete as { id: string }).id;
     const positionId = (athlete as { position_id?: string }).position_id;
 
-    const [profile, media, achievements, videos] = await Promise.all([
+    const [profile, media, achievements, videos, visualResult] = await Promise.all([
       client.from("athlete_profiles").select("*").eq("athlete_id", athleteId).maybeSingle(),
       client
         .from("athlete_media")
@@ -172,6 +184,7 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
         .eq("is_public", true)
         .order("achieved_on", { ascending: false }),
       client.from("athlete_videos").select("*").eq("athlete_id", athleteId).order("sort_order"),
+      client.from("agency_visual_settings").select("*").limit(1).maybeSingle(),
     ]);
 
     let nextAthlete: AthleteCard | null = null;
@@ -217,5 +230,6 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       videos: (videos.data ?? []) as unknown as AthleteVideo[],
       videosAvailable: !videos.error,
       nextAthlete,
+      visual: (visualResult.data ?? null) as AgencyVisualSettings | null,
     };
   });

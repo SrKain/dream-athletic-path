@@ -68,7 +68,7 @@ export const Route = createFileRoute("/athlete/$slug")({
 });
 
 function PublicAthleteProfile() {
-  const { athlete, profile, media, achievements, videos, videosAvailable, nextAthlete } =
+  const { athlete, profile, media, achievements, videos, videosAvailable, nextAthlete, visual } =
     Route.useLoaderData() as PublicAthletePayload;
 
   const age = calculateAge(athlete.birth_date);
@@ -131,8 +131,18 @@ function PublicAthleteProfile() {
       {/* ── STICKY MAIN HEADER ── */}
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="container-edge flex h-16 items-center justify-between">
-          <Link to="/" className="font-display text-xl font-bold tracking-tight text-foreground">
-            Go Team Go
+          <Link to="/" className="flex items-center gap-3">
+            {visual?.logo_url ? (
+              <img
+                src={visual.logo_url}
+                alt="Go Team Go"
+                className="h-8 md:h-10 w-auto object-contain"
+              />
+            ) : (
+              <span className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
+                Go Team Go
+              </span>
+            )}
           </Link>
           <Link
             to="/"
