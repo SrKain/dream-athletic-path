@@ -89,9 +89,9 @@ function AthleteEditor() {
     ] = await Promise.all([
       supabase.from("athletes").select("*").eq("id", id).single(),
       supabase.from("athlete_profiles").select("*").eq("athlete_id", id).maybeSingle(),
-      supabase.from("sports").select("*").order("name_pt"),
-      supabase.from("positions").select("*").order("name_pt"),
-      supabase.from("countries").select("*").order("name_pt"),
+      supabase.from("sports").select("*").order("name_en"),
+      supabase.from("positions").select("*").order("name_en"),
+      supabase.from("countries").select("*").order("name_en"),
       supabase.from("pipeline_stages").select("*").eq("is_active", true).order("order_index"),
       supabase.from("athlete_stage_progress").select("*").eq("athlete_id", id),
       supabase.from("checklist_items").select("*").order("sort_order"),
@@ -496,7 +496,7 @@ function AthleteEditor() {
                         .filter((item) => !athlete.sport_id || item.sport_id === athlete.sport_id)
                         .map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.name_pt}
+                            {item.name_en || item.name_pt}
                           </option>
                         ))}
                     </select>
@@ -507,7 +507,7 @@ function AthleteEditor() {
                       placeholder="Buscar país"
                       options={countries.map((item) => ({
                         value: item.code,
-                        label: `${item.flag_emoji ?? ""} ${item.name_pt}`.trim(),
+                        label: `${item.flag_emoji ?? ""} ${item.name_en || item.name_pt}`.trim(),
                       }))}
                       onChange={(value) => update("nationality", value || null)}
                     />
@@ -574,7 +574,7 @@ function AthleteEditor() {
                         onChange={(e) => setProfile({ ...profile, subtitle: e.target.value })}
                       />
                     </Field>
-                    <Field label="Biografia EN (Descrição do atleta)" wide>
+                    <Field label="Athlete Biography" wide>
                       <textarea
                         className={textareaClass}
                         rows={4}
@@ -583,26 +583,28 @@ function AthleteEditor() {
                         onChange={(e) => setProfile({ ...profile, bio_en: e.target.value })}
                       />
                     </Field>
-                    <Field label="What She/He Brings to the Team (EN)" wide>
+                    <Field label="What She/He Brings to the Team" wide>
                       <textarea
                         className={textareaClass}
                         rows={3}
-                        placeholder="Explique o diferencial técnico, tático e comportamental que o atleta agrega à equipe..."
+                        placeholder="Highlight the technical, tactical, and mental impact the athlete brings to the collegiate team..."
                         value={profile.team_contribution_en ?? ""}
                         onChange={(e) =>
                           setProfile({ ...profile, team_contribution_en: e.target.value })
                         }
                       />
                     </Field>
-                    <Field label="Biografia PT" wide>
-                      <textarea
-                        className={textareaClass}
-                        rows={3}
-                        value={profile.bio_pt ?? ""}
-                        onChange={(e) => setProfile({ ...profile, bio_pt: e.target.value })}
+                    <Field label="Course of Interest (Desired Major / Field of Study)">
+                      <input
+                        className={inputClass}
+                        placeholder="ex: Business Administration / Computer Science / Kinesiology"
+                        value={profile.course_of_interest ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, course_of_interest: e.target.value })
+                        }
                       />
                     </Field>
-                    <Field label="Current School (Escola / Universidade Atual)">
+                    <Field label="Current School (High School / College)">
                       <input
                         className={inputClass}
                         placeholder="ex: Colégio Santa Cruz / Mackenzie"
@@ -610,10 +612,10 @@ function AthleteEditor() {
                         onChange={(e) => setProfile({ ...profile, current_school: e.target.value })}
                       />
                     </Field>
-                    <Field label="High School Graduation (ex: Class of 2025)">
+                    <Field label="High School Graduation (e.g. Class of 2025)">
                       <input
                         className={inputClass}
-                        placeholder="ex: Class of 2025 / Dez 2025"
+                        placeholder="ex: Class of 2025 / Dec 2025"
                         value={profile.high_school_graduation ?? ""}
                         onChange={(e) =>
                           setProfile({ ...profile, high_school_graduation: e.target.value })
@@ -655,7 +657,7 @@ function AthleteEditor() {
                         }
                       />
                     </Field>
-                    <Field label="Nível de inglês">
+                    <Field label="English Level">
                       <input
                         className={inputClass}
                         placeholder="ex: Fluent / Advanced"
@@ -663,7 +665,7 @@ function AthleteEditor() {
                         onChange={(e) => setProfile({ ...profile, english_level: e.target.value })}
                       />
                     </Field>
-                    <Field label="Budget / Orçamento anual">
+                    <Field label="Annual Budget / Financial Resources">
                       <input
                         className={inputClass}
                         placeholder="ex: Up to $15,000/yr / Flexible"

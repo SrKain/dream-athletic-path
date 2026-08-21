@@ -17,11 +17,8 @@ type VisualDraft = Omit<AgencyVisualSettings, "agency_id" | "updated_at">;
 
 const emptyDraft: VisualDraft = {
   catalog_heading_en: "",
-  catalog_heading_pt: "",
   hero_subtitle_en: "",
-  hero_subtitle_pt: "",
   hero_title_en: "",
-  hero_title_pt: "",
   logo_url: "",
   hero_background_url: "",
 };
@@ -36,18 +33,15 @@ function VisualSettingsPage() {
   const load = useCallback(async () => {
     const [visualResult, positionsResult, orderResult] = await Promise.all([
       supabase.from("agency_visual_settings").select("*").limit(1).maybeSingle(),
-      supabase.from("positions").select("*").order("name_pt"),
+      supabase.from("positions").select("*").order("name_en"),
       supabase.from("catalog_position_order").select("position_id, sort_order").order("sort_order"),
     ]);
     if (visualResult.data) {
       const value = visualResult.data as AgencyVisualSettings;
       setDraft({
         catalog_heading_en: value.catalog_heading_en ?? "",
-        catalog_heading_pt: value.catalog_heading_pt ?? "",
         hero_subtitle_en: value.hero_subtitle_en ?? "",
-        hero_subtitle_pt: value.hero_subtitle_pt ?? "",
         hero_title_en: value.hero_title_en ?? "",
-        hero_title_pt: value.hero_title_pt ?? "",
         logo_url: value.logo_url ?? "",
         hero_background_url: value.hero_background_url ?? "",
       });
@@ -63,7 +57,7 @@ function VisualSettingsPage() {
         return (
           (rankA === -1 ? Number.MAX_SAFE_INTEGER : rankA) -
             (rankB === -1 ? Number.MAX_SAFE_INTEGER : rankB) ||
-          a.name_pt.localeCompare(b.name_pt, "pt-BR")
+          (a.name_en || a.name_pt || "").localeCompare(b.name_en || b.name_pt || "", "en-US")
         );
       }),
     );
@@ -236,7 +230,7 @@ function VisualSettingsPage() {
                 </div>
               </div>
 
-              <Field label="Título (EN) — Padrão US">
+              <Field label="Hero Title (US English)">
                 <input
                   className={inputClass}
                   value={draft.hero_title_en ?? ""}
@@ -244,15 +238,7 @@ function VisualSettingsPage() {
                   placeholder="Athletes ready to play, study, and compete in the USA."
                 />
               </Field>
-              <Field label="Título (PT)">
-                <input
-                  className={inputClass}
-                  value={draft.hero_title_pt ?? ""}
-                  onChange={(e) => setDraft({ ...draft, hero_title_pt: e.target.value })}
-                  placeholder="Atletas prontos para jogar, estudar e competir nos EUA."
-                />
-              </Field>
-              <Field label="Subtítulo (EN) — Padrão US">
+              <Field label="Hero Subtitle (US English)">
                 <textarea
                   className={inputClass + " min-h-20 py-2"}
                   value={draft.hero_subtitle_en ?? ""}
@@ -260,27 +246,12 @@ function VisualSettingsPage() {
                   placeholder="Explore athlete profiles by position, watch game film, and discover top Brazilian recruits with verified academic and athletic credentials."
                 />
               </Field>
-              <Field label="Subtítulo (PT)">
-                <textarea
-                  className={inputClass + " min-h-20 py-2"}
-                  value={draft.hero_subtitle_pt ?? ""}
-                  onChange={(e) => setDraft({ ...draft, hero_subtitle_pt: e.target.value })}
-                />
-              </Field>
-              <Field label="Cabeçalho da lista (EN) — Padrão US">
+              <Field label="Catalog Section Heading (US English)">
                 <input
                   className={inputClass}
                   value={draft.catalog_heading_en ?? ""}
                   onChange={(e) => setDraft({ ...draft, catalog_heading_en: e.target.value })}
                   placeholder="Our Athletes"
-                />
-              </Field>
-              <Field label="Cabeçalho da lista (PT)">
-                <input
-                  className={inputClass}
-                  value={draft.catalog_heading_pt ?? ""}
-                  onChange={(e) => setDraft({ ...draft, catalog_heading_pt: e.target.value })}
-                  placeholder="Nossos Atletas"
                 />
               </Field>
               <div>

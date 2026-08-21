@@ -11,9 +11,9 @@ export function stageImageUrl(path: string) {
 }
 
 export function stageMessageOf(
-  stage: Pick<PipelineStage, "portal_message_pt" | "portal_message_en">,
+  stage: Pick<PipelineStage, "portal_message_en" | "portal_message_pt">,
 ) {
-  return (stage.portal_message_pt ?? stage.portal_message_en ?? "").trim();
+  return (stage.portal_message_en ?? stage.portal_message_pt ?? "").trim();
 }
 
 type Announcement = {
@@ -74,8 +74,8 @@ export function useStageAnnouncement({
       const message = replacePlaceholders(stageMessageOf(stage), {
         athlete_name: athlete.full_name,
         athlete_first_name: getFirstName(athlete.full_name),
-        previous_stage: previous ? (previous.name_pt ?? previous.name_en) : "",
-        new_stage: stage.name_pt ?? stage.name_en,
+        previous_stage: previous ? previous.name_en : "",
+        new_stage: stage.name_en,
       })
         .replace(/\{\{[a-z_]+\}\}/g, "")
         .trim();

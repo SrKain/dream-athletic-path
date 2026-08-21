@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  BookOpen,
   Calendar,
   DollarSign,
   FileText,
@@ -81,8 +82,8 @@ function PublicAthleteProfile() {
 
   const photoUrl = loaderPhotoOrFallback(athlete);
   const subtitle = profile?.subtitle || "Performance · Personality · Potential";
-  const positionLabel = athlete.position?.name_en || athlete.position?.name_pt;
-  const countryLabel = athlete.country?.name_en || athlete.country?.name_pt;
+  const positionLabel = athlete.position?.name_en;
+  const countryLabel = athlete.country?.name_en;
 
   const birthDateFormatted = athlete.birth_date
     ? new Date(athlete.birth_date).toLocaleDateString("en-US", {
@@ -397,13 +398,9 @@ function PublicAthleteProfile() {
             data-nav-id="recruit-cta"
             onClick={() => setActiveId("recruit-cta")}
             aria-current={activeId === "recruit-cta" ? "true" : undefined}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ml-auto ${
-              activeId === "recruit-cta"
-                ? "bg-primary/20 text-primary font-bold border border-primary/30"
-                : "text-primary font-bold hover:bg-primary/10"
-            }`}
+            className="liquid-button inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-950/20 transition hover:brightness-110 active:scale-95 whitespace-nowrap ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <MessageCircle className="h-3.5 w-3.5" /> Recruit
+            <MessageCircle className="h-3.5 w-3.5 fill-current" /> Recruit
           </a>
         </div>
       </nav>
@@ -562,6 +559,13 @@ function PublicAthleteProfile() {
                   value={profile?.current_school ?? "—"}
                   icon={<School className="h-4 w-4" />}
                 />
+                {profile?.course_of_interest && (
+                  <FactCard
+                    label="Course of Interest"
+                    value={profile.course_of_interest}
+                    icon={<BookOpen className="h-4 w-4" />}
+                  />
+                )}
                 <FactCard
                   label="High School Class"
                   value={
@@ -633,9 +637,9 @@ function PublicAthleteProfile() {
             <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl text-foreground">
               About {firstName}
             </h2>
-            {profile?.bio_en || profile?.bio_pt ? (
+            {profile?.bio_en ? (
               <p className="text-base sm:text-lg leading-relaxed text-muted-foreground whitespace-pre-line">
-                {profile.bio_en || profile.bio_pt}
+                {profile.bio_en}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground italic">
@@ -679,7 +683,7 @@ function PublicAthleteProfile() {
                 {item.image_url && (
                   <img
                     src={item.image_url}
-                    alt={item.title_en || item.title_pt || ""}
+                    alt={item.title_en || ""}
                     loading="lazy"
                     className="aspect-[16/9] w-full object-cover"
                   />
@@ -690,11 +694,11 @@ function PublicAthleteProfile() {
                   </div>
                   <div>
                     <h3 className="font-display text-lg font-bold text-foreground">
-                      {item.title_en || item.title_pt}
+                      {item.title_en}
                     </h3>
-                    {(item.description_en || item.description_pt) && (
+                    {item.description_en && (
                       <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-                        {item.description_en || item.description_pt}
+                        {item.description_en}
                       </p>
                     )}
                     {item.achieved_on && (
@@ -736,7 +740,7 @@ function PublicAthleteProfile() {
                   <img
                     key={item.id}
                     src={item.url}
-                    alt={item.caption_en || item.caption_pt || athlete.full_name}
+                    alt={item.caption_en || athlete.full_name}
                     loading="lazy"
                     className="aspect-[4/3] w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02] duration-300"
                   />
@@ -810,9 +814,9 @@ function PublicAthleteProfile() {
                   </h4>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {[
-                      nextAthlete.position?.name_en || nextAthlete.position?.name_pt,
+                      nextAthlete.position?.name_en,
                       formatHeightImperial(nextAthlete.height_cm),
-                      nextAthlete.country?.name_en || nextAthlete.country?.name_pt,
+                      nextAthlete.country?.name_en,
                     ]
                       .filter(Boolean)
                       .join(" · ")}

@@ -41,27 +41,25 @@ where a.slug = 'go-team-go'
 on conflict (slug) do nothing;
 
 insert into public.athlete_profiles (
-  athlete_id, bio_pt, bio_en, graduation_year, gpa, english_level, stats
+  athlete_id, bio_en, graduation_year, gpa, english_level, course_of_interest, stats
 )
 select id,
-  'Ponteira de alto rendimento, com potência ofensiva e disciplina acadêmica.',
   'High-performance outside hitter with offensive power and strong academic discipline.',
-  2026, 3.72, 'Advanced', '{"Ataques vencedores": 312, "Bloqueios": 84}'::jsonb
+  2026, 3.72, 'Advanced', 'Business Administration', '{"Winning Attacks": 312, "Blocks": 84}'::jsonb
 from public.athletes where slug = 'marina-alves'
-on conflict (athlete_id) do update set bio_pt = excluded.bio_pt, stats = excluded.stats;
+on conflict (athlete_id) do update set bio_en = excluded.bio_en, course_of_interest = excluded.course_of_interest, stats = excluded.stats;
 
 insert into public.athlete_profiles (
-  athlete_id, bio_pt, bio_en, graduation_year, gpa, english_level, stats
+  athlete_id, bio_en, graduation_year, gpa, english_level, course_of_interest, stats
 )
 select id,
-  'Meio-campista com visão de jogo, intensidade e experiência em competições nacionais.',
   'Midfielder with vision, intensity and national competition experience.',
-  2025, 3.45, 'Intermediate', '{"Assistências": 18, "Jogos": 42}'::jsonb
+  2025, 3.45, 'Intermediate', 'Kinesiology', '{"Assists": 18, "Matches": 42}'::jsonb
 from public.athletes where slug = 'gabriel-santos'
-on conflict (athlete_id) do update set bio_pt = excluded.bio_pt, stats = excluded.stats;
+on conflict (athlete_id) do update set bio_en = excluded.bio_en, course_of_interest = excluded.course_of_interest, stats = excluded.stats;
 
-insert into public.achievements (athlete_id, title_en, title_pt, description_pt, achieved_on)
-select id, 'State champion', 'Campeã estadual', 'Título conquistado na categoria sub-19.', '2025-11-10'
+insert into public.achievements (athlete_id, title_en, achieved_on)
+select id, 'State champion', '2025-11-10'
 from public.athletes a
 where slug = 'marina-alves'
   and not exists (
@@ -69,15 +67,15 @@ where slug = 'marina-alves'
     where x.athlete_id = a.id and x.title_en = 'State champion'
   );
 
-insert into public.checklist_items (stage_id, label_en, label_pt, requires_document, sort_order)
-select ps.id, item.label_en, item.label_pt, true, item.sort_order
+insert into public.checklist_items (stage_id, label_en, requires_document, sort_order)
+select ps.id, item.label_en, true, item.sort_order
 from public.pipeline_stages ps
 join public.agencies a on a.id = ps.agency_id and a.slug = 'go-team-go'
 join (values
-  ('diagnosis', 'Passport', 'Passaporte', 10),
-  ('personal-plan', 'School transcript', 'Histórico escolar', 10),
-  ('video-exposure', 'Highlight video', 'Vídeo de melhores momentos', 10)
-) as item(stage_key, label_en, label_pt, sort_order) on item.stage_key = ps.key
+  ('diagnosis', 'Passport', 10),
+  ('personal-plan', 'School transcript', 10),
+  ('video-exposure', 'Highlight video', 10)
+) as item(stage_key, label_en, sort_order) on item.stage_key = ps.key
 where not exists (
   select 1 from public.checklist_items ci
   where ci.stage_id = ps.id and ci.label_en = item.label_en

@@ -329,3 +329,28 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Bloco 6: Centralização do WhatsApp**:
   - **Módulo `src/lib/contact.ts`**: Constante oficial `WHATSAPP_NUMBER = "5511917028611"` e funções auxiliares `buildWhatsappUrl()` e `buildRecruitWhatsappUrl(athleteName)`.
   - Mensagens em inglês formatadas para coaches internacionais (`"Hello, I am interested in recruiting..."`).
+
+## Atualização 2026-08-21 — Pivot definitivo para 100% US English e Campo 'Course of Interest' (TASK-039 / TASK-031)
+
+- **Pivot Definitivo para 100% US English**:
+  - **Migration `0013_full_english_pivot_and_course_of_interest.sql`**:
+    - `athlete_profiles`: remoção de `bio_pt` e adição da coluna `course_of_interest TEXT`.
+    - `agency_visual_settings`: remoção de colunas redundantes em português (`hero_title_pt`, `hero_subtitle_pt`, `catalog_title_pt`, `catalog_subtitle_pt`).
+    - `users`: atualização do locale padrão para `'en'`.
+  - **Tipagem (`src/types/db.ts`)**:
+    - `AthleteProfile`: adição de `course_of_interest: string | null` e remoção de `bio_pt`.
+    - `AgencyVisualSettings`: interface 100% em inglês (`hero_title_en`, `hero_subtitle_en`, etc.).
+  - **Painel Admin (`src/routes/_authenticated/admin/athletes/$id.tsx`)**:
+    - Inclusão do campo **"Course of Interest / Intended Major"** com placeholder (`e.g., Business Administration, Sports Management, Computer Science`).
+    - Exclusão do textarea de biografia em português (`bio_pt`), mantendo apenas **"Athlete Biography (English)"**.
+    - Consultas de posições e países ordenadas exclusivamente por `name_en`.
+  - **Perfil Público do Atleta (`src/routes/athlete.$slug.tsx`)**:
+    - Adicionado **"Course of Interest"** na grade acadêmica e de elegibilidade (*Academic & Eligibility Details*).
+    - Biografia, títulos, badges e posições consultam unicamente `name_en` e campos em inglês.
+  - **Configurações e Visual Admin (`admin/settings.tsx`, `admin/visual.tsx`)**:
+    - Removidos inputs bilíngues redundantes e unificada toda a interface em inglês dos EUA.
+  - **Módulo de Catálogo e Notificações (`catalog.ts`, `stage-change.server.ts`, `use-stage-announcement.ts`)**:
+    - Remoção de redundâncias de busca e categorização de posições em português, operando em 100% US English.
+  - **Seed Demo (`db/demo_seed.sql`)**:
+    - Dados de demonstração alinhados com a estrutura do pivot.
+

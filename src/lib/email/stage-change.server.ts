@@ -47,7 +47,7 @@ export async function sendStageCelebration(
 
   const { data: newStage, error: stageError } = await admin
     .from("pipeline_stages")
-    .select("id, name_en, name_pt, celebration_message_en")
+    .select("id, name_en, celebration_message_en")
     .eq("id", input.newStageId)
     .single();
 
@@ -75,14 +75,14 @@ export async function sendStageCelebration(
     return { success: true, skipped: true, reason: "already_sent" };
   }
 
-  let previousStageName = "Etapa anterior";
+  let previousStageName = "Previous stage";
   if (input.previousStageId) {
     const { data: prevStage } = await admin
       .from("pipeline_stages")
-      .select("name_en, name_pt")
+      .select("name_en")
       .eq("id", input.previousStageId)
       .single();
-    if (prevStage) previousStageName = prevStage.name_pt ?? prevStage.name_en;
+    if (prevStage) previousStageName = prevStage.name_en;
   }
 
   const { data: agency } = await admin
@@ -93,7 +93,7 @@ export async function sendStageCelebration(
 
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const portalLink = `${baseUrl}/portal?celebrate=true`;
-  const newStageName = newStage.name_pt ?? newStage.name_en;
+  const newStageName = newStage.name_en;
 
   const placeholderData: PlaceholderData = {
     athlete_name: athlete.full_name,

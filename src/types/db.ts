@@ -20,14 +20,14 @@ export interface Profile {
 export interface Country {
   code: string;
   name_en: string;
-  name_pt: string;
+  name_pt?: string | null;
   flag_emoji: string | null;
 }
 
 export interface Sport {
   id: string;
   name_en: string;
-  name_pt: string;
+  name_pt?: string | null;
   slug: string;
 }
 
@@ -35,7 +35,7 @@ export interface Position {
   id: string;
   sport_id: string;
   name_en: string;
-  name_pt: string;
+  name_pt?: string | null;
   abbreviation: string | null;
 }
 
@@ -64,7 +64,7 @@ export interface Athlete {
 export interface AthleteProfile {
   athlete_id: string;
   bio_en: string | null;
-  bio_pt: string | null;
+  course_of_interest: string | null;
   highlight_video_url: string | null;
   stats: Record<string, string | number> | null;
   gpa: number | null;
@@ -94,11 +94,11 @@ export interface AthleteVideo {
 
 export interface AgencyVisualSettings {
   agency_id: string;
-  hero_title_pt: string | null;
+  hero_title_pt?: string | null;
   hero_title_en: string | null;
-  hero_subtitle_pt: string | null;
+  hero_subtitle_pt?: string | null;
   hero_subtitle_en: string | null;
-  catalog_heading_pt: string | null;
+  catalog_heading_pt?: string | null;
   catalog_heading_en: string | null;
   logo_url?: string | null;
   hero_background_url?: string | null;
@@ -117,7 +117,7 @@ export interface AthleteMedia {
   url: string;
   thumbnail_url: string | null;
   caption_en: string | null;
-  caption_pt: string | null;
+  caption_pt?: string | null;
   is_public: boolean;
   sort_order: number;
   created_at: string;
@@ -127,9 +127,9 @@ export interface Achievement {
   id: string;
   athlete_id: string;
   title_en: string;
-  title_pt: string | null;
+  title_pt?: string | null;
   description_en: string | null;
-  description_pt: string | null;
+  description_pt?: string | null;
   achieved_on: string | null;
   image_url: string | null;
   medal: boolean;
@@ -142,11 +142,11 @@ export interface PipelineStage {
   agency_id: string;
   key: string;
   name_en: string;
-  name_pt: string | null;
+  name_pt?: string | null;
   description_en: string | null;
-  description_pt: string | null;
+  description_pt?: string | null;
   celebration_message_en: string | null;
-  portal_message_pt: string | null;
+  portal_message_pt?: string | null;
   portal_message_en: string | null;
   order_index: number;
   is_active: boolean;
@@ -183,7 +183,7 @@ export interface ChecklistItem {
   id: string;
   stage_id: string;
   label_en: string;
-  label_pt: string | null;
+  label_pt?: string | null;
   requires_document: boolean;
   sort_order: number;
 }

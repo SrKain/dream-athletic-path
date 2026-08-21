@@ -96,7 +96,7 @@ function SettingsPage() {
   function openEditStage(stage: PipelineStage) {
     setEditingStage(stage);
     setCelebrationMessage(stage.celebration_message_en ?? "");
-    setPortalMessage(stage.portal_message_pt ?? stage.portal_message_en ?? "");
+    setPortalMessage(stage.portal_message_en ?? stage.portal_message_pt ?? "");
     void loadStageImages(stage.id);
   }
 
@@ -167,7 +167,7 @@ function SettingsPage() {
       .from("pipeline_stages")
       .update({
         celebration_message_en: celebrationMessage || null,
-        portal_message_pt: portalMessage || null,
+        portal_message_en: portalMessage || null,
       })
       .eq("id", editingStage.id);
 
@@ -207,16 +207,14 @@ function SettingsPage() {
                 <div key={stage.id} className="flex items-start justify-between gap-5 p-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-display text-lg font-semibold">
-                        {stage.name_pt ?? stage.name_en}
-                      </h3>
+                      <h3 className="font-display text-lg font-semibold">{stage.name_en}</h3>
                       {stage.celebration_message_en && (
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
                           Celebration email
                         </Badge>
                       )}
-                      {(stage.portal_message_pt ?? stage.portal_message_en) && (
+                      {(stage.portal_message_en ?? stage.portal_message_pt) && (
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <ImageIcon className="h-3 w-3" />
                           Portal pop-up
@@ -226,7 +224,7 @@ function SettingsPage() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {items
                         .filter((item) => item.stage_id === stage.id)
-                        .map((item) => item.label_pt ?? item.label_en)
+                        .map((item) => item.label_en)
                         .join(" · ") || "No items"}
                     </p>
                   </div>
