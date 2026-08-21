@@ -132,22 +132,12 @@ function Catalog() {
 
           <div className="container-edge relative z-10 py-12 md:py-16">
             <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#dfff1f]">
-                Premium Volleyball Catalog · USA Pathway
-              </span>
-              <h1 className="mt-4 font-display text-[clamp(2.2rem,4.5vw,3.8rem)] font-semibold leading-[1.08] tracking-tight text-[#f4f7e9]">
+              <h1 className="font-display text-[clamp(2.2rem,4.5vw,3.8rem)] font-semibold leading-[1.08] tracking-tight text-[#f4f7e9]">
                 {heroTitle}
               </h1>
               <p className="mt-4 max-w-xl text-base leading-relaxed text-[#b9c4bc] md:text-lg">
                 {heroSubtitle}
               </p>
-              <div className="mt-6 flex flex-wrap items-center gap-2 text-xs font-medium text-[#87968d]">
-                <span className="rounded bg-white/10 px-2.5 py-1 text-white/90">
-                  NCAA D1 · D2 · D3
-                </span>
-                <span className="rounded bg-white/10 px-2.5 py-1 text-white/90">NAIA</span>
-                <span className="rounded bg-white/10 px-2.5 py-1 text-white/90">NJCAA</span>
-              </div>
             </div>
           </div>
         </section>
