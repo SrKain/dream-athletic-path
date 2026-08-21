@@ -16,6 +16,7 @@ export type PublicAthletePayload = {
   achievements: Achievement[];
   videos: AthleteVideo[];
   videosAvailable: boolean;
+  nextAthlete?: AthleteCard | null;
 };
 
 export type PublicCatalogPayload = {
@@ -154,6 +155,8 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
     if (!athlete) return null;
 
     const athleteId = (athlete as { id: string }).id;
+    const positionId = (athlete as { position_id?: string }).position_id;
+
     const [profile, media, achievements, videos] = await Promise.all([
       client.from("athlete_profiles").select("*").eq("athlete_id", athleteId).maybeSingle(),
       client
@@ -171,6 +174,35 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       client.from("athlete_videos").select("*").eq("athlete_id", athleteId).order("sort_order"),
     ]);
 
+    let nextAthlete: AthleteCard | null = null;
+    if (positionId) {
+      const { data: samePos } = await client
+        .from("athletes")
+        .select(PUBLIC_ATHLETE_SELECT)
+        .eq("is_public", true)
+        .eq("position_id", positionId)
+        .neq("id", athleteId)
+        .limit(1)
+        .maybeSingle();
+      if (samePos) {
+        nextAthlete = samePos as unknown as AthleteCard;
+      }
+    }
+
+    if (!nextAthlete) {
+      const { data: fallbackNext } = await client
+        .from("athletes")
+        .select(PUBLIC_ATHLETE_SELECT)
+        .eq("is_public", true)
+        .neq("id", athleteId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fallbackNext) {
+        nextAthlete = fallbackNext as unknown as AthleteCard;
+      }
+    }
+
     if (videos.error) {
       console.error(
         "[getPublicAthlete] athlete_videos indisponível. Verifique a migration 0009 e as políticas RLS:",
@@ -184,5 +216,6 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       achievements: (achievements.data ?? []) as unknown as Achievement[],
       videos: (videos.data ?? []) as unknown as AthleteVideo[],
       videosAvailable: !videos.error,
+      nextAthlete,
     };
   });

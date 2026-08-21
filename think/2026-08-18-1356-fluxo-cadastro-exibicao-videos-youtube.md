@@ -5,6 +5,7 @@
 ## 1. Contexto e Objetivo
 
 O usuário solicitou uma reformulação completa do fluxo de vídeos do YouTube entre o painel de administração e o catálogo público do atleta:
+
 1. **No Admin (`/_authenticated/admin/athletes/$id`)**: Fornecer um fluxo intuitivo e objetivo para cadastrar e categorizar os links do YouTube (Vídeo de Apresentação, Sobre/Trajetória, Em Quadra/In Court e Highlights/Reels).
 2. **No Perfil Público (`/athlete/$slug`)**:
    - **Fundo do Hero**: O vídeo de apresentação rodará no fundo da seção Hero com uma **máscara verde** (overlay verde esmeralda / primary da paleta com transparência e gradientes) para gerar atmosfera imersiva sem comprometer a legibilidade das informações do atleta.

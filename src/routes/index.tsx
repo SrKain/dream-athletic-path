@@ -1,8 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { RotateCcw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ConfigurationNotice } from "@/components/configuration-notice";
+import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
 import { useI18n } from "@/i18n/i18n-provider";
 import { buildAthleteShelves, filterAthletes } from "@/lib/catalog";
 import { listPublicAthletes, type PublicCatalogPayload } from "@/lib/athletes.functions";
@@ -15,6 +16,8 @@ import type { AthleteCard } from "@/types/db";
 
 export const Route = createFileRoute("/")({
   loader: () => listPublicAthletes(),
+  pendingComponent: CatalogSkeleton,
+  pendingMs: 200,
   head: () => ({
     meta: [
       { title: "Athlete Catalog — Go Team Go Agency" },
@@ -41,8 +44,8 @@ function Catalog() {
     Route.useLoaderData() as PublicCatalogPayload;
   const { pick } = useI18n();
   const [search, setSearch] = useState("");
-  const [position, setPosition] = useState("");
-  const [country, setCountry] = useState("");
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [ageRange, setAgeRange] = useState("");
 
   const catalogAthletes = athletes;
@@ -69,9 +72,40 @@ function Catalog() {
     return list.sort();
   }, [catalogAthletes]);
 
+  const togglePosition = (pos: string) => {
+    setSelectedPositions((prev) =>
+      prev.includes(pos) ? prev.filter((p) => p !== pos) : [...prev, pos],
+    );
+  };
+
+  const toggleCountry = (countryName: string) => {
+    setSelectedCountries((prev) =>
+      prev.includes(countryName) ? prev.filter((c) => c !== countryName) : [...prev, countryName],
+    );
+  };
+
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    selectedPositions.length > 0 ||
+    selectedCountries.length > 0 ||
+    ageRange !== "";
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setSelectedPositions([]);
+    setSelectedCountries([]);
+    setAgeRange("");
+  };
+
   const filtered = useMemo(
-    () => filterAthletes(catalogAthletes, { ageRange, country, position, search }),
-    [ageRange, catalogAthletes, country, position, search],
+    () =>
+      filterAthletes(catalogAthletes, {
+        ageRange,
+        country: selectedCountries,
+        position: selectedPositions,
+        search,
+      }),
+    [ageRange, catalogAthletes, selectedCountries, selectedPositions, search],
   );
   const shelves = useMemo(
     () => buildAthleteShelves(filtered, positionOrder),
@@ -153,57 +187,138 @@ function Catalog() {
             </p>
           </div>
 
-          {/* Filter Bar */}
-          <div className="glass-panel grid gap-3 rounded-md p-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
-            <label className="flex h-11 min-w-0 items-center gap-2 rounded-md border border-border/60 bg-background/60 px-3">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                placeholder="Search athlete, position, or country"
-              />
-            </label>
-            <select
-              aria-label="Filter by position"
-              className="h-11 rounded-md border border-border/60 bg-background/60 px-3 text-sm text-foreground outline-none"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            >
-              <option value="">All Positions</option>
-              {positions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter by country"
-              className="h-11 rounded-md border border-border/60 bg-background/60 px-3 text-sm text-foreground outline-none"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-            >
-              <option value="">All Countries</option>
-              {countries.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter by age"
-              className="h-11 rounded-md border border-border/60 bg-background/60 px-3 text-sm text-foreground outline-none"
-              value={ageRange}
-              onChange={(e) => setAgeRange(e.target.value)}
-            >
-              <option value="">All Ages</option>
-              <option value="under18">Under 18</option>
-              <option value="19-22">19-22</option>
-              <option value="23plus">23+</option>
-            </select>
+          {/* Filter Bar with Clickable Chips */}
+          <div className="glass-panel space-y-4 rounded-xl p-4 sm:p-5">
+            {/* Top row: Search input & Clear all button */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <label className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-border/70 bg-background/70 px-3.5 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  placeholder="Search athlete, position, or country"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Clear search text"
+                    className="rounded p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </label>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-border/70 bg-card/60 px-4 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Clear all
+                </button>
+              )}
+            </div>
+
+            {/* Position Chips */}
+            {positions.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Position
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                  {positions.map((pos) => {
+                    const active = selectedPositions.includes(pos);
+                    return (
+                      <button
+                        key={pos}
+                        type="button"
+                        onClick={() => togglePosition(pos)}
+                        aria-pressed={active}
+                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          active
+                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span>{pos}</span>
+                        {active && <X className="h-3 w-3 opacity-70" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Country & Age Range Chips */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {/* Country Chips */}
+              {countries.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Country
+                  </span>
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                    {countries.map((cntry) => {
+                      const active = selectedCountries.includes(cntry);
+                      return (
+                        <button
+                          key={cntry}
+                          type="button"
+                          onClick={() => toggleCountry(cntry)}
+                          aria-pressed={active}
+                          className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                            active
+                              ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                              : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <span>{cntry}</span>
+                          {active && <X className="h-3 w-3 opacity-70" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Age Range Chips */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Age Range
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                  {[
+                    { label: "All Ages", value: "" },
+                    { label: "Under 18", value: "under18" },
+                    { label: "19–22", value: "19-22" },
+                    { label: "23+", value: "23plus" },
+                  ].map((item) => {
+                    const active = ageRange === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setAgeRange(item.value)}
+                        aria-pressed={active}
+                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          active
+                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Athlete Shelves by Position (No separate duplicate featured shelf) */}
+          {/* Athlete Shelves by Position */}
           {filtered.length ? (
             <div className="mt-10 space-y-12">
               {shelves.map((shelf) => (
@@ -218,8 +333,20 @@ function Catalog() {
               ))}
             </div>
           ) : (
-            <div className="py-24 text-center text-muted-foreground">
-              No athletes found matching your search.
+            <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 rounded-xl border border-border/70 bg-card/40 my-10 p-6">
+              <p className="text-base font-medium text-foreground">
+                No athletes found matching your search.
+              </p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Try adjusting your search keywords, position, country, or age filters.
+              </p>
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-card/80 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted hover:border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <RotateCcw className="h-4 w-4" /> Clear filters
+              </button>
             </div>
           )}
         </section>

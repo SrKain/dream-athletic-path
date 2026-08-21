@@ -3,13 +3,13 @@
 **Data:** 2026-08-20 13:24  
 **Status:** `[CONCLUÍDO]`  
 **Solicitante:** Kauan  
-**Executor:** Antigravity AI  
+**Executor:** Antigravity AI
 
 ---
 
 ## 1. Contexto & Diagnóstico dos Problemas Atuais
 
-A página pública do atleta (`/src/routes/athlete.$slug.tsx`) é a principal vitrine da plataforma **Go Team Go** para técnicos universitários e olheiros internacionais (*coaches*) nos EUA.
+A página pública do atleta (`/src/routes/athlete.$slug.tsx`) é a principal vitrine da plataforma **Go Team Go** para técnicos universitários e olheiros internacionais (_coaches_) nos EUA.
 
 Após uma auditoria completa de UI/UX, acessibilidade e mobile-first, foram identificados os seguintes pontos críticos:
 
@@ -38,15 +38,17 @@ Após uma auditoria completa de UI/UX, acessibilidade e mobile-first, foram iden
 ## 2. Solução Proposta & Execução
 
 ### Bloco 1: Reformulação do Hero com Padding e Alto Contraste
+
 - **Container com Glass Dark**: Envolver o bloco de informações e foto em um container com bordas refinadas, padding generoso (`p-6 sm:p-8 md:p-10`), backdrop-blur e elevação visual consistente.
 - **Acessibilidade de Cores**:
   - Títulos em branco puro (`text-white`).
   - Subtítulo e bio em tons de alto contraste (`text-emerald-100/90` ou `text-white/80`).
   - Ícones em dourado (`text-[var(--gold)]`) ou esmeralda claro (`text-emerald-300`), garantindo contraste > 4.5:1 sobre o fundo escuro.
 - **Chips Biométricos e Acadêmicos**: Agrupamento em pílulas com fundo translúcido e bordas sutis para Height, Weight, Age/Birth Date, GPA e Graduation Class.
-- **Botões de Ação**: Botão principal *"Recruit Athlete"* em verde esmeralda líquido (`liquid-button`) e botão secundário *"Watch Film"* com âncora direta.
+- **Botões de Ação**: Botão principal _"Recruit Athlete"_ em verde esmeralda líquido (`liquid-button`) e botão secundário _"Watch Film"_ com âncora direta.
 
 ### Bloco 2: Reels / Highlights em Formato Circular ("Bolinhas de Stories")
+
 - **Novo Componente de Miniaturas Circulares em `src/components/reels-viewer.tsx`**:
   - Fileira horizontal com rolagem suave (`snap-x`, `scrollbar-none`) contendo as bolinhas de stories.
   - Cada bolinha possui:
@@ -58,6 +60,7 @@ Após uma auditoria completa de UI/UX, acessibilidade e mobile-first, foram iden
   - Ao clicar na bolinha, dispara o `ReelsOverlay` (modal vertical em tela cheia 9:16 com controles ↑/↓, swipe e ESC).
 
 ### Bloco 3: Barra de Navegação Rápida entre Seções (Sub-Nav Flutuante/Sticky)
+
 - Inserir barra de atalhos rápidos com âncoras para:
   - 🎬 **Film & Highlights**
   - 📋 **Recruiting Stats**
@@ -67,12 +70,14 @@ Após uma auditoria completa de UI/UX, acessibilidade e mobile-first, foram iden
   - 💬 **Contact**
 
 ### Bloco 4: Refatoração das Seções de Vídeo e Ficha Técnica
+
 - **In Court & Presentation Film**: Grid 2 colunas no desktop / 1 coluna no mobile com cards organizados, títulos nítidos e players embutidos com lazy-loading.
 - **Key Recruiting Details**: Organização da ficha técnica em 3 blocos lógicos (Athletic Measurements, Academic & Eligibility, Background) para leitura rápida de scouts.
 - **Seção "What Brings to the Team"**: Bloco de destaque editorial com bordas refinadas e tipografia acolhedora.
 - **Seção de Conquistas e Galeria**: Grid aprimorado com cards acessíveis e tags temporais.
 
 ### Bloco 5: Remoção da Div de Tags no Hero da Home (`src/routes/index.tsx`)
+
 - Remoção direta da div selecionada contendo as tags `NCAA D1 · D2 · D3 / NAIA / NJCAA`.
 
 ---

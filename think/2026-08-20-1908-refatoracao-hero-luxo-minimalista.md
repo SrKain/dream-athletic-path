@@ -3,14 +3,15 @@
 **Data:** 2026-08-20 19:08  
 **Status:** `[CONCLUÍDO]`  
 **Solicitante:** Kauan  
-**Executor:** Antigravity AI  
+**Executor:** Antigravity AI
 
 ---
 
 ## 1. Diagnóstico do Estado Atual vs. Visão "Luxo Minimalista"
 
 ### ❌ Problemas no Modelo Atual (Sobrecarga Visual):
-- **Excesso de caixas e mini-cards:** 6 chips com ícones coloridos comprimidos dentro de uma caixa escura (*glass-dark*), criando poluição visual e sensação de formulário/dashboard em vez de um perfil de alto padrão.
+
+- **Excesso de caixas e mini-cards:** 6 chips com ícones coloridos comprimidos dentro de uma caixa escura (_glass-dark_), criando poluição visual e sensação de formulário/dashboard em vez de um perfil de alto padrão.
 - **Competição de elementos:** Múltiplas badges de cores diferentes (verde limão, âmbar, branco), 3 botões pesados agrupados e excesso de bordas/anéis.
 - **Ruptura de identidade com a Home:** A Home/Catálogo adota um tom sóbrio de verde esmeralda profundo (`#061b13`), tipografia editorial refinada (`#f4f7e9`) e amplo respiro visual. O hero atual do atleta estava muito carregado.
 
@@ -18,7 +19,7 @@
 
 ## 2. Proposta de Arquitetura Visual — "Luxo Minimalista" (Quiet Luxury)
 
-A nova experiência do Hero seguirá os princípios de editorial esportivo de elite (ex: *Monocle, Kinfolk, Vogue Sports, Ivy League / Premier Agency*):
+A nova experiência do Hero seguirá os princípios de editorial esportivo de elite (ex: _Monocle, Kinfolk, Vogue Sports, Ivy League / Premier Agency_):
 
 ### ✨ Pilares do Redesign:
 
@@ -56,6 +57,7 @@ A nova experiência do Hero seguirá os princípios de editorial esportivo de el
 ---
 
 ## 4. Plano de Validação
+
 - Verificação de contraste de acessibilidade WCAG AA (texto `#f4f7e9` sobre `#061b13`).
 - Responsividade total (mobile vertical, tablet e desktop ultra-wide).
 - Execução de linter (`npm run lint`), build de produção (`npm run build`) e testes unitários (`vitest`).

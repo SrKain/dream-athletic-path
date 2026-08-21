@@ -3,7 +3,7 @@
 **Status:** `[PENDENTE DE APROVAÇÃO HUMANA]`  
 **Data/Hora:** 2026-08-20 12:25 (-07:00) / 16:25 (BRT)  
 **Solicitante:** Kauan  
-**Executor:** Antigravity AI  
+**Executor:** Antigravity AI
 
 ---
 
@@ -25,6 +25,7 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
 ## 2. Detalhamento dos Blocos Iniciais (Bloco 6 e Bloco 1)
 
 ### Bloco 6 — WhatsApp (6.1 e 6.2)
+
 - **Objetivo**:
   1. Centralizar e atualizar o número do WhatsApp de recrutamento para `5511999239490` em `src/lib/contact.ts`.
   2. Atualizar a mensagem padrão em `buildRecruitWhatsappUrl(athleteName)` para o texto literal:
@@ -35,6 +36,7 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
   - `src/components/whatsapp-fab.tsx`
 
 ### Bloco 1 — Header, Navegação e Identidade Visual (1.1 e 1.4)
+
 - **Objetivo**:
   1. Remover o link/botão "Área restrita" do header público em `src/routes/index.tsx` (preservando intactas as rotas `/login`, `/_authenticated/*` e o acesso direto administrativo).
   2. Remover a sigla `"NCAA"` (`<span className="eyebrow ...">NCAA</span>`) ao lado da logo "Go Team Go" no `<header>` de `src/routes/index.tsx`.
@@ -46,6 +48,7 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
 ## 3. Planejamento Arquitetural dos Blocos Subsequentes
 
 ### Bloco 5.3 (Países ISO 3166) & 5.2 (Unidades Imperiais)
+
 - **Migration `0011_countries_iso.sql`**: popular a tabela `countries` com a lista completa de países (ISO 3166-1 alpha-2, nomes em EN/PT e bandeiras emoji).
 - **Combobox no Admin**: substituir o `<select>` simples em `src/routes/_authenticated/admin/athletes/$id.tsx` e `index.tsx` pelo componente `SearchableSelect` / Command com autocomplete.
 - **Unidades Imperiais**:
@@ -54,6 +57,7 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
   - Aplicar no card do catálogo (`AthleteCardItem`), perfil público (`athlete.$slug.tsx`), admin e propostas.
 
 ### Bloco 4 — Catálogo (Cards de Atletas)
+
 - Remover a prateleira `AthleteShelf title="Destaques"` em `src/routes/index.tsx`.
 - Atualizar `AthleteCardItem` para exibir harmoniosamente:
   - Nome do atleta (em destaque com `font-display`)
@@ -62,9 +66,11 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
   - País (com bandeira emoji e nome)
 
 ### Bloco 5.1 — Tradução Integral da Home para Inglês
+
 - Migrar todas as strings estáticas da Home (`src/routes/index.tsx`) para o sistema de i18n (`src/i18n/messages.ts` / `useI18n`), garantindo suporte 100% US English.
 
 ### Bloco 2 — Identidade Visual Editável pela Agência
+
 - **Migration `0012_agency_branding.sql`**:
   - Adicionar colunas `logo_url TEXT` e `hero_background_url TEXT` à tabela `agency_visual_settings`.
 - **Admin (`admin/visual.tsx`)**:
@@ -77,6 +83,7 @@ Conforme o protocolo de governança (`README.md`, `CERNE.md`, `AGENTS.md`, `UI&U
   - Layout simplificado em tela cheia com a imagem de fundo configurada e máscara em degradê de verde esmeralda opaco (esquerda) para transparente (direita), posicionando título, subtítulo e busca com contraste e legibilidade impecáveis.
 
 ### Bloco 3 — OG Dinâmica por Atleta
+
 - Implementação de rota server-side/edge (`/athlete/$slug/og.png` ou endpoint TanStack Start/Nitro) com `@vercel/og` / Satori renderizando card 1200×630 com a foto do atleta, máscara verde, tipografia Space Grotesk, nome, posição, altura e país.
 
 ---

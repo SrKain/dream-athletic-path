@@ -1,6 +1,7 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  ArrowRight,
   Award,
   Calendar,
   DollarSign,
@@ -17,10 +18,14 @@ import {
   Video,
   Weight,
 } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { ReelsRow } from "@/components/reels-viewer";
 import { PublicYoutubePlayer } from "@/components/public-youtube-player";
+import { ReadingProgressBar } from "@/components/reading-progress-bar";
+import { AthleteProfileSkeleton } from "@/components/skeletons/athlete-profile-skeleton";
 import { WhatsappFab } from "@/components/whatsapp-fab";
+import { useActiveSection } from "@/hooks/use-active-section";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
@@ -35,6 +40,8 @@ export const Route = createFileRoute("/athlete/$slug")({
     if (!result) throw notFound();
     return result;
   },
+  pendingComponent: AthleteProfileSkeleton,
+  pendingMs: 200,
   head: ({ loaderData }) => ({
     meta: loaderData
       ? [
@@ -61,7 +68,7 @@ export const Route = createFileRoute("/athlete/$slug")({
 });
 
 function PublicAthleteProfile() {
-  const { athlete, profile, media, achievements, videos, videosAvailable } =
+  const { athlete, profile, media, achievements, videos, videosAvailable, nextAthlete } =
     Route.useLoaderData() as PublicAthletePayload;
 
   const age = calculateAge(athlete.birth_date);
@@ -85,8 +92,42 @@ function PublicAthleteProfile() {
       })
     : null;
 
+  const sectionIds = useMemo(() => {
+    const ids: string[] = [];
+    if (inCourt.length > 0 || presentations.length > 0 || feature) ids.push("athlete-film");
+    if (highlights.length > 0) ids.push("highlights");
+    ids.push("fact-sheet");
+    ids.push("about-athlete");
+    if (achievements.length > 0) ids.push("achievements");
+    if (media.length > 0) ids.push("gallery");
+    ids.push("recruit-cta");
+    return ids;
+  }, [
+    inCourt.length,
+    presentations.length,
+    feature,
+    highlights.length,
+    achievements.length,
+    media.length,
+  ]);
+
+  const { activeId, setActiveId } = useActiveSection({ sectionIds });
+  const navContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!navContainerRef.current) return;
+    const activeButton = navContainerRef.current.querySelector<HTMLElement>(
+      `[data-nav-id="${activeId}"]`,
+    );
+    if (activeButton) {
+      activeButton.scrollIntoView({ inline: "center", behavior: "smooth", block: "nearest" });
+    }
+  }, [activeId]);
+
   return (
     <main className="min-h-screen bg-background text-foreground scroll-smooth">
+      {/* ── READING PROGRESS BAR ── */}
+      <ReadingProgressBar />
       {/* ── STICKY MAIN HEADER ── */}
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="container-edge flex h-16 items-center justify-between">
@@ -246,16 +287,26 @@ function PublicAthleteProfile() {
         </div>
       </section>
 
-      {/* ── STICKY SUB-NAVIGATION BAR PARA NAVEGAÇÃO RÁPIDA ── */}
+      {/* ── STICKY SUB-NAVIGATION BAR COM SCROLL-SPY ── */}
       <nav
         aria-label="Section shortcuts"
         className="sticky top-16 z-30 border-b border-border/80 bg-background/95 backdrop-blur-md"
       >
-        <div className="container-edge flex items-center gap-2 overflow-x-auto py-2.5 scrollbar-none text-xs font-semibold">
+        <div
+          ref={navContainerRef}
+          className="container-edge flex items-center gap-2 overflow-x-auto py-2.5 scrollbar-none text-xs font-semibold"
+        >
           {(inCourt.length > 0 || presentations.length > 0 || feature) && (
             <a
               href="#athlete-film"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+              data-nav-id="athlete-film"
+              onClick={() => setActiveId("athlete-film")}
+              aria-current={activeId === "athlete-film" ? "true" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+                activeId === "athlete-film"
+                  ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
             >
               <Video className="h-3.5 w-3.5 text-primary" /> Film & Footage
             </a>
@@ -263,27 +314,55 @@ function PublicAthleteProfile() {
           {highlights.length > 0 && (
             <a
               href="#highlights"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+              data-nav-id="highlights"
+              onClick={() => setActiveId("highlights")}
+              aria-current={activeId === "highlights" ? "true" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+                activeId === "highlights"
+                  ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
             >
               <Sparkles className="h-3.5 w-3.5 text-primary" /> Highlights
             </a>
           )}
           <a
             href="#fact-sheet"
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+            data-nav-id="fact-sheet"
+            onClick={() => setActiveId("fact-sheet")}
+            aria-current={activeId === "fact-sheet" ? "true" : undefined}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+              activeId === "fact-sheet"
+                ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
           >
             <FileText className="h-3.5 w-3.5 text-primary" /> Recruiting Stats
           </a>
           <a
             href="#about-athlete"
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+            data-nav-id="about-athlete"
+            onClick={() => setActiveId("about-athlete")}
+            aria-current={activeId === "about-athlete" ? "true" : undefined}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+              activeId === "about-athlete"
+                ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
           >
             <Award className="h-3.5 w-3.5 text-primary" /> About & Strengths
           </a>
           {achievements.length > 0 && (
             <a
               href="#achievements"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+              data-nav-id="achievements"
+              onClick={() => setActiveId("achievements")}
+              aria-current={activeId === "achievements" ? "true" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+                activeId === "achievements"
+                  ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
             >
               <Trophy className="h-3.5 w-3.5 text-amber-500" /> Achievements
             </a>
@@ -291,14 +370,28 @@ function PublicAthleteProfile() {
           {media.length > 0 && (
             <a
               href="#gallery"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition whitespace-nowrap"
+              data-nav-id="gallery"
+              onClick={() => setActiveId("gallery")}
+              aria-current={activeId === "gallery" ? "true" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
+                activeId === "gallery"
+                  ? "bg-primary/10 text-primary font-bold border border-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
             >
               <Sparkles className="h-3.5 w-3.5 text-primary" /> Gallery
             </a>
           )}
           <a
             href="#recruit-cta"
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-primary font-bold hover:bg-primary/10 transition whitespace-nowrap ml-auto"
+            data-nav-id="recruit-cta"
+            onClick={() => setActiveId("recruit-cta")}
+            aria-current={activeId === "recruit-cta" ? "true" : undefined}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ml-auto ${
+              activeId === "recruit-cta"
+                ? "bg-primary/20 text-primary font-bold border border-primary/30"
+                : "text-primary font-bold hover:bg-primary/10"
+            }`}
           >
             <MessageCircle className="h-3.5 w-3.5" /> Recruit
           </a>
@@ -673,6 +766,56 @@ function PublicAthleteProfile() {
           </div>
         </div>
       </section>
+
+      {/* ── NEXT PROSPECT NAVIGATION CARD ── */}
+      {nextAthlete && (
+        <section className="border-t border-border/80 bg-muted/20 py-12">
+          <div className="container-edge">
+            <div className="max-w-xl mx-auto text-center mb-6">
+              <span className="eyebrow text-primary">Next Prospect</span>
+              <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-1">
+                Continue Scouting Recruits
+              </h3>
+            </div>
+            <Link
+              to="/athlete/$slug"
+              params={{ slug: nextAthlete.slug }}
+              preload="intent"
+              className="group block max-w-md mx-auto overflow-hidden rounded-2xl border border-border/80 bg-card p-4 shadow-sm transition hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div className="flex items-center gap-4">
+                <div className="aspect-[4/5] w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-950 shadow-inner">
+                  <img
+                    src={nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete)}
+                    alt={nextAthlete.full_name}
+                    className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                    Next Prospect
+                  </span>
+                  <h4 className="font-display text-base sm:text-lg font-bold text-card-foreground group-hover:text-primary transition truncate">
+                    {nextAthlete.full_name}
+                  </h4>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {[
+                      nextAthlete.position?.name_en || nextAthlete.position?.name_pt,
+                      formatHeightImperial(nextAthlete.height_cm),
+                      nextAthlete.country?.name_en || nextAthlete.country?.name_pt,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary mt-2 group-hover:translate-x-0.5 transition-transform">
+                    View Scouting Profile <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
 
       <WhatsappFab athleteName={athlete.full_name} />
     </main>

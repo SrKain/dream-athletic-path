@@ -21,30 +21,50 @@ export function calculateAge(birthDate?: string | null, now = new Date()) {
 
 export function filterAthletes(
   athletes: AthleteCard[],
-  filters: { search?: string; position?: string; country?: string; ageRange?: string },
+  filters: {
+    search?: string;
+    position?: string | string[];
+    country?: string | string[];
+    ageRange?: string;
+  },
   now = new Date(),
 ) {
   const term = filters.search?.trim().toLocaleLowerCase() ?? "";
+
+  const selectedPositions = Array.isArray(filters.position)
+    ? filters.position.map((p) => p.toLowerCase()).filter(Boolean)
+    : filters.position
+      ? [filters.position.toLowerCase()]
+      : [];
+
+  const selectedCountries = Array.isArray(filters.country)
+    ? filters.country.map((c) => c.toLowerCase()).filter(Boolean)
+    : filters.country
+      ? [filters.country.toLowerCase()]
+      : [];
+
   return athletes.filter((athlete) => {
     const positionPt = athlete.position?.name_pt?.toLowerCase() ?? "";
     const positionEn = athlete.position?.name_en?.toLowerCase() ?? "";
-    const selectedPosition = filters.position?.toLowerCase() ?? "";
+    const positionId = athlete.position_id?.toLowerCase() ?? "";
 
     const matchesPosition =
-      !selectedPosition ||
-      positionPt === selectedPosition ||
-      positionEn === selectedPosition ||
-      athlete.position_id === filters.position;
+      selectedPositions.length === 0 ||
+      selectedPositions.some(
+        (pos) =>
+          pos === positionPt ||
+          pos === positionEn ||
+          pos === positionId ||
+          athlete.position_id === pos,
+      );
 
     const countryPt = athlete.country?.name_pt?.toLowerCase() ?? "";
     const countryEn = athlete.country?.name_en?.toLowerCase() ?? "";
-    const selectedCountry = filters.country?.toLowerCase() ?? "";
+    const nationality = athlete.nationality?.toLowerCase() ?? "";
 
     const matchesCountry =
-      !selectedCountry ||
-      countryPt === selectedCountry ||
-      countryEn === selectedCountry ||
-      athlete.nationality?.toLowerCase() === selectedCountry;
+      selectedCountries.length === 0 ||
+      selectedCountries.some((c) => c === countryPt || c === countryEn || c === nationality);
 
     const age = calculateAge(athlete.birth_date, now);
     const matchesAge =
