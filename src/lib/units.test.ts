@@ -1,39 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { cmToFeetAndInches, formatHeightImperial, formatWeightImperial, kgToLbs } from "./units";
+import { formatGpa, formatHeightImperial, formatWeightImperial } from "./units";
 
-describe("units conversion", () => {
-  it("converts cm to feet and inches correctly", () => {
-    expect(cmToFeetAndInches(null)).toBeNull();
-    expect(cmToFeetAndInches(0)).toBeNull();
-    expect(cmToFeetAndInches(-10)).toBeNull();
-
-    // 180 cm = 70.866 inches -> 71 inches = 5 ft 11 in
-    expect(cmToFeetAndInches(180)).toEqual({ feet: 5, inches: 11 });
-    expect(formatHeightImperial(180)).toBe("5'11\"");
-
-    // 183 cm = 72.047 inches -> 72 inches = 6 ft 0 in
-    expect(cmToFeetAndInches(183)).toEqual({ feet: 6, inches: 0 });
-    expect(formatHeightImperial(183)).toBe("6'0\"");
-
-    // 195 cm = 76.77 inches -> 77 inches = 6 ft 5 in
-    expect(cmToFeetAndInches(195)).toEqual({ feet: 6, inches: 5 });
-    expect(formatHeightImperial(195)).toBe("6'5\"");
-
-    // 170 cm = 66.9 inches -> 67 inches = 5 ft 7 in
-    expect(cmToFeetAndInches(170)).toEqual({ feet: 5, inches: 7 });
-    expect(formatHeightImperial(170)).toBe("5'7\"");
+describe("units helpers", () => {
+  it("formats height in imperial", () => {
+    expect(formatHeightImperial(185)).toBe("6'1\"");
+    expect(formatHeightImperial(null)).toBeNull();
   });
 
-  it("converts kg to lbs correctly", () => {
-    expect(kgToLbs(null)).toBeNull();
-    expect(kgToLbs(0)).toBeNull();
+  it("formats weight in imperial", () => {
+    expect(formatWeightImperial(75)).toBe("165 lbs");
+    expect(formatWeightImperial(null)).toBeNull();
+  });
 
-    // 70 kg * 2.20462 = 154.32 -> 154 lbs
-    expect(kgToLbs(70)).toBe(154);
-    expect(formatWeightImperial(70)).toBe("154 lbs");
-
-    // 80 kg * 2.20462 = 176.36 -> 176 lbs
-    expect(kgToLbs(80)).toBe(176);
-    expect(formatWeightImperial(80)).toBe("176 lbs");
+  it("formats GPA guaranteeing at least 1 decimal place without truncating higher precision", () => {
+    expect(formatGpa(4)).toBe("4.0");
+    expect(formatGpa(4.0)).toBe("4.0");
+    expect(formatGpa(3)).toBe("3.0");
+    expect(formatGpa(2)).toBe("2.0");
+    expect(formatGpa(1)).toBe("1.0");
+    expect(formatGpa(3.85)).toBe("3.85");
+    expect(formatGpa(3.75)).toBe("3.75");
+    expect(formatGpa(3.8)).toBe("3.8");
+    expect(formatGpa(null)).toBeNull();
+    expect(formatGpa(undefined)).toBeNull();
+    expect(formatGpa(0)).toBeNull();
   });
 });

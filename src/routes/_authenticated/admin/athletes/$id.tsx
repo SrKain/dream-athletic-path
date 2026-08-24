@@ -594,6 +594,33 @@ function AthleteEditor() {
                         }
                       />
                     </Field>
+                    <Field label="Athlete Status (Academic / Collegiate Level)">
+                      <select
+                        className={inputClass}
+                        value={profile.athlete_status ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, athlete_status: e.target.value || null })
+                        }
+                      >
+                        <option value="">Select athlete status...</option>
+                        <option value="High School">High School</option>
+                        <option value="Freshman">Freshman</option>
+                        <option value="Sophomore">Sophomore</option>
+                        <option value="Junior">Junior</option>
+                        <option value="Senior">Senior</option>
+                        <option value="Graduate Transfer">Graduate Transfer</option>
+                      </select>
+                    </Field>
+                    <Field label="College Start Date (e.g. Fall 2024, Spring 2025)">
+                      <input
+                        className={inputClass}
+                        placeholder="e.g. Fall 2024 / Spring 2025 / Fall 2025"
+                        value={profile.college_start_date ?? ""}
+                        onChange={(e) =>
+                          setProfile({ ...profile, college_start_date: e.target.value })
+                        }
+                      />
+                    </Field>
                     <Field label="Course of Interest (Desired Major / Field of Study)">
                       <input
                         className={inputClass}
@@ -671,16 +698,6 @@ function AthleteEditor() {
                         placeholder="ex: Up to $15,000/yr / Flexible"
                         value={profile.budget ?? ""}
                         onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Seasons of Eligibility Left">
-                      <input
-                        className={inputClass}
-                        placeholder="ex: 4 seasons / 4 years"
-                        value={profile.seasons_eligibility ?? ""}
-                        onChange={(e) =>
-                          setProfile({ ...profile, seasons_eligibility: e.target.value })
-                        }
                       />
                     </Field>
                     <Field label="Ano de conclusão numérico">

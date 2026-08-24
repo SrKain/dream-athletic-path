@@ -29,3 +29,8 @@ export function formatWeightImperial(kg: number | null | undefined): string | nu
   if (lbs == null) return null;
   return `${lbs} lbs`;
 }
+
+export function formatGpa(gpa: number | null | undefined): string | null {
+  if (gpa == null || Number.isNaN(gpa) || gpa <= 0) return null;
+  return Number.isInteger(gpa) ? gpa.toFixed(1) : String(gpa);
+}

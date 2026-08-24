@@ -84,7 +84,9 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
           .order("sort_order"),
         client
           .from("athlete_profiles")
-          .select("athlete_id, highlight_video_url")
+          .select(
+            "athlete_id, highlight_video_url, high_school_graduation, graduation_year, athlete_status",
+          )
           .in("athlete_id", athleteIds),
       ]);
 
@@ -98,16 +100,29 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
       const profiles = (profilesResult.data ?? []) as {
         athlete_id: string;
         highlight_video_url: string | null;
+        high_school_graduation: string | null;
+        graduation_year: number | null;
+        athlete_status: string | null;
       }[];
 
       // Prioridade para o card do catálogo: feature > highlight > presentation > in_court > profile.highlight_video_url
-      for (const athleteId of athleteIds) {
+      for (const athlete of athletes) {
+        const athleteId = athlete.id;
         const athleteVids = allVideos.filter((v) => v.athlete_id === athleteId);
         const feature = athleteVids.find((v) => v.kind === "feature");
         const highlight = athleteVids.find((v) => v.kind === "highlight");
         const presentation = athleteVids.find((v) => v.kind === "presentation");
         const inCourt = athleteVids.find((v) => v.kind === "in_court");
         const prof = profiles.find((p) => p.athlete_id === athleteId);
+
+        if (prof) {
+          athlete.profile = {
+            high_school_graduation: prof.high_school_graduation,
+            graduation_year: prof.graduation_year,
+            athlete_status: prof.athlete_status,
+            highlight_video_url: prof.highlight_video_url,
+          };
+        }
 
         const chosenUrl =
           feature?.youtube_url ||

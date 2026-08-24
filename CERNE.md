@@ -354,3 +354,58 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - **Seed Demo (`db/demo_seed.sql`)**:
     - Dados de demonstração alinhados com a estrutura do pivot.
 
+## Atualização 2026-08-22 — Ajustes no Perfil Público do Atleta & Admin (TASK-040)
+
+- **Migration `0014_athlete_status_college_start.sql`**:
+  - `athlete_profiles`: adicionadas as colunas `athlete_status TEXT` e `college_start_date TEXT`.
+- **Tipos (`src/types/db.ts`)**:
+  - Adicionado type `AthleteStatus = "High School" | "Freshman" | "Sophomore" | "Junior" | "Senior" | "Graduate Transfer"`.
+  - Adicionados campos `athlete_status` e `college_start_date` em `AthleteProfile`.
+- **Helpers & Formatação (`src/lib/units.ts` e `src/lib/units.test.ts`)**:
+  - Criada função `formatGpa` para garantir exibição com pelo menos 1 casa decimal (ex: `4.0` ou `3.85`).
+  - Adicionados testes de unidade com 100% de cobertura.
+- **Página Pública do Atleta (`src/routes/athlete.$slug.tsx`)**:
+  - **Hero**:
+    - Subtítulo removido do layout editorial para máxima limpeza visual.
+    - Labels de métricas renomeados para `HIGH SCHOOL GRAD.:` e `Current GPA:`.
+    - Formatação de GPA aplicada com `formatGpa(profile?.gpa)`.
+    - Botões "Watch Film" diretos no Hero apontando para links canônicos do YouTube (`youtubeWatchUrl`), abrindo em nova aba e exibindo múltiplos botões caso haja mais de um vídeo de film/highlight cadastrado.
+  - **Sub-nav & Navegação Rápida**:
+    - Removido o item e âncora "Highlights" da barra de navegação.
+  - **Reels & Destaques Circulares**:
+    - Removido o componente `ReelsRow` do perfil individual do atleta, preservando dados para a futura funcionalidade de subdomínio global (`reels.goteamgoagency.com`).
+  - **Fact Sheet (Key Recruiting Details)**:
+    - Campo renomeado: "High School Class" alterado para "High School Graduation".
+    - Campo formatado: "Current GPA" usando `formatGpa`.
+    - Campo removido: "Seasons Eligibility Left" removido.
+    - Novos campos adicionados: "Athlete Status" e "College Start Date" exibidos quando preenchidos no Bloco 2 (Academic & Eligibility).
+- **Painel Admin (`src/routes/_authenticated/admin/athletes/$id.tsx`)**:
+  - Adicionado select para "Athlete Status" (High School, Freshman, Sophomore, Junior, Senior, Graduate Transfer).
+  - Adicionado input para "College Start Date" (ex: Fall 2024, Spring 2025).
+  - Removido o campo "Seasons of Eligibility Left" da ficha de edição.
+
+## Atualização 2026-08-24 — Reordenação dos Cards, Tradução 100% US English & Simplificação dos Filtros do Catálogo (TASK-042)
+
+- **Cards do Catálogo Público (`src/routes/index.tsx` - `AthleteCardItem`)**:
+  - Reordenadas as informações de exibição nos cards de atletas na Home:
+    - **Linha 1**: `Nome do Atleta` (`athlete.full_name`) em destaque editorial `font-display font-semibold`.
+    - **Linha 2**: `Altura · Posição · Nacionalidade` (ex.: `5'10" · Setter · Brazil` ou com emoji `5'10" · Setter · 🇧🇷 Brazil`).
+  - Assegurada a prioridade e tradução 100% US English para posição (`getAthletePositionEn`) e país (`getAthleteCountryEn`).
+- **Dicionários e Normalização 100% US English (`src/lib/catalog.ts`)**:
+  - Implementados dicionários completos de conversão PT/ISO -> US English: `POSITION_PT_TO_EN` e `COUNTRY_PT_TO_EN`.
+  - Criadas funções utilitárias: `translatePositionToEn`, `translateCountryToEn`, `getAthletePositionEn`, `getAthleteCountryEn`, `getAthleteGradYear`, `getAthleteStatus`.
+- **Card "Next Prospect" (`src/routes/athlete.$slug.tsx`)**:
+  - Alinhada a descrição do próximo prospecto no rodapé para a mesma ordem e padrão US English: `Altura · Posição · Nacionalidade` (`formatHeightImperial(height_cm) · getAthletePositionEn(nextAthlete) · getAthleteCountryEn(nextAthlete)`).
+- **Simplificação dos Filtros da Home (`src/routes/index.tsx`)**:
+  - Remoção total do filtro de idade (`ageRange`), seus estados, botões de chip e contadores.
+  - Estrutura consolidada em exatamente 4 filtros em chips horizontais mobile-first, na seguinte ordem obrigatória:
+    1. **Position** (Setters, Outside Hitters, Middle Blockers, Liberos, Opposites, etc.)
+    2. **High School Graduation Year** (extraído de `graduation_year` / `high_school_graduation`)
+    3. **Country** (Brazil, United States, Argentina, Portugal, etc.)
+    4. **Student Status** (High School, Freshman, Sophomore, Junior, Senior, Graduate Transfer)
+  - Carregamento de perfil público atualizado em `src/lib/athletes.functions.ts` (`listPublicAthletes`) para carregar `high_school_graduation`, `graduation_year` e `athlete_status`.
+- **Validação e Testes**:
+  - `src/lib/catalog.test.ts` atualizado com testes de tradução e testes de filtragem combinada dos 4 filtros (100% aprovados).
+
+
+

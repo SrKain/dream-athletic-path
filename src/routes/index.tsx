@@ -5,7 +5,14 @@ import { useMemo, useState } from "react";
 import { ConfigurationNotice } from "@/components/configuration-notice";
 import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
 import { useI18n } from "@/i18n/i18n-provider";
-import { buildAthleteShelves, filterAthletes } from "@/lib/catalog";
+import {
+  buildAthleteShelves,
+  filterAthletes,
+  getAthleteCountryEn,
+  getAthleteGradYear,
+  getAthletePositionEn,
+  getAthleteStatus,
+} from "@/lib/catalog";
 import { listPublicAthletes, type PublicCatalogPayload } from "@/lib/athletes.functions";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
@@ -45,36 +52,67 @@ function Catalog() {
   const { pick } = useI18n();
   const [search, setSearch] = useState("");
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [selectedGradYears, setSelectedGradYears] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [ageRange, setAgeRange] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   const catalogAthletes = athletes;
 
+  // 1. Position Options
   const positions = useMemo(() => {
     const list = Array.from(
-      new Set(
-        catalogAthletes
-          .map((item) => item.position?.name_en || item.position?.name_pt)
-          .filter(Boolean),
-      ),
+      new Set(catalogAthletes.map((item) => getAthletePositionEn(item)).filter(Boolean)),
     ) as string[];
-    return list.sort();
+    return list.sort((a, b) => a.localeCompare(b, "en-US"));
   }, [catalogAthletes]);
 
+  // 2. High School Graduation Year Options
+  const gradYears = useMemo(() => {
+    const extracted = new Set<string>();
+    for (const item of catalogAthletes) {
+      const yr = getAthleteGradYear(item);
+      if (yr) extracted.add(yr);
+    }
+    if (extracted.size === 0) {
+      return ["2024", "2025", "2026", "2027", "2028"];
+    }
+    return Array.from(extracted).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [catalogAthletes]);
+
+  // 3. Country Options
   const countries = useMemo(() => {
     const list = Array.from(
-      new Set(
-        catalogAthletes
-          .map((item) => item.country?.name_en || item.country?.name_pt)
-          .filter(Boolean),
-      ),
+      new Set(catalogAthletes.map((item) => getAthleteCountryEn(item)).filter(Boolean)),
     ) as string[];
-    return list.sort();
+    return list.sort((a, b) => a.localeCompare(b, "en-US"));
+  }, [catalogAthletes]);
+
+  // 4. Student Status Options
+  const studentStatuses = useMemo(() => {
+    const standardStatuses = [
+      "High School",
+      "Freshman",
+      "Sophomore",
+      "Junior",
+      "Senior",
+      "Graduate Transfer",
+    ];
+    const present = new Set(
+      catalogAthletes.map((item) => getAthleteStatus(item)).filter(Boolean) as string[],
+    );
+    const combined = Array.from(new Set([...standardStatuses, ...present]));
+    return combined;
   }, [catalogAthletes]);
 
   const togglePosition = (pos: string) => {
     setSelectedPositions((prev) =>
       prev.includes(pos) ? prev.filter((p) => p !== pos) : [...prev, pos],
+    );
+  };
+
+  const toggleGradYear = (year: string) => {
+    setSelectedGradYears((prev) =>
+      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year],
     );
   };
 
@@ -84,29 +122,46 @@ function Catalog() {
     );
   };
 
+  const toggleStatus = (status: string) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
+    );
+  };
+
   const hasActiveFilters =
     search.trim().length > 0 ||
     selectedPositions.length > 0 ||
+    selectedGradYears.length > 0 ||
     selectedCountries.length > 0 ||
-    ageRange !== "";
+    selectedStatuses.length > 0;
 
   const clearAllFilters = () => {
     setSearch("");
     setSelectedPositions([]);
+    setSelectedGradYears([]);
     setSelectedCountries([]);
-    setAgeRange("");
+    setSelectedStatuses([]);
   };
 
   const filtered = useMemo(
     () =>
       filterAthletes(catalogAthletes, {
-        ageRange,
-        country: selectedCountries,
-        position: selectedPositions,
+        countries: selectedCountries,
+        gradYears: selectedGradYears,
+        positions: selectedPositions,
         search,
+        studentStatuses: selectedStatuses,
       }),
-    [ageRange, catalogAthletes, selectedCountries, selectedPositions, search],
+    [
+      catalogAthletes,
+      search,
+      selectedCountries,
+      selectedGradYears,
+      selectedPositions,
+      selectedStatuses,
+    ],
   );
+
   const shelves = useMemo(
     () => buildAthleteShelves(filtered, positionOrder),
     [filtered, positionOrder],
@@ -130,7 +185,7 @@ function Catalog() {
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground flex flex-col justify-between">
       <div>
-        {/* Header - Bloco 1.1 e 2.1 */}
+        {/* Header */}
         <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
           <div className="container-edge flex h-16 items-center justify-between md:h-20">
             <Link to="/" className="flex items-center gap-3">
@@ -149,9 +204,8 @@ function Catalog() {
           </div>
         </header>
 
-        {/* Hero Section Redesenhado - Bloco 2.3 e 5.1 */}
+        {/* Hero Section */}
         <section className="relative overflow-hidden border-b border-border/70 min-h-[380px] md:min-h-[460px] flex items-center">
-          {/* Background image com overlay em gradiente */}
           <div className="absolute inset-0 z-0">
             <img
               src={heroImageSrc}
@@ -159,7 +213,6 @@ function Catalog() {
               className="h-full w-full object-cover object-center"
               aria-hidden="true"
             />
-            {/* Gradiente escuro da esquerda para a direita para contraste impecável do texto */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#061b13] via-[#061b13]/95 to-[#061b13]/40 md:via-[#061b13]/90 md:to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#061b13]/80 via-transparent to-transparent" />
           </div>
@@ -176,7 +229,7 @@ function Catalog() {
           </div>
         </section>
 
-        {/* Catalog Section - Bloco 4, 5.1 e 5.2 */}
+        {/* Catalog Section */}
         <section id="catalog" className="container-edge py-10 md:py-14">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-2 border-b border-border/70 pb-3">
             <h2 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">
@@ -187,7 +240,7 @@ function Catalog() {
             </p>
           </div>
 
-          {/* Filter Bar with Clickable Chips */}
+          {/* Filter Bar with 4 Specific Filters */}
           <div className="glass-panel space-y-4 rounded-xl p-4 sm:p-5">
             {/* Top row: Search input & Clear all button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -197,7 +250,7 @@ function Catalog() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  placeholder="Search athlete, position, or country"
+                  placeholder="Search athlete, position, country, or graduation year"
                 />
                 {search && (
                   <button
@@ -222,7 +275,7 @@ function Catalog() {
               )}
             </div>
 
-            {/* Position Chips */}
+            {/* 1. Position */}
             {positions.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -252,70 +305,95 @@ function Catalog() {
               </div>
             )}
 
-            {/* Country & Age Range Chips */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {/* Country Chips */}
-              {countries.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Country
-                  </span>
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                    {countries.map((cntry) => {
-                      const active = selectedCountries.includes(cntry);
-                      return (
-                        <button
-                          key={cntry}
-                          type="button"
-                          onClick={() => toggleCountry(cntry)}
-                          aria-pressed={active}
-                          className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                            active
-                              ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
-                              : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
-                          }`}
-                        >
-                          <span>{cntry}</span>
-                          {active && <X className="h-3 w-3 opacity-70" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Age Range Chips */}
+            {/* 2. High School Graduation Year */}
+            {gradYears.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Age Range
+                  High School Graduation Year
                 </span>
                 <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                  {[
-                    { label: "All Ages", value: "" },
-                    { label: "Under 18", value: "under18" },
-                    { label: "19–22", value: "19-22" },
-                    { label: "23+", value: "23plus" },
-                  ].map((item) => {
-                    const active = ageRange === item.value;
+                  {gradYears.map((year) => {
+                    const active = selectedGradYears.includes(year);
                     return (
                       <button
-                        key={item.value}
+                        key={year}
                         type="button"
-                        onClick={() => setAgeRange(item.value)}
+                        onClick={() => toggleGradYear(year)}
                         aria-pressed={active}
-                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           active
                             ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
                             : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
                         }`}
                       >
-                        <span>{item.label}</span>
+                        <span>{year}</span>
+                        {active && <X className="h-3 w-3 opacity-70" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* 3. Country */}
+            {countries.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Country
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                  {countries.map((cntry) => {
+                    const active = selectedCountries.includes(cntry);
+                    return (
+                      <button
+                        key={cntry}
+                        type="button"
+                        onClick={() => toggleCountry(cntry)}
+                        aria-pressed={active}
+                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          active
+                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span>{cntry}</span>
+                        {active && <X className="h-3 w-3 opacity-70" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 4. Student Status */}
+            {studentStatuses.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Student Status
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                  {studentStatuses.map((status) => {
+                    const active = selectedStatuses.includes(status);
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => toggleStatus(status)}
+                        aria-pressed={active}
+                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          active
+                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span>{status}</span>
+                        {active && <X className="h-3 w-3 opacity-70" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Athlete Shelves by Position */}
@@ -338,7 +416,8 @@ function Catalog() {
                 No athletes found matching your search.
               </p>
               <p className="text-sm text-muted-foreground max-w-md">
-                Try adjusting your search keywords, position, country, or age filters.
+                Try adjusting your search keywords, position, graduation year, country, or status
+                filters.
               </p>
               <button
                 type="button"
@@ -352,7 +431,7 @@ function Catalog() {
         </section>
       </div>
 
-      {/* Footer - Bloco 2.2 e 5.1 */}
+      {/* Footer */}
       <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
@@ -422,14 +501,13 @@ function AthleteCardItem({
   pick: (pt?: string | null, en?: string | null) => string | null;
   videoUrl?: string | null;
 }) {
-  const positionLabel = pick(athlete.position?.name_en, athlete.position?.name_pt);
   const heightImperial = formatHeightImperial(athlete.height_cm);
+  const positionLabel = getAthletePositionEn(athlete);
   const countryFlag = athlete.country?.flag_emoji;
-  const countryName =
-    pick(athlete.country?.name_en, athlete.country?.name_pt) || athlete.nationality;
+  const countryName = getAthleteCountryEn(athlete);
   const countryDisplay = [countryFlag, countryName].filter(Boolean).join(" ");
 
-  const subline = [positionLabel, heightImperial, countryDisplay].filter(Boolean).join(" · ");
+  const subline = [heightImperial, positionLabel, countryDisplay].filter(Boolean).join(" · ");
 
   return (
     <Link

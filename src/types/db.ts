@@ -61,6 +61,9 @@ export interface Athlete {
   deleted_at: string | null;
 }
 
+export type AthleteStatus =
+  "High School" | "Freshman" | "Sophomore" | "Junior" | "Senior" | "Graduate Transfer";
+
 export interface AthleteProfile {
   athlete_id: string;
   bio_en: string | null;
@@ -78,6 +81,8 @@ export interface AthleteProfile {
   budget: string | null;
   seasons_eligibility: string | null;
   team_contribution_en: string | null;
+  athlete_status?: AthleteStatus | string | null;
+  college_start_date?: string | null;
 }
 
 export type AthleteVideoKind = "presentation" | "highlight" | "feature" | "in_court";
@@ -338,4 +343,8 @@ export interface AthleteCard extends PublicAthlete {
   position?: Pick<Position, "name_en" | "name_pt" | "abbreviation"> | null;
   sport?: Pick<Sport, "name_en" | "name_pt" | "slug"> | null;
   country?: Pick<Country, "name_en" | "name_pt" | "flag_emoji"> | null;
+  profile?: Pick<
+    AthleteProfile,
+    "high_school_graduation" | "graduation_year" | "athlete_status" | "highlight_video_url"
+  > | null;
 }

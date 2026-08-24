@@ -21,19 +21,18 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
-import { ReelsRow } from "@/components/reels-viewer";
 import { PublicYoutubePlayer } from "@/components/public-youtube-player";
 import { ReadingProgressBar } from "@/components/reading-progress-bar";
 import { AthleteProfileSkeleton } from "@/components/skeletons/athlete-profile-skeleton";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useActiveSection } from "@/hooks/use-active-section";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
-import { calculateAge } from "@/lib/catalog";
+import { calculateAge, getAthleteCountryEn, getAthletePositionEn } from "@/lib/catalog";
 import { buildRecruitWhatsappUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
-import { formatHeightImperial, formatWeightImperial } from "@/lib/units";
-import { youtubeEmbedUrl } from "@/lib/youtube";
+import { formatGpa, formatHeightImperial, formatWeightImperial } from "@/lib/units";
+import { youtubeEmbedUrl, youtubeWatchUrl } from "@/lib/youtube";
 
 export const Route = createFileRoute("/athlete/$slug")({
   loader: async ({ params }) => {
@@ -81,7 +80,6 @@ function PublicAthleteProfile() {
   );
 
   const photoUrl = loaderPhotoOrFallback(athlete);
-  const subtitle = profile?.subtitle || "Performance · Personality · Potential";
   const positionLabel = athlete.position?.name_en;
   const countryLabel = athlete.country?.name_en;
 
@@ -93,24 +91,28 @@ function PublicAthleteProfile() {
       })
     : null;
 
+  const gpaFormatted = formatGpa(profile?.gpa);
+
+  // Watch film videos: prioritize all highlight videos; if none, check fallback heroUrl/feature/presentations
+  const filmVideos = useMemo(() => {
+    if (highlights.length > 0) return highlights;
+    const fallbackList = [];
+    if (feature) fallbackList.push(feature);
+    if (presentations.length > 0) fallbackList.push(...presentations);
+    if (inCourt.length > 0) fallbackList.push(...inCourt);
+    return fallbackList;
+  }, [highlights, feature, presentations, inCourt]);
+
   const sectionIds = useMemo(() => {
     const ids: string[] = [];
     if (inCourt.length > 0 || presentations.length > 0 || feature) ids.push("athlete-film");
-    if (highlights.length > 0) ids.push("highlights");
     ids.push("fact-sheet");
     ids.push("about-athlete");
     if (achievements.length > 0) ids.push("achievements");
     if (media.length > 0) ids.push("gallery");
     ids.push("recruit-cta");
     return ids;
-  }, [
-    inCourt.length,
-    presentations.length,
-    feature,
-    highlights.length,
-    achievements.length,
-    media.length,
-  ]);
+  }, [inCourt.length, presentations.length, feature, achievements.length, media.length]);
 
   const { activeId, setActiveId } = useActiveSection({ sectionIds });
   const navContainerRef = useRef<HTMLDivElement>(null);
@@ -208,9 +210,6 @@ function PublicAthleteProfile() {
                 <h1 className="font-display text-3xl font-bold tracking-tight text-[#f4f7e9] sm:text-4xl md:text-5xl lg:text-6xl">
                   {athlete.full_name}
                 </h1>
-                <p className="text-base sm:text-lg md:text-xl font-normal text-[#b9c4bc] leading-relaxed max-w-2xl">
-                  {subtitle}
-                </p>
               </div>
 
               {/* Linha Editorial de Métricas Essenciais (Quiet Luxury) */}
@@ -235,24 +234,20 @@ function PublicAthleteProfile() {
                 )}
                 {(profile?.high_school_graduation || profile?.graduation_year) && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">Class:</span>
+                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">
+                      HIGH SCHOOL GRAD.:
+                    </span>
                     <span className="font-semibold">
                       {profile.high_school_graduation || profile.graduation_year}
                     </span>
                   </div>
                 )}
-                {profile?.gpa && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">GPA:</span>
-                    <span className="font-semibold text-[#dfff1f]">{profile.gpa}</span>
-                  </div>
-                )}
-                {profile?.seasons_eligibility && (
+                {gpaFormatted && (
                   <div className="flex items-center gap-2">
                     <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">
-                      Eligibility:
+                      Current GPA:
                     </span>
-                    <span className="font-semibold">{profile.seasons_eligibility}</span>
+                    <span className="font-semibold text-[#dfff1f]">{gpaFormatted}</span>
                   </div>
                 )}
                 {birthDateFormatted && (
@@ -277,14 +272,25 @@ function PublicAthleteProfile() {
                   Recruit Athlete
                 </a>
 
-                {(heroUrl || presentations.length > 0 || inCourt.length > 0) && (
-                  <a
-                    href="#athlete-film"
-                    className="inline-flex h-12 items-center gap-2.5 rounded-xl border border-white/20 bg-white/5 px-6 text-xs font-semibold uppercase tracking-wider text-[#f4f7e9] backdrop-blur-md transition hover:border-white/40 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <Play className="h-3.5 w-3.5 fill-current text-[#dfff1f]" /> Watch Film
-                  </a>
-                )}
+                {/* Botões de Watch Film diretos com link para o YouTube */}
+                {filmVideos.map((video, idx) => {
+                  const watchUrl = youtubeWatchUrl(video.youtube_url) ?? video.youtube_url;
+                  const label =
+                    video.title?.trim() ||
+                    (filmVideos.length === 1 ? "Watch Film" : `Watch Film ${idx + 1}`);
+
+                  return (
+                    <a
+                      key={video.id}
+                      href={watchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-12 items-center gap-2.5 rounded-xl border border-white/20 bg-white/5 px-6 text-xs font-semibold uppercase tracking-wider text-[#f4f7e9] backdrop-blur-md transition hover:border-white/40 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current text-[#dfff1f]" /> {label}
+                    </a>
+                  );
+                })}
 
                 <a
                   href="#fact-sheet"
@@ -320,21 +326,6 @@ function PublicAthleteProfile() {
               }`}
             >
               <Video className="h-3.5 w-3.5 text-primary" /> Film & Footage
-            </a>
-          )}
-          {highlights.length > 0 && (
-            <a
-              href="#highlights"
-              data-nav-id="highlights"
-              onClick={() => setActiveId("highlights")}
-              aria-current={activeId === "highlights" ? "true" : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition whitespace-nowrap ${
-                activeId === "highlights"
-                  ? "bg-primary/10 text-primary font-bold border border-primary/20"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> Highlights
             </a>
           )}
           <a
@@ -415,9 +406,6 @@ function PublicAthleteProfile() {
           </p>
         </section>
       )}
-
-      {/* ── HIGHLIGHTS (STORIES / REELS EM FORMATO CIRCULAR) ── */}
-      {highlights.length > 0 && <ReelsRow videos={highlights} athleteName={athlete.full_name} />}
 
       {/* ── SEÇÃO DE VÍDEOS IN COURT & APRESENTAÇÃO ── */}
       {(inCourt.length > 0 || presentations.length > 0 || feature) && (
@@ -554,6 +542,20 @@ function PublicAthleteProfile() {
                 <GraduationCap className="h-4 w-4" /> Academic & Eligibility
               </h3>
               <div className="space-y-3">
+                {profile?.athlete_status && (
+                  <FactCard
+                    label="Athlete Status"
+                    value={profile.athlete_status}
+                    icon={<Award className="h-4 w-4" />}
+                  />
+                )}
+                {profile?.college_start_date && (
+                  <FactCard
+                    label="College Start Date"
+                    value={profile.college_start_date}
+                    icon={<Calendar className="h-4 w-4" />}
+                  />
+                )}
                 <FactCard
                   label="Current School"
                   value={profile?.current_school ?? "—"}
@@ -567,7 +569,7 @@ function PublicAthleteProfile() {
                   />
                 )}
                 <FactCard
-                  label="High School Class"
+                  label="High School Graduation"
                   value={
                     profile?.high_school_graduation ||
                     (profile?.graduation_year ? String(profile.graduation_year) : "—")
@@ -576,13 +578,8 @@ function PublicAthleteProfile() {
                 />
                 <FactCard
                   label="Current GPA"
-                  value={profile?.gpa ? String(profile.gpa) : "—"}
+                  value={gpaFormatted ?? "—"}
                   icon={<GraduationCap className="h-4 w-4" />}
-                />
-                <FactCard
-                  label="Seasons Eligibility Left"
-                  value={profile?.seasons_eligibility ?? "—"}
-                  icon={<Trophy className="h-4 w-4" />}
                 />
                 {profile?.english_level && (
                   <FactCard
@@ -814,9 +811,9 @@ function PublicAthleteProfile() {
                   </h4>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {[
-                      nextAthlete.position?.name_en,
                       formatHeightImperial(nextAthlete.height_cm),
-                      nextAthlete.country?.name_en,
+                      getAthletePositionEn(nextAthlete),
+                      getAthleteCountryEn(nextAthlete),
                     ]
                       .filter(Boolean)
                       .join(" · ")}
