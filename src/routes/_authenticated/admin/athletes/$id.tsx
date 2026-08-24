@@ -608,18 +608,29 @@ function AthleteEditor() {
                         <option value="Sophomore">Sophomore</option>
                         <option value="Junior">Junior</option>
                         <option value="Senior">Senior</option>
+                        <option value="Graduate">Graduate</option>
+                        <option value="Transfer">Transfer</option>
                         <option value="Graduate Transfer">Graduate Transfer</option>
                       </select>
                     </Field>
                     <Field label="College Start Date (e.g. Fall 2024, Spring 2025)">
                       <input
                         className={inputClass}
-                        placeholder="e.g. Fall 2024 / Spring 2025 / Fall 2025"
+                        list="college-start-terms"
+                        placeholder="e.g. Fall 2024 / Spring 2025 / Fall 2025 / Spring 2026"
                         value={profile.college_start_date ?? ""}
                         onChange={(e) =>
                           setProfile({ ...profile, college_start_date: e.target.value })
                         }
                       />
+                      <datalist id="college-start-terms">
+                        <option value="Fall 2024" />
+                        <option value="Spring 2025" />
+                        <option value="Fall 2025" />
+                        <option value="Spring 2026" />
+                        <option value="Fall 2026" />
+                        <option value="Spring 2027" />
+                      </datalist>
                     </Field>
                     <Field label="Course of Interest (Desired Major / Field of Study)">
                       <input

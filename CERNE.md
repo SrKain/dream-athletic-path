@@ -407,5 +407,13 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Validação e Testes**:
   - `src/lib/catalog.test.ts` atualizado com testes de tradução e testes de filtragem combinada dos 4 filtros (100% aprovados).
 
+## Atualização 2026-08-24 — Integração Google Analytics 4 (GA4) (TASK-043)
+
+- **Telemetria & Analytics (`src/routes/__root.tsx`)**:
+  - Adicionada a tag oficial do Google Analytics 4 (`gtag.js`) com o Measurement ID `G-4D6DTG650F` no elemento `<head>` da raiz do aplicativo (`RootShell`).
+  - Implementado carregamento assíncrono não-bloqueante (`async`) junto à inicialização segura do `dataLayer` e disparo automático do `gtag('config', 'G-4D6DTG650F')`.
+  - Zero impacto em tempo de renderização (FCP/LCP) e total compatibilidade com TanStack Start / SSR e Client Hydration.
+
+
 
 

@@ -62,7 +62,14 @@ export interface Athlete {
 }
 
 export type AthleteStatus =
-  "High School" | "Freshman" | "Sophomore" | "Junior" | "Senior" | "Graduate Transfer";
+  | "High School"
+  | "Freshman"
+  | "Sophomore"
+  | "Junior"
+  | "Senior"
+  | "Graduate"
+  | "Transfer"
+  | "Graduate Transfer";
 
 export interface AthleteProfile {
   athlete_id: string;
