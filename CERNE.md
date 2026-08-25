@@ -414,6 +414,13 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Implementado carregamento assíncrono não-bloqueante (`async`) junto à inicialização segura do `dataLayer` e disparo automático do `gtag('config', 'G-4D6DTG650F')`.
   - Zero impacto em tempo de renderização (FCP/LCP) e total compatibilidade com TanStack Start / SSR e Client Hydration.
 
+## Atualização 2026-08-25 — Integração Microsoft Clarity (TASK-044)
+
+- **Mapas de Calor & Gravação de Sessões (`src/routes/__root.tsx`)**:
+  - Adicionada a tag oficial do Microsoft Clarity com o Project ID `y7zkn8qxno` no elemento `<head>` de `RootShell`.
+  - Carregamento assíncrono com injeção dinâmica de script (`async=1`), operando em paralelo com Google Analytics 4 e Vercel Analytics.
+  - Zero impacto em Core Web Vitals e total conformidade com o ecossistema TanStack Start.
+
 
 
 
