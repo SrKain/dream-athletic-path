@@ -421,6 +421,8 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Carregamento assíncrono com injeção dinâmica de script (`async=1`), operando em paralelo com Google Analytics 4 e Vercel Analytics.
   - Zero impacto em Core Web Vitals e total conformidade com o ecossistema TanStack Start.
 
+## Atualização 2026-08-25 — Assinatura Institucional no Rodapé ("Powered by iasin.") (TASK-045)
 
-
-
+- **Rodapé Público Padronizado (`src/routes/index.tsx` e `src/routes/athlete.$slug.tsx`)**:
+  - Inserido o elemento de assinatura oficial do desenvolvedor (`<a href="https://iasin.dev.br" target="_blank">Powered by iasin.</a>`) com animações suaves de hover e respeito a `motion-reduce`.
+  - Padronizado o `<footer>` no catálogo público e na página do atleta com branding institucional ("Go Team Go Agency"), copyright dinâmico e link responsivo `Powered by iasin.`.

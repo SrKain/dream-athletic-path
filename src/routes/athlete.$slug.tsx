@@ -828,6 +828,38 @@ function PublicAthleteProfile() {
         </section>
       )}
 
+      {/* Footer */}
+      <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
+        <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            {visual?.logo_url ? (
+              <img src={visual.logo_url} alt="Go Team Go" className="h-7 w-auto object-contain" />
+            ) : (
+              <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              · Connecting elite athletes with college programs across the USA.
+            </span>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-xs text-muted-foreground">
+            <span>© {new Date().getFullYear()} Go Team Go Agency. All rights reserved.</span>
+            <a
+              href="https://iasin.dev.br"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Powered by Iasin"
+              className="group mt-6 md:mt-0 md:self-end inline-flex items-center gap-2 text-[10px] md:text-xs opacity-70 hover:opacity-100 transition-opacity animate-in fade-in-0 slide-in-from-bottom-2 duration-700 ease-out motion-reduce:animate-none"
+            >
+              <span className="uppercase tracking-[0.2em]">Powered by</span>
+              <span className="relative inline-block font-semibold normal-case tracking-[0.14em]">
+                <span className="relative z-10">iasin.</span>
+                <span className="absolute left-0 right-0 -bottom-[2px] h-px bg-white/60 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100 motion-reduce:transition-none"></span>
+              </span>
+            </a>
+          </div>
+        </div>
+      </footer>
+
       <WhatsappFab athleteName={athlete.full_name} />
     </main>
   );
