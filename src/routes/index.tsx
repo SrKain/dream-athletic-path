@@ -575,7 +575,7 @@ function AthleteCardItem({
   const subline = [heightImperial, positionLabel, countryDisplay].filter(Boolean).join(" · ");
 
   const rawStatus = getAthleteStatus(athlete);
-  const showFreshmanBadge = Boolean(rawStatus && rawStatus.trim().toLowerCase() !== "junior");
+  const showTransferBadge = Boolean(rawStatus && rawStatus.trim().toLowerCase() !== "junior");
 
   return (
     <Link
@@ -589,10 +589,10 @@ function AthleteCardItem({
           alt={athlete.full_name}
           videoUrl={videoUrl}
         />
-        {showFreshmanBadge && (
+        {showTransferBadge && (
           <div className="pointer-events-none absolute left-2.5 top-2.5 z-10">
             <span className="inline-flex items-center rounded-sm border border-emerald-500/35 bg-emerald-950/90 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase shadow-xs backdrop-blur-xs">
-              FRESHMAN
+              TRANSFER
             </span>
           </div>
         )}
