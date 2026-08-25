@@ -187,11 +187,29 @@
   animation: proposal-rise 0.7s ease both;
 }
 
+@keyframes iasin-stroke-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-iasin-stroke {
+  animation: iasin-stroke-draw 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .proposal-theme *,
   .proposal-theme section > div {
     animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .animate-iasin-stroke {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }

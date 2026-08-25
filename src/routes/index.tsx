@@ -1,10 +1,14 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { RotateCcw, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { MessageCircle, RotateCcw, Search, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
+import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
 import { ConfigurationNotice } from "@/components/configuration-notice";
+import { PoweredByIasinSignature } from "@/components/powered-by-iasin-signature";
 import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
+import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useI18n } from "@/i18n/i18n-provider";
+import { listPublicAthletes, type PublicCatalogPayload } from "@/lib/athletes.functions";
 import {
   buildAthleteShelves,
   filterAthletes,
@@ -13,12 +17,10 @@ import {
   getAthletePositionEn,
   getAthleteStatus,
 } from "@/lib/catalog";
-import { listPublicAthletes, type PublicCatalogPayload } from "@/lib/athletes.functions";
+import { RECRUIT_WHATSAPP_NUMBER } from "@/lib/contact";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
-import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
-import { WhatsappFab } from "@/components/whatsapp-fab";
-import { formatHeightImperial } from "@/lib/units";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { formatHeightImperial } from "@/lib/units";
 import type { AthleteCard } from "@/types/db";
 
 export const Route = createFileRoute("/")({
@@ -51,6 +53,8 @@ function Catalog() {
     Route.useLoaderData() as PublicCatalogPayload;
   const { pick } = useI18n();
   const [search, setSearch] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const filterBarRef = useRef<HTMLDivElement>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedGradYears, setSelectedGradYears] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -134,6 +138,8 @@ function Catalog() {
     selectedGradYears.length > 0 ||
     selectedCountries.length > 0 ||
     selectedStatuses.length > 0;
+
+  const showFilterChips = isSearchFocused || Boolean(search.trim()) || hasActiveFilters;
 
   const clearAllFilters = () => {
     setSearch("");
@@ -241,7 +247,16 @@ function Catalog() {
           </div>
 
           {/* Filter Bar with 4 Specific Filters */}
-          <div className="glass-panel space-y-4 rounded-xl p-4 sm:p-5">
+          <div
+            ref={filterBarRef}
+            onBlur={(e) => {
+              if (filterBarRef.current && filterBarRef.current.contains(e.relatedTarget as Node)) {
+                return;
+              }
+              setIsSearchFocused(false);
+            }}
+            className="glass-panel rounded-xl p-4 sm:p-5"
+          >
             {/* Top row: Search input & Clear all button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <label className="flex h-11 flex-1 min-w-0 items-center gap-2.5 rounded-lg border border-border/70 bg-background/70 px-3.5 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20">
@@ -249,6 +264,7 @@ function Catalog() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
                   className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                   placeholder="Search athlete, position, country, or graduation year"
                 />
@@ -275,125 +291,136 @@ function Catalog() {
               )}
             </div>
 
-            {/* 1. Position */}
-            {positions.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Position
-                </span>
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                  {positions.map((pos) => {
-                    const active = selectedPositions.includes(pos);
-                    return (
-                      <button
-                        key={pos}
-                        type="button"
-                        onClick={() => togglePosition(pos)}
-                        aria-pressed={active}
-                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          active
-                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
-                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span>{pos}</span>
-                        {active && <X className="h-3 w-3 opacity-70" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Collapsible Filter Chips */}
+            <div
+              className={`grid transition-all duration-300 ease-out ${
+                showFilterChips
+                  ? "grid-rows-[1fr] opacity-100 mt-4 pt-3 border-t border-border/50"
+                  : "grid-rows-[0fr] opacity-0 mt-0 pointer-events-none"
+              }`}
+            >
+              <div className="overflow-hidden space-y-4">
+                {/* 1. Position */}
+                {positions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Position
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                      {positions.map((pos) => {
+                        const active = selectedPositions.includes(pos);
+                        return (
+                          <button
+                            key={pos}
+                            type="button"
+                            onClick={() => togglePosition(pos)}
+                            aria-pressed={active}
+                            className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                              active
+                                ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                                : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>{pos}</span>
+                            {active && <X className="h-3 w-3 opacity-70" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {/* 2. High School Graduation Year */}
-            {gradYears.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  High School Graduation Year
-                </span>
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                  {gradYears.map((year) => {
-                    const active = selectedGradYears.includes(year);
-                    return (
-                      <button
-                        key={year}
-                        type="button"
-                        onClick={() => toggleGradYear(year)}
-                        aria-pressed={active}
-                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          active
-                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
-                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span>{year}</span>
-                        {active && <X className="h-3 w-3 opacity-70" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                {/* 2. High School Graduation Year */}
+                {gradYears.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      High School Graduation Year
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                      {gradYears.map((year) => {
+                        const active = selectedGradYears.includes(year);
+                        return (
+                          <button
+                            key={year}
+                            type="button"
+                            onClick={() => toggleGradYear(year)}
+                            aria-pressed={active}
+                            className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                              active
+                                ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                                : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>{year}</span>
+                            {active && <X className="h-3 w-3 opacity-70" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {/* 3. Country */}
-            {countries.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Country
-                </span>
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                  {countries.map((cntry) => {
-                    const active = selectedCountries.includes(cntry);
-                    return (
-                      <button
-                        key={cntry}
-                        type="button"
-                        onClick={() => toggleCountry(cntry)}
-                        aria-pressed={active}
-                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          active
-                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
-                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span>{cntry}</span>
-                        {active && <X className="h-3 w-3 opacity-70" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                {/* 3. Country */}
+                {countries.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Country
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                      {countries.map((cntry) => {
+                        const active = selectedCountries.includes(cntry);
+                        return (
+                          <button
+                            key={cntry}
+                            type="button"
+                            onClick={() => toggleCountry(cntry)}
+                            aria-pressed={active}
+                            className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                              active
+                                ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                                : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>{cntry}</span>
+                            {active && <X className="h-3 w-3 opacity-70" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-            {/* 4. Student Status */}
-            {studentStatuses.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Student Status
-                </span>
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
-                  {studentStatuses.map((status) => {
-                    const active = selectedStatuses.includes(status);
-                    return (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => toggleStatus(status)}
-                        aria-pressed={active}
-                        className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          active
-                            ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
-                            : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span>{status}</span>
-                        {active && <X className="h-3 w-3 opacity-70" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* 4. Student Status */}
+                {studentStatuses.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Student Status
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 pt-0.5">
+                      {studentStatuses.map((status) => {
+                        const active = selectedStatuses.includes(status);
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => toggleStatus(status)}
+                            aria-pressed={active}
+                            className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                              active
+                                ? "border-primary/50 bg-primary/10 font-semibold text-primary shadow-xs"
+                                : "border-border/70 bg-card/60 text-card-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>{status}</span>
+                            {active && <X className="h-3 w-3 opacity-70" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Athlete Shelves by Position */}
@@ -431,6 +458,43 @@ function Catalog() {
         </section>
       </div>
 
+      {/* Final CTA Section */}
+      <section className="container-edge mt-14 md:mt-20">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-[#082319] via-[#051710] to-[#040e0a] p-8 text-center text-[#f4f7e9] shadow-xl md:p-12">
+          {/* Decorative background glow */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
+          />
+
+          <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center">
+            <span className="eyebrow inline-block text-xs font-semibold tracking-[0.2em] text-emerald-400 uppercase md:text-sm">
+              Looking for talent?
+            </span>
+            <h2 className="mt-3 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+              Let's find your next athlete.
+            </h2>
+            <p className="mt-3 max-w-md text-sm text-[#b9c4bc] md:text-base">
+              Connect with our recruitment directors to discover available prospects and receive
+              comprehensive athletic profiles.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <a
+                href={`https://wa.me/${RECRUIT_WHATSAPP_NUMBER}?text=${encodeURIComponent(
+                  "Hello! I'm looking for talent and would like to talk to Go Team Go Agency about available athletes.",
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="liquid-button inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold shadow-lg transition duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0" />
+                <span>Talk to Go Team Go</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
@@ -446,19 +510,7 @@ function Catalog() {
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 text-xs text-muted-foreground">
             <span>© {new Date().getFullYear()} Go Team Go Agency. All rights reserved.</span>
-            <a
-              href="https://iasin.dev.br"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Powered by Iasin"
-              className="group mt-6 md:mt-0 md:self-end inline-flex items-center gap-2 text-[10px] md:text-xs opacity-70 hover:opacity-100 transition-opacity animate-in fade-in-0 slide-in-from-bottom-2 duration-700 ease-out motion-reduce:animate-none"
-            >
-              <span className="uppercase tracking-[0.2em]">Powered by</span>
-              <span className="relative inline-block font-semibold normal-case tracking-[0.14em]">
-                <span className="relative z-10">iasin.</span>
-                <span className="absolute left-0 right-0 -bottom-[2px] h-px bg-white/60 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100 motion-reduce:transition-none"></span>
-              </span>
-            </a>
+            <PoweredByIasinSignature className="mt-6 md:mt-0 md:self-end" />
           </div>
         </div>
       </footer>
@@ -522,17 +574,29 @@ function AthleteCardItem({
 
   const subline = [heightImperial, positionLabel, countryDisplay].filter(Boolean).join(" · ");
 
+  const rawStatus = getAthleteStatus(athlete);
+  const showFreshmanBadge = Boolean(rawStatus && rawStatus.trim().toLowerCase() !== "junior");
+
   return (
     <Link
       to="/athlete/$slug"
       params={{ slug: athlete.slug }}
-      className="group overflow-hidden rounded-md border border-border/70 bg-card transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+      className="group relative overflow-hidden rounded-md border border-border/70 bg-card transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <AthleteVideoCardMedia
-        photoUrl={getAthleteDisplayImage(athlete)}
-        alt={athlete.full_name}
-        videoUrl={videoUrl}
-      />
+      <div className="relative">
+        <AthleteVideoCardMedia
+          photoUrl={getAthleteDisplayImage(athlete)}
+          alt={athlete.full_name}
+          videoUrl={videoUrl}
+        />
+        {showFreshmanBadge && (
+          <div className="pointer-events-none absolute left-2.5 top-2.5 z-10">
+            <span className="inline-flex items-center rounded-sm border border-emerald-500/35 bg-emerald-950/90 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase shadow-xs backdrop-blur-xs">
+              FRESHMAN
+            </span>
+          </div>
+        )}
+      </div>
       <div className="p-3">
         <h3 className="truncate font-display text-base font-semibold tracking-tight text-card-foreground">
           {athlete.full_name}
