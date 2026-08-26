@@ -219,16 +219,16 @@ function Catalog() {
               className="h-full w-full object-cover object-center"
               aria-hidden="true"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#061b13] via-[#061b13]/95 to-[#061b13]/40 md:via-[#061b13]/90 md:to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#061b13]/80 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#032812] via-[#032812]/95 to-[#032812]/40 md:via-[#032812]/90 md:to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#032812]/80 via-transparent to-transparent" />
           </div>
 
           <div className="container-edge relative z-10 py-12 md:py-16">
             <div className="max-w-2xl">
-              <h1 className="font-display text-[clamp(2.2rem,4.5vw,3.8rem)] font-semibold leading-[1.08] tracking-tight text-[#f4f7e9]">
+              <h1 className="font-display text-[clamp(2.2rem,4.5vw,3.8rem)] font-bold leading-[1.08] tracking-tight text-[#f4f7e9]">
                 {heroTitle}
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-relaxed text-[#b9c4bc] md:text-lg">
+              <p className="mt-4 max-w-xl text-base leading-relaxed text-[#cad8cf] md:text-lg">
                 {heroSubtitle}
               </p>
             </div>
@@ -460,21 +460,21 @@ function Catalog() {
 
       {/* Final CTA Section */}
       <section className="container-edge mt-14 md:mt-20">
-        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-[#082319] via-[#051710] to-[#040e0a] p-8 text-center text-[#f4f7e9] shadow-xl md:p-12">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-[#032812] via-[#053319] to-[#021a0c] p-8 text-center text-[#f4f7e9] shadow-xl md:p-12">
           {/* Decorative background glow */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
+            className="pointer-events-none absolute -top-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-primary/25 blur-3xl"
           />
 
           <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center">
-            <span className="eyebrow inline-block text-xs font-semibold tracking-[0.2em] text-emerald-400 uppercase md:text-sm">
+            <span className="eyebrow inline-block text-xs font-bold tracking-[0.2em] text-[#f69e00] uppercase md:text-sm">
               Looking for talent?
             </span>
             <h2 className="mt-3 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
               Let's find your next athlete.
             </h2>
-            <p className="mt-3 max-w-md text-sm text-[#b9c4bc] md:text-base">
+            <p className="mt-3 max-w-md text-sm text-[#cad8cf] md:text-base">
               Connect with our recruitment directors to discover available prospects and receive
               comprehensive athletic profiles.
             </p>
@@ -485,7 +485,7 @@ function Catalog() {
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="liquid-button inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold shadow-lg transition duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="liquid-button inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg transition duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <MessageCircle className="h-4 w-4 shrink-0" />
                 <span>Talk to Go Team Go</span>
@@ -591,7 +591,7 @@ function AthleteCardItem({
         />
         {showTransferBadge && (
           <div className="pointer-events-none absolute left-2.5 top-2.5 z-10">
-            <span className="inline-flex items-center rounded-sm border border-emerald-500/35 bg-emerald-950/90 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase shadow-xs backdrop-blur-xs">
+            <span className="inline-flex items-center rounded-sm border border-[#084323] bg-[#032812]/92 px-2 py-0.5 text-[10px] font-bold tracking-wider text-[#f69e00] uppercase shadow-xs backdrop-blur-xs">
               TRANSFER
             </span>
           </div>

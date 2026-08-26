@@ -428,3 +428,40 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Rodapé Público Padronizado (`src/routes/index.tsx` e `src/routes/athlete.$slug.tsx`)**:
   - Inserido o elemento de assinatura oficial do desenvolvedor (`<a href="https://iasin.dev.br" target="_blank">Powered by iasin.</a>`) com animações suaves de hover e respeito a `motion-reduce`.
   - Padronizado o `<footer>` no catálogo público e na página do atleta com branding institucional ("Go Team Go Agency"), copyright dinâmico e link responsivo `Powered by iasin.`.
+
+## Atualização 2026-08-25 — Correção de Identidade Visual Oficial Go Team Go (Cores e Tipografia) (TASK-048)
+
+- **Paleta de Cores Oficial (`src/styles.css`)**:
+  - **Primária 1 (Laranja de Ação/Destaque)**: `#f69e00` — aplicada para botões primários (`liquid-button`), CTAs, badges de destaque, anéis de foto do atleta, links ativos e foco.
+  - **Primária 2 (Verde Escuro Nobre / Base)**: `#032812` — aplicada para fundos sóbrios do Hero (catálogo e atleta), containers escuros (`glass-dark`), textos de contraste e bases institucionais.
+  - **Apoio (Vermelho)**: `#ff1616` — aplicada pontualmente para alertas, indicadores de status crítico ou tags específicas.
+  - **Apoio (Azul)**: `#114f8f` — aplicada para tags institucionais secundárias como "Introduction / Presentation Video".
+  - **Apoio (Verde)**: `#084323` — aplicada para badges de "TRANSFER", "Match Play", chips de sucesso e gradientes secundários.
+- **Tipografia Oficial**:
+  - **Headings & Títulos Display**: `Tan St. Canard` com fallback atlético de alto impacto (`'Tan St. Canard', 'Bebas Neue', 'Teko', 'Impact', sans-serif`).
+  - **Texto Geral / Body / Interface**: `Quicksand` (pesos 500, 600, 700 - Bold) importada via Google Fonts em `src/styles.css` e pré-carregada no `<head>` em `src/routes/__root.tsx`.
+- **Componentes e Telas Atualizadas**:
+  - `src/styles.css`: Definição centralizada de tokens de cores, variáveis CSS (`--primary`, `--primary-foreground`, `--color-brand-*`), fontes e utilitários (`glass-dark`, `liquid-button`, `eyebrow`).
+  - `src/routes/index.tsx`: Hero em `#032812`, badges de posição e transfer em `#084323`, CTAs com `liquid-button` e botões de filtro alinhados.
+  - `src/routes/athlete.$slug.tsx`: Hero em `#032812`, anel do retrato em `#f69e00`, botões Watch Film e WhatsApp com visual líquido e sombra profunda, sub-navegação com badges e destaques cromáticos.
+  - `src/components/reading-progress-bar.tsx`: Barra de progresso de leitura com gradiente da marca (`#084323` -> `#f69e00` -> `#ffaa1a`).
+- **Validação de Build**: Compilação de produção e tipagem TypeScript 100% verificadas (`compile_applet`).
+
+## Atualização 2026-08-25 — Refinamento de Tipografia e Tokens Tailwind v4 (TASK-049)
+
+- **Correção da Hierarquia Tipográfica e Textos (`src/styles.css` e `src/routes/__root.tsx`)**:
+  - Eliminado o problema de forçar ALL-CAPS nos títulos através do novo stack display (`"Tan St. Canard", "Oswald", "Barlow Semi Condensed", "Space Grotesk", sans-serif`), permitindo suporte nativo a maiúsculas e minúsculas com alta legibilidade e impacto atlético.
+  - Removida a imposição global de `font-weight: 600/700` no `body` e inputs, devolvendo fluidez e leitura natural aos parágrafos, fichas técnicas e placeholders na fonte oficial **Quicksand**.
+  - Inseridos `<link rel="preconnect">` e `<link rel="stylesheet">` no `<head>` em `src/routes/__root.tsx` para carregamento imediato das fontes sem FOUT (Flash of Unstyled Text).
+  - Variáveis `--font-display` e `--font-sans` mapeadas formalmente no bloco `@theme inline` do Tailwind CSS v4.
+- **Validação Técnica**: 100% dos testes unitários (74/74) passando no Vitest, ESLint limpo e compilação de produção (`compile_applet`) verificada com sucesso.
+
+## Atualização 2026-08-25 — Correção de Ordem de @import e Bundling no LightningCSS (TASK-050)
+
+- **Ajuste de Diretivas CSS em `src/styles.css`**:
+  - Removido o `@import url("https://...")` remoto dentro do arquivo CSS, já que as fontes do Google Fonts são carregadas de forma otimizada e assíncrona diretamente no `<head>` em `src/routes/__root.tsx` via `<link rel="stylesheet">`.
+  - Isso eliminou o conflito de resolução no bundler LightningCSS (que tentava ler URLs remotas com `fs.readFileSync` no sistema de arquivos).
+  - Mantida a ordem estrita no topo de `src/styles.css`: `@import "tailwindcss" source(none);`, `@import "tw-animate-css";` e `@source "../src";`.
+- **Validação Completa**: Compilação de produção (`compile_applet`), linter (`eslint`) e suíte de testes (Vitest 74/74) 100% aprovados.
+
+

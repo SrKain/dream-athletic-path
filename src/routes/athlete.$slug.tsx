@@ -158,7 +158,7 @@ function PublicAthleteProfile() {
       </header>
 
       {/* ── HERO SECTION COM LUXO MINIMALISTA (QUIET LUXURY) ── */}
-      <section className="relative overflow-hidden bg-[#061b13] text-[#f4f7e9] min-h-[500px] sm:min-h-[540px] flex items-center">
+      <section className="relative overflow-hidden bg-[#032812] text-[#f4f7e9] min-h-[500px] sm:min-h-[540px] flex items-center">
         {/* Background YouTube Video com Overlay cinematográfico */}
         {heroUrl && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -180,9 +180,9 @@ function PublicAthleteProfile() {
           </div>
         )}
 
-        {/* Máscara Verde Esmeralda Profunda e Textura Sutil */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#061b13]/98 via-[#04160f]/94 to-[#020b07]/98 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_25%,rgba(48,184,132,0.18),transparent_55%)]" />
+        {/* Máscara Verde Escura Profunda e Textura Sutil */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#032812]/98 via-[#032812]/94 to-[#021a0c]/98 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_25%,rgba(246,158,0,0.15),transparent_55%)]" />
 
         <div className="container-edge relative z-10 px-6 sm:px-10 md:px-12 lg:px-16 xl:px-20 py-16 sm:py-20 lg:py-24 w-full">
           <div className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16 xl:gap-20 lg:items-center">
@@ -198,7 +198,7 @@ function PublicAthleteProfile() {
 
                 {/* Badge de Posição Discreto sobre a Foto */}
                 {positionLabel && (
-                  <span className="absolute bottom-3.5 left-3.5 right-3.5 text-center rounded-lg border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[#dfff1f] backdrop-blur-md">
+                  <span className="absolute bottom-3.5 left-3.5 right-3.5 text-center rounded-lg border border-white/20 bg-black/75 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[#f69e00] backdrop-blur-md">
                     {positionLabel}
                   </span>
                 )}
@@ -223,19 +223,19 @@ function PublicAthleteProfile() {
                 )}
                 {athlete.height_cm && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">Height:</span>
+                    <span className="text-[#cad8cf] text-xs uppercase tracking-wider">Height:</span>
                     <span className="font-semibold">{formatHeightImperial(athlete.height_cm)}</span>
                   </div>
                 )}
                 {athlete.weight_kg && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">Weight:</span>
+                    <span className="text-[#cad8cf] text-xs uppercase tracking-wider">Weight:</span>
                     <span className="font-semibold">{formatWeightImperial(athlete.weight_kg)}</span>
                   </div>
                 )}
                 {(profile?.high_school_graduation || profile?.graduation_year) && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">
+                    <span className="text-[#cad8cf] text-xs uppercase tracking-wider">
                       HIGH SCHOOL GRAD.:
                     </span>
                     <span className="font-semibold">
@@ -245,15 +245,15 @@ function PublicAthleteProfile() {
                 )}
                 {gpaFormatted && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">
+                    <span className="text-[#cad8cf] text-xs uppercase tracking-wider">
                       Current GPA:
                     </span>
-                    <span className="font-semibold text-[#dfff1f]">{gpaFormatted}</span>
+                    <span className="font-bold text-[#f69e00]">{gpaFormatted}</span>
                   </div>
                 )}
                 {birthDateFormatted && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[#b9c4bc] text-xs uppercase tracking-wider">Born:</span>
+                    <span className="text-[#cad8cf] text-xs uppercase tracking-wider">Born:</span>
                     <span className="font-semibold">
                       {birthDateFormatted} {age !== null ? `(${age}y)` : ""}
                     </span>
@@ -267,7 +267,7 @@ function PublicAthleteProfile() {
                   href={buildRecruitWhatsappUrl(athlete.full_name)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="liquid-button inline-flex h-12 items-center gap-2.5 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-emerald-950/40"
+                  className="liquid-button inline-flex h-12 items-center gap-2.5 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-black/40"
                 >
                   <MessageCircle className="h-4 w-4 fill-current" />
                   Recruit Athlete
@@ -288,16 +288,16 @@ function PublicAthleteProfile() {
                       rel="noopener noreferrer"
                       className="inline-flex h-12 items-center gap-2.5 rounded-xl border border-white/20 bg-white/5 px-6 text-xs font-semibold uppercase tracking-wider text-[#f4f7e9] backdrop-blur-md transition hover:border-white/40 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      <Play className="h-3.5 w-3.5 fill-current text-[#dfff1f]" /> {label}
+                      <Play className="h-3.5 w-3.5 fill-current text-[#f69e00]" /> {label}
                     </a>
                   );
                 })}
 
                 <a
                   href="#fact-sheet"
-                  className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-6 text-xs font-semibold uppercase tracking-wider text-[#b9c4bc] transition hover:text-[#f4f7e9] hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/15 bg-black/20 px-6 text-xs font-semibold uppercase tracking-wider text-[#cad8cf] transition hover:text-[#f4f7e9] hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <FileText className="h-3.5 w-3.5 text-[#dfff1f]" /> Fact Sheet
+                  <FileText className="h-3.5 w-3.5 text-[#f69e00]" /> Fact Sheet
                 </a>
               </div>
             </div>
@@ -367,7 +367,7 @@ function PublicAthleteProfile() {
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
-              <Trophy className="h-3.5 w-3.5 text-amber-500" /> Achievements
+              <Trophy className="h-3.5 w-3.5 text-primary" /> Achievements
             </a>
           )}
           {media.length > 0 && (
@@ -390,7 +390,7 @@ function PublicAthleteProfile() {
             data-nav-id="recruit-cta"
             onClick={() => setActiveId("recruit-cta")}
             aria-current={activeId === "recruit-cta" ? "true" : undefined}
-            className="liquid-button inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-950/20 transition hover:brightness-110 active:scale-95 whitespace-nowrap ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="liquid-button inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-black/20 transition hover:brightness-110 active:scale-95 whitespace-nowrap ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <MessageCircle className="h-3.5 w-3.5 fill-current" /> Recruit
           </a>
@@ -431,7 +431,7 @@ function PublicAthleteProfile() {
                   <h3 className="font-display text-base font-semibold truncate text-foreground">
                     {video.title || `Presentation Film ${idx + 1}`}
                   </h3>
-                  <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                  <span className="shrink-0 rounded-full border border-[#114f8f]/30 bg-[#114f8f]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#114f8f] dark:text-[#5ca5f0]">
                     Introduction
                   </span>
                 </div>
@@ -452,7 +452,7 @@ function PublicAthleteProfile() {
                   <h3 className="font-display text-base font-semibold truncate text-foreground">
                     {video.title || `In Court Footage ${idx + 1}`}
                   </h3>
-                  <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <span className="shrink-0 rounded-full border border-[#084323]/30 bg-[#084323]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#084323] dark:text-[#4ade80]">
                     Match Play
                   </span>
                 </div>
@@ -687,7 +687,7 @@ function PublicAthleteProfile() {
                   />
                 )}
                 <div className="flex gap-4 p-5 sm:p-6">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-500">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                     <Trophy className="h-5 w-5" />
                   </div>
                   <div>
@@ -770,7 +770,7 @@ function PublicAthleteProfile() {
               href={buildRecruitWhatsappUrl(athlete.full_name)}
               target="_blank"
               rel="noopener noreferrer"
-              className="liquid-button inline-flex h-12 items-center gap-2 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-emerald-950/30"
+              className="liquid-button inline-flex h-12 items-center gap-2 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-black/30"
             >
               <MessageCircle className="h-4 w-4 fill-current" />
               Recruit {firstName} on WhatsApp
