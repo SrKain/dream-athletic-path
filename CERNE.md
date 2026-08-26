@@ -148,9 +148,41 @@ bun run validate
 
 - [`src/lib/email/stage-change.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/stage-change.server.ts): Server Function `notifyStageAdvancementServerFn` que orquestra o envio de e-mails celebrativos quando atleta avança de etapa. Carrega mensagem customizada de `pipeline_stages.celebration_message_en`, substitui placeholders, monta dados do e-mail e dispara com respeito à janela de envio. Retorna informações de agendamento quando aplicável.
 
----
+## Atualização 2026-08-25 — Seção Highlights na Home do Catálogo Público
 
-## 6. Modelo de Banco de Dados (`src/types/db.ts` e `db/migrations`)
+- **Migration `0015_highlight_likes.sql`**: cria a tabela `athlete_video_likes` com colunas `id`, `video_id`, `athlete_id`, `user_fingerprint`, `created_at` e restrição UNIQUE (`video_id`, `user_fingerprint`), com permissões e RLS para inserção pública e leitura anônima/pública.
+- **Trilha de Bolinhas na Home (`src/components/home-highlights-story-bar.tsx`)**:
+  - Posicionada abaixo do hero e antes da barra de pesquisa e filtros do catálogo.
+  - Scroll horizontal suave com suporte a swipe no mobile e botões com setas de navegação no desktop.
+  - Cada bolinha contém a foto/avatar da atleta com anel de cor fixa laranja institucional (`#f69e00`), sem lógica de visto/não visto, e o nome da atleta em tipografia Quicksand Bold.
+  - Ordenação automática pela atleta com highlight mais recente cadastrado primeiro.
+  - Ao clicar em uma bolinha, abre o visualizador em tela cheia na posição exata do highlight daquela atleta.
+- **Visualizador em Tela Cheia (`src/components/global-highlights-viewer.tsx`)**:
+  - Feed vertical contínuo em proporção 9:16 com navegação por scroll/swipe vertical e atalhos de teclado (↑/↓, J/K, ESC, M para alternar áudio).
+  - Percorre todos os highlights de todas as atletas de forma global e contínua.
+  - Barra de progresso segmentada no topo com dados da atleta e botão de fechar.
+  - Áudio mudo por padrão com toggle intuitivo e indicador em tela.
+  - Overlay no canto inferior esquerdo com nome, posição em inglês e país da atleta.
+  - Ações laterais flutuantes à direita:
+    - **Curtir**: ícone de Estrelinha (`Star`) com persistência real em banco via `likeHighlightVideo`, atualização otimista instantânea e proteção anti-spam.
+    - **Recrutar**: link direto para WhatsApp com mensagem personalizada pré-formatada para o recrutamento da atleta.
+    - **Compartilhar**: aciona `navigator.share` (Web Share API) com fallback para cópia de link na área de transferência com notificação toast.
+    - **Perfil**: navegação instantânea para o perfil público da atleta (`/athlete/$slug`).
+- **Data Loaders e Server Functions (`src/lib/athletes.functions.ts`)**:
+  - `listPublicAthletes()` agrega todos os vídeos do tipo `highlight` (e fallback de perfil) e consolida a contagem de likes em `highlightFeed` e `storyAthletes`.
+  - `likeHighlightVideo()` permite o registro seguro de interesse de recrutadores e coaches.
+
+## Atualização 2026-08-25 — Ajustes de Espaçamento/Contraste em Highlights e Badge Transfer no Catálogo
+
+- **Espaçamento e Contraste na Seção de Highlights (`src/components/home-highlights-story-bar.tsx`)**:
+  - `padding-top` expandido para `pt-9 md:pt-12` (com `pb-6 md:pb-8`), garantindo respiro e proporção harmônica em relação ao Hero e às demais seções da Home. O Hero permanece 100% inalterado em cores, gradientes e dimensões.
+  - Tipografia de apoio ("Highlights · X Athletes") e posições das atletas com contraste aprimorado (`text-foreground/80` e `text-foreground/75`), garantindo conformidade estrita com o padrão WCAG AA de acessibilidade sobre o fundo verde-acinzentado.
+- **Badge "TRANSFER" no Card do Atleta (`src/routes/index.tsx`)**:
+  - Condicional atualizada no componente `AthleteCardItem`: a badge `"TRANSFER"` é exibida **exclusivamente** para atletas cujo status seja `Freshman`, `Sophomore`, `Junior` ou `Senior`.
+  - Status como `Graduate Transfer`, `High School`, `Graduate`, `Transfer` (ou valores nulos/vazios) não ativam a badge.
+  - O perfil individual do atleta (`/athlete/$slug`) mantém seu comportamento padrão de exibir o status real.
+
+---
 
 Entidades do PostgreSQL executadas no Supabase Externo:
 

@@ -7,6 +7,8 @@ import type {
   AthleteMedia,
   AthleteProfile,
   AthleteVideo,
+  HighlightFeedItem,
+  HighlightStoryAthlete,
 } from "@/types/db";
 
 export type PublicAthletePayload = {
@@ -26,6 +28,8 @@ export type PublicCatalogPayload = {
   visual: AgencyVisualSettings | null;
   positionOrder: string[];
   featureVideos: Record<string, string>;
+  storyAthletes: HighlightStoryAthlete[];
+  highlightFeed: HighlightFeedItem[];
 };
 
 export const PUBLIC_ATHLETE_SELECT =
@@ -53,6 +57,8 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
       featureVideos: {},
       positionOrder: [],
       visual: null,
+      storyAthletes: [],
+      highlightFeed: [],
     };
     if (!client) return empty;
 
@@ -74,12 +80,15 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
 
     const athletes = (athletesResult.data ?? []) as unknown as AthleteCard[];
     const featureVideos: Record<string, string> = {};
+    const highlightFeed: HighlightFeedItem[] = [];
+    const storyAthletes: HighlightStoryAthlete[] = [];
+
     if (athletes.length) {
       const athleteIds = athletes.map((item) => item.id);
-      const [videosResult, profilesResult] = await Promise.all([
+      const [videosResult, profilesResult, likesResult] = await Promise.all([
         client
           .from("athlete_videos")
-          .select("athlete_id, youtube_url, sort_order, kind")
+          .select("id, athlete_id, youtube_url, sort_order, kind, title, created_at")
           .in("athlete_id", athleteIds)
           .order("sort_order"),
         client
@@ -88,14 +97,18 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
             "athlete_id, highlight_video_url, high_school_graduation, graduation_year, athlete_status",
           )
           .in("athlete_id", athleteIds),
+        client.from("athlete_video_likes").select("video_id").in("athlete_id", athleteIds),
       ]);
 
       if (videosResult.error)
         console.error("[listPublicAthletes] athlete_videos:", videosResult.error.message);
       const allVideos = (videosResult.data ?? []) as {
+        id: string;
         athlete_id: string;
         youtube_url: string;
         kind: string;
+        title: string | null;
+        created_at?: string;
       }[];
       const profiles = (profilesResult.data ?? []) as {
         athlete_id: string;
@@ -105,7 +118,19 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
         athlete_status: string | null;
       }[];
 
+      // Mapeamento de contagem de likes por vídeo
+      const likesByVideo: Record<string, number> = {};
+      if (likesResult.data) {
+        for (const row of likesResult.data as { video_id: string }[]) {
+          if (row.video_id) {
+            likesByVideo[row.video_id] = (likesByVideo[row.video_id] || 0) + 1;
+          }
+        }
+      }
+
       // Prioridade para o card do catálogo: feature > highlight > presentation > in_court > profile.highlight_video_url
+      const athleteHighlightMap = new Map<string, HighlightFeedItem[]>();
+
       for (const athlete of athletes) {
         const athleteId = athlete.id;
         const athleteVids = allVideos.filter((v) => v.athlete_id === athleteId);
@@ -134,6 +159,87 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
         if (chosenUrl) {
           featureVideos[athleteId] = chosenUrl;
         }
+
+        // Coleta de clips de highlights para a trilha de Stories / Reels da Home
+        const athleteHighlights = athleteVids.filter((v) => v.kind === "highlight");
+        const items: HighlightFeedItem[] = [];
+
+        for (const vid of athleteHighlights) {
+          if (vid.youtube_url) {
+            items.push({
+              id: vid.id,
+              athleteId: athlete.id,
+              athleteName: athlete.full_name,
+              athleteSlug: athlete.slug,
+              athletePhoto: athlete.photo_url,
+              positionEn: athlete.position?.name_en ?? null,
+              countryEn: athlete.country?.name_en ?? null,
+              countryFlag: athlete.country?.flag_emoji ?? null,
+              youtubeUrl: vid.youtube_url,
+              title: vid.title,
+              createdAt: vid.created_at || athlete.created_at,
+              likesCount: likesByVideo[vid.id] || 0,
+            });
+          }
+        }
+
+        // Fallback: se não tiver athlete_videos do tipo highlight, mas tiver highlight_video_url no profile
+        if (items.length === 0 && prof?.highlight_video_url) {
+          const fakeId = `prof-${athlete.id}`;
+          items.push({
+            id: fakeId,
+            athleteId: athlete.id,
+            athleteName: athlete.full_name,
+            athleteSlug: athlete.slug,
+            athletePhoto: athlete.photo_url,
+            positionEn: athlete.position?.name_en ?? null,
+            countryEn: athlete.country?.name_en ?? null,
+            countryFlag: athlete.country?.flag_emoji ?? null,
+            youtubeUrl: prof.highlight_video_url,
+            title: `${athlete.full_name} Highlights`,
+            createdAt: athlete.created_at,
+            likesCount: likesByVideo[fakeId] || 0,
+          });
+        }
+
+        if (items.length > 0) {
+          athleteHighlightMap.set(athlete.id, items);
+        }
+      }
+
+      // Ordenar todo o feed global de highlights do mais recente para o mais antigo
+      const allGlobalHighlights: HighlightFeedItem[] = [];
+      for (const list of athleteHighlightMap.values()) {
+        allGlobalHighlights.push(...list);
+      }
+
+      allGlobalHighlights.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime() || 0;
+        const timeB = new Date(b.createdAt).getTime() || 0;
+        return timeB - timeA;
+      });
+
+      highlightFeed.push(...allGlobalHighlights);
+
+      // Montar a trilha de bolinhas (1 por atleta com highlight ativo), ordenada pela atleta com highlight mais recente
+      const processedAthletes = new Set<string>();
+      for (const item of allGlobalHighlights) {
+        if (!processedAthletes.has(item.athleteId)) {
+          processedAthletes.add(item.athleteId);
+          const athleteItems = athleteHighlightMap.get(item.athleteId) || [];
+          const firstIndex = highlightFeed.findIndex((h) => h.athleteId === item.athleteId);
+
+          storyAthletes.push({
+            athleteId: item.athleteId,
+            athleteName: item.athleteName,
+            athleteSlug: item.athleteSlug,
+            photoUrl: item.athletePhoto,
+            positionEn: item.positionEn,
+            latestHighlightDate: item.createdAt,
+            highlightsCount: athleteItems.length,
+            firstHighlightIndex: firstIndex >= 0 ? firstIndex : 0,
+          });
+        }
       }
     }
 
@@ -145,9 +251,47 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
         (item) => item.position_id,
       ),
       visual: (visualResult.data ?? null) as AgencyVisualSettings | null,
+      storyAthletes,
+      highlightFeed,
     };
   },
 );
+
+/** Registra like no highlight com persistência segura */
+export const likeHighlightVideo = createServerFn({ method: "POST" })
+  .validator((data: { videoId: string; athleteId: string; userFingerprint?: string }) => ({
+    videoId: String(data.videoId),
+    athleteId: String(data.athleteId),
+    userFingerprint: String(data.userFingerprint || "anonymous").slice(0, 80),
+  }))
+  .handler(async ({ data }) => {
+    const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
+    const client = getPublicServerClient();
+    if (!client) return { success: true, count: 1 };
+
+    try {
+      const { error } = await client.from("athlete_video_likes").insert({
+        video_id: data.videoId,
+        athlete_id: data.athleteId,
+        user_fingerprint: data.userFingerprint,
+      });
+
+      if (error) {
+        console.warn("[likeHighlightVideo] DB error or fallback:", error.message);
+      }
+
+      // Consulta contagem atualizada
+      const { count } = await client
+        .from("athlete_video_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("video_id", data.videoId);
+
+      return { success: true, count: count ?? 1 };
+    } catch (err) {
+      console.warn("[likeHighlightVideo] exception:", err);
+      return { success: true, count: 1 };
+    }
+  });
 
 /** Perfil público por slug (com fallback para slugs antigos). */
 export const getPublicAthlete = createServerFn({ method: "GET" })

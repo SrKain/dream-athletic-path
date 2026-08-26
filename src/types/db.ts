@@ -355,3 +355,39 @@ export interface AthleteCard extends PublicAthlete {
     "high_school_graduation" | "graduation_year" | "athlete_status" | "highlight_video_url"
   > | null;
 }
+
+/** Item de bolinha de Stories de Highlights na Home */
+export interface HighlightStoryAthlete {
+  athleteId: string;
+  athleteName: string;
+  athleteSlug: string;
+  photoUrl: string | null;
+  positionEn: string | null;
+  latestHighlightDate: string;
+  highlightsCount: number;
+  firstHighlightIndex: number;
+}
+
+/** Item individual no feed global de Highlights */
+export interface HighlightFeedItem {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  athleteSlug: string;
+  athletePhoto: string | null;
+  positionEn: string | null;
+  countryEn: string | null;
+  countryFlag: string | null;
+  youtubeUrl: string;
+  title: string | null;
+  createdAt: string;
+  likesCount: number;
+}
+
+export interface AthleteVideoLike {
+  id: string;
+  video_id: string;
+  athlete_id: string;
+  user_fingerprint: string;
+  created_at: string;
+}

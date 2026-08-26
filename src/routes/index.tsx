@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from "react";
 
 import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
 import { ConfigurationNotice } from "@/components/configuration-notice";
+import { GlobalHighlightsViewer } from "@/components/global-highlights-viewer";
+import { HomeHighlightsStoryBar } from "@/components/home-highlights-story-bar";
 import { PoweredByIasinSignature } from "@/components/powered-by-iasin-signature";
 import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
 import { WhatsappFab } from "@/components/whatsapp-fab";
@@ -49,9 +51,17 @@ export const Route = createFileRoute("/")({
 });
 
 function Catalog() {
-  const { athletes, configured, visual, positionOrder, featureVideos } =
-    Route.useLoaderData() as PublicCatalogPayload;
+  const {
+    athletes,
+    configured,
+    visual,
+    positionOrder,
+    featureVideos,
+    storyAthletes = [],
+    highlightFeed = [],
+  } = Route.useLoaderData() as PublicCatalogPayload;
   const { pick } = useI18n();
+  const [activeHighlightIndex, setActiveHighlightIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
@@ -234,6 +244,14 @@ function Catalog() {
             </div>
           </div>
         </section>
+
+        {/* Highlights Stories Bar */}
+        {storyAthletes.length > 0 && (
+          <HomeHighlightsStoryBar
+            stories={storyAthletes}
+            onSelectAthlete={(story) => setActiveHighlightIndex(story.firstHighlightIndex)}
+          />
+        )}
 
         {/* Catalog Section */}
         <section id="catalog" className="container-edge py-10 md:py-14">
@@ -516,6 +534,15 @@ function Catalog() {
       </footer>
 
       <WhatsappFab />
+
+      {/* Global Highlights Viewer Modal */}
+      {activeHighlightIndex !== null && highlightFeed.length > 0 && (
+        <GlobalHighlightsViewer
+          feed={highlightFeed}
+          startIndex={activeHighlightIndex}
+          onClose={() => setActiveHighlightIndex(null)}
+        />
+      )}
     </main>
   );
 }
@@ -557,6 +584,8 @@ function AthleteShelf({
   );
 }
 
+const TRANSFER_ELIGIBLE_STATUSES = new Set(["freshman", "sophomore", "junior", "senior"]);
+
 function AthleteCardItem({
   athlete,
   pick,
@@ -575,7 +604,9 @@ function AthleteCardItem({
   const subline = [heightImperial, positionLabel, countryDisplay].filter(Boolean).join(" · ");
 
   const rawStatus = getAthleteStatus(athlete);
-  const showTransferBadge = Boolean(rawStatus && rawStatus.trim().toLowerCase() !== "junior");
+  const showTransferBadge = Boolean(
+    rawStatus && TRANSFER_ELIGIBLE_STATUSES.has(rawStatus.trim().toLowerCase()),
+  );
 
   return (
     <Link

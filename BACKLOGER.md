@@ -99,11 +99,26 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Entrega:** Hero editorial com foto em primeiro plano e vídeo de destaque como ambiente, CTA para o destaque, apresentação com título configurável, seção de destaque ancorada e compatibilidade restaurada para thumbnails YouTube.
 - **Status:** [CONCLUÍDO] — typecheck, lint focado, testes de YouTube e build passaram. A suíte completa mantém duas falhas preexistentes em `sending-window.test.ts`, fora do escopo visual; a validação visual com dados reais depende da migration 0009 aplicada no Supabase externo.
 
-## [CONCLUÍDO] Aba Visual + catálogo em formato portfólio
+## TASK-013 — 2026-08-25 — Seção Highlights na Home do Catálogo Público
 
-- Solicitante: usuário | Executor: Lovable
-- Aba **Visual** no admin (`/admin/visual`): títulos do hero, cabeçalho "Nossos Atletas" e ordenação manual das posições.
-- Catálogo: hero mais baixo, cabeçalho antes da busca, badge "Destaque" com contraste corrigido, prévia em vídeo (hover no desktop / centro da tela no mobile), FAB do WhatsApp.
-- Perfil público: hero com vídeo destaque ao fundo, reels (highlights) antes do "Sobre", vídeo de apresentação, bloco do vídeo destaque, conquistas com imagem + texto, FAB do WhatsApp.
-- Ficha do atleta no admin dividida em abas (Timeline / Dados / Perfil & mídia) com gestão de links do YouTube e upload de imagem da conquista.
-- Pendente do usuário: aplicar `db/migrations/0009_visual_settings_media.sql` no Supabase.
+- **Solicitante:** Usuário Humano
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Implementar a seção "Highlights" na Home do catálogo público (abaixo do hero e antes dos filtros) com trilha horizontal de bolinhas (estilo Stories) com anel laranja (#f69e00) e visualizador vertical em tela cheia (estilo Reels/Stories) com feed global contínuo de todos os highlights, curtida com persistência real em banco (`athlete_video_likes`), botões de ação (Recrutar via WhatsApp, Compartilhar com fallback Web Share/clipboard, Curtir com estrelinha, Acessar Perfil) e controles de áudio (mudo por padrão).
+- **Entrega:**
+  - Migração `db/migrations/0015_highlight_likes.sql` com tabela `athlete_video_likes` e índices de performance.
+  - Componente `HomeHighlightsStoryBar` (`src/components/home-highlights-story-bar.tsx`) com layout horizontal responsivo, botões com setas de navegação no desktop, swipe touch no mobile e tipografia Quicksand Bold.
+  - Componente `GlobalHighlightsViewer` (`src/components/global-highlights-viewer.tsx`) com player vertical 9:16 de alta fidelidade, barra de progresso segmentada, overlay com dados da atleta, ações laterais com contagem de estrelas em tempo real, atalhos de teclado (↑/↓/ESC/M) e suporte touch.
+  - Integração em `listPublicAthletes` (`src/lib/athletes.functions.ts`) com agregação de vídeos highlight e likes.
+  - Server function `likeHighlightVideo` com proteção de likes e contagem precisa.
+  - Integração na Home (`src/routes/index.tsx`).
+## TASK-014 — 2026-08-25 — Ajustes de Espaçamento/Contraste em Highlights e Correção da Badge Transfer
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** 
+  1. Aumentar padding-top da seção de Highlights no catálogo (sem mexer no Hero) e revisar contraste tipográfico (WCAG AA).
+  2. Corrigir a condicional da badge "TRANSFER" no card de atleta na Home para exibir apenas nos status Freshman, Sophomore, Junior ou Senior (não exibir para Graduate Transfer).
+- **Entrega:**
+  - `src/components/home-highlights-story-bar.tsx`: espaçamento superior ampliado (`pt-9 pb-6 md:pt-12 md:pb-8`) e contraste reforçado para título, contagem e posições das atletas.
+  - `src/routes/index.tsx`: condicional de exibição da badge "TRANSFER" no `AthleteCardItem` restrita aos status elegíveis (`freshman`, `sophomore`, `junior`, `senior`).
+- **Status:** [CONCLUÍDO] — linter e build validados com sucesso.
+
