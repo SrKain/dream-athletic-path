@@ -29,24 +29,78 @@ export const Route = createFileRoute("/")({
   loader: () => listPublicAthletes(),
   pendingComponent: CatalogSkeleton,
   pendingMs: 200,
-  head: () => ({
-    meta: [
-      { title: "Athlete Catalog — Go Team Go Agency" },
-      {
-        name: "description",
-        content:
-          "Explore top Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.",
-      },
-      { property: "og:title", content: "Athlete Catalog — Go Team Go Agency" },
-      {
-        property: "og:description",
-        content:
-          "Explore top Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const data = loaderData as PublicCatalogPayload | undefined;
+    const count = data?.athletes?.length ?? 0;
+    const pageTitle =
+      "Brazilian Volleyball Recruits & College Athletes Catalog | Go Team Go Agency";
+    const pageDescription =
+      count > 0
+        ? `Explore ${count} verified Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.`
+        : "Explore top Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.";
+    const canonicalUrl = "https://portfolio.goteamgoagency.com/";
+    const heroImage = data?.visual?.hero_background_url || catalogHeroImage;
+    const logoUrl = data?.visual?.logo_url;
+
+    const organizationSchema = {
+      "@context": "https://schema.org",
+      "@type": "SportsOrganization",
+      name: "Go Team Go Agency",
+      url: canonicalUrl,
+      ...(logoUrl ? { logo: logoUrl } : {}),
+      description:
+        "Connecting elite Brazilian student-athletes with university athletic programs and scholarships across the USA.",
+      sport: "Volleyball",
+    };
+
+    const itemListSchema = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Go Team Go Athlete Catalog",
+      description:
+        "Recruitment portfolio of Brazilian student-athletes seeking US college opportunities.",
+      numberOfItems: count,
+      itemListElement: (data?.athletes ?? []).map((athlete, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: athlete.full_name,
+        url: `https://portfolio.goteamgoagency.com/athlete/${athlete.slug}`,
+      })),
+    };
+
+    return {
+      meta: [
+        { title: pageTitle },
+        { name: "description", content: pageDescription },
+        { name: "robots", content: "index, follow, max-image-preview:large" },
+        { property: "og:title", content: pageTitle },
+        { property: "og:description", content: pageDescription },
+        { property: "og:url", content: canonicalUrl },
+        { property: "og:site_name", content: "Go Team Go Agency" },
+        { property: "og:locale", content: "en_US" },
+        { property: "og:type", content: "website" },
+        { property: "og:image", content: heroImage },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { property: "og:image:alt", content: "Go Team Go Athlete Catalog" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: pageTitle },
+        { name: "twitter:description", content: pageDescription },
+        { name: "twitter:image", content: heroImage },
+      ],
+      links: [{ rel: "canonical", href: canonicalUrl }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(organizationSchema),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(itemListSchema),
+        },
+      ],
+    };
+  },
   component: Catalog,
 });
 
@@ -208,7 +262,7 @@ function Catalog() {
               {visual?.logo_url ? (
                 <img
                   src={visual.logo_url}
-                  alt="Go Team Go"
+                  alt="Go Team Go Agency logo"
                   className="h-8 md:h-10 w-auto object-contain"
                 />
               ) : (
@@ -518,7 +572,11 @@ function Catalog() {
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             {visual?.logo_url ? (
-              <img src={visual.logo_url} alt="Go Team Go" className="h-7 w-auto object-contain" />
+              <img
+                src={visual.logo_url}
+                alt="Go Team Go Agency logo"
+                className="h-7 w-auto object-contain"
+              />
             ) : (
               <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
             )}
@@ -608,6 +666,8 @@ function AthleteCardItem({
     rawStatus && TRANSFER_ELIGIBLE_STATUSES.has(rawStatus.trim().toLowerCase()),
   );
 
+  const cardAlt = `${athlete.full_name} — ${positionLabel || "Volleyball Athlete"}${countryName ? `, ${countryName}` : ""}`;
+
   return (
     <Link
       to="/athlete/$slug"
@@ -617,7 +677,7 @@ function AthleteCardItem({
       <div className="relative">
         <AthleteVideoCardMedia
           photoUrl={getAthleteDisplayImage(athlete)}
-          alt={athlete.full_name}
+          alt={cardAlt}
           videoUrl={videoUrl}
         />
         {showTransferBadge && (

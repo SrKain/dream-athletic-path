@@ -496,4 +496,25 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Mantida a ordem estrita no topo de `src/styles.css`: `@import "tailwindcss" source(none);`, `@import "tw-animate-css";` e `@source "../src";`.
 - **Validação Completa**: Compilação de produção (`compile_applet`), linter (`eslint`) e suíte de testes (Vitest 74/74) 100% aprovados.
 
+## Atualização 2026-08-28 — Revisão Completa de SEO Técnico e GEO (TASK-042)
+
+- **Domínio Canônico**: `https://portfolio.goteamgoagency.com`
+- **Módulo de Sitemap Dinâmico (`src/lib/sitemap.ts` e `src/server.ts`)**:
+  - Implementada a rota do servidor `/sitemap.xml` para servir sitemap XML gerado em tempo real contendo a raiz (`/`) e todas as atletas públicas ativas (`/athlete/$slug`).
+  - Cache HTTP headers otimizados (`max-age=3600, s-maxage=3600`).
+- **Configuração de Rastreadores e Bots de IA (`public/robots.txt`)**:
+  - Regras explícitas permitindo a indexação pública para motores de busca tradicionais (Googlebot, Bingbot, Twitterbot, facebookexternalhit) e motores generativos de IA (GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, Claude-Web, anthropic-ai, PerplexityBot, Google-Extended, Applebot-Extended).
+  - Bloqueio estrito (`Disallow`) para rotas privadas (`/admin`, `/portal`, `/proposal/`, `/auth/`, `/api/`).
+  - Declaração da URL canônica do Sitemap.
+- **Metatags & Otimização GEO no Catálogo (`src/routes/index.tsx`)**:
+  - Função `head()` gerando dynamic title, description, canonical link, Open Graph (1200x630) e Twitter cards.
+  - Injeção de Structured Data JSON-LD com `SportsOrganization` e `ItemList`.
+  - Melhoria da acessibilidade com atributos `alt` descritivos nos logos e nas capas de atletas.
+- **Metatags & Otimização GEO no Perfil da Atleta (`src/routes/athlete.$slug.tsx`)**:
+  - Função `head()` gerando dynamic title rico em palavras-chave, meta description contextual com esporte, país, posição e ano de formatura, Open Graph e Twitter cards.
+  - Injeção de dados estruturados Schema.org JSON-LD `Person` (com afiliação institucional à Go Team Go Agency, modalidade e ocupação) e `BreadcrumbList`.
+  - Breadcrumb visual acessível no topo da página e textos alternativos `alt` refinados nas fotos editoriais, galeria e histórico de conquistas.
+- **Validação Técnica**: Compilação de produção (`compile_applet`) e tipagem TypeScript 100% verificadas com zero erros.
+
+
 

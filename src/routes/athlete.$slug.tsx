@@ -43,28 +43,120 @@ export const Route = createFileRoute("/athlete/$slug")({
   },
   pendingComponent: AthleteProfileSkeleton,
   pendingMs: 200,
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.athlete.full_name} — Go Team Go` },
-          {
-            name: "description",
-            content: `${loaderData.athlete.full_name} — athletic and academic profile represented by Go Team Go.`,
-          },
-          { property: "og:title", content: `${loaderData.athlete.full_name} — Go Team Go` },
-          {
-            property: "og:description",
-            content: `Videos, achievements and scouting stats for ${loaderData.athlete.full_name}.`,
-          },
-          { property: "og:type", content: "profile" },
-          { name: "twitter:card", content: "summary_large_image" },
-          {
-            property: "og:image",
-            content: loaderData.athlete.photo_url ?? getAthleteDisplayImage(loaderData.athlete),
-          },
-        ]
-      : [{ title: "Athlete Not Found — Go Team Go" }, { name: "robots", content: "noindex" }],
-  }),
+  head: ({ loaderData }) => {
+    if (!loaderData) {
+      return {
+        meta: [
+          { title: "Athlete Not Found — Go Team Go Agency" },
+          { name: "robots", content: "noindex, nofollow" },
+        ],
+      };
+    }
+
+    const { athlete, profile, visual } = loaderData;
+    const sportName = athlete.sport?.name_en || "Volleyball";
+    const posName = athlete.position?.name_en || "";
+    const countryName = athlete.country?.name_en || "Brazilian";
+    const gradYear = profile?.high_school_graduation || profile?.graduation_year;
+    const photo = athlete.photo_url ?? getAthleteDisplayImage(athlete);
+    const canonicalUrl = `https://portfolio.goteamgoagency.com/athlete/${athlete.slug}`;
+
+    const titleParts = [
+      athlete.full_name,
+      countryName
+        ? `${countryName} ${posName ? `${posName} ` : ""}${sportName}`
+        : `${posName ? `${posName} ` : ""}${sportName}`,
+      "Go Team Go Agency",
+    ].filter(Boolean);
+    const pageTitle = titleParts.join(" — ");
+
+    const pageDescription = `${athlete.full_name}, ${countryName} ${posName ? `${posName}, ` : ""}${gradYear ? `class of ${gradYear}. ` : ""}Athletic metrics, scouting film, and academic recruiting profile represented by Go Team Go Agency for US college programs.`;
+
+    const personSchema = {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      name: athlete.full_name,
+      url: canonicalUrl,
+      image: photo,
+      ...(athlete.birth_date ? { birthDate: athlete.birth_date } : {}),
+      ...(athlete.country?.name_en ? { nationality: athlete.country.name_en } : {}),
+      affiliation: {
+        "@type": "SportsOrganization",
+        name: "Go Team Go Agency",
+        url: "https://portfolio.goteamgoagency.com",
+        ...(visual?.logo_url ? { logo: visual.logo_url } : {}),
+      },
+      ...(posName
+        ? { jobTitle: `${posName} — ${sportName}` }
+        : { jobTitle: `Athlete — ${sportName}` }),
+      hasOccupation: {
+        "@type": "Occupation",
+        name: "Student-Athlete",
+        occupationalCategory: "Athlete",
+      },
+    };
+
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: "https://portfolio.goteamgoagency.com/",
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Athlete Catalog",
+          item: "https://portfolio.goteamgoagency.com/#catalog",
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: athlete.full_name,
+          item: canonicalUrl,
+        },
+      ],
+    };
+
+    return {
+      meta: [
+        { title: pageTitle },
+        { name: "description", content: pageDescription },
+        { name: "robots", content: "index, follow, max-image-preview:large" },
+        { property: "og:title", content: pageTitle },
+        { property: "og:description", content: pageDescription },
+        { property: "og:url", content: canonicalUrl },
+        { property: "og:site_name", content: "Go Team Go Agency" },
+        { property: "og:locale", content: "en_US" },
+        { property: "og:type", content: "profile" },
+        { property: "og:image", content: photo },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        {
+          property: "og:image:alt",
+          content: `${athlete.full_name} — ${posName || "Athlete"} Scouting Profile`,
+        },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: pageTitle },
+        { name: "twitter:description", content: pageDescription },
+        { name: "twitter:image", content: photo },
+      ],
+      links: [{ rel: "canonical", href: canonicalUrl }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(personSchema),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(breadcrumbSchema),
+        },
+      ],
+    };
+  },
   component: PublicAthleteProfile,
 });
 
@@ -139,7 +231,7 @@ function PublicAthleteProfile() {
             {visual?.logo_url ? (
               <img
                 src={visual.logo_url}
-                alt="Go Team Go"
+                alt="Go Team Go Agency logo"
                 className="h-8 md:h-10 w-auto object-contain"
               />
             ) : (
@@ -156,6 +248,39 @@ function PublicAthleteProfile() {
           </Link>
         </div>
       </header>
+
+      {/* ── VISUAL BREADCRUMB NAVIGATION ── */}
+      <nav
+        aria-label="Breadcrumb"
+        className="border-b border-border/50 bg-background/50 py-2.5 text-xs text-muted-foreground"
+      >
+        <div className="container-edge">
+          <ol className="flex items-center gap-1.5 flex-wrap">
+            <li>
+              <Link to="/" className="hover:text-foreground transition-colors">
+                Home
+              </Link>
+            </li>
+            <li aria-hidden="true" className="text-muted-foreground/60">
+              /
+            </li>
+            <li>
+              <Link to="/" hash="catalog" className="hover:text-foreground transition-colors">
+                Athlete Catalog
+              </Link>
+            </li>
+            <li aria-hidden="true" className="text-muted-foreground/60">
+              /
+            </li>
+            <li
+              aria-current="page"
+              className="font-medium text-foreground truncate max-w-[200px] sm:max-w-none"
+            >
+              {athlete.full_name}
+            </li>
+          </ol>
+        </div>
+      </nav>
 
       {/* ── HERO SECTION COM LUXO MINIMALISTA (QUIET LUXURY) ── */}
       <section className="relative overflow-hidden bg-[#032812] text-[#f4f7e9] min-h-[500px] sm:min-h-[540px] flex items-center">
@@ -191,7 +316,7 @@ function PublicAthleteProfile() {
               <div className="relative aspect-[4/5] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
                 <img
                   src={photoUrl}
-                  alt={athlete.full_name}
+                  alt={`${athlete.full_name} — ${positionLabel ?? "Volleyball"} — Go Team Go Agency headshot`}
                   className="h-full w-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
@@ -681,7 +806,7 @@ function PublicAthleteProfile() {
                 {item.image_url && (
                   <img
                     src={item.image_url}
-                    alt={item.title_en || ""}
+                    alt={`${athlete.full_name} — ${item.title_en || "Achievement"}`}
                     loading="lazy"
                     className="aspect-[16/9] w-full object-cover"
                   />
@@ -724,7 +849,7 @@ function PublicAthleteProfile() {
               Photo Gallery
             </h2>
             <div className="mt-8 grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {media.map((item) =>
+              {media.map((item, idx) =>
                 item.kind === "video" ? (
                   <video
                     key={item.id}
@@ -738,7 +863,7 @@ function PublicAthleteProfile() {
                   <img
                     key={item.id}
                     src={item.url}
-                    alt={item.caption_en || athlete.full_name}
+                    alt={item.caption_en || `${athlete.full_name} — Photo ${idx + 1}`}
                     loading="lazy"
                     className="aspect-[4/3] w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02] duration-300"
                   />
@@ -799,7 +924,7 @@ function PublicAthleteProfile() {
                 <div className="aspect-[4/5] w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-950 shadow-inner">
                   <img
                     src={nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete)}
-                    alt={nextAthlete.full_name}
+                    alt={`${nextAthlete.full_name} — ${getAthletePositionEn(nextAthlete) || "Athlete"}`}
                     className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
                   />
                 </div>
@@ -834,7 +959,11 @@ function PublicAthleteProfile() {
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             {visual?.logo_url ? (
-              <img src={visual.logo_url} alt="Go Team Go" className="h-7 w-auto object-contain" />
+              <img
+                src={visual.logo_url}
+                alt="Go Team Go Agency logo"
+                className="h-7 w-auto object-contain"
+              />
             ) : (
               <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
             )}

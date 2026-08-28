@@ -122,3 +122,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - `src/routes/index.tsx`: condicional de exibição da badge "TRANSFER" no `AthleteCardItem` restrita aos status elegíveis (`freshman`, `sophomore`, `junior`, `senior`).
 - **Status:** [CONCLUÍDO] — linter e build validados com sucesso.
 
+## TASK-042 — 2026-08-28 — Revisão Completa de SEO Técnico e GEO (Generative Engine Optimization)
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Revisão completa de SEO técnico e GEO (Generative Engine Optimization) para o catálogo público e perfis de atletas no domínio canônico `https://portfolio.goteamgoagency.com`. Implementar metatags dinâmicas, dados estruturados JSON-LD, sitemap.xml dinâmico, robots.txt com permissão para bots de IA, breadcrumbs e acessibilidade de imagens. Manter rotas privadas (`/admin`, `/portal`, `/proposal/`) em noindex.
+- **Entrega:**
+  - `src/lib/sitemap.ts` & `src/server.ts`: Gerador de sitemap.xml dinâmico servido na rota do servidor com consulta a atletas públicas no Supabase e headers de cache.
+  - `public/robots.txt`: Regras completas para crawlers tradicionais e motores de busca por IA (GPTBot, ClaudeBot, PerplexityBot, etc.) com bloqueio a rotas privadas e link do sitemap.
+  - `src/routes/index.tsx`: Meta tags dinâmicas, canonical URL, Open Graph 1200x630, Twitter cards, JSON-LD (`SportsOrganization` e `ItemList`), e alt texts descritivos em logos e cards de atletas.
+  - `src/routes/athlete.$slug.tsx`: Meta tags enriquecidas com contexto esportivo/acadêmico da atleta, canonical URL, JSON-LD (`Person` e `BreadcrumbList`), breadcrumb visual de navegação e alt texts descritivos em todas as imagens.
+  - Documentação atualizada em `CERNE.md`, `BACKLOGER.md` e plano arquivado em `think/2026-08-28-0516-revisao-seo-tecnico-geo.md`.
+- **Status:** [CONCLUÍDO] — Linter, tipagem TypeScript e compilação de produção (`compile_applet`) verificados com 100% de sucesso.
+
+
