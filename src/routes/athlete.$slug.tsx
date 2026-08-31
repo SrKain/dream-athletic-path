@@ -56,7 +56,7 @@ export const Route = createFileRoute("/athlete/$slug")({
     const { athlete, profile, visual } = loaderData;
     const sportName = athlete.sport?.name_en || "Volleyball";
     const posName = athlete.position?.name_en || "";
-    const countryName = athlete.country?.name_en || "Brazilian";
+    const countryName = athlete.country?.name_en || "";
     const gradYear = profile?.high_school_graduation || profile?.graduation_year;
     const photo = athlete.photo_url ?? getAthleteDisplayImage(athlete);
     const canonicalUrl = `https://portfolio.goteamgoagency.com/athlete/${athlete.slug}`;
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/athlete/$slug")({
     ].filter(Boolean);
     const pageTitle = titleParts.join(" — ");
 
-    const pageDescription = `${athlete.full_name}, ${countryName} ${posName ? `${posName}, ` : ""}${gradYear ? `class of ${gradYear}. ` : ""}Athletic metrics, scouting film, and academic recruiting profile represented by Go Team Go Agency for US college programs.`;
+    const pageDescription = `${athlete.full_name}, ${countryName ? `${countryName} ` : ""}${posName ? `${posName}, ` : ""}${gradYear ? `class of ${gradYear}. ` : ""}Athletic metrics, scouting film, and academic recruiting profile represented by Go Team Go Agency for US college programs.`;
 
     const personSchema = {
       "@context": "https://schema.org",

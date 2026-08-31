@@ -516,5 +516,28 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Breadcrumb visual acessível no topo da página e textos alternativos `alt` refinados nas fotos editoriais, galeria e histórico de conquistas.
 - **Validação Técnica**: Compilação de produção (`compile_applet`) e tipagem TypeScript 100% verificadas com zero erros.
 
+## Atualização 2026-08-31 — Posicionamento Global e Neutro da Agência (Recrutas Internacionais) (TASK-051)
+
+- **Posicionamento Institucional Global Go Team Go Agency**:
+  - Ajustado o foco e toda a copy pública para representar o escopo internacional real da agência (recrutamento de estudantes-atletas do mundo inteiro para ligas universitárias dos EUA - NCAA, NAIA, NJCAA).
+  - Eliminados todos os vieses hardcoded de *"Brazilian athletes/recruits"* na copy pública, metadados e fallbacks.
+- **Catálogo Público & SEO (`src/routes/index.tsx`)**:
+  - `pageTitle`: Atualizado para `"International Volleyball Recruits & College Athletes Catalog | Go Team Go Agency"`.
+  - `pageDescription`: Atualizado para `"Explore [N] verified international volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics."`.
+  - Schema JSON-LD `SportsOrganization`: Atualizada descrição para `"Connecting elite student-athletes worldwide with university athletic programs and scholarships across the USA."`.
+  - Schema JSON-LD `ItemList`: Atualizada descrição para `"Recruitment portfolio of international student-athletes seeking US college opportunities."`.
+  - Fallback do subtítulo do Hero: Atualizado para `"Explore athlete profiles by position, watch game film, and discover top international recruits with verified academic and athletic credentials."`.
+- **Dicionário de Textos (`src/i18n/messages.ts`)**:
+  - Chave `"feed.subtitle"`: Atualizada para `"Hand-picked athletes from around the world, verified and presented to coaches nationwide."`.
+- **Perfil Público do Atleta (`src/routes/athlete.$slug.tsx`)**:
+  - Removido o fallback enviesado `|| "Brazilian"` que forçava qualquer atleta sem nacionalidade definida a aparecer como brasileiro no `<title>` e `<meta description>`.
+  - Nacionalidade tornada neutra/opcional nos metadados e mantida a exibição com bandeira e nome do país quando cadastrada.
+- **Metadados Globais & Admin (`src/routes/__root.tsx` e `src/routes/_authenticated/admin/visual.tsx`)**:
+  - Meta description raiz atualizada para `"Catalog and tracking platform for international student-athletes pursuing collegiate athletic opportunities in the United States."`.
+  - Placeholders e previews do painel administrativo atualizados para refletir o posicionamento internacional.
+- **Auditoria de Filtros e Ordenação (`src/lib/catalog.ts`)**:
+  - Confirmado que a normalização de países via `COUNTRY_PT_TO_EN` apenas trata variações de entrada sem aplicar nenhum peso, prioridade ou preferência sobre ordenação de atletas ou filtros.
+- **Validação Técnica**: 74/74 testes unitários no Vitest aprovados, ESLint limpo e compilação de produção (`compile_applet`) com 100% de sucesso.
+
 
 

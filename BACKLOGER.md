@@ -134,4 +134,28 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Documentação atualizada em `CERNE.md`, `BACKLOGER.md` e plano arquivado em `think/2026-08-28-0516-revisao-seo-tecnico-geo.md`.
 - **Status:** [CONCLUÍDO] — Linter, tipagem TypeScript e compilação de produção (`compile_applet`) verificados com 100% de sucesso.
 
+## TASK-043 — 2026-08-31 — Leitura, Assimilação de Governança e Alinhamento de Protocolo
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, diretrizes de interface UI&UX.md e histórico de planos em think/ antes de iniciar qualquer nova demanda.
+- **Entrega:**
+  - Leitura detalhada e absorção do protocolo de governança de IA (planejamento prévio salvo em think/, aprovação explícita humana antes de qualquer alteração de código, atualização contínua do CERNE.md e BACKLOGER.md).
+  - Alinhamento completo com a arquitetura: TanStack Start, TypeScript, Tailwind CSS v4, Supabase externo (Auth, Storage, RLS), Resend e domínio canônico de produção.
+- **Status:** [CONCLUÍDO]
+
+## TASK-051 — 2026-08-31 — Correção de Posicionamento Global da Agência (Recrutas Internacionais)
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Corrigir posicionamento de público-alvo no catálogo público: a agência recruta atletas do mundo inteiro para ligas universitárias dos EUA, não apenas do Brasil. Eliminar vieses hardcoded de "Brazilian athletes/recruits" na copy pública, metadados, schema e fallbacks. Auditar filtros e ordenação para garantir neutralidade.
+- **Entrega:**
+  - `src/routes/index.tsx`: Atualizados page title, meta description, OG tags, JSON-LD schemas (`SportsOrganization`, `ItemList`) e fallback do subtítulo do Hero para enfatizar recrutas internacionais ("international volleyball recruits ready to compete and study in the USA").
+  - `src/i18n/messages.ts`: Atualizado `"feed.subtitle"` para `"Hand-picked athletes from around the world, verified and presented to coaches nationwide."`.
+  - `src/routes/athlete.$slug.tsx`: Removido o fallback enviesado `|| "Brazilian"` que padronizava atletas sem país cadastrado como brasileiros nos títulos e metadados.
+  - `src/routes/__root.tsx`: Meta description atualizada para refletir a plataforma para estudantes-atletas internacionais.
+  - `src/routes/_authenticated/admin/visual.tsx`: Placeholders do painel administrativo ajustados para o escopo internacional.
+  - `src/lib/catalog.ts`: Auditado e confirmado que não há privilégio, peso ou viés favorecendo atletas brasileiros em relação a outros países.
+  - Documentação viva atualizada em `CERNE.md`, plano em `think/2026-08-31-0656-posicionamento-global-recrutas-internacionais.md`.
+- **Status:** [CONCLUÍDO] — 74/74 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
+
+
 

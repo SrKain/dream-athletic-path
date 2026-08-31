@@ -243,7 +243,7 @@ function VisualSettingsPage() {
                   className={inputClass + " min-h-20 py-2"}
                   value={draft.hero_subtitle_en ?? ""}
                   onChange={(e) => setDraft({ ...draft, hero_subtitle_en: e.target.value })}
-                  placeholder="Explore athlete profiles by position, watch game film, and discover top Brazilian recruits with verified academic and athletic credentials."
+                  placeholder="Explore athlete profiles by position, watch game film, and discover top international recruits with verified academic and athletic credentials."
                 />
               </Field>
               <Field label="Catalog Section Heading (US English)">

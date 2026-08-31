@@ -9,7 +9,7 @@ export const messages = {
     "nav.logout": "Sign out",
     "feed.title": "Talent ready for the next level",
     "feed.subtitle":
-      "Hand-picked Brazilian athletes, verified and presented to coaches nationwide.",
+      "Hand-picked athletes from around the world, verified and presented to coaches nationwide.",
     "feed.cta": "Browse athletes",
     "feed.featured": "Featured",
     "feed.recent": "Recently added",

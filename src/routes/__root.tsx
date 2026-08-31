@@ -87,7 +87,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         {
           name: "description",
           content:
-            "Catalog and tracking platform for Brazilian athletes pursuing opportunities in the United States.",
+            "Catalog and tracking platform for international student-athletes pursuing collegiate athletic opportunities in the United States.",
         },
         { name: "author", content: "Go Team Go" },
         { property: "og:title", content: "Go Team Go — Athlete Platform" },

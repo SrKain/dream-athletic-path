@@ -33,11 +33,11 @@ export const Route = createFileRoute("/")({
     const data = loaderData as PublicCatalogPayload | undefined;
     const count = data?.athletes?.length ?? 0;
     const pageTitle =
-      "Brazilian Volleyball Recruits & College Athletes Catalog | Go Team Go Agency";
+      "International Volleyball Recruits & College Athletes Catalog | Go Team Go Agency";
     const pageDescription =
       count > 0
-        ? `Explore ${count} verified Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.`
-        : "Explore top Brazilian volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.";
+        ? `Explore ${count} verified international volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.`
+        : "Explore verified international volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics.";
     const canonicalUrl = "https://portfolio.goteamgoagency.com/";
     const heroImage = data?.visual?.hero_background_url || catalogHeroImage;
     const logoUrl = data?.visual?.logo_url;
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/")({
       url: canonicalUrl,
       ...(logoUrl ? { logo: logoUrl } : {}),
       description:
-        "Connecting elite Brazilian student-athletes with university athletic programs and scholarships across the USA.",
+        "Connecting elite student-athletes worldwide with university athletic programs and scholarships across the USA.",
       sport: "Volleyball",
     };
 
@@ -58,7 +58,7 @@ export const Route = createFileRoute("/")({
       "@type": "ItemList",
       name: "Go Team Go Athlete Catalog",
       description:
-        "Recruitment portfolio of Brazilian student-athletes seeking US college opportunities.",
+        "Recruitment portfolio of international student-athletes seeking US college opportunities.",
       numberOfItems: count,
       itemListElement: (data?.athletes ?? []).map((athlete, index) => ({
         "@type": "ListItem",
@@ -245,7 +245,7 @@ function Catalog() {
   const heroSubtitle =
     visual?.hero_subtitle_en ||
     visual?.hero_subtitle_pt ||
-    "Explore athlete profiles by position, watch game film, and discover top Brazilian recruits with verified academic and athletic credentials.";
+    "Explore athlete profiles by position, watch game film, and discover top international recruits with verified academic and athletic credentials.";
 
   const catalogHeading = visual?.catalog_heading_en || visual?.catalog_heading_pt || "Our Athletes";
   const heroImageSrc = visual?.hero_background_url || catalogHeroImage;
