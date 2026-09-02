@@ -87,6 +87,36 @@ Chave oficial IndexNow fornecida:
 
 ---
 
-## 4. Solicitação de Aprovação Prévia
+## 5. Follow-up / Correção — Desacoplamento do Script Standalone (`scripts/indexnow-bulk.ts`)
 
-Conforme o protocolo do projeto estabelecido em `AGENTS.md` (item 2), este plano está submetido para avaliação. **Nenhuma alteração em código foi realizada**. Aguardo sua aprovação explícita para iniciar a implementação.
+- **Data/Hora:** 2026-09-02T10:10:00-07:00
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Status:** [CONCLUÍDO] — Validado via `npx tsx scripts/indexnow-bulk.ts` com retorno HTTP 200/202 da API IndexNow.
+
+### Diagnóstico do Problema
+Ao rodar `npx tsx scripts/indexnow-bulk.ts` em ambiente Codespace (Node/tsx sem Bun e sem o runtime do TanStack Start ativo), ocorre o erro:
+`ERR_MODULE_NOT_FOUND: Cannot find package '@tanstack/react-start'`
+Isso acontece porque `scripts/indexnow-bulk.ts` importava `submitToIndexNow` de `src/lib/indexnow.ts`, que por sua vez importa `createServerFn` de `@tanstack/react-start`. Fora do bundler do TanStack Start, esse pacote não resolve diretamente como módulo Node puro.
+
+### Escopo da Correção
+Reescrever `scripts/indexnow-bulk.ts` para torná-lo 100% autocontido e independente do bundle/runtime do TanStack Start:
+1. **Constantes Locais**:
+   - `INDEXNOW_KEY = '1675dcaaacd2469b9461671a29b307e0'`
+   - `HOST = 'portfolio.goteamgoagency.com'`
+   - `KEY_LOCATION = 'https://portfolio.goteamgoagency.com/1675dcaaacd2469b9461671a29b307e0.txt'`
+   - `INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow'`
+2. **Função de Submissão Local Autônoma**:
+   - Fazer POST HTTP nativo via `fetch` diretamente para `https://api.indexnow.org/indexnow` com payload `{ host, key, keyLocation, urlList }`.
+   - Sem nenhum import de `src/lib/indexnow.ts` ou módulos internos do app.
+3. **Extração de URLs**:
+   - Buscar `https://portfolio.goteamgoagency.com/sitemap.xml` via `fetch`.
+   - Extrair todas as tags `<loc>` via RegExp.
+   - Deduplicar e validar as URLs encontradas (fallback para `https://portfolio.goteamgoagency.com/` se vazio).
+4. **Logs e Diagnóstico**:
+   - Registrar quantidade de URLs enviadas e status HTTP retornado pela API (esperado HTTP 200 ou 202 Accepted).
+5. **Preservação**:
+   - Não alterar `src/lib/indexnow.ts` nem handlers do admin (pois estes rodam perfeitamente dentro do build/runtime TanStack Start).
+6. **Validação**:
+   - Executar `npx tsx scripts/indexnow-bulk.ts`.
+   - Confirmar no `BACKLOGER.md` como follow-up / ajuste da `TASK-053`.

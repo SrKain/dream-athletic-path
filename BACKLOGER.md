@@ -179,7 +179,19 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - `src/routes/_authenticated/admin/athletes/index.tsx`: Disparo em background ao criar atleta caso já seja público.
   - `src/routes/_authenticated/admin/visual.tsx`: Disparo de `submitToIndexNow` da home ao salvar textos/logo/hero (`saveTexts()`) e ordem de categorias (`saveOrder()`).
   - `scripts/indexnow-bulk.ts`: Script em lote executável com `bun scripts/indexnow-bulk.ts` que consulta o `sitemap.xml` dinâmico e submete todas as URLs públicas em lote (testado com sucesso contra a API IndexNow real com retorno HTTP 202).
+  - **Ajuste / Follow-up (Standalone Desacoplado)**: Reescreveu `scripts/indexnow-bulk.ts` para ser 100% autocontido, sem dependências de imports de `src/lib/indexnow.ts` ou do runtime do TanStack Start (`@tanstack/react-start`). Executável nativamente via `npx tsx scripts/indexnow-bulk.ts` em qualquer ambiente Node/Codespace. Testado e validado com sucesso (11 URLs públicas enviadas e aceitas com HTTP 200/202).
   - Documentação viva atualizada em `CERNE.md` e plano arquivado em `think/2026-09-02-0900-implementacao-indexnow.md`.
 - **Status:** [CONCLUÍDO] — 80/80 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
+
+## TASK-054 — 2026-09-02 — Leitura do README, Assimilação do Contexto e Alinhamento de Governança
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e diretrizes em think/ antes do início da nova demanda.
+- **Entrega:**
+  - Leitura detalhada e assimilação do README.md (objetivo da plataforma, perfis de Agência, Atleta e Coach, catálogo estilo streaming, pipelines, requisitos estritos de Supabase externo e Resend, e regras mandatórias de governança).
+  - Revalidação do cumprimento dos 5 mandamentos de governança de IA: leitura obrigatória, elaboração e salvamento de plano em `think/` antes de apresentar, aprovação humana prévia e explícita antes de qualquer alteração no código, atualização viva no `CERNE.md`, registro em `BACKLOGER.md` e respeito integral ao design system em `UI&UX.md`.
+  - Confirmação de prontidão total do agente para receber a próxima instrução ou demanda do usuário.
+- **Status:** [CONCLUÍDO]
+
 
 

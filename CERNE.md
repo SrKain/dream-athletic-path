@@ -552,9 +552,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - `src/routes/_authenticated/admin/athletes/index.tsx`: Criação de novo atleta já público dispara `submitToIndexNow`.
   - `src/routes/_authenticated/admin/visual.tsx`: Alteração de configurações visuais (logo, hero, background, textos do catálogo) e reordenação de categorias disparam `submitToIndexNow([homeUrl])`.
 - **Script de Submissão em Massa (`scripts/indexnow-bulk.ts`)**:
-  - Executável com `bun scripts/indexnow-bulk.ts`.
-  - Consome o `sitemap.xml` dinâmico existente, extrai todas as tags `<loc>` e despacha um único POST em lote para a API IndexNow.
-  - Testado contra o endpoint real com retorno HTTP 202 Accepted.
+  - Script totalmente desacoplado e standalone, sem dependências de `src/lib/indexnow.ts` ou do runtime do TanStack Start (`@tanstack/react-start`).
+  - Executável diretamente via `npx tsx scripts/indexnow-bulk.ts` em qualquer ambiente Node.js / GitHub Codespaces ou via `bun scripts/indexnow-bulk.ts`.
+  - Contém constantes locais (`INDEXNOW_KEY`, `HOST`, `KEY_LOCATION`, `INDEXNOW_ENDPOINT`), função HTTP autônoma via `fetch` nativo, consome o `sitemap.xml` dinâmico público, extrai e deduplica todas as tags `<loc>` e despacha um único POST em lote para a API IndexNow.
+  - Testado contra o endpoint real com envio de 11 URLs e confirmação de sucesso com retorno HTTP 200/202.
 - **Testes Unitários (`src/lib/indexnow.test.ts`)**:
   - Testes com Vitest cobrindo payload, sanitização, deduplicação, tratamento de falhas de rede e respostas HTTP anômalas.
 - **Validação Técnica**: 80/80 testes unitários no Vitest aprovados, ESLint limpo e compilação de produção (`compile_applet`) com 100% de sucesso.
