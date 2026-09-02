@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { Panel, buttonClass, inputClass, secondaryButtonClass } from "@/components/admin-ui";
+import { submitToIndexNow } from "@/lib/indexnow";
+import { CANONICAL_BASE_URL } from "@/lib/sitemap";
 import { supabase } from "@/lib/supabase/client";
 import { validateUpload } from "@/lib/uploads";
 import type { AgencyVisualSettings, Position } from "@/types/db";
@@ -113,8 +115,12 @@ function VisualSettingsPage() {
       { onConflict: "agency_id" },
     );
     setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Configurações visuais salvas com sucesso.");
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Configurações visuais salvas com sucesso.");
+      void submitToIndexNow([`${CANONICAL_BASE_URL}/`]);
+    }
   }
 
   function move(index: number, direction: -1 | 1) {
@@ -134,8 +140,12 @@ function VisualSettingsPage() {
     const { error } = await supabase
       .from("catalog_position_order")
       .upsert(payload, { onConflict: "position_id" });
-    if (error) toast.error(error.message);
-    else toast.success("Ordem das categorias salva.");
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Ordem das categorias salva.");
+      void submitToIndexNow([`${CANONICAL_BASE_URL}/`]);
+    }
   }
 
   return (

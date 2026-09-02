@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { EmptyState, Panel, buttonClass, inputClass } from "@/components/admin-ui";
 import { buildAthleteSlug } from "@/lib/athlete-slugs";
+import { submitToIndexNow } from "@/lib/indexnow";
 import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
+import { CANONICAL_BASE_URL } from "@/lib/sitemap";
 import { supabase } from "@/lib/supabase/client";
 import type { Athlete } from "@/types/db";
 
@@ -44,6 +46,7 @@ function AthletesPage() {
       .limit(1)
       .maybeSingle();
     const existingSlugs = athletes.map((item) => item.slug);
+    const athleteSlug = buildAthleteSlug(name, null, existingSlugs);
     const { data, error } = await supabase
       .from("athletes")
       .insert({
@@ -51,11 +54,15 @@ function AthletesPage() {
         current_stage_id: firstStage?.id ?? null,
         email: email || null,
         full_name: name,
-        slug: buildAthleteSlug(name, null, existingSlugs),
+        slug: athleteSlug,
       })
-      .select("id")
+      .select("id, slug, is_public")
       .single();
     if (error) return toast.error(error.message);
+
+    if (data?.is_public && data.slug) {
+      void submitToIndexNow([`${CANONICAL_BASE_URL}/athlete/${data.slug}`]);
+    }
 
     if (firstStage && data?.id) {
       const { error: progressError } = await supabase

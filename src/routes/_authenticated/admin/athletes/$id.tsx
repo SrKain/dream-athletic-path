@@ -16,7 +16,9 @@ import {
 } from "@/components/admin-ui";
 import { inviteAthlete } from "@/lib/auth.functions";
 import { buildAthleteSlug } from "@/lib/athlete-slugs";
+import { submitToIndexNow } from "@/lib/indexnow";
 import { buildStageProgressPayload } from "@/lib/pipeline.helpers";
+import { CANONICAL_BASE_URL } from "@/lib/sitemap";
 import { supabase } from "@/lib/supabase/client";
 import { validateUpload } from "@/lib/uploads";
 import { isValidYoutubeUrl, youtubeThumbnail } from "@/lib/youtube";
@@ -195,7 +197,15 @@ function AthleteEditor() {
       await addVideo();
     }
 
-    if (!profileError) toast.success("Perfil salvo.");
+    if (!profileError) {
+      toast.success("Perfil salvo.");
+      if (currentAthlete.is_public && !currentAthlete.deleted_at) {
+        const publicSlug = nextSlug || currentAthlete.slug;
+        if (publicSlug) {
+          void submitToIndexNow([`${CANONICAL_BASE_URL}/athlete/${publicSlug}`]);
+        }
+      }
+    }
   }
   async function invite() {
     if (!currentAthlete.email) return toast.error("Informe o e-mail do atleta.");
@@ -216,6 +226,9 @@ function AthleteEditor() {
     else {
       setAthlete({ ...currentAthlete, deleted_at });
       toast.success(deleted_at ? "Atleta arquivado." : "Atleta restaurado.");
+      if (!deleted_at && currentAthlete.is_public && currentAthlete.slug) {
+        void submitToIndexNow([`${CANONICAL_BASE_URL}/athlete/${currentAthlete.slug}`]);
+      }
     }
   }
   async function toggleMedia(item: AthleteMedia) {

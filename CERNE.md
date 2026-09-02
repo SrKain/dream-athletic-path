@@ -539,5 +539,26 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Confirmado que a normalização de países via `COUNTRY_PT_TO_EN` apenas trata variações de entrada sem aplicar nenhum peso, prioridade ou preferência sobre ordenação de atletas ou filtros.
 - **Validação Técnica**: 74/74 testes unitários no Vitest aprovados, ESLint limpo e compilação de produção (`compile_applet`) com 100% de sucesso.
 
+## Atualização 2026-09-02 — Implementação do Protocolo IndexNow (Bing / ChatGPT Indexing) (TASK-053)
+
+- **Arquivo de Verificação Estático (`public/1675dcaaacd2469b9461671a29b307e0.txt`)**:
+  - Criado arquivo de chave pública respondendo em `https://portfolio.goteamgoagency.com/1675dcaaacd2469b9461671a29b307e0.txt`.
+- **Módulo IndexNow (`src/lib/indexnow.ts`)**:
+  - Exporta constantes e funções: `INDEXNOW_KEY`, `INDEXNOW_HOST`, `INDEXNOW_KEY_LOCATION`, `INDEXNOW_ENDPOINT`, `sanitizeIndexNowUrls`, `sendIndexNowRequest` e `submitToIndexNow`.
+  - Implementa Server Function TanStack Start (`submitToIndexNowServerFn`) para permitir disparo transparente a partir do navegador sem problemas de CORS.
+  - Arquitetura 100% resiliente: `try/catch` interno que captura exceções e loga advertências sem nunca interromper fluxos chamadores ou interfaces.
+- **Disparos Automáticos em Pontos de Mutação**:
+  - `src/routes/_authenticated/admin/athletes/$id.tsx`: Salvar atleta (`save()`) e restaurar atleta (`archive()`) disparam `submitToIndexNow([athleteUrl])` caso o atleta seja público (`is_public === true` e sem `deleted_at`).
+  - `src/routes/_authenticated/admin/athletes/index.tsx`: Criação de novo atleta já público dispara `submitToIndexNow`.
+  - `src/routes/_authenticated/admin/visual.tsx`: Alteração de configurações visuais (logo, hero, background, textos do catálogo) e reordenação de categorias disparam `submitToIndexNow([homeUrl])`.
+- **Script de Submissão em Massa (`scripts/indexnow-bulk.ts`)**:
+  - Executável com `bun scripts/indexnow-bulk.ts`.
+  - Consome o `sitemap.xml` dinâmico existente, extrai todas as tags `<loc>` e despacha um único POST em lote para a API IndexNow.
+  - Testado contra o endpoint real com retorno HTTP 202 Accepted.
+- **Testes Unitários (`src/lib/indexnow.test.ts`)**:
+  - Testes com Vitest cobrindo payload, sanitização, deduplicação, tratamento de falhas de rede e respostas HTTP anômalas.
+- **Validação Técnica**: 80/80 testes unitários no Vitest aprovados, ESLint limpo e compilação de produção (`compile_applet`) com 100% de sucesso.
+
+
 
 

@@ -157,5 +157,29 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Documentação viva atualizada em `CERNE.md`, plano em `think/2026-08-31-0656-posicionamento-global-recrutas-internacionais.md`.
 - **Status:** [CONCLUÍDO] — 74/74 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
+## TASK-052 — 2026-09-02 — Leitura do README, Assimilação da Governança e Alinhamento de Protocolo
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e histórico de diretrizes em think/ antes do início dos trabalhos.
+- **Entrega:**
+  - Leitura detalhada e assimilação do README.md (visão geral, papéis de Agência, Atleta e Coach, regras de infraestrutura Supabase externo, pipelines, e-mails via Resend).
+  - Verificação de conformidade com os 5 mandamentos de governança de IA (leitura obrigatória, planejamento prévio em `think/` com aprovação explícita humana antes de tocar em código, atualização contínua de `CERNE.md`, registro em `BACKLOGER.md` e fidelidade ao `UI&UX.md`).
+  - Alinhamento da stack técnica (TanStack Start, Vite, TypeScript, Tailwind CSS v4 OKLCH, Supabase externo, Resend) e estado do catálogo e perfis públicos.
+- **Status:** [CONCLUÍDO]
+
+## TASK-053 — 2026-09-02 — Implementação do Protocolo IndexNow (Bing / ChatGPT Indexing)
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Notificar Bing e ChatGPT Indexing via protocolo IndexNow (`1675dcaaacd2469b9461671a29b307e0`) toda vez que uma página pública for criada ou atualizada. Criar arquivo estático de verificação, função `submitToIndexNow`, disparos nos pontos de mutação (salvar/publicar atleta, editar atleta publicado, alterar configs visuais da home) e script de bulk inicial `scripts/indexnow-bulk.ts`.
+- **Entrega:**
+  - `public/1675dcaaacd2469b9461671a29b307e0.txt`: Arquivo estático servido na raiz com a chave em texto puro.
+  - `src/lib/indexnow.ts`: Módulo de integração IndexNow com validação/sanitização de URLs, Server Function TanStack Start (`submitToIndexNowServerFn`) para evitar restrições de CORS no browser, envio direto no servidor/CLI e tratamento resiliente de erros em `try/catch`.
+  - `src/lib/indexnow.test.ts`: Suíte de testes unitários cobrindo constantes, sanitização, formato de payloads, chamadas vazias e resiliência a falhas de rede.
+  - `src/routes/_authenticated/admin/athletes/$id.tsx`: Disparo em background de `submitToIndexNow` ao salvar (`save()`) e restaurar (`archive()`) atletas públicos.
+  - `src/routes/_authenticated/admin/athletes/index.tsx`: Disparo em background ao criar atleta caso já seja público.
+  - `src/routes/_authenticated/admin/visual.tsx`: Disparo de `submitToIndexNow` da home ao salvar textos/logo/hero (`saveTexts()`) e ordem de categorias (`saveOrder()`).
+  - `scripts/indexnow-bulk.ts`: Script em lote executável com `bun scripts/indexnow-bulk.ts` que consulta o `sitemap.xml` dinâmico e submete todas as URLs públicas em lote (testado com sucesso contra a API IndexNow real com retorno HTTP 202).
+  - Documentação viva atualizada em `CERNE.md` e plano arquivado em `think/2026-09-02-0900-implementacao-indexnow.md`.
+- **Status:** [CONCLUÍDO] — 80/80 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
 
