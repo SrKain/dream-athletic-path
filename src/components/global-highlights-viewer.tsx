@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ChevronDown,
   ChevronUp,
-  MessageCircle,
+  Mail,
   Share2,
   Star,
   User,
@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { likeHighlightVideo } from "@/lib/athletes.functions";
-import { buildRecruitWhatsappUrl } from "@/lib/contact";
+import { buildContactEmailUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 import type { HighlightFeedItem } from "@/types/db";
@@ -395,16 +395,18 @@ export function GlobalHighlightsViewer({ feed, startIndex, onClose }: GlobalHigh
             </span>
           </button>
 
-          {/* 2. Recrutar (WhatsApp) */}
+          {/* 2. Recrutar (E-mail Contextual) */}
           <a
-            href={buildRecruitWhatsappUrl(currentItem.athleteName)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Recruit ${currentItem.athleteName} via WhatsApp`}
+            href={buildContactEmailUrl({
+              type: "athlete",
+              athleteName: currentItem.athleteName,
+              athleteSlug: currentItem.athleteSlug,
+            })}
+            aria-label={`Recruit ${currentItem.athleteName} via Email`}
             className="group flex flex-col items-center gap-1 focus:outline-none"
           >
             <div className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-600/90 border border-emerald-400/40 text-white backdrop-blur-md shadow-lg transition-all hover:scale-105 active:scale-95 hover:bg-emerald-500">
-              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
+              <Mail className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-white drop-shadow-md">
               Recruit

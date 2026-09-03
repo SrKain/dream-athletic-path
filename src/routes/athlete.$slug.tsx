@@ -9,6 +9,7 @@ import {
   FileText,
   GraduationCap,
   Languages,
+  Mail,
   MapPin,
   MessageCircle,
   Play,
@@ -29,7 +30,7 @@ import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useActiveSection } from "@/hooks/use-active-section";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge, getAthleteCountryEn, getAthletePositionEn } from "@/lib/catalog";
-import { buildRecruitWhatsappUrl } from "@/lib/contact";
+import { buildContactEmailUrl } from "@/lib/contact";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
 import { formatGpa, formatHeightImperial, formatWeightImperial } from "@/lib/units";
@@ -389,12 +390,14 @@ function PublicAthleteProfile() {
               {/* Botões de Ação de Alto Padrão */}
               <div className="flex flex-wrap items-center gap-4 pt-1">
                 <a
-                  href={buildRecruitWhatsappUrl(athlete.full_name)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={buildContactEmailUrl({
+                    type: "athlete",
+                    athleteName: athlete.full_name,
+                    athleteSlug: athlete.slug,
+                  })}
                   className="liquid-button inline-flex h-12 items-center gap-2.5 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-black/40"
                 >
-                  <MessageCircle className="h-4 w-4 fill-current" />
+                  <Mail className="h-4 w-4" />
                   Recruit Athlete
                 </a>
 
@@ -517,7 +520,7 @@ function PublicAthleteProfile() {
             aria-current={activeId === "recruit-cta" ? "true" : undefined}
             className="liquid-button inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-black/20 transition hover:brightness-110 active:scale-95 whitespace-nowrap ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <MessageCircle className="h-3.5 w-3.5 fill-current" /> Recruit
+            <Mail className="h-3.5 w-3.5" /> Recruit
           </a>
         </div>
       </nav>
@@ -881,24 +884,26 @@ function PublicAthleteProfile() {
       >
         <div className="container-edge grid gap-6 text-center max-w-2xl mx-auto">
           <span className="inline-flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
-            <MessageCircle className="h-4 w-4" /> Direct Scout Access
+            <Mail className="h-4 w-4" /> Direct Scout Access
           </span>
           <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Interested in Recruiting {athlete.full_name}?
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed">
-            Connect directly with the Go Team Go agency team on WhatsApp to request full match film,
+            Connect directly with the Go Team Go agency team via email to request full match film,
             academic transcripts, and recruitment dossiers.
           </p>
           <div className="pt-2 flex justify-center">
             <a
-              href={buildRecruitWhatsappUrl(athlete.full_name)}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={buildContactEmailUrl({
+                type: "athlete",
+                athleteName: athlete.full_name,
+                athleteSlug: athlete.slug,
+              })}
               className="liquid-button inline-flex h-12 items-center gap-2 rounded-xl px-8 text-xs font-bold uppercase tracking-[0.16em] shadow-xl shadow-black/30"
             >
-              <MessageCircle className="h-4 w-4 fill-current" />
-              Recruit {firstName} on WhatsApp
+              <Mail className="h-4 w-4" />
+              Recruit {firstName} via Email
             </a>
           </div>
         </div>
@@ -972,6 +977,13 @@ function PublicAthleteProfile() {
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 text-xs text-muted-foreground">
+            <a
+              href={buildContactEmailUrl({ type: "footer" })}
+              className="transition-colors hover:text-foreground underline-offset-4 hover:underline"
+            >
+              Get in touch
+            </a>
+            <span className="hidden sm:inline">·</span>
             <span>© {new Date().getFullYear()} Go Team Go Agency. All rights reserved.</span>
             <PoweredByIasinSignature className="mt-6 md:mt-0 md:self-end" />
           </div>

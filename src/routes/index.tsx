@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { MessageCircle, RotateCcw, Search, X } from "lucide-react";
+import { Mail, RotateCcw, Search, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { AthleteVideoCardMedia } from "@/components/athlete-video-card-media";
@@ -19,7 +19,7 @@ import {
   getAthletePositionEn,
   getAthleteStatus,
 } from "@/lib/catalog";
-import { RECRUIT_WHATSAPP_NUMBER } from "@/lib/contact";
+import { buildContactEmailUrl } from "@/lib/contact";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { formatHeightImperial } from "@/lib/units";
@@ -295,6 +295,21 @@ function Catalog() {
               <p className="mt-4 max-w-xl text-base leading-relaxed text-[#cad8cf] md:text-lg">
                 {heroSubtitle}
               </p>
+              <div className="mt-8 flex flex-wrap items-center gap-3.5">
+                <a
+                  href={buildContactEmailUrl({ type: "hero" })}
+                  className="liquid-button inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg transition duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span>Talk to our team</span>
+                </a>
+                <a
+                  href="#catalog"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3.5 text-sm font-medium text-[#f4f7e9] backdrop-blur-sm transition duration-300 hover:bg-white/20"
+                >
+                  Explore Catalog
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -552,14 +567,10 @@ function Catalog() {
             </p>
             <div className="mt-6 flex justify-center">
               <a
-                href={`https://wa.me/${RECRUIT_WHATSAPP_NUMBER}?text=${encodeURIComponent(
-                  "Hello! I'm looking for talent and would like to talk to Go Team Go Agency about available athletes.",
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={buildContactEmailUrl({ type: "catalog" })}
                 className="liquid-button inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg transition duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <MessageCircle className="h-4 w-4 shrink-0" />
+                <Mail className="h-4 w-4 shrink-0" />
                 <span>Talk to Go Team Go</span>
               </a>
             </div>
@@ -585,6 +596,13 @@ function Catalog() {
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 text-xs text-muted-foreground">
+            <a
+              href={buildContactEmailUrl({ type: "footer" })}
+              className="transition-colors hover:text-foreground underline-offset-4 hover:underline"
+            >
+              Get in touch
+            </a>
+            <span className="hidden sm:inline">·</span>
             <span>© {new Date().getFullYear()} Go Team Go Agency. All rights reserved.</span>
             <PoweredByIasinSignature className="mt-6 md:mt-0 md:self-end" />
           </div>

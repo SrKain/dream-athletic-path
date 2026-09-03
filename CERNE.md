@@ -560,6 +560,37 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Testes com Vitest cobrindo payload, sanitização, deduplicação, tratamento de falhas de rede e respostas HTTP anômalas.
 - **Validação Técnica**: 80/80 testes unitários no Vitest aprovados, ESLint limpo e compilação de produção (`compile_applet`) com 100% de sucesso.
 
+## Atualização 2026-09-02 — Padronização dos CTAs de Contato para E-mail Contextual (TASK-056)
+
+- **Centralização do Canal de E-mail (`src/lib/contact.ts`)**:
+  - Definida constante `AGENCY_CONTACT_EMAIL` com suporte a override via `import.meta.env.VITE_AGENCY_CONTACT_EMAIL` e fallback oficial para `contact@goteamgoagency.com`.
+  - Criada função segura `buildMailtoUrl({ to, subject, body })` aplicando sanitização estrita via `encodeURIComponent` sobre todos os parâmetros, garantindo suporte a acentuação, espaços e quebras de linha (`\n\n`).
+  - Criada função contextual tipada `buildContactEmailUrl(context: ContactEmailContext)` cobrindo os contextos:
+    - `hero`: Assunto `"I'm interested in working with Go Team Go"`.
+    - `catalog`: Assunto `"Athlete recruitment inquiry"`.
+    - `athlete`: Assunto dinâmico `"Interest in ${athleteName}"`, injetando URL do perfil e interesse em recrutamento.
+    - `footer`: Assunto `"Contact through website"`.
+    - `general`: Assunto genérico com nota customizável.
+- **Pontos de Contato Atualizados**:
+  - **Página Inicial (`src/routes/index.tsx`)**:
+    - **Hero**: Adicionado botão de contato editorial *"Talk to our team"* (`liquid-button`) disparando `mailto:` com o contexto `hero`.
+    - **Final do Catálogo**: Botão *"Talk to Go Team Go"* atualizado para e-mail com contexto `catalog` e ícone `Mail`.
+    - **Rodapé (Footer)**: Adicionado link discreto *"Get in touch"* com contexto `footer`.
+  - **Perfil do Atleta (`src/routes/athlete.$slug.tsx`)**:
+    - **Hero**: Botão *"Recruit Athlete"* atualizado para `mailto:` contextual do atleta, com ícone `Mail`.
+    - **Barra de Navegação Sticky**: Botão *"Recruit"* com ícone `Mail`, mantendo a rolagem fluida até a âncora `#recruit-cta`.
+    - **Seção `#recruit-cta`**: Texto ajustado para contato via e-mail e botão atualizado para *"Recruit [FirstName] via Email"*.
+    - **Rodapé (Footer)**: Adicionado link discreto *"Get in touch"* com contexto `footer`.
+  - **Visualizador Global de Highlights (`src/components/global-highlights-viewer.tsx`)**:
+    - Botão lateral de recrutamento no player de reels atualizado para disparar `mailto:` contextual com o nome e slug do atleta ativo, com ícone `Mail`.
+- **Exceção Mandatória Respeitada**:
+  - O botão flutuante oficial do WhatsApp (`src/components/whatsapp-fab.tsx`) permaneceu **100% inalterado**, preservando a opção direta de WhatsApp em toda a aplicação.
+- **Correção de Tipagem Pré-existente (`src/lib/catalog.test.ts`)**:
+  - Corrigido mock de posição na linha 101 (`name_en: ""` em vez de `null`), garantindo conformidade estrita com os tipos TypeScript (`PositionRow`).
+- **Testes Unitários & Validação**:
+  - Criado arquivo de testes `src/lib/contact.test.ts` cobrindo todos os cenários de `buildMailtoUrl`, `buildContactEmailUrl`, sanitização, acentuação e preservação do helper de WhatsApp (89/89 testes aprovados).
+  - Execução de `bun run typecheck`, `bun run lint` e `bun run test` 100% aprovada.
+
 
 
 

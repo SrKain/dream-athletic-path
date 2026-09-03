@@ -193,5 +193,29 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Confirmação de prontidão total do agente para receber a próxima instrução ou demanda do usuário.
 - **Status:** [CONCLUÍDO]
 
+## TASK-055 — 2026-09-02 11:07 — Leitura do README, Governança e Alinhamento de Protocolo
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "Leia o read me" — Leitura e assimilação completa do README.md e alinhamento com os protocolos mandatórios de governança do projeto.
+- **Entrega:**
+  - Leitura completa do README.md (visão geral do MVP, papéis de Agência, Atleta e Coach, regras de infraestrutura com Supabase externo e Resend, proibição do Lovable Cloud, arquitetura, segurança e fluxos).
+  - Verificação e respeito aos 5 mandamentos de governança (leitura mandatória dos documentos de referência, planejamento prévio em `think/` com aprovação humana explícita antes de qualquer alteração de código, atualização contínua de `CERNE.md`, registro em `BACKLOGER.md` e conformidade visual mobile-first).
+  - Prontidão para receber novas instruções ou planejar as próximas etapas da aplicação.
+- **Status:** [CONCLUÍDO]
+
+## TASK-056 — 2026-09-02 11:19 — Padronização dos CTAs de Contato para E-mail Contextual
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Padronizar todos os pontos de contato da agência para direcionar para e-mail (`mailto:`) com assuntos e corpos contextuais (Hero, Catálogo, Perfil do Atleta, Highlights e Footers), mantendo como única exceção o botão flutuante do WhatsApp (`WhatsappFab`) 100% inalterado.
+- **Entrega:**
+  - Centralização de helpers de e-mail e tratamento seguro de URL em `src/lib/contact.ts`.
+  - Implementação dos CTAs contextuais na Home (`index.tsx`), Perfil do Atleta (`athlete.$slug.tsx`) e Visualizador de Reels (`global-highlights-viewer.tsx`).
+  - Criação de testes unitários em `src/lib/contact.test.ts`.
+  - Preservação estrita de `src/components/whatsapp-fab.tsx`.
+  - Validação de testes unitários (89/89 vitest), linting e typecheck.
+  - Reinicialização e verificação do dev server com resposta HTTP 200.
+- **Status:** [CONCLUÍDO]
+
+
 
 

@@ -101,7 +101,7 @@ function athlete(
     is_public: true,
     nationality: countryPt,
     photo_url: null,
-    position: { abbreviation: null, name_en: null, name_pt: positionPt },
+    position: { abbreviation: null, name_en: "", name_pt: positionPt },
     position_id: `position-${id}`,
     profile: {
       athlete_status: status,
