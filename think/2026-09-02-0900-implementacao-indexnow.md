@@ -12,6 +12,7 @@
 A **Go Team Go Agency** (`https://portfolio.goteamgoagency.com`) precisa notificar ativamente os motores de busca participantes do protocolo **IndexNow** (Bing, Yandex, Seznam, Naver e, por consequência, o índice consultado pelo ChatGPT durante navegação em tempo real) sempre que uma página pública (perfil de atleta ou página inicial) for criada, publicada ou atualizada.
 
 Chave oficial IndexNow fornecida:
+
 - **Chave:** `1675dcaaacd2469b9461671a29b307e0`
 - **Arquivo de verificação:** `public/1675dcaaacd2469b9461671a29b307e0.txt`
 - **Key Location:** `https://portfolio.goteamgoagency.com/1675dcaaacd2469b9461671a29b307e0.txt`
@@ -23,11 +24,13 @@ Chave oficial IndexNow fornecida:
 ## 2. Escopo Mapeado & Arquitetura da Solução
 
 ### A. Arquivo de Verificação Estático
+
 - **Arquivo:** `public/1675dcaaacd2469b9461671a29b307e0.txt`
 - **Conteúdo:** Apenas o hash `1675dcaaacd2469b9461671a29b307e0` em texto plano, sem espaços ou quebras de linha adicionais.
 - O Vite serve arquivos de `public/` diretamente na raiz, respondendo em `https://portfolio.goteamgoagency.com/1675dcaaacd2469b9461671a29b307e0.txt`.
 
 ### B. Módulo de Integração IndexNow (`src/lib/indexnow.ts`)
+
 1. **Constantes:**
    - `INDEXNOW_KEY = "1675dcaaacd2469b9461671a29b307e0"`
    - `INDEXNOW_HOST = "portfolio.goteamgoagency.com"`
@@ -50,6 +53,7 @@ Chave oficial IndexNow fornecida:
    - Tratamento de erro 100% resiliente: bloco `try / catch` com logs de advertência (`console.warn`), sem jamais lançar exceções ou travar a experiência do usuário.
 
 ### C. Disparos nos Pontos de Mutação no Painel Admin (Fire-and-Forget)
+
 1. **Criação e Edição de Atletas (`src/routes/_authenticated/admin/athletes/$id.tsx` e `index.tsx`):**
    - Ao salvar um atleta (`save()` em `$id.tsx`): caso `currentAthlete.is_public` seja verdadeiro, invocar de forma assíncrona (sem travar o toast de sucesso):
      ```ts
@@ -63,23 +67,27 @@ Chave oficial IndexNow fornecida:
      ```
 
 ### D. Script de Submissão em Massa (`scripts/indexnow-bulk.ts`)
+
 - Script executável com `bun scripts/indexnow-bulk.ts`.
 - Lê o sitemap dinâmico já existente (`generateSitemapXml()` ou `https://portfolio.goteamgoagency.com/sitemap.xml`), extrai todas as tags `<loc>`, valida e deduplica a lista de URLs e despacha um único POST para a API do IndexNow.
 - Exibe feedback claro no terminal com a quantidade de URLs sincronizadas e o status da submissão.
 
 ### E. Testes Unitários (`src/lib/indexnow.test.ts`)
+
 - Testes cobrindo:
   - Formatação e estruturação correta do payload.
   - Tratamento de URLs vazias ou duplicadas.
   - Resiliência a falhas de rede (garantia de não propagação de erros não tratados).
 
 ### F. Documentação Viva & Histórico
+
 - Atualizar `CERNE.md` registrando o subsistema IndexNow e pontos de disparo.
 - Registrar `TASK-053` no `BACKLOGER.md` com escopo, arquivos modificados e status.
 
 ---
 
 ## 3. Plano de Testes & Validação
+
 1. Executar `vitest run` para garantir que todos os testes (anteriores e novos) passem com 100% de sucesso.
 2. Executar `npm run lint` para validação de estilo e regras ESLint.
 3. Executar `npm run build` para garantir a integridade do bundle de produção.
@@ -95,12 +103,15 @@ Chave oficial IndexNow fornecida:
 - **Status:** [CONCLUÍDO] — Validado via `npx tsx scripts/indexnow-bulk.ts` com retorno HTTP 200/202 da API IndexNow.
 
 ### Diagnóstico do Problema
+
 Ao rodar `npx tsx scripts/indexnow-bulk.ts` em ambiente Codespace (Node/tsx sem Bun e sem o runtime do TanStack Start ativo), ocorre o erro:
 `ERR_MODULE_NOT_FOUND: Cannot find package '@tanstack/react-start'`
 Isso acontece porque `scripts/indexnow-bulk.ts` importava `submitToIndexNow` de `src/lib/indexnow.ts`, que por sua vez importa `createServerFn` de `@tanstack/react-start`. Fora do bundler do TanStack Start, esse pacote não resolve diretamente como módulo Node puro.
 
 ### Escopo da Correção
+
 Reescrever `scripts/indexnow-bulk.ts` para torná-lo 100% autocontido e independente do bundle/runtime do TanStack Start:
+
 1. **Constantes Locais**:
    - `INDEXNOW_KEY = '1675dcaaacd2469b9461671a29b307e0'`
    - `HOST = 'portfolio.goteamgoagency.com'`

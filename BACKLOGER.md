@@ -111,10 +111,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Integração em `listPublicAthletes` (`src/lib/athletes.functions.ts`) com agregação de vídeos highlight e likes.
   - Server function `likeHighlightVideo` com proteção de likes e contagem precisa.
   - Integração na Home (`src/routes/index.tsx`).
+
 ## TASK-014 — 2026-08-25 — Ajustes de Espaçamento/Contraste em Highlights e Correção da Badge Transfer
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
-- **Pedido:** 
+- **Pedido:**
   1. Aumentar padding-top da seção de Highlights no catálogo (sem mexer no Hero) e revisar contraste tipográfico (WCAG AA).
   2. Corrigir a condicional da badge "TRANSFER" no card de atleta na Home para exibir apenas nos status Freshman, Sophomore, Junior ou Senior (não exibir para Graduate Transfer).
 - **Entrega:**
@@ -123,6 +125,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — linter e build validados com sucesso.
 
 ## TASK-042 — 2026-08-28 — Revisão Completa de SEO Técnico e GEO (Generative Engine Optimization)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Revisão completa de SEO técnico e GEO (Generative Engine Optimization) para o catálogo público e perfis de atletas no domínio canônico `https://portfolio.goteamgoagency.com`. Implementar metatags dinâmicas, dados estruturados JSON-LD, sitemap.xml dinâmico, robots.txt com permissão para bots de IA, breadcrumbs e acessibilidade de imagens. Manter rotas privadas (`/admin`, `/portal`, `/proposal/`) em noindex.
@@ -135,6 +138,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — Linter, tipagem TypeScript e compilação de produção (`compile_applet`) verificados com 100% de sucesso.
 
 ## TASK-043 — 2026-08-31 — Leitura, Assimilação de Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, diretrizes de interface UI&UX.md e histórico de planos em think/ antes de iniciar qualquer nova demanda.
@@ -144,6 +148,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-051 — 2026-08-31 — Correção de Posicionamento Global da Agência (Recrutas Internacionais)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Corrigir posicionamento de público-alvo no catálogo público: a agência recruta atletas do mundo inteiro para ligas universitárias dos EUA, não apenas do Brasil. Eliminar vieses hardcoded de "Brazilian athletes/recruits" na copy pública, metadados, schema e fallbacks. Auditar filtros e ordenação para garantir neutralidade.
@@ -158,6 +163,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — 74/74 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
 ## TASK-052 — 2026-09-02 — Leitura do README, Assimilação da Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e histórico de diretrizes em think/ antes do início dos trabalhos.
@@ -168,6 +174,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-053 — 2026-09-02 — Implementação do Protocolo IndexNow (Bing / ChatGPT Indexing)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Notificar Bing e ChatGPT Indexing via protocolo IndexNow (`1675dcaaacd2469b9461671a29b307e0`) toda vez que uma página pública for criada ou atualizada. Criar arquivo estático de verificação, função `submitToIndexNow`, disparos nos pontos de mutação (salvar/publicar atleta, editar atleta publicado, alterar configs visuais da home) e script de bulk inicial `scripts/indexnow-bulk.ts`.
@@ -184,6 +191,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — 80/80 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
 ## TASK-054 — 2026-09-02 — Leitura do README, Assimilação do Contexto e Alinhamento de Governança
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e diretrizes em think/ antes do início da nova demanda.
@@ -194,6 +202,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-055 — 2026-09-02 11:07 — Leitura do README, Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o read me" — Leitura e assimilação completa do README.md e alinhamento com os protocolos mandatórios de governança do projeto.
@@ -204,6 +213,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-056 — 2026-09-02 11:19 — Padronização dos CTAs de Contato para E-mail Contextual
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Padronizar todos os pontos de contato da agência para direcionar para e-mail (`mailto:`) com assuntos e corpos contextuais (Hero, Catálogo, Perfil do Atleta, Highlights e Footers), mantendo como única exceção o botão flutuante do WhatsApp (`WhatsappFab`) 100% inalterado.
@@ -217,6 +227,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-057 — 2026-09-02 18:04 — Leitura do README, Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o Readme" — Leitura completa e assimilação do README.md e cumprimento dos protocolos de governança de IA.
@@ -227,6 +238,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-058 — 2026-09-02 18:06 — Feature "Recruit Email" para Coaches Universitários
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Implementar a feature "Recruit Email": cadastro de coaches (tabela, importador de planilha CSV/XLSX com validação e resumo prévio, CRUD manual), integração com Resend (batch send), template de e-mail teaser de alto padrão visual (foto, stats, hook line, CTA único para perfil público, sem vídeos/ficha completa), UI no Admin do atleta (modal com seleção, busca, preview WYSIWYG e botão de disparo com contagem), tabela `recruit_email_logs`. Remetente configurado como `contact@goteamgoagency.com`.
@@ -245,6 +257,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-059 — 2026-09-03 11:40 — Correção e Blindagem da Página de Coaches e Modal "Send to Coaches"
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "não to conseguindo fazer nada ao selecionar o 'send to coaches' a tela abre sinalizando um erro" e "antes de seguir investigue também a página coaches que também está com o mesmo problema" — Diagnosticar e corrigir o erro nas duas telas (`/admin/coaches` e modal `SendRecruitEmailDialog`), sanando o erro de chamada indevida de função em constantes CSS de botão (`TypeError: buttonClass is not a function`), alinhando props de `Panel` e `EmptyState`, e tratando estado vazio e preview com segurança.
@@ -260,4 +273,25 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Blindagem de valores nulos/indefinidos em `src/lib/email/recruit-email-template.ts` evitando exceções caso dados de atleta estejam incompletos.
   - Testes automatizados (14 arquivos, 89 testes) passando com 100% de sucesso.
   - Linter (`eslint`) e compilação de produção (`compile_applet`) aprovados com zero erros.
+- **Status:** [CONCLUÍDO]
+
+## TASK-060 — 2026-09-03 12:30 — Redução Drástica de Custo de Egress (Storage + PostgREST) no Supabase em Acessos Públicos
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Reduzir o egress gerado por Storage (66,1%) e PostgREST (33,8%) nas rotas públicas (catálogo e perfil de atleta) após pico real de ~1000 coaches, sem alterar o comportamento visível para o usuário:
+  1. Definir Cache-Control de longo prazo (`public, max-age=31536000, immutable`) em buckets públicos no upload e script para objetos existentes com estratégia de cache busting.
+  2. Implementar transformação de imagens via endpoint `/storage/v1/render/image/public/...` para servir resoluções adequadas ao contexto (card ~400px, avatar ~120px, hero ~700px) reduzindo tamanho de ~1.2 MB para ~36 KB por imagem.
+  3. Caching em camada CDN/Edge (Vercel Edge / TanStack Start) com `s-maxage` e `stale-while-revalidate` nas rotas públicas (`/`, `/athlete/$slug`) mantendo área admin protegida sem cache.
+  4. Revisão e otimização dos payloads de queries PostgREST (`listPublicAthletes`, `getPublicAthlete`), eliminando `select('*')`, enxugando colunas e estruturando paginação eficiente.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-03-1230-reducao-custo-egress-supabase.md`.
+- **Entrega:**
+  - Utilitário central de otimização de imagens `src/lib/image-transform.ts` integrado com presets otimizados para Cards (`600x750`, q80), Heroes (`800x1000`, q85), Avatares de Stories (`160x160`, q80), Logos (`300x100`) e Backgrounds (`1920x800`).
+  - Suíte de testes unitários para o pipeline de imagens em `src/lib/image-transform.test.ts` (9 testes, 100% de cobertura e sucesso).
+  - Configuração de `cacheControl: "31536000"` (1 ano) em todas as rotas de upload do painel administrativo (`admin/athletes/$id.tsx`, `admin/visual.tsx`, `admin/settings.tsx`, `admin/proposals/$id.tsx`), acoplado a cache-busting natural via UUID no nome de arquivo.
+  - Migration `db/migrations/0017_storage_cache_control_and_update_policy.sql` e script retroativo `scripts/update-storage-cache-control.ts` acionado via `npm run storage:cache-control` para atualização de objetos existentes.
+  - Middleware de cache CDN/Edge em `src/server.ts` aplicando `s-maxage` e `stale-while-revalidate` para `/` e `/athlete/:slug`, blindando rotas autenticadas e admin com `private, no-store`.
+  - Refatoração completa das queries públicas em `src/lib/athletes.functions.ts` eliminando todo `select('*')` em benefício de projeções mínimas (`PUBLIC_ATHLETE_SELECT`, `PUBLIC_PROFILE_SELECT`, `PUBLIC_MEDIA_SELECT`, `PUBLIC_ACHIEVEMENTS_SELECT`, `PUBLIC_VIDEOS_SELECT`, `AGENCY_VISUAL_PUBLIC_SELECT`) e filtragem direcionada de likes por IDs de vídeo visíveis.
+  - Conexão e substituição das URLs de imagem em todos os componentes visuais públicos (`athlete-video-card-media.tsx`, `home-highlights-story-bar.tsx`, `global-highlights-viewer.tsx`, `index.tsx`, `athlete.$slug.tsx`).
+  - Validação técnica rigorosa: 98 testes Vitest aprovados, typecheck TypeScript (`tsc --noEmit`) com 0 erros, linter ESLint com 0 erros e compilação de produção (`compile_applet`) bem-sucedida.
 - **Status:** [CONCLUÍDO]

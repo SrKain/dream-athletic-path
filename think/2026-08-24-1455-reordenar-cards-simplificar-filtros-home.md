@@ -10,6 +10,7 @@
 ## 1. Contexto e Objetivos
 
 Esta evolução na Home do Catálogo Público (`/`) e no Card de Atleta atende aos seguintes requisitos:
+
 1. **Reordenar Informações dos Cards da Home**:
    - **Linha 1:** `Nome` (ex.: "Laura Savassa")
    - **Linha 2:** `Altura · Posição · Nacionalidade` (ex.: "5'10\" · Setter · Brazil")
@@ -29,6 +30,7 @@ Esta evolução na Home do Catálogo Público (`/`) e no Card de Atleta atende a
 ## 2. Detalhamento Técnico das Alterações
 
 ### 2.1. Normalização e Dicionário de Tradução (`src/lib/catalog.ts` ou `src/lib/units.ts`)
+
 - Criar dicionário exaustivo `POSITION_PT_TO_EN` com mapeamentos para vôlei, futebol, basquete e atletismo (incluindo variações de gênero como Levantador/Levantadora, Ponteiro/Ponteira, etc.).
 - Criar dicionário exaustivo `COUNTRY_PT_TO_EN` e mapa ISO para converter nomes e códigos de países para inglês americano canônico.
 - Exportar funções auxiliares:
@@ -40,10 +42,12 @@ Esta evolução na Home do Catálogo Público (`/`) e no Card de Atleta atende a
   - `getAthleteStatus(athlete: AthleteCard): string | null`
 
 ### 2.2. Atualização dos Dados Públicos (`src/lib/athletes.functions.ts`)
+
 - No `listPublicAthletes()`, garantir que a query de `athlete_profiles` carregue `high_school_graduation`, `graduation_year` e `athlete_status` e vincule ao objeto `athlete.profile` de cada `AthleteCard`.
 - Atualizar a interface `AthleteCard` em `src/types/db.ts` para incluir a propriedade opcional `profile?: Pick<AthleteProfile, "high_school_graduation" | "graduation_year" | "athlete_status"> | null`.
 
 ### 2.3. Reordenação do Card de Atleta (`src/routes/index.tsx` & `src/routes/athlete.$slug.tsx`)
+
 - No `AthleteCardItem` da Home:
   - Linha 1: `{athlete.full_name}`
   - Linha 2: `[heightImperial, positionEn, countryEn].filter(Boolean).join(" · ")`
@@ -51,6 +55,7 @@ Esta evolução na Home do Catálogo Público (`/`) e no Card de Atleta atende a
   - Aplicar a mesma ordem e os mesmos helpers de tradução em inglês.
 
 ### 2.4. Refatoração dos Filtros da Home (`src/routes/index.tsx`)
+
 - Remover estados e handlers de `ageRange`.
 - Implementar estados para os 4 filtros:
   - `selectedPositions: string[]`

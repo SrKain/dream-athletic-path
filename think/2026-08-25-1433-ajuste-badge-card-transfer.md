@@ -3,7 +3,7 @@
 **Data/Hora:** 2026-08-25 14:33  
 **Solicitante:** Kauan  
 **Executor:** Antigravity AI  
-**Status:** `[CONCLUÍDO]`  
+**Status:** `[CONCLUÍDO]`
 
 ---
 
@@ -18,6 +18,7 @@ A lógica de exibição da badge no card foi introduzida na TASK-046 para sinali
 ## 2. Escopo das Modificações
 
 ### A. `src/routes/index.tsx`
+
 - No componente `AthleteCardItem`:
   - Renomear a variável lógica de verificação de `showFreshmanBadge` para `showTransferBadge`.
   - Atualizar o texto renderizado dentro da tag `<span>` da badge de `"FRESHMAN"` para `"TRANSFER"`.

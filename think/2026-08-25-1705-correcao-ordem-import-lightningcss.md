@@ -13,6 +13,7 @@ O LightningCSS reportou o erro de compilação:
 `"[lightningcss] @import rules must precede all rules aside from @charset and @layer statements" em /app/applet/src/styles.css`
 
 Isso ocorre porque no arquivo `src/styles.css`:
+
 - A diretiva `@source "../src";` estava posicionada na linha 2, antes do `@import url(...)` do Google Fonts na linha 5.
 - Conforme a especificação CSS e os requisitos do parser LightningCSS, todas as regras `@import` devem obrigatoriamente preceder qualquer outra regra ou diretiva (incluindo `@source`).
 

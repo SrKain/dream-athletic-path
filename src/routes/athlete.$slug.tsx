@@ -31,6 +31,13 @@ import { useActiveSection } from "@/hooks/use-active-section";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge, getAthleteCountryEn, getAthletePositionEn } from "@/lib/catalog";
 import { buildContactEmailUrl } from "@/lib/contact";
+import {
+  getAgencyLogoImage,
+  getAthleteCardImage,
+  getAthleteGalleryImage,
+  getAthleteHeroImage,
+  getOptimizedImageUrl,
+} from "@/lib/image-transform";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
 import { formatGpa, formatHeightImperial, formatWeightImperial } from "@/lib/units";
@@ -59,7 +66,13 @@ export const Route = createFileRoute("/athlete/$slug")({
     const posName = athlete.position?.name_en || "";
     const countryName = athlete.country?.name_en || "";
     const gradYear = profile?.high_school_graduation || profile?.graduation_year;
-    const photo = athlete.photo_url ?? getAthleteDisplayImage(athlete);
+    const rawPhoto = athlete.photo_url ?? getAthleteDisplayImage(athlete);
+    const photo = getOptimizedImageUrl(rawPhoto, {
+      width: 1200,
+      height: 630,
+      resize: "cover",
+      quality: 85,
+    });
     const canonicalUrl = `https://portfolio.goteamgoagency.com/athlete/${athlete.slug}`;
 
     const titleParts = [
@@ -231,7 +244,7 @@ function PublicAthleteProfile() {
           <Link to="/" className="flex items-center gap-3">
             {visual?.logo_url ? (
               <img
-                src={visual.logo_url}
+                src={getAgencyLogoImage(visual.logo_url)}
                 alt="Go Team Go Agency logo"
                 className="h-8 md:h-10 w-auto object-contain"
               />
@@ -316,7 +329,7 @@ function PublicAthleteProfile() {
             <div className="flex justify-center sm:justify-start">
               <div className="relative aspect-[4/5] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
                 <img
-                  src={photoUrl}
+                  src={getAthleteHeroImage(photoUrl)}
                   alt={`${athlete.full_name} — ${positionLabel ?? "Volleyball"} — Go Team Go Agency headshot`}
                   className="h-full w-full object-cover object-top"
                 />
@@ -808,7 +821,7 @@ function PublicAthleteProfile() {
               >
                 {item.image_url && (
                   <img
-                    src={item.image_url}
+                    src={getAthleteGalleryImage(item.image_url)}
                     alt={`${athlete.full_name} — ${item.title_en || "Achievement"}`}
                     loading="lazy"
                     className="aspect-[16/9] w-full object-cover"
@@ -865,7 +878,7 @@ function PublicAthleteProfile() {
                 ) : (
                   <img
                     key={item.id}
-                    src={item.url}
+                    src={getAthleteGalleryImage(item.url)}
                     alt={item.caption_en || `${athlete.full_name} — Photo ${idx + 1}`}
                     loading="lazy"
                     className="aspect-[4/3] w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02] duration-300"
@@ -928,7 +941,9 @@ function PublicAthleteProfile() {
               <div className="flex items-center gap-4">
                 <div className="aspect-[4/5] w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-950 shadow-inner">
                   <img
-                    src={nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete)}
+                    src={getAthleteCardImage(
+                      nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete),
+                    )}
                     alt={`${nextAthlete.full_name} — ${getAthletePositionEn(nextAthlete) || "Athlete"}`}
                     className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
                   />
@@ -965,7 +980,7 @@ function PublicAthleteProfile() {
           <div className="flex items-center gap-3">
             {visual?.logo_url ? (
               <img
-                src={visual.logo_url}
+                src={getAgencyLogoImage(visual.logo_url)}
                 alt="Go Team Go Agency logo"
                 className="h-7 w-auto object-contain"
               />

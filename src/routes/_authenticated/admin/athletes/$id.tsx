@@ -241,6 +241,7 @@ function AthleteEditor() {
       if (downloaded.error) return toast.error(downloaded.error.message);
       const uploaded = await supabase.storage.from("athlete-media").upload(path, downloaded.data, {
         upsert: true,
+        cacheControl: "31536000",
       });
       if (uploaded.error) return toast.error(uploaded.error.message);
       nextUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -268,7 +269,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -293,7 +294,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -390,7 +391,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/achievements/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;

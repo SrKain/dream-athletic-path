@@ -35,13 +35,32 @@ export type PublicCatalogPayload = {
 export const PUBLIC_ATHLETE_SELECT =
   "id, slug, full_name, birth_date, height_cm, weight_kg, nationality, sport_id, position_id, photo_url, cover_url, is_public, is_featured, created_at, position:positions(name_en,name_pt,abbreviation), sport:sports(name_en,name_pt,slug), country:countries(name_en,name_pt,flag_emoji)";
 
+export const AGENCY_VISUAL_PUBLIC_SELECT =
+  "agency_id, hero_title_pt, hero_title_en, hero_subtitle_pt, hero_subtitle_en, catalog_heading_pt, catalog_heading_en, logo_url, hero_background_url";
+
+export const PUBLIC_PROFILE_SELECT =
+  "athlete_id, high_school_graduation, graduation_year, athlete_status, highlight_video_url, gpa, current_school, course_of_interest, english_level, toefl_duolingo_score, seeking_opportunities, budget, bio_en, team_contribution_en, college_start_date";
+
+export const PUBLIC_MEDIA_SELECT =
+  "id, athlete_id, kind, url, thumbnail_url, caption_en, is_public, sort_order, created_at";
+
+export const PUBLIC_ACHIEVEMENTS_SELECT =
+  "id, athlete_id, title_en, description_en, achieved_on, image_url, medal, achievement_type, is_public";
+
+export const PUBLIC_VIDEOS_SELECT =
+  "id, athlete_id, kind, youtube_url, title, sort_order, created_at";
+
 /** Configuração visual da agência (logotipo, favicon, etc.). */
 export const getAgencyVisual = createServerFn({ method: "GET" }).handler(
   async (): Promise<AgencyVisualSettings | null> => {
     const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
     const client = getPublicServerClient();
     if (!client) return null;
-    const { data } = await client.from("agency_visual_settings").select("*").limit(1).maybeSingle();
+    const { data } = await client
+      .from("agency_visual_settings")
+      .select(AGENCY_VISUAL_PUBLIC_SELECT)
+      .limit(1)
+      .maybeSingle();
     return (data ?? null) as AgencyVisualSettings | null;
   },
 );
@@ -69,7 +88,11 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(60),
-      client.from("agency_visual_settings").select("*").limit(1).maybeSingle(),
+      client
+        .from("agency_visual_settings")
+        .select(AGENCY_VISUAL_PUBLIC_SELECT)
+        .limit(1)
+        .maybeSingle(),
       client.from("catalog_position_order").select("position_id, sort_order").order("sort_order"),
     ]);
 
@@ -85,7 +108,7 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
 
     if (athletes.length) {
       const athleteIds = athletes.map((item) => item.id);
-      const [videosResult, profilesResult, likesResult] = await Promise.all([
+      const [videosResult, profilesResult] = await Promise.all([
         client
           .from("athlete_videos")
           .select("id, athlete_id, youtube_url, sort_order, kind, title, created_at")
@@ -97,7 +120,6 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
             "athlete_id, highlight_video_url, high_school_graduation, graduation_year, athlete_status",
           )
           .in("athlete_id", athleteIds),
-        client.from("athlete_video_likes").select("video_id").in("athlete_id", athleteIds),
       ]);
 
       if (videosResult.error)
@@ -118,12 +140,20 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
         athlete_status: string | null;
       }[];
 
-      // Mapeamento de contagem de likes por vídeo
+      // Busca likes filtrados estritamente pelos IDs dos vídeos existentes (economiza egress)
+      const allVideoIds = allVideos.map((v) => v.id).filter(Boolean);
       const likesByVideo: Record<string, number> = {};
-      if (likesResult.data) {
-        for (const row of likesResult.data as { video_id: string }[]) {
-          if (row.video_id) {
-            likesByVideo[row.video_id] = (likesByVideo[row.video_id] || 0) + 1;
+      if (allVideoIds.length > 0) {
+        const { data: likesData } = await client
+          .from("athlete_video_likes")
+          .select("video_id")
+          .in("video_id", allVideoIds);
+
+        if (likesData) {
+          for (const row of likesData as { video_id: string }[]) {
+            if (row.video_id) {
+              likesByVideo[row.video_id] = (likesByVideo[row.video_id] || 0) + 1;
+            }
           }
         }
       }
@@ -329,21 +359,33 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
     const positionId = (athlete as { position_id?: string }).position_id;
 
     const [profile, media, achievements, videos, visualResult] = await Promise.all([
-      client.from("athlete_profiles").select("*").eq("athlete_id", athleteId).maybeSingle(),
+      client
+        .from("athlete_profiles")
+        .select(PUBLIC_PROFILE_SELECT)
+        .eq("athlete_id", athleteId)
+        .maybeSingle(),
       client
         .from("athlete_media")
-        .select("*")
+        .select(PUBLIC_MEDIA_SELECT)
         .eq("athlete_id", athleteId)
         .eq("is_public", true)
         .order("sort_order"),
       client
         .from("achievements")
-        .select("*")
+        .select(PUBLIC_ACHIEVEMENTS_SELECT)
         .eq("athlete_id", athleteId)
         .eq("is_public", true)
         .order("achieved_on", { ascending: false }),
-      client.from("athlete_videos").select("*").eq("athlete_id", athleteId).order("sort_order"),
-      client.from("agency_visual_settings").select("*").limit(1).maybeSingle(),
+      client
+        .from("athlete_videos")
+        .select(PUBLIC_VIDEOS_SELECT)
+        .eq("athlete_id", athleteId)
+        .order("sort_order"),
+      client
+        .from("agency_visual_settings")
+        .select(AGENCY_VISUAL_PUBLIC_SELECT)
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     let nextAthlete: AthleteCard | null = null;

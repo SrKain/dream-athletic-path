@@ -78,7 +78,7 @@ function VisualSettingsPage() {
     const path = `agency/branding/${kind}-${Date.now()}.${ext}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
 
     if (stored.error) {
       toast.error(stored.error.message);

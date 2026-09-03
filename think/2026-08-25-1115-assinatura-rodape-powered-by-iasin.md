@@ -8,10 +8,23 @@
 ---
 
 ## 1. Contexto e Objetivo
+
 O solicitante requisitou a adição da sua assinatura personalizada ao rodapé público do site:
 
 ```html
-<a href="https://iasin.dev.br" target="_blank" rel="noreferrer" aria-label="Powered by Iasin" class="group mt-6 md:mt-0 md:self-end inline-flex items-center gap-2 text-[10px] md:text-xs opacity-70 hover:opacity-100 transition-opacity animate-in fade-in-0 slide-in-from-bottom-2 duration-700 ease-out motion-reduce:animate-none"><span class="uppercase tracking-[0.2em]">Powered by</span><span class="relative inline-block font-semibold normal-case tracking-[0.14em]"><span class="relative z-10">iasin.</span><span class="absolute left-0 right-0 -bottom-[2px] h-px bg-white/60 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100 motion-reduce:transition-none"></span></span></a>
+<a
+  href="https://iasin.dev.br"
+  target="_blank"
+  rel="noreferrer"
+  aria-label="Powered by Iasin"
+  class="group mt-6 md:mt-0 md:self-end inline-flex items-center gap-2 text-[10px] md:text-xs opacity-70 hover:opacity-100 transition-opacity animate-in fade-in-0 slide-in-from-bottom-2 duration-700 ease-out motion-reduce:animate-none"
+  ><span class="uppercase tracking-[0.2em]">Powered by</span
+  ><span class="relative inline-block font-semibold normal-case tracking-[0.14em]"
+    ><span class="relative z-10">iasin.</span
+    ><span
+      class="absolute left-0 right-0 -bottom-[2px] h-px bg-white/60 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100 motion-reduce:transition-none"
+    ></span></span
+></a>
 ```
 
 ---
@@ -35,8 +48,11 @@ O solicitante requisitou a adição da sua assinatura personalizada ao rodapé p
 ## 3. Detalhamento da Implementação
 
 ### 3.1. Estrutura JSX no Rodapé (`src/routes/index.tsx` e `src/routes/athlete.$slug.tsx`)
+
 ```tsx
-{/* Footer */}
+{
+  /* Footer */
+}
 <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
   <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
     <div className="flex items-center gap-3">
@@ -66,18 +82,20 @@ O solicitante requisitou a adição da sua assinatura personalizada ao rodapé p
       </a>
     </div>
   </div>
-</footer>
+</footer>;
 ```
 
 ---
 
 ## 4. Impactos e Riscos
+
 - **Visual / UX:** Elemento sutil, elegante e moderno com efeito hover suave na linha inferior, respeitando `motion-reduce` e mobile-first.
 - **Riscos:** Zero risco de quebra funcional.
 
 ---
 
 ## 5. Estratégia de Validação
+
 1. Validação de lint via `lint_applet` (`npm run lint`).
 2. Execução da suíte de testes automatizados com `vitest`.
 3. Verificação de compilação de produção via `compile_applet` (`npm run build`).

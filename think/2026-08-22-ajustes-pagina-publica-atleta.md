@@ -9,7 +9,7 @@
 
 ## 1. Contexto e Objetivos
 
-Este plano detalha as melhorias e correções na página pública individual do atleta (`/athlete/$slug`) e no painel administrativo (`/admin/athletes/$id`), alinhado ao padrão 100% US English e ao design system de *Quiet Luxury* / mobile-first (`UI&UX.md`):
+Este plano detalha as melhorias e correções na página pública individual do atleta (`/athlete/$slug`) e no painel administrativo (`/admin/athletes/$id`), alinhado ao padrão 100% US English e ao design system de _Quiet Luxury_ / mobile-first (`UI&UX.md`):
 
 1. **Hero — Remoção do Subtítulo Editorial**:
    - Remover a renderização do parágrafo de subtítulo do hero (`profile?.subtitle`) na página pública do atleta, mantendo o campo no banco para compatibilidade e sem quebras de dados.
@@ -42,7 +42,9 @@ Este plano detalha as melhorias e correções na página pública individual do 
 ## 2. Decisões Técnicas
 
 ### 2.1. Formatação de GPA (`src/lib/units.ts`)
+
 Para garantir clareza e fidelidade aos padrões universitários norte-americanos:
+
 - Se `gpa` for um número inteiro (ex.: `4`, `3`, `2`), formatar com 1 casa decimal fixa via `gpa.toFixed(1)` (`"4.0"`, `"3.0"`).
 - Se `gpa` já possuir casas decimais (ex.: `3.85`, `3.7`), retornar como string preservando a precisão original (`"3.85"`, `"3.7"`).
 - Helper implementado:
@@ -54,6 +56,7 @@ Para garantir clareza e fidelidade aos padrões universitários norte-americanos
   ```
 
 ### 2.2. Estrutura e Fonte dos Botões "Watch Film"
+
 - A tabela `athlete_videos` já suporta o kind `"highlight"` com campos `youtube_url` e `title` customizável.
 - Agrupamos os vídeos de filme/destaque (`highlights`, e fallback para `profile.highlight_video_url` se não houver vídeos cadastrados em `athlete_videos`).
 - No Hero, geramos uma lista dinâmica de botões:
@@ -75,6 +78,7 @@ Para garantir clareza e fidelidade aos padrões universitários norte-americanos
   - No Admin (`/admin/athletes/$id`), a seção de vídeos `Highlights` será claramente sinalizada como os botões de Watch Film do Hero da página pública.
 
 ### 2.3. Banco de Dados e Migração (`db/migrations/0014_athlete_status_college_start.sql`)
+
 ```sql
 -- Migration: 0014_athlete_status_college_start.sql
 -- Description: Add athlete_status and college_start_date to athlete_profiles
@@ -91,6 +95,7 @@ comment on column public.athlete_profiles.college_start_date is
 ```
 
 ### 2.4. Formulário do Admin (`src/routes/_authenticated/admin/athletes/$id.tsx`)
+
 - **Athlete Status**: `<select>` com as opções:
   - `High School`
   - `Freshman`
@@ -102,6 +107,7 @@ comment on column public.athlete_profiles.college_start_date is
 - **Seasons of Eligibility**: Campo removido do formulário para evitar poluição visual e inconsistências com as novas diretrizes da agência.
 
 ### 2.5. Correção de Teste do Catálogo (`src/lib/catalog.test.ts`)
+
 - Ajustar os mocks de posições no arquivo de teste do catálogo (`Setter`, `Outside Hitter`, `Libero`) para passar 100% verde com a ordenação canônica em inglês.
 
 ---

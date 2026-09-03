@@ -10,6 +10,7 @@
 ## 1. Visão Geral e Objetivo da Feature
 
 Permitir que a agência (**Go Team Go**), no painel administrativo:
+
 1. **Gerencie uma base de Coaches Universitários** (CRUD manual individual e importação em massa via planilha CSV/XLSX com validação e deduplicação).
 2. **Dispare campanhas de e-mail teaser em massa** a partir da página de um atleta específico para coaches selecionados da lista.
 3. **Apresente um teaser minimalista de alto impacto visual** (estilo card esportivo premium, hero com foto, posição, 3 a 4 estatísticas-chave, hook line e botão único para o perfil público oficial), sem expor vídeos brutos ou fichas completas por e-mail, canalizando todo o tráfego de scouts para a plataforma web.
@@ -100,7 +101,9 @@ CREATE POLICY "Agency admin manage recruit logs"
 ```
 
 ### 2.2. Tipos em TypeScript (`src/types/db.ts`)
+
 Adição dos tipos:
+
 - `Coach`: `{ id: string; name: string; email: string; institution: string | null; created_at: string; }`
 - `RecruitEmailLog`: `{ id: string; athlete_id: string; coach_id: string; subject: string; status: 'sent' | 'failed'; error_message: string | null; sent_at: string; }`
 - Atualização em `AthleteProfile` para incluir `highlight_note?: string | null;`.
@@ -110,10 +113,12 @@ Adição dos tipos:
 ## 3. Gestão de Coaches no Admin (`/admin/coaches`)
 
 ### 3.1. Navegação
+
 - Adição da seção no sidebar `src/components/app-shell.tsx` nos `adminLinks`:
   `{ to: "/admin/coaches", label: "Coaches", icon: GraduationCap }` (ou ícone representativo de esportes/universidade).
 
 ### 3.2. Tela `/admin/coaches` (`src/routes/_authenticated/admin/coaches.tsx`)
+
 - **Cabeçalho com Métricas e Ações**:
   - Título editorial "Coaches Directory", contagem total de cadastrados.
   - Botão secundário "Import Spreadsheet" (abre modal de importação XLSX/CSV).
@@ -125,6 +130,7 @@ Adição dos tipos:
   - Estado vazio com CTA convidativo caso não haja registros.
 
 ### 3.3. Modal de Cadastro / Edição Manual
+
 - Campos:
   - Full Name (obrigatório, validação min 2 chars).
   - Email (obrigatório, validação regex RFC e normalização lowercase/trim).
@@ -132,6 +138,7 @@ Adição dos tipos:
 - Tratamento de duplicidade de e-mail (alerta amigável se já existir).
 
 ### 3.4. Fluxo de Importação de Planilha (CSV ou XLSX)
+
 - **Biblioteca**: Uso de `xlsx` (SheetJS) no frontend, permitindo ler com máxima compatibilidade arquivos `.xlsx`, `.xls` e `.csv` diretamente no navegador.
 - **Detecção Inteligente de Colunas**:
   - Mapeamento flexível das colunas do arquivo (case-insensitive e variações):
@@ -153,12 +160,14 @@ Adição dos tipos:
 ## 4. Integração com Resend e Batch Send
 
 ### 4.1. Configuração e Variáveis de Ambiente
+
 - `RESEND_API_KEY`: Verificada no backend via `process.env.RESEND_API_KEY`.
 - `EMAIL_FROM`: `process.env.EMAIL_FROM ?? "Go Team Go <onboarding@resend.dev>"`.
   - **Nota sobre o Domínio do Remetente**: Se a agência tiver um domínio verificado no Resend (ex: `scout@goteamgoagency.com` ou `recruiting@goteamgoagency.com`), basta configurar na variável `EMAIL_FROM`. Enquanto não houver domínio próprio ativado, utilizará o remetente de teste padrão.
 - Documentado no `.env.example`.
 
 ### 4.2. Template de E-mail: `recruit_teaser`
+
 - Implementado em `src/lib/email/templates.ts` (ou renderizador dedicado `renderRecruitEmailHtml`).
 - **Diretrizes Visuais (`UI&UX.md`)**:
   - Layout mobile-first, limpo e profissional, com paleta neutra premium (Dark Premium `#0b0b0c` ou Editorial Off-White com acentos em Verde Esmeralda `#059669`).
@@ -173,16 +182,17 @@ Adição dos tipos:
     - **Nationality / Origin**: ex: `Brazil 🇧🇷`
     - **Graduation Year**: ex: `Class of 2026` (extraído de `athlete_profiles.high_school_graduation`)
     - **Status / Eligibility**: ex: `Freshman / 4 Years Eligibility` ou `GPA: 3.8`
-    - *Regra Estrita*: **SEM links de vídeos no e-mail, SEM fichas densas**. Apenas o teaser instigante.
+    - _Regra Estrita_: **SEM links de vídeos no e-mail, SEM fichas densas**. Apenas o teaser instigante.
   - **Hook Line**:
-    - Frase de impacto curta: do campo `athlete_profiles.highlight_note`, ou gerada elegantemente: *"High-performance international prospect seeking competitive NCAA / NAIA opportunities for the 2026/2027 season."*
+    - Frase de impacto curta: do campo `athlete_profiles.highlight_note`, ou gerada elegantemente: _"High-performance international prospect seeking competitive NCAA / NAIA opportunities for the 2026/2027 season."_
   - **CTA Central Único**:
-    - Botão com estilo *liquid-button* esmeralda: **"View Full Profile & Match Videos"**
+    - Botão com estilo _liquid-button_ esmeralda: **"View Full Profile & Match Videos"**
     - Link direto para a URL canônica: `https://portfolio.goteamgoagency.com/athlete/{slug}`
   - **Rodapé Oficial**:
     - Assinatura da agência Go Team Go, informações de contato institucional (`contact@goteamgoagency.com`), copyright e aviso de que a mensagem foi enviada pelo departamento de scouting internacional da agência.
 
 ### 4.3. Backend Server Function: `src/lib/email/recruit-email.server.ts` e `recruit-email.functions.ts`
+
 - Utiliza `createServerFn({ method: "POST" })` com middleware `requireAgency` para segurança.
 - **Processamento**:
   1. Carrega dados do atleta, esporte, posição e perfil.
@@ -198,10 +208,12 @@ Adição dos tipos:
 ## 5. UI no Admin: Modal de Disparo no Perfil do Atleta (`/admin/athletes/$id`)
 
 ### 5.1. Ponto de Entrada
+
 - Na barra de ações superior do perfil do atleta em `src/routes/_authenticated/admin/athletes/$id.tsx`, ao lado dos botões existentes, adicionar o botão:
   - **"Send to Coaches"** com ícone `Mail` ou `Send`, estilo primário/destacado.
 
 ### 5.2. Modal Interativo "Send Recruit Teaser to Coaches"
+
 O modal terá layout em duas colunas (ou abas fluidas em telas menores):
 
 1. **Painel Esquerdo — Seleção de Destinatários**:
@@ -219,9 +231,9 @@ O modal terá layout em duas colunas (ou abas fluidas em telas menores):
    - Botão Primário: **"Send Email to X Coaches"**:
      - Desabilitado se nenhum coach for selecionado (`selectedCount === 0`) ou se o envio estiver em andamento.
      - Exibe spinner e status de progresso durante o envio.
-   - Diálogo de confirmação rápida antes de disparar: *"Are you sure you want to send this recruit email to X coaches?"*
+   - Diálogo de confirmação rápida antes de disparar: _"Are you sure you want to send this recruit email to X coaches?"_
 4. **Feedback Pós-Disparo**:
-   - Toast informativo (Sonner): *"Recruit email successfully sent to X coaches!"*
+   - Toast informativo (Sonner): _"Recruit email successfully sent to X coaches!"_
    - Em caso de falha parcial ou total, notificação com contagem exata e detalhes do erro.
 
 ---

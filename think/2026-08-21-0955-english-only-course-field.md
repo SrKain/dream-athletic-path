@@ -10,6 +10,7 @@
 ## 1. Contexto e Objetivo
 
 Conforme instrução direta do usuário humano, o produto **Sport Scout Hub / Go Team Go** passa por um **pivot definitivo de idioma**:
+
 > **A partir de agora, tudo o que for bilíngue passa a ser unicamente Inglês Americano (US English), sem exceções.**
 
 Não haverá mais campos, pares `_pt`/`_en`, fallbacks em português ou duplicidades na interface, no banco de dados, nos formulários ou nas comunicações. Além disso, incluímos o novo campo essencial para recrutamento universitário americano: **Course of Interest** (curso/área acadêmica de interesse do atleta).
@@ -77,9 +78,7 @@ Não haverá mais campos, pares `_pt`/`_en`, fallbacks em português ou duplicid
          className={inputClass}
          placeholder="e.g., Business Administration / Computer Science / Kinesiology"
          value={profile.course_of_interest ?? ""}
-         onChange={(e) =>
-           setProfile({ ...profile, course_of_interest: e.target.value })
-         }
+         onChange={(e) => setProfile({ ...profile, course_of_interest: e.target.value })}
        />
      </Field>
      ```

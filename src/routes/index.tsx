@@ -20,6 +20,7 @@ import {
   getAthleteStatus,
 } from "@/lib/catalog";
 import { buildContactEmailUrl } from "@/lib/contact";
+import { getAgencyLogoImage, getCatalogHeroBackgroundImage } from "@/lib/image-transform";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { formatHeightImperial } from "@/lib/units";
@@ -261,7 +262,7 @@ function Catalog() {
             <Link to="/" className="flex items-center gap-3">
               {visual?.logo_url ? (
                 <img
-                  src={visual.logo_url}
+                  src={getAgencyLogoImage(visual.logo_url)}
                   alt="Go Team Go Agency logo"
                   className="h-8 md:h-10 w-auto object-contain"
                 />
@@ -278,7 +279,7 @@ function Catalog() {
         <section className="relative overflow-hidden border-b border-border/70 min-h-[380px] md:min-h-[460px] flex items-center">
           <div className="absolute inset-0 z-0">
             <img
-              src={heroImageSrc}
+              src={getCatalogHeroBackgroundImage(heroImageSrc)}
               alt=""
               className="h-full w-full object-cover object-center"
               aria-hidden="true"
@@ -584,7 +585,7 @@ function Catalog() {
           <div className="flex items-center gap-3">
             {visual?.logo_url ? (
               <img
-                src={visual.logo_url}
+                src={getAgencyLogoImage(visual.logo_url)}
                 alt="Go Team Go Agency logo"
                 className="h-7 w-auto object-contain"
               />

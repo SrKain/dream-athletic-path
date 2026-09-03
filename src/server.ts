@@ -45,6 +45,70 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+/**
+ * Injects CDN/Edge and browser Cache-Control headers to dramatically reduce Supabase egress.
+ * Public routes (catalog `/`, athlete profiles `/athlete/:slug`, and public server functions)
+ * are cached on Vercel Edge / CDN with stale-while-revalidate.
+ * Admin and authenticated requests are strictly protected with no-store.
+ */
+function applyCacheControlHeaders(request: Request, response: Response): Response {
+  // Never cache error responses, non-GET/HEAD methods, or responses that already set private/no-store
+  if (response.status !== 200 || (request.method !== "GET" && request.method !== "HEAD")) {
+    return response;
+  }
+
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  // Protect private/authenticated routes
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/portal") ||
+    pathname.startsWith("/auth") ||
+    request.headers.get("authorization") ||
+    request.headers.get("cookie")?.includes("sb-")
+  ) {
+    const headers = new Headers(response.headers);
+    headers.set("cache-control", "private, no-cache, no-store, must-revalidate");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  let cacheControl = "";
+  if (pathname === "/" || pathname === "") {
+    // Public Catalog: 60s in browser, 5min in Edge CDN, up to 24h stale-while-revalidate
+    cacheControl = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
+  } else if (pathname.startsWith("/athlete/")) {
+    // Athlete Profile: 2min in browser, 15min in Edge CDN, up to 24h stale-while-revalidate
+    cacheControl = "public, max-age=120, s-maxage=900, stale-while-revalidate=86400";
+  } else if (pathname.includes("listPublicAthletes") || pathname.includes("getPublicAthlete")) {
+    // Public Server Function calls
+    cacheControl = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
+  }
+
+  const existingCacheControl = response.headers.get("cache-control") ?? "";
+  if (
+    cacheControl &&
+    !existingCacheControl.includes("no-store") &&
+    !existingCacheControl.includes("private")
+  ) {
+    const headers = new Headers(response.headers);
+    headers.set("cache-control", cacheControl);
+    headers.set("cdn-cache-control", cacheControl);
+    headers.set("vercel-cdn-cache-control", cacheControl);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  return response;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -62,7 +126,8 @@ export default {
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return applyCacheControlHeaders(request, normalized);
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

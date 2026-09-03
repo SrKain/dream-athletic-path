@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "storage:cache-control": "vite-node scripts/update-storage-cache-control.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
