@@ -216,6 +216,48 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Reinicialização e verificação do dev server com resposta HTTP 200.
 - **Status:** [CONCLUÍDO]
 
+## TASK-057 — 2026-09-02 18:04 — Leitura do README, Governança e Alinhamento de Protocolo
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "Leia o Readme" — Leitura completa e assimilação do README.md e cumprimento dos protocolos de governança de IA.
+- **Entrega:**
+  - Leitura integral e assimilação do `README.md` (arquitetura do MVP, regras de infraestrutura do Supabase externo, papéis de Agência, Atleta e Coach, catálogo estilo streaming, e regras de segurança e pipeline).
+  - Alinhamento aos 5 mandamentos de governança de IA (`README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/`): leitura obrigatória executada, elaboração de plano prévio em `think/` antes de apresentar, aprovação humana prévia e explícita antes de qualquer alteração de código, atualização viva no `CERNE.md` e respeito total ao design system mobile-first.
+  - Agente alinhado e pronto para a próxima instrução ou demanda do usuário.
+- **Status:** [CONCLUÍDO]
 
+## TASK-058 — 2026-09-02 18:06 — Feature "Recruit Email" para Coaches Universitários
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Implementar a feature "Recruit Email": cadastro de coaches (tabela, importador de planilha CSV/XLSX com validação e resumo prévio, CRUD manual), integração com Resend (batch send), template de e-mail teaser de alto padrão visual (foto, stats, hook line, CTA único para perfil público, sem vídeos/ficha completa), UI no Admin do atleta (modal com seleção, busca, preview WYSIWYG e botão de disparo com contagem), tabela `recruit_email_logs`. Remetente configurado como `contact@goteamgoagency.com`.
+- **Entrega:**
+  - Planejamento prévio estruturado em `think/2026-09-02-1815-feature-recruit-email-coaches.md` e aprovado pelo usuário humano.
+  - Migration SQL `0016_coaches_and_recruit_emails.sql` com as tabelas `coaches` e `recruit_email_logs`, políticas RLS para `agency_admin` e coluna `highlight_note` em `athlete_profiles`.
+  - Atualização dos tipos TypeScript em `src/types/db.ts` com as interfaces `Coach` e `RecruitEmailLog`.
+  - Criação do template de e-mail Dark/Emerald Premium em `src/lib/email/recruit-email-template.ts` com layout mobile-first em HTML/CSS inline, subject persuasivo, dados biométricos/acadêmicos formatados e CTA proeminente para o perfil público.
+  - Módulo de backend `src/lib/email/recruit-email.server.ts` com envio em lotes de até 100 e-mails via `resend.batch.send` e gravação de logs de auditoria (`recruit_email_logs`).
+  - Server function segura `sendRecruitEmailServerFn` em `src/lib/email/recruit-email.functions.ts` protegida por `requireAgency`.
+  - Página de gestão de coaches em `/admin/coaches` (`src/routes/_authenticated/admin/coaches.tsx`) com listagem, busca instantânea, criação/edição/exclusão manual, e importador completo de planilhas CSV/XLSX com drag-and-drop, mapeamento inteligente de colunas, remoção de duplicados, contadores de validação e prévia tabular.
+  - Inclusão do link "Coaches" no sidebar da agência em `src/components/app-shell.tsx`.
+  - Criação do componente modal `SendRecruitEmailDialog` em `src/components/send-recruit-email-dialog.tsx` com visualizador WYSIWYG do e-mail, filtro e busca de coaches, contagem dinâmica e diálogo de confirmação pré-disparo.
+  - Integração do botão "Send to Coaches" na barra superior do perfil do atleta em `src/routes/_authenticated/admin/athletes/$id.tsx` e inclusão do campo editável "Recruit Email Hook Line" no formulário de perfil.
+  - Linter e compilação de produção validados com 100% de sucesso.
+- **Status:** [CONCLUÍDO]
 
-
+## TASK-059 — 2026-09-03 11:40 — Correção e Blindagem da Página de Coaches e Modal "Send to Coaches"
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "não to conseguindo fazer nada ao selecionar o 'send to coaches' a tela abre sinalizando um erro" e "antes de seguir investigue também a página coaches que também está com o mesmo problema" — Diagnosticar e corrigir o erro nas duas telas (`/admin/coaches` e modal `SendRecruitEmailDialog`), sanando o erro de chamada indevida de função em constantes CSS de botão (`TypeError: buttonClass is not a function`), alinhando props de `Panel` e `EmptyState`, e tratando estado vazio e preview com segurança.
+- **Planejamento:** Registrado e aprofundado em `think/2026-09-03-1140-diagnostico-correcao-send-recruit-email.md` e aprovado previamente pelo usuário.
+- **Entrega:**
+  - Corrigidas todas as chamadas indevidas `buttonClass("secondary")` e `buttonClass("primary")` para as constantes exportadas `secondaryButtonClass` e `buttonClass` em `src/routes/_authenticated/admin/coaches.tsx` e `src/components/send-recruit-email-dialog.tsx`.
+  - Corrigido o uso de `<Panel title="Coaches Directory">` em `coaches.tsx` fornecendo a prop obrigatória `title`.
+  - Corrigido o uso de `<EmptyState>` em `coaches.tsx` passando o conteúdo como children em conformidade com o componente base.
+  - Implementado Empty State amigável no modal `SendRecruitEmailDialog` quando o banco de dados ainda não possui coaches cadastrados, com CTA direto para a tela de importação e cadastro (`/admin/coaches`).
+  - Adicionado link "Manage Coaches" com ícone `ExternalLink` no topo do modal.
+  - Adicionado tratamento de erro resiliente com banner e botão "Retry" caso a consulta ao Supabase falhe.
+  - Iframe de prévia de e-mail protegido contra restrições de sandbox de navegadores em ambientes aninhados (`sandbox="allow-popups allow-popups-to-escape-sandbox"`).
+  - Blindagem de valores nulos/indefinidos em `src/lib/email/recruit-email-template.ts` evitando exceções caso dados de atleta estejam incompletos.
+  - Testes automatizados (14 arquivos, 89 testes) passando com 100% de sucesso.
+  - Linter (`eslint`) e compilação de produção (`compile_applet`) aprovados com zero erros.
+- **Status:** [CONCLUÍDO]

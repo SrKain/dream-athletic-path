@@ -3,6 +3,7 @@ import {
   Bell,
   ClipboardList,
   FileText,
+  GraduationCap,
   Images,
   Palette,
   LayoutDashboard,
@@ -20,6 +21,7 @@ import type { AppRole } from "@/types/db";
 const adminLinks = [
   { to: "/admin", label: "Visão geral", icon: LayoutDashboard },
   { to: "/admin/athletes", label: "Atletas", icon: Users },
+  { to: "/admin/coaches", label: "Coaches", icon: GraduationCap },
   { to: "/admin/pipeline", label: "Pipeline", icon: ClipboardList },
   { to: "/admin/documents", label: "Documentos", icon: FileText },
   { to: "/admin/proposals", label: "Propostas", icon: Send },

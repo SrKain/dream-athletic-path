@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Trash2, Upload } from "lucide-react";
+import { Send, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { AthleteAccessCard } from "@/components/athlete-access-card";
 import { SearchableSelect } from "@/components/searchable-select";
+import { SendRecruitEmailDialog } from "@/components/send-recruit-email-dialog";
 import { StageTimeline } from "@/components/stage-timeline";
 import {
   Panel,
@@ -74,6 +75,7 @@ function AthleteEditor() {
   }>({ kind: "highlight", title: "", youtube_url: "" });
   const [uploadingAchievementImage, setUploadingAchievementImage] = useState(false);
   const [tab, setTab] = useState<"timeline" | "data" | "profile">("timeline");
+  const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [
@@ -409,9 +411,17 @@ function AthleteEditor() {
   return (
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title={athlete.full_name}>
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <button className={buttonClass} onClick={save}>
             Salvar alterações
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors cursor-pointer"
+            onClick={() => setIsRecruitModalOpen(true)}
+          >
+            <Send className="h-4 w-4" />
+            Send to Coaches
           </button>
           <button className={secondaryButtonClass} onClick={invite}>
             Enviar convite
@@ -605,6 +615,17 @@ function AthleteEditor() {
                         onChange={(e) =>
                           setProfile({ ...profile, team_contribution_en: e.target.value })
                         }
+                      />
+                    </Field>
+                    <Field
+                      label="Recruit Email Hook Line (Teaser highlight for coaches blast)"
+                      wide
+                    >
+                      <input
+                        className={inputClass}
+                        placeholder="e.g. Dynamic 6'1 outside hitter with 10'2 approach touch and proven leadership."
+                        value={profile.highlight_note ?? ""}
+                        onChange={(e) => setProfile({ ...profile, highlight_note: e.target.value })}
                       />
                     </Field>
                     <Field label="Athlete Status (Academic / Collegiate Level)">
@@ -1192,6 +1213,19 @@ function AthleteEditor() {
             />
           </div>
         </div>
+
+        <SendRecruitEmailDialog
+          open={isRecruitModalOpen}
+          onClose={() => setIsRecruitModalOpen(false)}
+          athlete={athlete}
+          profile={profile}
+          sportName={sports.find((s) => s.id === athlete.sport_id)?.name_en}
+          positionName={positions.find((p) => p.id === athlete.position_id)?.name_en}
+          countryFlag={countries.find((c) => c.code === athlete.nationality)?.flag_emoji}
+          nationalityName={
+            countries.find((c) => c.code === athlete.nationality)?.name_en ?? athlete.nationality
+          }
+        />
       </AppShell>
     </ProtectedPage>
   );

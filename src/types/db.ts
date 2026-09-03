@@ -90,6 +90,7 @@ export interface AthleteProfile {
   team_contribution_en: string | null;
   athlete_status?: AthleteStatus | string | null;
   college_start_date?: string | null;
+  highlight_note?: string | null;
 }
 
 export type AthleteVideoKind = "presentation" | "highlight" | "feature" | "in_court";
@@ -390,4 +391,22 @@ export interface AthleteVideoLike {
   athlete_id: string;
   user_fingerprint: string;
   created_at: string;
+}
+
+export interface Coach {
+  id: string;
+  name: string;
+  email: string;
+  institution: string | null;
+  created_at: string;
+}
+
+export interface RecruitEmailLog {
+  id: string;
+  athlete_id: string;
+  coach_id: string;
+  subject: string;
+  status: "sent" | "failed";
+  error_message: string | null;
+  sent_at: string;
 }
