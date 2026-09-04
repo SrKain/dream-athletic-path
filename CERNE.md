@@ -714,3 +714,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Linter ESLint (`npm run lint`): 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
+### 4.14 Telemetria, Analytics e Rastreamento de Tráfego
+- **Google Analytics 4 (GA4)**: `G-4D6DTG650F` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
+- **Microsoft Clarity**: ID `y7zkn8qxno` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
+- **Meta Pixel (Facebook Pixel)**:
+  - Pixel ID: `1115203944400884`.
+  - Injetado no `<head>` de `RootShell` em `src/routes/__root.tsx` com fallback `<noscript>` e inicialização com `fbq('track', 'PageView')`.
+  - Componente de rastreamento client-side `MetaPixelTracker` integrado dentro de `<AppProviders>` em `RootComponent`, monitorando transições de rota via `useRouterState` para disparar eventos `PageView` em navegações SPA sem duplicidade na montagem inicial.
+
+

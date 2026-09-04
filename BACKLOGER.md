@@ -295,3 +295,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Conexão e substituição das URLs de imagem em todos os componentes visuais públicos (`athlete-video-card-media.tsx`, `home-highlights-story-bar.tsx`, `global-highlights-viewer.tsx`, `index.tsx`, `athlete.$slug.tsx`).
   - Validação técnica rigorosa: 98 testes Vitest aprovados, typecheck TypeScript (`tsc --noEmit`) com 0 erros, linter ESLint com 0 erros e compilação de produção (`compile_applet`) bem-sucedida.
 - **Status:** [CONCLUÍDO]
+
+## TASK-061 — 2026-09-03 16:42 — Integração do Meta Pixel (Facebook Pixel) no Portfólio
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Injetar o Meta Pixel (Facebook Pixel) com Pixel ID `1115203944400884` dentro da tag `<head>` no template raiz de forma que carregue em todas as rotas e efetue o disparo contínuo de `PageView` em transições client-side (SPA), sem duplicar scripts e sem impactar outros elementos visuais ou comportamentos.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-03-1335-integracao-meta-pixel.md`.
+- **Entrega:**
+  - Script oficial do Meta Pixel e fallback `<noscript>` inseridos no `<head>` de `RootShell` em `src/routes/__root.tsx`.
+  - Componente auxiliar `MetaPixelTracker` adicionado a `src/routes/__root.tsx` utilizando `useRouterState` para disparar `fbq('track', 'PageView')` em cada transição client-side de rota subsequente, prevenindo duplicidade no carregamento inicial via `useRef`.
+  - Verificação de duplicidade concluída (nenhum pixel anterior encontrado no repositório).
+  - Validação completa com testes automatizados, verificação de tipos e compilação.
+- **Status:** [CONCLUÍDO]
