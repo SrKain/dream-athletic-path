@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Bell,
+  Building2,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -8,6 +9,7 @@ import {
   Palette,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
   Settings,
   Send,
@@ -21,7 +23,8 @@ import type { AppRole } from "@/types/db";
 const adminLinks = [
   { to: "/admin", label: "Visão geral", icon: LayoutDashboard },
   { to: "/admin/athletes", label: "Atletas", icon: Users },
-  { to: "/admin/coaches", label: "Coaches", icon: GraduationCap },
+  { to: "/admin/universities", label: "Universidades", icon: Building2 },
+  { to: "/admin/mailer", label: "Mailer", icon: Mail },
   { to: "/admin/pipeline", label: "Pipeline", icon: ClipboardList },
   { to: "/admin/documents", label: "Documentos", icon: FileText },
   { to: "/admin/proposals", label: "Propostas", icon: Send },

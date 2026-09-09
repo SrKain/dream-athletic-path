@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Send, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { AthleteAccessCard } from "@/components/athlete-access-card";
 import { SearchableSelect } from "@/components/searchable-select";
-import { SendRecruitEmailDialog } from "@/components/send-recruit-email-dialog";
 import { StageTimeline } from "@/components/stage-timeline";
 import {
   Panel,
@@ -75,7 +74,6 @@ function AthleteEditor() {
   }>({ kind: "highlight", title: "", youtube_url: "" });
   const [uploadingAchievementImage, setUploadingAchievementImage] = useState(false);
   const [tab, setTab] = useState<"timeline" | "data" | "profile">("timeline");
-  const [isRecruitModalOpen, setIsRecruitModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [
@@ -416,14 +414,14 @@ function AthleteEditor() {
           <button className={buttonClass} onClick={save}>
             Salvar alterações
           </button>
-          <button
-            type="button"
+          <Link
+            to="/admin/mailer"
+            search={{ mode: "single", athleteId: id }}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors cursor-pointer"
-            onClick={() => setIsRecruitModalOpen(true)}
           >
             <Send className="h-4 w-4" />
-            Send to Coaches
-          </button>
+            Recruit Mailer
+          </Link>
           <button className={secondaryButtonClass} onClick={invite}>
             Enviar convite
           </button>
@@ -1214,19 +1212,6 @@ function AthleteEditor() {
             />
           </div>
         </div>
-
-        <SendRecruitEmailDialog
-          open={isRecruitModalOpen}
-          onClose={() => setIsRecruitModalOpen(false)}
-          athlete={athlete}
-          profile={profile}
-          sportName={sports.find((s) => s.id === athlete.sport_id)?.name_en}
-          positionName={positions.find((p) => p.id === athlete.position_id)?.name_en}
-          countryFlag={countries.find((c) => c.code === athlete.nationality)?.flag_emoji}
-          nationalityName={
-            countries.find((c) => c.code === athlete.nationality)?.name_en ?? athlete.nationality
-          }
-        />
       </AppShell>
     </ProtectedPage>
   );

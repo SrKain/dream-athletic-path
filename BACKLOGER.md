@@ -308,3 +308,45 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Verificação de duplicidade concluída (nenhum pixel anterior encontrado no repositório).
   - Validação completa com testes automatizados, verificação de tipos e compilação.
 - **Status:** [CONCLUÍDO]
+
+## TASK-062 — 2026-09-09 13:00 — Migração do Mailer para Aba Dedicada + Cadastro Estruturado de Universidades
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Migrar a funcionalidade de mailer de recrutamento do perfil individual do atleta para uma aba dedicada no menu administrativo (`/admin/mailer`), evoluir o cadastro de coaches para uma entidade estruturada de universidades (`universities` com sub-registros de coaches e histórico, liga, budget, toefl e hbcu), suportar 3 modos de envio (multi-atleta, atleta específico e catálogo genérico da agência), e implementar suppression list com link obrigatório de descadastro (unsubscribe).
+- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1300-migracao-mailer-aba-dedicada-universidades.md`.
+- **Entrega:**
+  - **Evolução do Banco de Dados**:
+    - Criada migration `db/migrations/0018_universities_and_mailer.sql` com as tabelas `universities` (com sub-registros JSONB para `coaches` e `history`, além de `budget_level`, `toefl_level`, `is_hbcu`, `league`, `state`), `email_suppressions` (com índice único lower-case em `email` e RLS para descadastro anônimo) e evolução de `recruit_email_logs` (novos campos e status `'suppressed'`).
+  - **Módulo de Universidades (`/admin/universities`)**:
+    - Interface completa com métricas de universidades e coaches, filtros por estado (50 estados + DC), liga, orçamento, TOEFL e HBCU.
+    - Modal de criação/edição com múltiplos coaches inline e histórico de acontecimentos.
+    - Importador em lote (`.xlsx` e `.csv`) com validação, agrupamento de coaches por universidade e download de planilha modelo.
+  - **Módulo Central de Mailer (`/admin/mailer`)**:
+    - Três modos de operação: Atleta Específico (com deep-link do perfil), Multi-Atleta (em lote) e Catálogo Institucional.
+    - Seletor avançado de destinatários com contagem dinâmica, exclusão visual de contatos na lista de supressão e filtros combinados.
+    - Pré-visualização WYSIWYG em tempo real com iframe seguro (`srcDoc`).
+    - Envio seguro com confirmação de volume e registro em log.
+    - Aba de histórico com auditoria detalhada de envios.
+  - **Supressão e Descadastro (CAN-SPAM)**:
+    - Rota pública `/unsubscribe` com formulário amigável e motivos de descadastro.
+    - Link de unsubscribe injetado automaticamente nos rodapés dos templates de e-mail de recrutamento e catálogo geral.
+    - Validação no backend em `sendMailerEmails` ignorando contatos suprimidos.
+  - **Navegação Integrada**:
+    - `src/components/app-shell.tsx` atualizado com links de menu para Universidades e Mailer.
+    - `src/routes/_authenticated/admin/athletes/$id.tsx` atualizado, substituindo o modal legado por botão de ação direta para o Mailer dedicado com pre-seleção do atleta.
+  - **Validação e Qualidade**:
+    - 98 testes Vitest aprovados (100% de sucesso).
+    - ESLint limpo (0 erros).
+    - Compilação de produção (`compile_applet`) concluída com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+### [TASK-063] - Correção de Erro SQL: column profiles.role does not exist na Migration 0018
+- **Data/Hora:** 2026-09-09 15:20
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Correção do erro SQL `ERROR: 42703: column profiles.role does not exist` disparado durante a execução da migration `0018_universities_and_mailer.sql` no Supabase SQL Editor.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1520-correcao-sql-rls-profiles-role.md`.
+- **Status:** [PENDENTE]

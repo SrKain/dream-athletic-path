@@ -722,4 +722,52 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Injetado no `<head>` de `RootShell` em `src/routes/__root.tsx` com fallback `<noscript>` e inicialização com `fbq('track', 'PageView')`.
   - Componente de rastreamento client-side `MetaPixelTracker` integrado dentro de `<AppProviders>` em `RootComponent`, monitorando transições de rota via `useRouterState` para disparar eventos `PageView` em navegações SPA sem duplicidade na montagem inicial.
 
+## Atualização 2026-09-09 — Migração do Mailer para Aba Dedicada + Cadastro Estruturado de Universidades (TASK-062)
+
+- **Evolução de Banco de Dados (`db/migrations/0018_universities_and_mailer.sql`)**:
+  - Tabela `universities` criada:
+    - Campos institucionais: `id UUID`, `name TEXT NOT NULL`, `city TEXT NOT NULL`, `state TEXT NOT NULL (2 chars)`, `league TEXT`, `source_url TEXT`, `is_hbcu BOOLEAN DEFAULT FALSE`, `budget_level TEXT`, `toefl_level TEXT`.
+    - Sub-registros em `JSONB`: `coaches JSONB DEFAULT '[]'::jsonb` (lista de treinadores com `id`, `first_name`, `last_name`, `email`, `role`) e `history JSONB DEFAULT '[]'::jsonb` (timeline de acontecimentos e anotações com `id`, `date`, `event`).
+    - Índices criados para alta performance em buscas textuais e filtros: `name_trgm_idx`, `state_idx`, `league_idx`, `is_hbcu_idx`, `budget_level_idx`, `toefl_level_idx`.
+    - RLS ativado com permissão integral (`ALL`) para administradores da agência (`agency_admin`).
+  - Tabela `email_suppressions` criada:
+    - Armazenamento de contatos que solicitaram descadastro (opt-out / unsubscribe): `id UUID`, `email TEXT NOT NULL`, `reason TEXT`, `source TEXT DEFAULT 'unsubscribe_link'`, `created_at TIMESTAMPTZ`.
+    - Índice exclusivo `email_suppressions_email_lower_idx` em `lower(trim(email))` garantindo unicidade case-insensitive.
+    - Políticas RLS: leitura e gestão restritas a administradores; inserção anônima permitida para registro legítimo de descadastro via link público.
+  - Tabela `recruit_email_logs` evoluída:
+    - Desacoplamento da antiga foreign key com `coaches` (permitindo manter histórico perpétuo mesmo após exclusões ou edições de contatos).
+    - Adicionadas as colunas `email_type TEXT DEFAULT 'athlete_teaser'`, `recipient_name TEXT`, `recipient_email TEXT`, `university_name TEXT`.
+    - Status expandido para suportar `'sent'`, `'failed'`, `'suppressed'`.
+- **Novos Tipos TypeScript (`src/types/db.ts`)**:
+  - Tipos criados: `University`, `UniversityCoach`, `UniversityHistoryEntry`, `UniversityLeague`, `UniversityBudgetLevel`, `UniversityToeflLevel`, `EmailSuppression`.
+  - Interface `RecruitEmailLog` atualizada com novas colunas e status `suppressed`.
+- **Templates de E-mail de Recrutamento (`src/lib/email/`)**:
+  - `recruit-email-template.ts`: Adicionado parâmetro `recipientEmail` com injeção automática de URL de descadastro (`CANONICAL_BASE_URL/unsubscribe?email=...`) em conformidade com CAN-SPAM e boas práticas de entregabilidade.
+  - `recruit-email-catalog-template.ts`: Novo template institucional moderno (Dark/Emerald Theme) com apresentação do elenco geral de atletas, métricas de verificação da agência e botão CTA apontando para a home pública do portfólio.
+- **Camada de Backend e Servidor (`src/lib/email/recruit-email.server.ts` & `recruit-email.functions.ts`)**:
+  - Função `sendMailerEmails`:
+    - Processamento de três modos de envio: `single_athlete`, `multi_athlete`, `catalog`.
+    - Pré-filtragem automática contra a tabela `email_suppressions`, garantindo que contatos que deram opt-out nunca recebam novos e-mails.
+    - Envio em lote (chunking de 100 itens) para a API do Resend.
+    - Registro detalhado em `recruit_email_logs` com status correspondente (`sent`, `failed`, `suppressed`).
+  - Server functions expostas: `sendMailerServerFn`, `getSuppressedEmailsServerFn`, `unsubscribeServerFn`, `getMailerHistoryServerFn`.
+- **Rota Pública de Descadastro (`src/routes/unsubscribe.tsx`)**:
+  - Interface amigável e segura para coaches universitários optarem por não receber mais comunicações da agência.
+  - Pré-preenchimento automático via search param `?email=...`.
+  - Seleção opcional de motivos de descadastro (não recruta internacionais, vaga preenchida, não é o coach responsável, etc.).
+- **Gestão de Universidades e Coaches (`src/routes/_authenticated/admin/universities.tsx`)**:
+  - Painel com filtros multifacetados por Estado (50 estados americanos + DC), Liga (NJCAA D1/D2, NCAA D1/D2, NAIA), HBCU, Budget Level (`0–1000`, `1000–5000`, `5000–10000`, `10000+`) e TOEFL Level (`0`, `0–61`, `61+`).
+  - Modal de cadastro e edição completo com gerenciamento inline de sub-coaches e histórico de eventos.
+  - Importador inteligente de planilhas (`.xlsx` e `.csv`) com download de template pré-formatado, validação em linha e agrupamento automático de coaches sob a mesma universidade.
+- **Painel Central do Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
+  - Seletor dos 3 modos de envio: Atleta Específico, Multi-atleta (em lote) e Catálogo Institucional.
+  - Seletor de destinatários com filtros avançados e indicação de contatos com opt-out (suppressed).
+  - Pré-visualização WYSIWYG responsiva em tempo real com iframe seguro (`srcDoc`).
+  - Modal de confirmação com cálculo antecipado do volume total de disparos e contatos pulados.
+  - Aba de Histórico com auditoria de envios, status de entrega e motivos de falha/supressão.
+- **Navegação & Perfil do Atleta**:
+  - `src/components/app-shell.tsx`: Links de "Universidades" (`/admin/universities`) e "Mailer" (`/admin/mailer`) adicionados ao menu lateral.
+  - `src/routes/_authenticated/admin/athletes/$id.tsx`: Botão antigo de modal substituído por link contextual para o novo Mailer (`/admin/mailer?mode=single&athleteId=...`).
+
+
 

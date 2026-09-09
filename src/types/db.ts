@@ -401,12 +401,60 @@ export interface Coach {
   created_at: string;
 }
 
+export type UniversityLeague = "NJCAA D1" | "NJCAA D2" | "NCAA D1" | "NCAA D2" | "NAIA";
+
+export type UniversityBudgetLevel = "0–1000" | "1000–5000" | "5000–10000" | "10000+";
+
+export type UniversityToeflLevel = "0" | "0–61" | "61+";
+
+export interface UniversityCoach {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+}
+
+export interface UniversityHistoryEntry {
+  id: string;
+  date: string;
+  event: string;
+}
+
+export interface University {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  league: UniversityLeague | null;
+  source_url: string | null;
+  is_hbcu: boolean;
+  budget_level: UniversityBudgetLevel | null;
+  toefl_level: UniversityToeflLevel | null;
+  coaches: UniversityCoach[];
+  history: UniversityHistoryEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailSuppression {
+  id: string;
+  email: string;
+  reason: string;
+  created_at: string;
+}
+
 export interface RecruitEmailLog {
   id: string;
-  athlete_id: string;
-  coach_id: string;
+  athlete_id: string | null;
+  coach_id: string | null;
   subject: string;
-  status: "sent" | "failed";
+  status: "sent" | "failed" | "suppressed";
   error_message: string | null;
   sent_at: string;
+  email_type?: "athlete_teaser" | "catalog_general";
+  recipient_email?: string | null;
+  recipient_name?: string | null;
+  university_name?: string | null;
 }

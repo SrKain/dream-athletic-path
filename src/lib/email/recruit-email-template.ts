@@ -14,6 +14,7 @@ export interface RecruitEmailData {
   gpa?: number | null;
   athleteStatus?: string | null;
   highlightNote?: string | null;
+  recipientEmail?: string | null;
 }
 
 export function renderRecruitEmail(data: RecruitEmailData) {
@@ -24,6 +25,10 @@ export function renderRecruitEmail(data: RecruitEmailData) {
   const profileUrl = safeSlug
     ? `https://portfolio.goteamgoagency.com/athlete/${encodeURIComponent(safeSlug)}`
     : `https://portfolio.goteamgoagency.com`;
+
+  const unsubscribeUrl = data.recipientEmail
+    ? `https://portfolio.goteamgoagency.com/unsubscribe?email=${encodeURIComponent(data.recipientEmail)}`
+    : `https://portfolio.goteamgoagency.com/unsubscribe`;
 
   // Formatar Altura
   const heightImperial = formatHeightImperial(data.heightCm);
@@ -197,6 +202,10 @@ export function renderRecruitEmail(data: RecruitEmailData) {
               <div style="font-size:10px;color:#52525b;line-height:1.4;">
                 This recruit showcase was prepared for collegiate coaches and athletic directors.<br>
                 © ${new Date().getFullYear()} Go Team Go. All rights reserved.
+              </div>
+              <div style="font-size:10px;color:#71717a;margin-top:12px;border-top:1px solid #1f1f23;padding-top:12px;">
+                If you no longer wish to receive recruitment evaluations from Go Team Go, you can 
+                <a href="${unsubscribeUrl}" style="color:#a1a1aa;text-decoration:underline;">unsubscribe here</a>.
               </div>
             </td>
           </tr>
