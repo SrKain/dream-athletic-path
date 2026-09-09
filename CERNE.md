@@ -769,5 +769,61 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - `src/components/app-shell.tsx`: Links de "Universidades" (`/admin/universities`) e "Mailer" (`/admin/mailer`) adicionados ao menu lateral.
   - `src/routes/_authenticated/admin/athletes/$id.tsx`: Botão antigo de modal substituído por link contextual para o novo Mailer (`/admin/mailer?mode=single&athleteId=...`).
 
+## Atualização 2026-09-09 — Hotfix RLS, Redesign de E-mails com Paleta Oficial, Filtros Avançados e Otimização de Importação (TASK-063)
+
+- **Hotfix de RLS Migration (`db/migrations/0019_fix_universities_rls_role_reference.sql`)**:
+  - Resolvido erro de execução `column profiles.role does not exist` na migration 0018.
+  - Criada migration 0019 redefinindo todas as RLS policies das tabelas `universities` e `email_suppressions` para utilizar a função canônica do projeto `public.is_agency_admin()`.
+  - Migration `0018_universities_and_mailer.sql` também saneada preventivamente.
+- **Redesign dos Templates de E-mail com Identidade Visual Oficial**:
+  - `src/lib/email/recruit-email-template.ts` e `src/lib/email/recruit-email-catalog-template.ts` totalmente convertidos para a paleta oficial Go Team Go:
+    - Fundo envelope: `#f8faf5`.
+    - Container principal: `#ffffff` com borda `#e3e9dc` e sombra sutil.
+    - Tipografia principal: `#032812` (títulos e textos) e `#4b6353` (secundários/muted).
+    - Badges e destaques institucionais: fundo `#084323`, texto `#ffffff`.
+    - Botão de CTA e destaques de ação: `#f69e00` com texto `#032812` de alto contraste e legibilidade.
+    - Rodapé institucional: `#f0f4ec` com links em `#084323` e divisor `#e3e9dc`.
+    - Removidas 100% das cores do tema Dark legado (`#0b0b0c`, `#059669`, etc.).
+- **Filtros Avançados de Destinatários no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
+  - `src/lib/universities-constants.ts`: adicionado mapeamento `REGION_BY_STATE` contemplando todos os 50 estados americanos + DC divididos em 4 regiões (`Northeast`, `Midwest`, `South`, `West`).
+  - Painel do Mailer atualizado com novos dropdowns para Região dos EUA, Orçamento (Budget Level) e TOEFL/Duolingo Level, combinados com lógica estrita `AND` com os filtros existentes (Estado, Liga, HBCU).
+- **Otimização de Performance na Importação em Massa (`src/routes/_authenticated/admin/universities.tsx`)**:
+  - `handleConfirmImport` reescrito eliminando consultas individuais N+1 ao banco de dados.
+  - Carregamento prévio único de todas as universidades em um `Map` chaveado por `name_state` para buscas O(1).
+  - Separação das listas `toUpdate` e `toInsert` e execução paralela em lotes de 25 registros via `Promise.all`.
+- **Validação de Qualidade**:
+  - Testes unitários Vitest: 15 arquivos, 98 testes aprovados com 100% de sucesso.
+  - ESLint: 0 erros.
+  - Compilação de produção: Concluída com sucesso.
+
+## Atualização 2026-09-09 — Estabilização e Tipagem das Rotas Administrativas de Universidades e Mailer (TASK-064)
+
+- **Correção dos Wrappers de Rota e Layout**:
+  - `src/routes/_authenticated/admin/mailer.tsx` e `src/routes/_authenticated/admin/universities.tsx` atualizados para usar `<ProtectedPage role="agency_admin">` (prop `role` canônica) e `<AppShell role="agency_admin" title="...">`.
+  - Substituídos os componentes de painel incompatíveis por containers utilitários estilizados `glass-panel` com bordas e backgrounds alinhados ao design system.
+- **Tipagem Segura de Logs de Mailer (`src/lib/email/recruit-email.server.ts`)**:
+  - Tipagem refinada para inserções de auditoria no Supabase (`recruit_email_logs`) aceitando `athlete_id: null` para campanhas institucionais de catálogo geral sem recorrer a `any`.
+- **Validação de Qualidade**:
+  - ESLint: 0 erros.
+  - Compilação de produção (`compile_applet`): Build concluído com 100% de sucesso.
+
+## Atualização 2026-09-09 — Auditoria, Diagnóstico e Estabilização do CSS (TASK-065)
+
+- **Diagnóstico das Causas de Quebra do CSS**:
+  - Conflito de ordem de `@import` externo com o parser do LightningCSS (resolvido injetando fontes via `<link>` no `<head>` de `__root.tsx`).
+  - Fallback da fonte display para Bebas Neue forçando caixa alta irrecuperável e pesos de fonte descalibrados.
+  - Sintaxe `source(none)` e `@source "../src"` no Tailwind CSS v4 simplificada para `@import "tailwindcss";` nativo.
+  - Pseudo-classes `.liquid-button:hover` e `.liquid-button:active` consolidadas dentro de `@utility liquid-button` com aninhamento direto `&:hover` e `&:active`.
+  - Remoção de códigos hexadecimais legados e consolidação integral dos tokens oficiais Go Team Go (`#f69e00`, `#032812`, `#084323`, `#114f8f`, `#ff1616`).
+- **Arquivos Refinados**:
+  - `src/styles.css`: Importações limpas e compatíveis com Tailwind v4 / LightningCSS; aninhamento de estados interativos em `@utility liquid-button`.
+  - `src/routes/__root.tsx`: Injeção de fontes (*Barlow Semi Condensed*, *Oswald*, *Quicksand*, *Space Grotesk*) e estilos de base.
+- **Validação e Testes**:
+  - Vitest: 15 arquivos de testes, 98 testes unitários passando (100%).
+  - ESLint: 0 erros.
+  - Compilação de produção (`compile_applet`): Concluída com sucesso.
+
+
+
 
 

@@ -505,22 +505,44 @@ function UniversitiesPage() {
         }
       }
 
-      // Upsert ou inserção inteligente
-      let insertedCount = 0;
-      let updatedCount = 0;
+      // Otimização I/O: Buscar todas as universidades existentes de uma única vez
+      const { data: allExisting, error: fetchErr } = await supabase
+        .from("universities")
+        .select("id, name, state, coaches");
+
+      if (fetchErr) {
+        throw fetchErr;
+      }
+
+      // Indexação local em memória com a mesma chave canônica: nome_estado
+      const existingMap = new Map<string, { id: string; coaches: UniversityCoach[] }>();
+      for (const uni of allExisting || []) {
+        const k = `${uni.name.toLowerCase().trim()}_${uni.state.toUpperCase().trim()}`;
+        existingMap.set(k, {
+          id: uni.id,
+          coaches: (uni.coaches as UniversityCoach[]) || [],
+        });
+      }
+
+      const toUpdate: { id: string; coaches: UniversityCoach[] }[] = [];
+      const toInsert: Array<{
+        name: string;
+        city: string;
+        state: string;
+        league: string | null;
+        is_hbcu: boolean;
+        budget_level: string | null;
+        toefl_level: string | null;
+        coaches: UniversityCoach[];
+        history: unknown[];
+      }> = [];
 
       for (const [key, uniData] of uniMap.entries()) {
-        // Verificar se já existe
-        const { data: existing } = await supabase
-          .from("universities")
-          .select("id, coaches")
-          .ilike("name", uniData.name)
-          .eq("state", uniData.state)
-          .maybeSingle();
+        const existing = existingMap.get(key);
 
         if (existing) {
           // Mesclar coaches sem duplicar e-mails
-          const existingCoaches = (existing.coaches as UniversityCoach[]) || [];
+          const existingCoaches = existing.coaches;
           const existingEmails = new Set(existingCoaches.map((c) => c.email.toLowerCase()));
 
           const newCoaches = uniData.coaches.filter(
@@ -528,32 +550,53 @@ function UniversitiesPage() {
           );
           const merged = [...existingCoaches, ...newCoaches];
 
-          await supabase
-            .from("universities")
-            .update({
-              coaches: merged,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existing.id);
-
-          updatedCount++;
+          toUpdate.push({
+            id: existing.id,
+            coaches: merged,
+          });
         } else {
-          await supabase.from("universities").insert([
-            {
-              name: uniData.name,
-              city: uniData.city,
-              state: uniData.state,
-              league: uniData.league,
-              is_hbcu: uniData.is_hbcu,
-              budget_level: uniData.budget_level,
-              toefl_level: uniData.toefl_level,
-              coaches: uniData.coaches,
-              history: [],
-            },
-          ]);
-          insertedCount++;
+          toInsert.push({
+            name: uniData.name,
+            city: uniData.city,
+            state: uniData.state,
+            league: uniData.league,
+            is_hbcu: uniData.is_hbcu,
+            budget_level: uniData.budget_level,
+            toefl_level: uniData.toefl_level,
+            coaches: uniData.coaches,
+            history: [],
+          });
         }
       }
+
+      // Execução em lotes paralelos (chunks de 25 com Promise.all)
+      const BATCH_SIZE = 25;
+
+      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        const chunk = toUpdate.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map((item) =>
+            supabase
+              .from("universities")
+              .update({
+                coaches: item.coaches,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", item.id),
+          ),
+        );
+      }
+
+      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        const chunk = toInsert.slice(i, i + BATCH_SIZE);
+        const { error: insErr } = await supabase.from("universities").insert(chunk);
+        if (insErr) {
+          throw insErr;
+        }
+      }
+
+      const insertedCount = toInsert.length;
+      const updatedCount = toUpdate.length;
 
       toast.success(
         `Import complete! ${insertedCount} universities created, ${updatedCount} updated.`,
@@ -617,8 +660,8 @@ function UniversitiesPage() {
   }
 
   return (
-    <ProtectedPage requiredRole="agency_admin">
-      <AppShell>
+    <ProtectedPage role="agency_admin">
+      <AppShell role="agency_admin" title="Universities Database">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -654,7 +697,7 @@ function UniversitiesPage() {
           </div>
 
           {/* Search & Multifaceted Filters */}
-          <Panel className="p-4 space-y-3">
+          <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
             <div className="flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -765,7 +808,7 @@ function UniversitiesPage() {
                 </button>
               )}
             </div>
-          </Panel>
+          </div>
 
           {/* Table / List */}
           {loading ? (
@@ -774,16 +817,19 @@ function UniversitiesPage() {
               <p className="text-sm text-muted-foreground mt-2">Carregando universidades...</p>
             </div>
           ) : filteredUniversities.length === 0 ? (
-            <EmptyState
-              icon={<Building2 className="w-12 h-12 text-muted-foreground/60" />}
-              title="Nenhuma universidade encontrada"
-              description="Cadastre manualmente ou importe uma planilha com a lista de universidades e coaches parceiros."
-              action={
-                <button type="button" onClick={openCreateModal} className={buttonClass}>
-                  Cadastrar Universidade
-                </button>
-              }
-            />
+            <div className="p-12 text-center border border-dashed border-border rounded-xl bg-card/40">
+              <Building2 className="w-12 h-12 text-muted-foreground/60 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-foreground">
+                Nenhuma universidade encontrada
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                Cadastre manualmente ou importe uma planilha com a lista de universidades e coaches
+                parceiros.
+              </p>
+              <button type="button" onClick={openCreateModal} className={buttonClass}>
+                Cadastrar Universidade
+              </button>
+            </div>
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
               <div className="overflow-x-auto">

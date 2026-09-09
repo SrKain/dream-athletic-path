@@ -182,7 +182,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       }));
     });
 
-    await admin.from("recruit_email_logs").insert(suppressedLogs);
+    await admin
+      .from("recruit_email_logs")
+      .insert(suppressedLogs as unknown as Record<string, unknown>[]);
   }
 
   if (activeRecipients.length === 0) {
@@ -233,7 +235,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       }));
     });
 
-    await admin.from("recruit_email_logs").insert(failureLogs);
+    await admin
+      .from("recruit_email_logs")
+      .insert(failureLogs as unknown as Record<string, unknown>[]);
 
     return {
       success: false,
@@ -372,7 +376,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         }
       });
 
-      await admin.from("recruit_email_logs").insert(logsToInsert);
+      await admin
+        .from("recruit_email_logs")
+        .insert(logsToInsert as unknown as Record<string, unknown>[]);
     } catch (batchErr) {
       const errorMsg =
         batchErr instanceof Error ? batchErr.message : "Unknown error in Resend batch";
@@ -393,7 +399,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         recipient_name: item.recipientName,
         university_name: item.universityName,
       }));
-      await admin.from("recruit_email_logs").insert(failureLogs);
+      await admin
+        .from("recruit_email_logs")
+        .insert(failureLogs as unknown as Record<string, unknown>[]);
     }
   }
 

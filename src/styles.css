@@ -1,6 +1,5 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
 @import "tw-animate-css";
-@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -218,20 +217,20 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     0 10px 24px -4px rgba(246, 158, 0, 0.45);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
 
-.liquid-button:hover {
-  background: linear-gradient(135deg, #ffaa1a 0%, #f69e00 100%);
-  color: #032812;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 14px 30px -4px rgba(246, 158, 0, 0.6);
-  transform: translateY(-1px);
-}
+  &:hover {
+    background: linear-gradient(135deg, #ffaa1a 0%, #f69e00 100%);
+    color: #032812;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 14px 30px -4px rgba(246, 158, 0, 0.6);
+    transform: translateY(-1px);
+  }
 
-.liquid-button:active {
-  transform: translateY(0px);
-  box-shadow: 0 4px 12px -2px rgba(246, 158, 0, 0.4);
+  &:active {
+    transform: translateY(0px);
+    box-shadow: 0 4px 12px -2px rgba(246, 158, 0, 0.4);
+  }
 }
 
 @keyframes proposal-rise {

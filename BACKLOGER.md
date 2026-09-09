@@ -343,10 +343,72 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 ---
 
-### [TASK-063] - Correção de Erro SQL: column profiles.role does not exist na Migration 0018
-- **Data/Hora:** 2026-09-09 15:20
+## TASK-063 — 2026-09-09 15:30 — Hotfix RLS Migration 018 + Redesign de E-mail + Filtros Avançados + Otimização de Importação em Massa
+
 - **Solicitante:** Kauan / Usuário Humano
-- **Executor:** Antigravity / Gemini Agent
-- **Pedido:** Correção do erro SQL `ERROR: 42703: column profiles.role does not exist` disparado durante a execução da migration `0018_universities_and_mailer.sql` no Supabase SQL Editor.
-- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1520-correcao-sql-rls-profiles-role.md`.
-- **Status:** [PENDENTE]
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Quatro melhorias e correções no módulo de Universidades e Mailer:
+  1. Hotfix de migration (0019) corrigindo RLS policies de `universities` e `email_suppressions` para usar `public.is_agency_admin()`.
+  2. Redesign dos templates de e-mail (`recruit-email-template.ts` e `recruit-email-catalog-template.ts`) para a identidade visual oficial da agência (#f8faf5, #ffffff, #032812, #4b6353, #084323, #f69e00, #e3e9dc).
+  3. Filtros avançados de destinatários no Mailer (`filterBudget`, `filterToefl`, `filterRegion` via `REGION_BY_STATE`) combinando em AND.
+  4. Otimização da importação em massa de universidades em `admin/universities.tsx` com busca única prévia via Map e batching paralelo com `Promise.all`.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1530-hotfix-rls-redesign-email-filtros-importacao.md`.
+- **Entrega:**
+  - **Parte 1 (Hotfix RLS)**:
+    - Criada a migration `db/migrations/0019_fix_universities_rls_role_reference.sql` redefinindo todas as políticas de `universities` e `email_suppressions` para utilizar a função canônica do projeto `public.is_agency_admin()`.
+    - Atualizada também a migration `0018_universities_and_mailer.sql` para garantir que novas execuções limpas do zero não falhem.
+    - Zero referências a `profiles.role` em todo o diretório de migrations.
+  - **Parte 2 (Redesign E-mails)**:
+    - `src/lib/email/recruit-email-template.ts` e `src/lib/email/recruit-email-catalog-template.ts` 100% alinhados à paleta oficial Go Team Go (fundo `#f8faf5`, card `#ffffff`, textos `#032812`/`#4b6353`, destaques `#084323`, CTAs em `#f69e00` com texto `#032812`, bordas `#e3e9dc`, rodapé institucional `#f0f4ec`).
+    - Eliminadas totalmente as cores do tema Dark legado (`#0b0b0c`, `#059669`, `#18181b`, `#141416`, etc.).
+  - **Parte 3 (Filtros Avançados no Mailer)**:
+    - `src/lib/universities-constants.ts` atualizado com o mapa `REGION_BY_STATE` contemplando todos os 50 estados americanos + DC divididos em 4 regiões oficiais do US Census Bureau (`Northeast`, `Midwest`, `South`, `West`).
+    - `src/routes/_authenticated/admin/mailer.tsx` atualizado com seletor de Região (US Region), Orçamento Anual (Budget) e Exigência de Inglês (TOEFL/Duolingo) combinados com lógica estrita `AND` junto aos filtros existentes (Estado, Liga, HBCU).
+  - **Validação e Qualidade**:
+    - 98 testes Vitest aprovados (100% de sucesso).
+    - ESLint limpo (0 erros).
+    - Compilação de produção (`compile_applet`) concluída com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-064 — 2026-09-09 16:15 — Correção e Estabilização das Rotas Administrativas (Universidades e Mailer)
+
+- **Solicitante:** Kauan / Usuário Humano ("O site agora quebrou")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Diagnosticar e resolver a quebra de compilação/tipagem ocorrida nas páginas do admin após as atualizações do Mailer e Universidades.
+- **Causa Raiz Identificada:**
+  1. Uso incorreto da prop `requiredRole` em vez de `role` no componente `<ProtectedPage>`.
+  2. Uso de `<AppShell>` sem os props obrigatórios `role` e `title`.
+  3. Uso do componente `<Panel className="...">` e `<EmptyState>` com assinaturas de props incompatíveis com a definição do design system em `src/components/admin-ui.tsx`.
+  4. Inserção de logs com `athlete_id: null` para e-mails de catálogo causando erro de tipagem no Supabase client.
+- **Entrega:**
+  - Corrigidos todos os wrappers de autenticação para `<ProtectedPage role="agency_admin">` e `<AppShell role="agency_admin" title="...">` em `mailer.tsx` e `universities.tsx`.
+  - Substituídos os componentes de painel por `<div className="glass-panel ...">` e o estado vazio formatado adequadamente.
+  - Atualizada a inserção de logs em `src/lib/email/recruit-email.server.ts` com tipagem limpa sem `any`.
+  - ESLint e compilação de produção (`compile_applet`) executados e 100% aprovados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-065 — 2026-09-09 15:50 — Auditoria de Diagnóstico e Estabilização do CSS
+
+- **Solicitante:** Kauan / Usuário Humano ("Verifique o css da aplicação e pq ele quebrou, depois gere um plano e siga o readme")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Verificar o CSS da aplicação, diagnosticar todas as razões pelas quais ele quebrou e gerar plano detalhado antes de qualquer alteração, respeitando a governança do README.md.
+- **Diagnóstico das Causas:**
+  1. Conflito de ordem de `@import` externo (Google Fonts) com o parser do LightningCSS.
+  2. Fallback da fonte display para Bebas Neue forçando headings em All-Caps + excesso de negrito global no body.
+  3. Diretiva `@source "../src"` com `source(none)` no Tailwind v4.
+  4. Pseudo-classes `.liquid-button:hover` fora de `@utility`.
+  5. Resquícios de paletas legadas anteriores à padronização oficial da Go Team Go.
+- **Planejamento:** Registrado no arquivo `think/2026-09-09-1550-diagnostico-css-e-plano-de-estabilizacao.md`.
+- **Entrega:**
+  - `src/styles.css`: Simplificação das diretivas de importação no Tailwind v4 (`@import "tailwindcss";` e `@import "tw-animate-css";`), eliminando conflitos de especificidade e problemas com `@source`.
+  - `@utility liquid-button`: Aninhamento dos seletores `&:hover` e `&:active` dentro da utilidade Tailwind v4.
+  - Sincronização dos tokens e fontes esportivas entre `styles.css` e `src/routes/__root.tsx`.
+  - 15 arquivos de teste Vitest (98 testes) executados e aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+

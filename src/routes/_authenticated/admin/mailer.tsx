@@ -490,8 +490,8 @@ function MailerPage() {
   }
 
   return (
-    <ProtectedPage requiredRole="agency_admin">
-      <AppShell>
+    <ProtectedPage role="agency_admin">
+      <AppShell role="agency_admin" title="Recruit Mailer">
         <div className="space-y-6">
           {/* Header Principal */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -618,7 +618,7 @@ function MailerPage() {
               </div>
 
               {/* 2. CONFIGURAÇÃO DO MODO SELECIONADO */}
-              <Panel className="p-4 sm:p-5 space-y-4">
+              <div className="glass-panel p-4 sm:p-5 space-y-4 rounded-xl border border-border bg-card">
                 {sendMode === "single" && (
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-foreground">
@@ -759,13 +759,13 @@ function MailerPage() {
                     </div>
                   </div>
                 )}
-              </Panel>
+              </div>
 
               {/* 3. GRID DUPLO: DESTINATÁRIOS (COACHES) & PREVIEW WYSIWYG */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* COLUNA ESQUERDA: LISTA DE DESTINATÁRIOS (7 cols) */}
                 <div className="lg:col-span-7 space-y-4">
-                  <Panel className="p-4 space-y-3">
+                  <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-bold text-foreground flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-primary" />
@@ -901,27 +901,27 @@ function MailerPage() {
                         })
                       )}
                     </div>
-                  </Panel>
+                  </div>
                 </div>
 
                 {/* COLUNA DIREITA: PREVIEW WYSIWYG & DISPARO (5 cols) */}
                 <div className="lg:col-span-5 space-y-4">
-                  <Panel className="p-4 space-y-3">
+                  <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-bold text-foreground flex items-center gap-2">
                         <Eye className="w-4 h-4 text-primary" />
                         Preview do E-mail
                       </div>
                       <span className="text-[11px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded">
-                        Dark / Emerald Theme
+                        Go Team Go Official
                       </span>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-[#0b0b0c] p-1 shadow-inner h-[460px] overflow-hidden">
+                    <div className="rounded-xl border border-border bg-[#f8faf5] p-1 shadow-inner h-[460px] overflow-hidden">
                       <iframe
                         title="Email Preview"
                         srcDoc={previewHtml}
-                        className="w-full h-full rounded-lg border-0 bg-[#0b0b0c]"
+                        className="w-full h-full rounded-lg border-0 bg-[#f8faf5]"
                       />
                     </div>
 
@@ -971,14 +971,14 @@ function MailerPage() {
                         Disparar Mailer ({totalCalculatedDispatches})
                       </button>
                     </div>
-                  </Panel>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
             /* ABA HISTÓRICO DE DISPAROS */
             <div className="space-y-4">
-              <Panel className="p-4 flex items-center justify-between">
+              <div className="glass-panel p-4 flex items-center justify-between rounded-xl border border-border bg-card">
                 <div>
                   <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                     <History className="w-4 h-4 text-primary" />
@@ -1000,7 +1000,7 @@ function MailerPage() {
                 >
                   Atualizar Lista
                 </button>
-              </Panel>
+              </div>
 
               <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">

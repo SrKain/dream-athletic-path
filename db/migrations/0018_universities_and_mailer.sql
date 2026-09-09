@@ -89,16 +89,16 @@ drop policy if exists "Agency admin full access on universities" on public.unive
 create policy "Agency admin full access on universities"
   on public.universities for all
   to authenticated
-  using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'agency_admin'))
-  with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'agency_admin'));
+  using (public.is_agency_admin())
+  with check (public.is_agency_admin());
 
 -- Agency Admin possui controle total sobre suppression list
 drop policy if exists "Agency admin full access on email_suppressions" on public.email_suppressions;
 create policy "Agency admin full access on email_suppressions"
   on public.email_suppressions for all
   to authenticated
-  using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'agency_admin'))
-  with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'agency_admin'));
+  using (public.is_agency_admin())
+  with check (public.is_agency_admin());
 
 -- Permitir inserção anônima em email_suppressions via rota pública de unsubscribe
 drop policy if exists "Public can insert into email_suppressions" on public.email_suppressions;
