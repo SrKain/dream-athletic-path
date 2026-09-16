@@ -14,11 +14,12 @@ A aplicação ultrapassou a cota de "Cached Egress" do Supabase após um pico re
 Realizamos uma auditoria prática nas requisições reais do Supabase do projeto (`https://ugxoweynkdzzfdbbppnv.supabase.co`):
 
 ### 1.1 Auditoria do Storage (66,1% do Egress)
-* **Tamanho das imagens originais**: Cada foto de atleta em `athlete-media` chega a **1.261.645 bytes (~1.232 KB / 1,23 MB)**.
-* **Header atual de Cache nos objetos existentes**:
+
+- **Tamanho das imagens originais**: Cada foto de atleta em `athlete-media` chega a **1.261.645 bytes (~1.232 KB / 1,23 MB)**.
+- **Header atual de Cache nos objetos existentes**:
   `Cache-Control: no-cache` | `CF-Cache-Status: MISS`
-* **Impacto**: Cada coach navegando pelo catálogo com 30 atletas realizava o download de **~37 MB de imagens brutas**. Com 1000 coaches e sem cache do browser/CDN, isso gerou **~37 GB de tráfego de Storage Egress** em um único dia.
-* **Teste com Supabase Image Transformation**:
+- **Impacto**: Cada coach navegando pelo catálogo com 30 atletas realizava o download de **~37 MB de imagens brutas**. Com 1000 coaches e sem cache do browser/CDN, isso gerou **~37 GB de tráfego de Storage Egress** em um único dia.
+- **Teste com Supabase Image Transformation**:
   Testamos diretamente o endpoint oficial `/storage/v1/render/image/public/...` na infraestrutura do cliente:
   - Card do Catálogo (400x533, cover, q80): de **1.232 KB** para **36,5 KB** (**Redução de 97,04%**).
   - Story Bar Avatar (120x120, cover, q75): de **1.232 KB** para **4,1 KB** (**Redução de 99,66%**).
@@ -27,11 +28,12 @@ Realizamos uma auditoria prática nas requisições reais do Supabase do projeto
   - O endpoint de transformação **está 100% ativo e suportado no plano do cliente** (HTTP 200 retornado nos testes).
 
 ### 1.2 Auditoria do PostgREST (33,8% do Egress)
-* **Falta de Cache em Edge (Vercel)**: As rotas públicas (`/` e `/athlete/$slug`) e os server functions executam em SSR sem headers de CDN (`s-maxage`, `stale-while-revalidate`), batendo no PostgREST a cada carregamento de página de cada visitante.
-* **Queries com `select('*')`**:
+
+- **Falta de Cache em Edge (Vercel)**: As rotas públicas (`/` e `/athlete/$slug`) e os server functions executam em SSR sem headers de CDN (`s-maxage`, `stale-while-revalidate`), batendo no PostgREST a cada carregamento de página de cada visitante.
+- **Queries com `select('*')`**:
   - `getPublicAthlete` executa 5 queries em paralelo com `select('*')` em `athlete_profiles`, `athlete_media`, `achievements`, `athlete_videos` e `agency_visual_settings`.
   - `listPublicAthletes` traz colunas não utilizadas no card (como `cover_url`, `weight_kg`, `birth_date`, `nationality`, `sport_id`, etc.) e roda `athlete_video_likes.select('video_id')` varrendo todos os likes.
-* **Ausência de Paginação Controlada**: O catálogo carrega todos os atletas cadastrados de uma só vez (atualmente fixado em limit 60).
+- **Ausência de Paginação Controlada**: O catálogo carrega todos os atletas cadastrados de uma só vez (atualmente fixado em limit 60).
 
 ---
 
@@ -40,6 +42,7 @@ Realizamos uma auditoria prática nas requisições reais do Supabase do projeto
 O plano é dividido exatamente nos 4 pilares solicitados:
 
 ### Pilar 1: Cache-Control de Longo Prazo no Supabase Storage
+
 1. **Buckets Públicos Identificados**:
    - `athlete-media` (fotos de perfil, capa, galeria, logo da agência, hero background, favicon)
    - `proposal-assets` (fotos de apresentação de propostas)
@@ -57,6 +60,7 @@ O plano é dividido exatamente nos 4 pilares solicitados:
      - Adiciona política de RLS `UPDATE` para administradores no bucket `athlete-media` (que atualmente só possui INSERT e DELETE).
 
 ### Pilar 2: Otimização e Transformação de Imagens em Tempo de Exibição
+
 1. **Utilitário Centralizado de Otimização (`src/lib/image-transform.ts`)**:
    - Criar a função `getOptimizedImageUrl(url, options)`:
      - Detecta se a URL provém do Supabase Storage (`/storage/v1/object/public/...`).
@@ -78,6 +82,7 @@ O plano é dividido exatamente nos 4 pilares solicitados:
      - OG Image (`head`): 1200x630 px, qualidade 85.
 
 ### Pilar 3: Caching em Camada de CDN/Edge (Vercel Edge & TanStack Start)
+
 1. **Interceptação no Entrypoint do Servidor (`src/server.ts`)**:
    - Configurar cabeçalhos de resposta HTTP para requisições públicas `GET`:
      - Rota Catálogo (`/`):
@@ -92,6 +97,7 @@ O plano é dividido exatamente nos 4 pilares solicitados:
    - Rotas administrativas (`/admin/*`), portal do atleta (`/portal/*`) e requisições com cookies de autenticação ou cabeçalhos `Authorization` receberão estritamente `Cache-Control: private, no-cache, no-store, must-revalidate`, garantindo que ações de agência nunca sejam armazenadas em cache.
 
 ### Pilar 4: Otimização do Payload PostgREST e Paginação
+
 1. **Otimização de `listPublicAthletes` (`src/lib/athletes.functions.ts`)**:
    - Reduzir `PUBLIC_ATHLETE_SELECT` removendo campos dispensáveis na listagem (`cover_url`, `weight_kg`, `birth_date`, `nationality`, `sport_id`, `name_pt`).
    - Trocar `agency_visual_settings.select('*')` por `select('logo_url, hero_background_url, hero_title_en, hero_description_en, hero_cta_en')`.
@@ -105,23 +111,23 @@ O plano é dividido exatamente nos 4 pilares solicitados:
 
 ## 3. Matriz de Arquivos Afetados
 
-| Arquivo | Ação | Responsabilidade |
-| :--- | :---: | :--- |
-| `src/lib/image-transform.ts` | **Criação** | Helper que converte URLs de objetos públicos do Supabase em URLs do endpoint `/render/image/public` com dimensões e qualidade otimizadas. |
-| `src/routes/_authenticated/admin/athletes/$id.tsx` | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de fotos, mídias e vídeos. |
-| `src/routes/_authenticated/admin/visual.tsx` | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de logo e hero da agência. |
-| `src/routes/_authenticated/admin/settings.tsx` | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de fotos comemorativas do portal. |
-| `src/routes/_authenticated/admin/proposals/$id.tsx` | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de assets de propostas. |
-| `src/server.ts` | **Modificação** | Configurar cabeçalhos `Cache-Control` CDN Edge (`s-maxage`, `stale-while-revalidate`) para rotas públicas (`/`, `/athlete/$slug`, `_serverFn`). |
-| `src/lib/athletes.functions.ts` | **Modificação** | Substituir `select('*')` por projeções enxutas e otimizar queries de feed e likes. |
-| `src/components/athlete-video-card-media.tsx` | **Modificação** | Servir imagem de card otimizada (400x533 px, 36 KB). |
-| `src/components/home-highlights-story-bar.tsx` | **Modificação** | Servir avatares de stories otimizados (120x120 px, 4 KB). |
-| `src/routes/index.tsx` | **Modificação** | Servir logo e hero background otimizados. |
-| `src/routes/athlete.$slug.tsx` | **Modificação** | Servir fotos hero, galeria e recomendações otimizadas. |
-| `scripts/update-storage-cache-control.ts` | **Criação** | Script para varrer e aplicar `Cache-Control` longo nos objetos já existentes no Supabase Storage. |
-| `db/migrations/0017_storage_cache_control_and_update_policy.sql` | **Criação** | Migration SQL com update em massa de metadata de cache e adição de RLS update para `athlete-media`. |
-| `BACKLOGER.md` | **Atualização** | Registro da TASK-060. |
-| `CERNE.md` | **Atualização** | Registro da arquitetura de otimização de egress e cache. |
+| Arquivo                                                          |      Ação       | Responsabilidade                                                                                                                                |
+| :--------------------------------------------------------------- | :-------------: | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/image-transform.ts`                                     |   **Criação**   | Helper que converte URLs de objetos públicos do Supabase em URLs do endpoint `/render/image/public` com dimensões e qualidade otimizadas.       |
+| `src/routes/_authenticated/admin/athletes/$id.tsx`               | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de fotos, mídias e vídeos.                                                                       |
+| `src/routes/_authenticated/admin/visual.tsx`                     | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de logo e hero da agência.                                                                       |
+| `src/routes/_authenticated/admin/settings.tsx`                   | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de fotos comemorativas do portal.                                                                |
+| `src/routes/_authenticated/admin/proposals/$id.tsx`              | **Modificação** | Adicionar `cacheControl: "31536000"` no upload de assets de propostas.                                                                          |
+| `src/server.ts`                                                  | **Modificação** | Configurar cabeçalhos `Cache-Control` CDN Edge (`s-maxage`, `stale-while-revalidate`) para rotas públicas (`/`, `/athlete/$slug`, `_serverFn`). |
+| `src/lib/athletes.functions.ts`                                  | **Modificação** | Substituir `select('*')` por projeções enxutas e otimizar queries de feed e likes.                                                              |
+| `src/components/athlete-video-card-media.tsx`                    | **Modificação** | Servir imagem de card otimizada (400x533 px, 36 KB).                                                                                            |
+| `src/components/home-highlights-story-bar.tsx`                   | **Modificação** | Servir avatares de stories otimizados (120x120 px, 4 KB).                                                                                       |
+| `src/routes/index.tsx`                                           | **Modificação** | Servir logo e hero background otimizados.                                                                                                       |
+| `src/routes/athlete.$slug.tsx`                                   | **Modificação** | Servir fotos hero, galeria e recomendações otimizadas.                                                                                          |
+| `scripts/update-storage-cache-control.ts`                        |   **Criação**   | Script para varrer e aplicar `Cache-Control` longo nos objetos já existentes no Supabase Storage.                                               |
+| `db/migrations/0017_storage_cache_control_and_update_policy.sql` |   **Criação**   | Migration SQL com update em massa de metadata de cache e adição de RLS update para `athlete-media`.                                             |
+| `BACKLOGER.md`                                                   | **Atualização** | Registro da TASK-060.                                                                                                                           |
+| `CERNE.md`                                                       | **Atualização** | Registro da arquitetura de otimização de egress e cache.                                                                                        |
 
 ---
 

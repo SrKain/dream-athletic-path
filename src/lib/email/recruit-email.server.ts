@@ -1,5 +1,6 @@
-import { Resend } from "resend";
+import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getAdminClient } from "@/lib/supabase/clients.server";
+import { getSesClient, getSesConfig } from "./ses-client.server";
 import { renderRecruitEmail, type RecruitEmailData } from "./recruit-email-template";
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
 
@@ -197,11 +198,13 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     };
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "Go Team Go <contact@goteamgoagency.com>";
+  const sesConfig = getSesConfig();
+  const from = sesConfig.from;
 
-  if (!apiKey) {
-    console.warn("[recruit-email] RESEND_API_KEY missing. Simulating failures for audit logs.");
+  if (!sesConfig.isConfigured) {
+    console.warn(
+      "[recruit-email] AWS SES credentials missing (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY). Simulating failures for audit logs.",
+    );
     const now = new Date().toISOString();
     const failureLogs = activeRecipients.flatMap((rec) => {
       const isCatalog = mode === "catalog" || athleteIds.length === 0;
@@ -212,7 +215,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             coach_id: rec.coachId ?? null,
             subject: "Recruit Mailer Showcase",
             status: "failed" as const,
-            error_message: "RESEND_API_KEY is not configured.",
+            error_message: "AWS SES is not configured (missing credentials).",
             sent_at: now,
             email_type: "catalog_general",
             recipient_email: rec.email,
@@ -226,7 +229,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         coach_id: rec.coachId ?? null,
         subject: "Recruit Mailer Showcase",
         status: "failed" as const,
-        error_message: "RESEND_API_KEY is not configured.",
+        error_message: "AWS SES is not configured (missing credentials).",
         sent_at: now,
         email_type: "athlete_teaser",
         recipient_email: rec.email,
@@ -244,11 +247,21 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       totalSent: 0,
       totalFailed: failureLogs.length,
       totalSuppressed: suppressedRecipients.length,
-      message: "RESEND_API_KEY environment variable is not configured.",
+      message: "AWS SES credentials are not configured.",
     };
   }
 
-  const resend = new Resend(apiKey);
+  const sesClient = getSesClient();
+  if (!sesClient) {
+    return {
+      success: false,
+      totalSent: 0,
+      totalFailed: activeRecipients.length,
+      totalSuppressed: suppressedRecipients.length,
+      message: "Failed to initialize Amazon SES client.",
+    };
+  }
+
   let totalSent = 0;
   let totalFailed = 0;
   const errors: string[] = [];
@@ -317,91 +330,75 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     }
   }
 
-  // Disparo em lotes de até 100 itens via Resend Batch API
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < messagesToSend.length; i += BATCH_SIZE) {
-    const chunk = messagesToSend.slice(i, i + BATCH_SIZE);
-    const batchPayload = chunk.map((item) => ({
-      from,
-      to: item.to,
-      subject: item.subject,
-      html: item.html,
-    }));
+  // Taxa de envio controlada (Rate Limiting) para o Amazon SES (default: 10/seg)
+  const maxSendRate = Number(process.env.SES_MAX_SEND_RATE) || 10;
+  const delayBetweenSendsMs = Math.max(10, Math.floor(1000 / maxSendRate));
+
+  for (let i = 0; i < messagesToSend.length; i++) {
+    const item = messagesToSend[i];
+    const now = new Date().toISOString();
 
     try {
-      const batchResponse = await resend.batch.send(batchPayload);
-
-      if (batchResponse.error) {
-        throw new Error(batchResponse.error.message);
-      }
-
-      const responseItems = batchResponse.data?.data ?? [];
-      const now = new Date().toISOString();
-
-      const logsToInsert = chunk.map((item, index) => {
-        const itemResult = responseItems[index];
-        const isSuccess = !!itemResult && !("error" in itemResult && itemResult.error);
-        if (isSuccess) {
-          totalSent++;
-          return {
-            athlete_id: item.athleteId,
-            coach_id: item.coachId,
-            subject: item.subject,
-            status: "sent" as const,
-            error_message: null,
-            sent_at: now,
-            email_type: item.emailType,
-            recipient_email: item.recipientEmail,
-            recipient_name: item.recipientName,
-            university_name: item.universityName,
-          };
-        } else {
-          totalFailed++;
-          const err =
-            itemResult && "error" in itemResult && itemResult.error
-              ? String(itemResult.error)
-              : "Batch item send failed";
-          return {
-            athlete_id: item.athleteId,
-            coach_id: item.coachId,
-            subject: item.subject,
-            status: "failed" as const,
-            error_message: err,
-            sent_at: now,
-            email_type: item.emailType,
-            recipient_email: item.recipientEmail,
-            recipient_name: item.recipientName,
-            university_name: item.universityName,
-          };
-        }
+      const command = new SendEmailCommand({
+        FromEmailAddress: from,
+        Destination: {
+          ToAddresses: [item.to],
+        },
+        Content: {
+          Simple: {
+            Subject: {
+              Data: item.subject,
+              Charset: "UTF-8",
+            },
+            Body: {
+              Html: {
+                Data: item.html,
+                Charset: "UTF-8",
+              },
+            },
+          },
+        },
+        ConfigurationSetName: sesConfig.configurationSet || undefined,
       });
 
-      await admin
-        .from("recruit_email_logs")
-        .insert(logsToInsert as unknown as Record<string, unknown>[]);
-    } catch (batchErr) {
-      const errorMsg =
-        batchErr instanceof Error ? batchErr.message : "Unknown error in Resend batch";
-      console.error("[recruit-email] Batch send exception:", errorMsg);
-      errors.push(errorMsg);
-      totalFailed += chunk.length;
+      await sesClient.send(command);
+      totalSent++;
 
-      const now = new Date().toISOString();
-      const failureLogs = chunk.map((item) => ({
+      await admin.from("recruit_email_logs").insert({
         athlete_id: item.athleteId,
         coach_id: item.coachId,
         subject: item.subject,
-        status: "failed" as const,
+        status: "sent",
+        error_message: null,
+        sent_at: now,
+        email_type: item.emailType,
+        recipient_email: item.recipientEmail,
+        recipient_name: item.recipientName,
+        university_name: item.universityName,
+      });
+    } catch (sendErr) {
+      totalFailed++;
+      const errorMsg = sendErr instanceof Error ? sendErr.message : "Amazon SES send failed";
+      console.error(`[recruit-email] Falha ao enviar para ${item.to}:`, errorMsg);
+      errors.push(errorMsg);
+
+      await admin.from("recruit_email_logs").insert({
+        athlete_id: item.athleteId,
+        coach_id: item.coachId,
+        subject: item.subject,
+        status: "failed",
         error_message: errorMsg,
         sent_at: now,
         email_type: item.emailType,
         recipient_email: item.recipientEmail,
         recipient_name: item.recipientName,
         university_name: item.universityName,
-      }));
-      await admin
-        .from("recruit_email_logs")
-        .insert(failureLogs as unknown as Record<string, unknown>[]);
+      });
+    }
+
+    // Intervalo para respeitar o rate limit da conta AWS SES
+    if (i < messagesToSend.length - 1 && delayBetweenSendsMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayBetweenSendsMs));
     }
   }
 

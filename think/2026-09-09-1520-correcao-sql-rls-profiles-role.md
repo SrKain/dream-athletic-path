@@ -17,7 +17,9 @@ Error: Failed to run sql query: ERROR: 42703: column profiles.role does not exis
 ```
 
 ### Investigação e Diagnóstico:
+
 Na linha 89 a 101 de `db/migrations/0018_universities_and_mailer.sql`:
+
 ```sql
 -- Incorreto:
 create policy "Agency admin full access on universities"
@@ -34,6 +36,7 @@ create policy "Agency admin full access on email_suppressions"
 ```
 
 No modelo de banco de dados do projeto (definido desde `0001_init.sql` e mantido em todas as migrações subsequentes):
+
 1. A tabela `public.profiles` contém apenas: `id`, `full_name`, `avatar_url`, `locale`, `created_at`.
 2. As atribuições de papéis (roles) ficam na tabela de segurança separada `public.user_roles (user_id, role)`.
 3. Existe a função canônica utilitária de segurança `public.is_agency_admin()` definida em `0001_init.sql` e utilizada em todas as demais tabelas com RLS (`proposals`, `athlete_profiles`, `recruit_email_logs`, etc.).

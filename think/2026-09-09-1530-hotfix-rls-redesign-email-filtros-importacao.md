@@ -35,9 +35,11 @@ A feature de Universidades e Mailer (TASK-062, migration `0018_universities_and_
 ### PARTE 1: Hotfix RLS (Migration 0019)
 
 #### 1.1 Causa Raiz
+
 Na migration `0018_universities_and_mailer.sql`, as policies de `universities` e `email_suppressions` tentavam ler `profiles.role = 'agency_admin'`. Porém, a tabela `public.profiles` contém apenas metadados de perfil (`id`, `full_name`, `avatar_url`, `locale`). As roles do sistema ficam isoladas em `public.user_roles` e são consultadas pela função segura `public.is_agency_admin()`.
 
 #### 1.2 Ações Planejadas
+
 1. Criar `db/migrations/0019_fix_universities_rls_role_reference.sql`:
    ```sql
    -- TASK-063: Hotfix de RLS para universities e email_suppressions
@@ -65,19 +67,21 @@ Na migration `0018_universities_and_mailer.sql`, as policies de `universities` e
 ### PARTE 2: Redesign do E-mail (Identidade Visual Oficial)
 
 #### 2.1 Especificação de Cores e Tokens
-| Elemento | Cor Oficial | Propósito |
-| :--- | :--- | :--- |
-| **Envelope / Body (Fundo Externo)** | `#f8faf5` | Fundo suave, claro e elegante |
-| **Card / Container Central** | `#ffffff` | Área limpa de leitura e alto contraste |
-| **Texto Principal / Títulos** | `#032812` | Verde floresta profundo, contraste máximo |
-| **Texto Secundário / Labels / Legendas** | `#4b6353` | Verde médio harmonioso e legível |
-| **Badges Secundários (Posição / Status)** | Fundo `#084323`, Texto `#ffffff` | Pílulas sólidas elegantes de destaque |
-| **CTA Principal / Borda Foto / Destaque** | Fundo `#f69e00`, Texto `#032812` | Dourado vibrante da marca com texto escuro |
-| **Bordas e Linhas Divisórias** | `#e3e9dc` | Separações sutis de alta precisão |
-| **Cards de Estatísticas (Grid 2x2)** | Fundo `#f8faf5`, Borda `#e3e9dc` | Caixas de métricas biométricas/acadêmicas |
-| **Rodapé Institucional** | Fundo `#f0f4ec`, Borda `#e3e9dc`, Texto `#4b6353` | Informações legais e link de unsubscribe |
+
+| Elemento                                  | Cor Oficial                                       | Propósito                                  |
+| :---------------------------------------- | :------------------------------------------------ | :----------------------------------------- |
+| **Envelope / Body (Fundo Externo)**       | `#f8faf5`                                         | Fundo suave, claro e elegante              |
+| **Card / Container Central**              | `#ffffff`                                         | Área limpa de leitura e alto contraste     |
+| **Texto Principal / Títulos**             | `#032812`                                         | Verde floresta profundo, contraste máximo  |
+| **Texto Secundário / Labels / Legendas**  | `#4b6353`                                         | Verde médio harmonioso e legível           |
+| **Badges Secundários (Posição / Status)** | Fundo `#084323`, Texto `#ffffff`                  | Pílulas sólidas elegantes de destaque      |
+| **CTA Principal / Borda Foto / Destaque** | Fundo `#f69e00`, Texto `#032812`                  | Dourado vibrante da marca com texto escuro |
+| **Bordas e Linhas Divisórias**            | `#e3e9dc`                                         | Separações sutis de alta precisão          |
+| **Cards de Estatísticas (Grid 2x2)**      | Fundo `#f8faf5`, Borda `#e3e9dc`                  | Caixas de métricas biométricas/acadêmicas  |
+| **Rodapé Institucional**                  | Fundo `#f0f4ec`, Borda `#e3e9dc`, Texto `#4b6353` | Informações legais e link de unsubscribe   |
 
 #### 2.2 Template 1: `recruit-email-template.ts` (Atleta Individual)
+
 - Header com pílula institucional `GO TEAM GO • SCOUTING SHOWCASE` em `#084323` com texto `#ffffff`.
 - Foto do atleta redonda (140x140) com borda de 3px em `#f69e00` e sombra dourada sutil.
 - Nome do atleta em `#032812` (26px, bold).
@@ -88,6 +92,7 @@ Na migration `0018_universities_and_mailer.sql`, as policies de `universities` e
 - Rodapé institucional em `#f0f4ec`, links com cor `#084323` e unsubscribe em `#4b6353`.
 
 #### 2.3 Template 2: `recruit-email-catalog-template.ts` (Catálogo Geral)
+
 - Barra superior de acento em gradiente dourado (`#f69e00` a `#e08f00`).
 - Header institucional em `#f8faf5` com badge `2025 / 2026 ROSTER` em `#084323` e texto `#ffffff`.
 - Saudação e Headline em `#032812`, mensagem introdutória em `#4b6353`.
@@ -97,14 +102,17 @@ Na migration `0018_universities_and_mailer.sql`, as policies de `universities` e
 - Rodapé institucional compatível com a paleta clara.
 
 #### 2.4 Amostra Renderizada de Teste (Preview dos Templates)
-*(Será anexada no final do plano para conferência visual)*.
+
+_(Será anexada no final do plano para conferência visual)_.
 
 ---
 
 ### PARTE 3: Filtros Avançados de Destinatários (`mailer.tsx` e `universities-constants.ts`)
 
 #### 3.1 Mapeamento Regional (`universities-constants.ts`)
+
 Criar o mapeamento padrão do US Census Bureau para todos os 50 estados americanos + DC:
+
 ```ts
 export type USRegion = "Northeast" | "Midwest" | "South" | "West";
 
@@ -112,23 +120,65 @@ export const US_REGIONS: USRegion[] = ["Northeast", "Midwest", "South", "West"];
 
 export const REGION_BY_STATE: Record<string, USRegion> = {
   // Northeast (9)
-  CT: "Northeast", ME: "Northeast", MA: "Northeast", NH: "Northeast",
-  RI: "Northeast", VT: "Northeast", NJ: "Northeast", NY: "Northeast", PA: "Northeast",
+  CT: "Northeast",
+  ME: "Northeast",
+  MA: "Northeast",
+  NH: "Northeast",
+  RI: "Northeast",
+  VT: "Northeast",
+  NJ: "Northeast",
+  NY: "Northeast",
+  PA: "Northeast",
   // Midwest (12)
-  IL: "Midwest", IN: "Midwest", MI: "Midwest", OH: "Midwest", WI: "Midwest",
-  IA: "Midwest", KS: "Midwest", MN: "Midwest", MO: "Midwest", NE: "Midwest",
-  ND: "Midwest", SD: "Midwest",
+  IL: "Midwest",
+  IN: "Midwest",
+  MI: "Midwest",
+  OH: "Midwest",
+  WI: "Midwest",
+  IA: "Midwest",
+  KS: "Midwest",
+  MN: "Midwest",
+  MO: "Midwest",
+  NE: "Midwest",
+  ND: "Midwest",
+  SD: "Midwest",
   // South (16 + DC)
-  DE: "South", FL: "South", GA: "South", MD: "South", NC: "South", SC: "South",
-  VA: "South", WV: "South", AL: "South", KY: "South", MS: "South", TN: "South",
-  AR: "South", LA: "South", OK: "South", TX: "South", DC: "South",
+  DE: "South",
+  FL: "South",
+  GA: "South",
+  MD: "South",
+  NC: "South",
+  SC: "South",
+  VA: "South",
+  WV: "South",
+  AL: "South",
+  KY: "South",
+  MS: "South",
+  TN: "South",
+  AR: "South",
+  LA: "South",
+  OK: "South",
+  TX: "South",
+  DC: "South",
   // West (13)
-  AZ: "West", CO: "West", ID: "West", MT: "West", NV: "West", NM: "West",
-  UT: "West", WY: "West", AK: "West", CA: "West", HI: "West", OR: "West", WA: "West",
+  AZ: "West",
+  CO: "West",
+  ID: "West",
+  MT: "West",
+  NV: "West",
+  NM: "West",
+  UT: "West",
+  WY: "West",
+  AK: "West",
+  CA: "West",
+  HI: "West",
+  OR: "West",
+  WA: "West",
 };
 ```
 
 #### 3.2 Estados e Enriquecimento em `RecipientItem` (`mailer.tsx`)
+
 1. Estender a interface `RecipientItem`:
    ```ts
    interface RecipientItem {
@@ -162,7 +212,9 @@ export const REGION_BY_STATE: Record<string, USRegion> = {
 ### PARTE 4: Otimização de Importação em Massa (`universities.tsx`)
 
 #### 4.1 Problema Atual
+
 A função `handleConfirmImport` atual executa:
+
 ```ts
 for (const [key, uniData] of uniMap.entries()) {
   const { data: existing } = await supabase.from("universities").select(...); // 1 requisição
@@ -173,9 +225,11 @@ for (const [key, uniData] of uniMap.entries()) {
   }
 }
 ```
+
 Para planilhas grandes (ex: 3.500 contatos de coaches), essa abordagem sequencial resulta em milhares de requisições individuais consecutivas (N+1), levando muitos minutos e correndo risco de timeout ou sobrecarga de conexões.
 
 #### 4.2 Nova Estratégia Otimizada (Memória + Lotes Paralelos)
+
 1. **Busca Prévia Ampla (1 única requisição):**
    ```ts
    const { data: allExisting } = await supabase
@@ -221,11 +275,14 @@ Para planilhas grandes (ex: 3.500 contatos de coaches), essa abordagem sequencia
 ## 3. Planilha de Conferência Visual do E-mail (Preview HTML)
 
 ### Exemplo do E-mail Individual Renderizado:
+
 ```html
 <table style="background-color:#f8faf5;padding:32px 12px;">
   <tr>
     <td align="center">
-      <table style="max-width:580px;background-color:#ffffff;border:1px solid #e3e9dc;border-radius:16px;">
+      <table
+        style="max-width:580px;background-color:#ffffff;border:1px solid #e3e9dc;border-radius:16px;"
+      >
         <!-- Header com pílula #084323 -->
         <!-- Foto circular com border 3px solid #f69e00 -->
         <!-- Nome em #032812 -->

@@ -1,6 +1,6 @@
-import { Resend } from "resend";
-
+import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getAdminClient } from "@/lib/supabase/clients.server";
+import { getSesClient, getSesConfig } from "./ses-client.server";
 import { renderEmail, type EmailTemplate } from "./templates";
 import {
   isWithinSendingWindow,
@@ -9,7 +9,7 @@ import {
 } from "./sending-window";
 
 /**
- * Serviço centralizado de e-mail (Resend).
+ * Serviço centralizado de e-mail (Amazon SES).
  * Todo disparo da plataforma passa por aqui e é registrado em `email_log`.
  */
 export interface SendEmailInput {
@@ -23,83 +23,215 @@ export interface SendEmailInput {
   respectSendingWindow?: boolean;
 }
 
+export type SendEmailResult =
+  | {
+      sent: true;
+      scheduled: false;
+      id?: string;
+    }
+  | {
+      sent: true;
+      scheduled: true;
+      scheduledFor: string;
+      windowDescription: string;
+      id?: string;
+    }
+  | {
+      sent: false;
+      reason: "not_configured" | "provider_error";
+    };
+
 export async function sendEmail({
   template,
   to,
   data = {},
   respectSendingWindow = false,
-}: SendEmailInput) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "Go Team Go <onboarding@resend.dev>";
+}: SendEmailInput): Promise<SendEmailResult> {
+  const sesConfig = getSesConfig();
+  const from = sesConfig.from;
   const { subject, html } = renderEmail(template, data);
 
-  if (!apiKey) {
-    console.warn(`[email] RESEND_API_KEY ausente — disparo "${template}" não enviado.`);
-    await logEmail({ template, to, subject, status: "skipped", error: "missing_api_key", data });
-    return { sent: false as const, reason: "not_configured" as const };
+  if (!sesConfig.isConfigured) {
+    console.warn(
+      `[email] Credenciais AWS SES ausentes (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) — disparo "${template}" não enviado.`,
+    );
+    await logEmail({
+      template,
+      to,
+      subject,
+      status: "skipped",
+      error: "missing_aws_credentials",
+      data,
+    });
+    return { sent: false, reason: "not_configured" };
   }
 
   const now = new Date();
   const shouldSchedule = respectSendingWindow && !isWithinSendingWindow(now);
 
   try {
-    const resend = new Resend(apiKey);
-
     if (shouldSchedule) {
-      // Schedule for next available window
+      // Fila de agendamento: registra em email_log para envio na próxima janela
       const nextWindow = getNextSendingWindowStart(now);
       const scheduledAt = nextWindow.toISOString();
       const windowDesc = getNextWindowDescription(now);
-
-      const result = await resend.emails.send({
-        from,
-        to,
-        subject,
-        html,
-        scheduledAt,
-      });
-
-      if (result.error) throw new Error(result.error.message);
 
       await logEmail({
         template,
         to,
         subject,
         status: "scheduled",
-        providerId: result.data?.id,
         scheduledFor: scheduledAt,
         data,
       });
 
       return {
-        sent: true as const,
-        scheduled: true as const,
+        sent: true,
+        scheduled: true,
         scheduledFor: scheduledAt,
         windowDescription: windowDesc,
-        id: result.data?.id,
       };
     } else {
-      // Send immediately
-      const result = await resend.emails.send({ from, to, subject, html });
-      if (result.error) throw new Error(result.error.message);
+      // Envio imediato via Amazon SES
+      const sesClient = getSesClient();
+      if (!sesClient) {
+        throw new Error("Falha ao inicializar o cliente Amazon SES");
+      }
+
+      const command = new SendEmailCommand({
+        FromEmailAddress: from,
+        Destination: {
+          ToAddresses: [to],
+        },
+        Content: {
+          Simple: {
+            Subject: {
+              Data: subject,
+              Charset: "UTF-8",
+            },
+            Body: {
+              Html: {
+                Data: html,
+                Charset: "UTF-8",
+              },
+            },
+          },
+        },
+        ConfigurationSetName: sesConfig.configurationSet || undefined,
+      });
+
+      const result = await sesClient.send(command);
+      const messageId = result.MessageId;
 
       await logEmail({
         template,
         to,
         subject,
         status: "sent",
-        providerId: result.data?.id,
+        providerId: messageId,
         data,
       });
 
-      return { sent: true as const, scheduled: false as const, id: result.data?.id };
+      return { sent: true, scheduled: false, id: messageId };
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
-    console.error(`[email] falha ao enviar "${template}":`, message);
+    console.error(`[email] falha ao enviar "${template}" via SES:`, message);
     await logEmail({ template, to, subject, status: "failed", error: message, data });
-    return { sent: false as const, reason: "provider_error" as const };
+    return { sent: false, reason: "provider_error" };
   }
+}
+
+/**
+ * Processador de fila de e-mails agendados.
+ * Busca registros pendentes com `status = 'scheduled'` e `scheduled_for <= now()`
+ * e realiza o disparo via Amazon SES.
+ */
+export async function processScheduledEmails(): Promise<{
+  processed: number;
+  successful: number;
+  failed: number;
+}> {
+  const sesConfig = getSesConfig();
+  const sesClient = getSesClient();
+
+  if (!sesConfig.isConfigured || !sesClient) {
+    console.warn("[email-scheduler] SES não configurado. Processamento adiado.");
+    return { processed: 0, successful: 0, failed: 0 };
+  }
+
+  const admin = getAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: scheduledEmails, error } = await admin
+    .from("email_log")
+    .select("id, template, to_email, subject, payload")
+    .eq("status", "scheduled")
+    .lte("scheduled_for", now)
+    .order("scheduled_for", { ascending: true })
+    .limit(50);
+
+  if (error || !scheduledEmails || scheduledEmails.length === 0) {
+    return { processed: 0, successful: 0, failed: 0 };
+  }
+
+  let successful = 0;
+  let failed = 0;
+
+  for (const item of scheduledEmails) {
+    try {
+      const { subject, html } = renderEmail(
+        item.template as EmailTemplate,
+        (item.payload as Record<string, string | number | undefined>) || {},
+      );
+
+      const command = new SendEmailCommand({
+        FromEmailAddress: sesConfig.from,
+        Destination: {
+          ToAddresses: [item.to_email],
+        },
+        Content: {
+          Simple: {
+            Subject: { Data: subject || item.subject || "Notification", Charset: "UTF-8" },
+            Body: { Html: { Data: html, Charset: "UTF-8" } },
+          },
+        },
+        ConfigurationSetName: sesConfig.configurationSet || undefined,
+      });
+
+      const response = await sesClient.send(command);
+
+      await admin
+        .from("email_log")
+        .update({
+          status: "sent",
+          provider_id: response.MessageId ?? null,
+          error: null,
+        })
+        .eq("id", item.id);
+
+      successful++;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Scheduled send failure";
+      console.error(`[email-scheduler] Falha ao disparar agendado ${item.id}:`, errorMsg);
+
+      await admin
+        .from("email_log")
+        .update({
+          status: "failed",
+          error: errorMsg,
+        })
+        .eq("id", item.id);
+
+      failed++;
+    }
+  }
+
+  return {
+    processed: scheduledEmails.length,
+    successful,
+    failed,
+  };
 }
 
 async function logEmail(entry: {

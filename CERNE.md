@@ -15,7 +15,7 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 - **Interface & Estilização**: **Tailwind CSS v4** (`@tailwindcss/vite`), **shadcn UI** / **Radix UI**, Lucide Icons, design **Mobile-First** e regras consolidadas no guia oficial [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
 - **Backend, Autenticação e Armazenamento**: **Supabase externo** (`@supabase/supabase-js`) com autenticação por E-mail/Senha, Row Level Security (RLS) e Buckets de Storage para mídias e documentos.
 - **Geração de Propostas**: Geração dinâmica de propostas e exportação em PDF via `@react-pdf/renderer`.
-- **Serviço de E-mail**: Arquitetura integrada ao **Resend** para notificações transacionais.
+- **Serviço de E-mail**: Arquitetura integrada ao **Amazon SES (Simple Email Service v2 via `@aws-sdk/client-sesv2`)** com Configuration Sets e tópicos SNS para captura de Bounces/Complaints, e-mails transacionais com janela comercial (`email_log`) e mailer de recrutamento em massa para coaches.
 - **Qualidade & Testes**: **Vitest**, **ESLint**, **Prettier**.
 
 ### Governança de Planejamento Compartilhado
@@ -715,6 +715,7 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
 ### 4.14 Telemetria, Analytics e Rastreamento de Tráfego
+
 - **Google Analytics 4 (GA4)**: `G-4D6DTG650F` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
 - **Microsoft Clarity**: ID `y7zkn8qxno` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
 - **Meta Pixel (Facebook Pixel)**:
@@ -827,8 +828,42 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
+## Atualização 2026-09-16 — Migração Completa de E-mail de Resend para Amazon SES (TASK-067)
 
-
-
-
+- **Substituição de Dependências e Pacotes**:
+  - Pacote `resend` completamente desinstalado do projeto.
+  - Adicionado SDK oficial AWS `@aws-sdk/client-sesv2` para envio e gerenciamento de e-mails via Amazon SES API v2.
+- **Variáveis de Ambiente (`.env.example` e Runtime)**:
+  - Substituída a variável legada `RESEND_API_KEY` por:
+    - `AWS_ACCESS_KEY_ID`: ID da chave de acesso IAM.
+    - `AWS_SECRET_ACCESS_KEY`: Chave secreta de acesso IAM.
+    - `AWS_REGION`: Região AWS (ex: `us-east-1` ou `sa-east-1`).
+    - `SES_CONFIGURATION_SET`: Nome do Configuration Set associado ao tópico SNS para rastreamento de eventos.
+    - `SES_MAX_SEND_RATE`: Limite de taxa de envio da conta SES (default: `10` envios/segundo).
+  - `EMAIL_FROM` mantido com suporte a display name e fallback seguro (`Go Team Go <contact@goteamgoagency.com>`).
+- **Singleton e Configuração do SES (`src/lib/email/ses-client.server.ts`)**:
+  - Utilitários `getSesConfig()`, `getSesClient()` e `resetSesClientCache()`.
+  - Lazy initialization prevenindo quebras de startup quando credenciais não estiverem provisionadas no ambiente local.
+- **E-mails Transacionais e Janela de Envio (`src/lib/email/email.server.ts`)**:
+  - Migrado método `sendEmail` para `SendEmailCommand`.
+  - Envio imediato em horário comercial com fallback de agendamento na fila (`email_log` com `status: "scheduled"`).
+  - Função `processScheduledEmails()` para envio em lote de e-mails agendados que atingiram a janela de envio.
+  - Server function TanStack Start `processScheduledEmailsServerFn` em `src/lib/email/email.functions.ts`.
+- **Mailer de Recrutamento em Massa para Coaches (`src/lib/email/recruit-email.server.ts`)**:
+  - Substituído disparo batch do Resend por loop assíncrono controlado com rate limiting (throttling parametrizável via `SES_MAX_SEND_RATE`).
+  - Suporte completo a `ConfigurationSetName` para direcionar eventos de envio ao tópico SNS.
+  - Inserções individuais de auditoria na tabela `recruit_email_logs` com status `sent` ou `failed` e detalhamento de erros.
+  - Respeito estrito à tabela `email_suppressions` impedindo envio a contatos descadastrados ou com histórico de bounce/queixa.
+- **Processamento de Webhooks SNS de Bounce e Complaint (`src/lib/email/ses-webhook.server.ts` & `src/server.ts`)**:
+  - Criado processador `processSnsWebhook` que:
+    - Auto-confirma inscrições de tópicos SNS (`SubscriptionConfirmation`) validando domínios oficiais da AWS (`*.amazonaws.com`).
+    - Processa notificações SES (`Bounce` permanente e `Complaint`), inserindo automaticamente os e-mails na tabela `email_suppressions` com os motivos `ses_bounce_permanent` e `ses_complaint`.
+  - Exposta rota `POST /api/webhooks/ses` no `src/server.ts`.
+  - Exposta rota `POST|GET /api/cron/process-scheduled-emails` no `src/server.ts`.
+- **Testes Automatizados (`src/lib/email/ses-email.test.ts`)**:
+  - Cobertura de configuração, detecção de credenciais, confirmação de assinatura SNS com validação de domínio seguro e processamento de suppressions por Bounce/Complaint.
+- **Validação de Qualidade**:
+  - Vitest: 16 arquivos de testes, 106 testes unitários aprovados (100% de sucesso).
+  - ESLint: 0 erros.
+  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 

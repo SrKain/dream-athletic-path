@@ -13,6 +13,7 @@
 A Home pública (`/`) e a página individual do perfil de atleta (`/athlete/$slug`) perderam a renderização da logo da agência, imagem de fundo do hero e o favicon dinâmico na aba do navegador.
 
 ### Causa Raiz Diagnosticada
+
 Em `src/lib/athletes.functions.ts`, a projeção `AGENCY_VISUAL_PUBLIC_SELECT` continha as colunas `hero_title_pt`, `hero_subtitle_pt` e `catalog_heading_pt`. Essas colunas foram removidas do banco de dados na migração `db/migrations/0013_full_english_pivot_and_course_of_interest.sql` durante a transição 100% US English.
 
 Quando o PostgREST / Supabase recebe uma query `.select(...)` com qualquer coluna inexistente na tabela, ele rejeita a consulta inteira com erro `400 / 42703 (undefined_column)`. Como as chamadas `getAgencyVisual`, `listPublicAthletes` e `getPublicAthlete` não verificavam o campo `error` retornado pelo Supabase para `agency_visual_settings`, a consulta falhava silenciosamente e o payload `visual` retornava como `null`.

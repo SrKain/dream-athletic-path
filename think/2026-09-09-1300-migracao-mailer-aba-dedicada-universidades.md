@@ -13,6 +13,7 @@
 A funcionalidade de "Recruit Email" (criada na TASK-058) permitia o envio de e-mails em lote exclusivamente a partir da página individual de cada atleta (`/admin/athletes/$id`), utilizando uma tabela rasa de `coaches` (`id`, `name`, `email`, `institution`) e a tabela de auditoria `recruit_email_logs`.
 
 Esta tarefa tem como objetivos centrais:
+
 1. **Migrar e desacoplar o Mailer**: transformar a funcionalidade em uma nova aba dedicada de primeira classe no menu administrativo (`/admin/mailer`), ao lado de Atletas e Universidades.
 2. **Suportar 3 Modos de Envio no Mailer**:
    - **Multi-atleta**: seleção em lote de múltiplos atletas + seleção de destinatários (coaches), disparando o teaser individual correspondente de cada atleta.
@@ -81,7 +82,7 @@ create table if not exists public.email_suppressions (
   created_at timestamptz not null default timezone('utc', now())
 );
 
-create unique index if not exists idx_email_suppressions_email_lower 
+create unique index if not exists idx_email_suppressions_email_lower
   on public.email_suppressions (lower(trim(email)));
 
 -- 3. Evolução da tabela recruit_email_logs
@@ -119,7 +120,7 @@ begin
           ))
         ) returning id into u_id;
       else
-        update public.universities 
+        update public.universities
         set coaches = coaches || jsonb_build_object(
           'id', r.id::text,
           'first_name', split_part(r.name, ' ', 1),
@@ -162,6 +163,7 @@ create policy "Public can insert into email_suppressions"
 ## 3. Arquitetura do Mailer & Templates de E-mail
 
 ### 3.1 Templates de E-mail (`src/lib/email/`)
+
 - `recruit-email-template.ts`: atualização do template teaser individual para incluir link obrigatório de descadastro no rodapé (`https://portfolio.goteamgoagency.com/unsubscribe?email=...`), mantendo estética Dark/Emerald Premium.
 - `recruit-email-catalog-template.ts` (NOVO): template de e-mail institucional apresentando a agência Go Team Go e o catálogo geral de atletas internacionais, com:
   - Header oficial "Go Team Go • International Scouting Showcase".
@@ -171,13 +173,15 @@ create policy "Public can insert into email_suppressions"
   - Rodapé com endereço institucional e link de descadastro direto.
 
 ### 3.2 Descadastro & Suppression List (`/unsubscribe`)
+
 - Rota pública: `src/routes/unsubscribe.tsx`.
 - Lê o parâmetro de query `?email=...`.
 - Apresenta card minimalista e elegante Dark/Emerald confirmando o pedido de exclusão da lista de envios da agência.
 - Ao submeter, chama server function protegida que insere em `email_suppressions` (evitando duplicidades).
-- Exibe feedback imediato: *"Your email has been successfully unsubscribed. You will no longer receive recruitment showcases from Go Team Go."*
+- Exibe feedback imediato: _"Your email has been successfully unsubscribed. You will no longer receive recruitment showcases from Go Team Go."_
 
 ### 3.3 Motor de Disparo Backend (`recruit-email.server.ts`)
+
 - Unifica os envios em uma função modular robusta:
   - Busca e-mails na tabela `email_suppressions`.
   - Filtra e ignora automaticamente qualquer destinatário que conste na suppression list, incrementando contador de `totalSuppressed` e salvando log com `status: 'suppressed'`.
@@ -193,6 +197,7 @@ create policy "Public can insert into email_suppressions"
 ## 4. Design & Estrutura de Telas (UI/UX)
 
 ### 4.1 Navegação no Admin (`src/components/app-shell.tsx`)
+
 - Atualizar lista de links:
   - `{ to: "/admin/athletes", label: "Atletas", icon: Users }`
   - `{ to: "/admin/universities", label: "Universidades", icon: Building2 }` (substituindo `/admin/coaches`)
@@ -200,6 +205,7 @@ create policy "Public can insert into email_suppressions"
   - Seguido de Pipeline, Documentos, Propostas, Notificações, Visual e Configurações.
 
 ### 4.2 Tela de Universidades (`src/routes/_authenticated/admin/universities.tsx`)
+
 - **Visualização**: tabela responsiva com paginação e busca por nome, cidade, estado, liga.
 - **Filtros rápidos**: Estado (dropdown dos 50 estados + DC), Liga (NJCAA D1/D2, NCAA D1/D2, NAIA), HBCU (Sim/Não), Budget Level, TOEFL Level.
 - **Drawer/Modal de Criação e Edição**:
@@ -213,6 +219,7 @@ create policy "Public can insert into email_suppressions"
   - Processamento inteligente com feedback de progresso e relatório de erros/sucessos.
 
 ### 4.3 Nova Tela do Mailer (`src/routes/_authenticated/admin/mailer.tsx`)
+
 - **Seletor de Modo**:
   1. `Multi-atleta` (Disparo individual em lote de múltiplos atletas)
   2. `Atleta específico` (Disparo focado em um atleta individual com preview ao vivo)
@@ -224,13 +231,14 @@ create policy "Public can insert into email_suppressions"
 - **Painel de Preview (WYSIWYG)**:
   - Exibe o e-mail exato que o destinatário receberá (iframe seguro com HTML renderizado).
 - **Barra de Ação & Envio**:
-  - Contador dinâmico: *"X coaches selecionados em Y universidades"*.
+  - Contador dinâmico: _"X coaches selecionados em Y universidades"_.
   - Modal de confirmação seguro antes de iniciar o disparo em lote.
   - Relatório ao vivo com status de envio via toast da Sonner e barra de progresso.
 - **Aba de Histórico**:
   - Tabela com histórico completo de disparos (`recruit_email_logs`), status (`sent`, `failed`, `suppressed`), data e tipo.
 
 ### 4.4 Perfil do Atleta (`src/routes/_authenticated/admin/athletes/$id.tsx`)
+
 - Remover o modal antigo e o botão solto "Send to Coaches".
 - Adicionar atalho sutil e elegante no menu de ações do perfil:
   - Botão com ícone `Mail`: "Abrir no Mailer", que navega para `/admin/mailer?mode=single&athleteId=${athlete.id}`.
@@ -259,10 +267,12 @@ create policy "Public can insert into email_suppressions"
 9. **Testes & Validação Técnica**:
    - Executar `npm run typecheck`, `npm run lint`, `npm run test` e `compile_applet`.
 10. **Documentação Viva**:
-   - Atualizar `CERNE.md` com a nova arquitetura de Universidades, Mailer e Suppression List.
-   - Atualizar `BACKLOGER.md` marcando a tarefa TASK-062 como `[CONCLUÍDO]`.
+
+- Atualizar `CERNE.md` com a nova arquitetura de Universidades, Mailer e Suppression List.
+- Atualizar `BACKLOGER.md` marcando a tarefa TASK-062 como `[CONCLUÍDO]`.
 
 ---
 
 ## 6. Próximo Passo
+
 Aguardar aprovação humana deste plano para iniciar a implementação do código.

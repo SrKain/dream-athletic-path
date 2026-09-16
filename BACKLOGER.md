@@ -417,7 +417,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 - **Solicitante:** Kauan / Usuário Humano ("A Home pública e o perfil individual do atleta perderam a logo da agência, o fundo do hero e o favicon...")
 - **Executor:** Antigravity AI / Gemini Coding Agent
-- **Pedido:** 
+- **Pedido:**
   1. Corrigir a constante `AGENCY_VISUAL_PUBLIC_SELECT` removendo colunas inexistentes (`hero_title_pt`, `hero_subtitle_pt`, `catalog_heading_pt`) dropadas na migração 0013.
   2. Auditar `src/types/db.ts` (`AgencyVisualSettings`) e remover campos `_pt` obsoletos.
   3. Adicionar checagem e log de erro nas 3 chamadas que consultam `agency_visual_settings` (`getAgencyVisual`, `listPublicAthletes`, `getPublicAthlete`).
@@ -435,5 +435,31 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
 - **Status:** [CONCLUÍDO]
 
+---
 
+## TASK-067 — 2026-09-16 05:20 — Migração Completa de Resend para Amazon SES
 
+- **Solicitante:** Kauan / Usuário Humano ("Substituir totalmente o Resend por Amazon SES como provedor de e-mail do projeto, nos dois pontos de uso existentes: src/lib/email/email.server.ts e src/lib/email/recruit-email.server.ts...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Remover dependência `resend` e instalar `@aws-sdk/client-sesv2`.
+  2. Substituir `RESEND_API_KEY` por `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` e `SES_CONFIGURATION_SET`. Manter `EMAIL_FROM`.
+  3. Migrar `src/lib/email/email.server.ts` (e-mails transacionais de etapas com agendamento na janela de envio).
+  4. Migrar `src/lib/email/recruit-email.server.ts` (mailer para coaches) substituindo o batch por loop com rate limiting (`SES_MAX_SEND_RATE`, default 10/s) e persistência de auditoria individual.
+  5. Adicionar processamento do webhook SNS de Bounce e Complaint atualizando `email_suppressions` com auto-confirmação de assinatura (`SubscriptionConfirmation`).
+  6. Expor rotas de webhook e cron no servidor (`src/server.ts`).
+  7. Atualizar documentações (`think/`, `CERNE.md`, `BACKLOGER.md`).
+- **Planejamento:** Registrado no arquivo `think/2026-09-16-0520-migracao-resend-para-amazon-ses.md`.
+- **Entrega:**
+  - `package.json`: Removido pacote `resend`, adicionado `@aws-sdk/client-sesv2`.
+  - `.env.example`: Atualizado com variáveis `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_CONFIGURATION_SET`, `SES_MAX_SEND_RATE` e `EMAIL_FROM`.
+  - `src/lib/email/ses-client.server.ts`: Cliente singleton SES v2 com lazy initialization e helper `getSesConfig()`.
+  - `src/lib/email/email.server.ts`: Migrado para `SendEmailCommand` com envio imediato e agendamento de janela de envio (`email_log`), além de `processScheduledEmails()`.
+  - `src/lib/email/email.functions.ts`: Criada `processScheduledEmailsServerFn` protegida por `requireAgency`.
+  - `src/lib/email/recruit-email.server.ts`: Migrado para disparo sequencial com rate limiting (`delayBetweenSendsMs`), `ConfigurationSetName` e logs detalhados em `recruit_email_logs`.
+  - `src/lib/email/ses-webhook.server.ts`: Módulo de recepção SNS com confirmação de assinatura segura e supressão automática de `Bounce` e `Complaint`.
+  - `src/server.ts`: Adicionadas rotas `/api/webhooks/ses` (POST) e `/api/cron/process-scheduled-emails` (GET/POST).
+  - `src/lib/email/ses-email.test.ts`: 6 novos testes unitários cobrindo configuração, Webhooks SNS, confirmação de assinatura e supressão por bounce/queixa.
+  - 16 arquivos de teste Vitest (106 testes) executados e 100% aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]

@@ -10,10 +10,12 @@
 ## 1. Causa Raiz Descoberta (Idêntica em Ambas as Telas)
 
 O usuário relatou:
-1. *"não to conseguindo fazer nada ao selecionar o 'send to coaches' a tela abre sinalizando um erro"*
-2. *"antes de seguir investigue também a página coaches que também está com o mesmo problema"*
+
+1. _"não to conseguindo fazer nada ao selecionar o 'send to coaches' a tela abre sinalizando um erro"_
+2. _"antes de seguir investigue também a página coaches que também está com o mesmo problema"_
 
 ### A Causa Exata
+
 Ao inspecionar o código de `src/routes/_authenticated/admin/coaches.tsx` e `src/components/send-recruit-email-dialog.tsx`:
 
 1. **Invocação Indevida de `buttonClass` como Função (`TypeError: buttonClass is not a function`)**:
@@ -25,7 +27,7 @@ Ao inspecionar o código de `src/routes/_authenticated/admin/coaches.tsx` e `src
    - No entanto, em ambos os arquivos recém-criados, foram inseridas chamadas tratando a constante como função:
      - `className={buttonClass("secondary")}`
      - `className={buttonClass("primary")}`
-   - **Efeito no Navegador**: No exato momento em que o usuário clica em *"Send to Coaches"* (abrindo o modal) ou acessa a rota `/admin/coaches` (abrindo a página), o motor JavaScript do React tenta executar a string como função e lança imediatamente:
+   - **Efeito no Navegador**: No exato momento em que o usuário clica em _"Send to Coaches"_ (abrindo o modal) ou acessa a rota `/admin/coaches` (abrindo a página), o motor JavaScript do React tenta executar a string como função e lança imediatamente:
      `Uncaught TypeError: buttonClass is not a function`
    - O React interrompe a renderização e o Error Boundary captura a exceção, exibindo a tela de erro para o usuário.
 
@@ -42,19 +44,20 @@ Ao inspecionar o código de `src/routes/_authenticated/admin/coaches.tsx` e `src
 
 ## 2. Escopo Completo da Correção
 
-| Arquivo | Ação | Responsabilidade |
-| :--- | :---: | :--- |
-| `src/routes/_authenticated/admin/coaches.tsx` | **Correção** | 1. Substituir todas as invocações errôneas `buttonClass("primary")` e `buttonClass("secondary")` pelas classes corretas `buttonClass` e `secondaryButtonClass`.<br>2. Ajustar o componente `<Panel title="Coaches Directory">` com título obrigatório.<br>3. Corrigir o uso de `<EmptyState>No coaches found matching your search.</EmptyState>`.<br>4. Garantir total fluidez no cadastro manual, edição, exclusão e importador de planilhas. |
-| `src/components/send-recruit-email-dialog.tsx` | **Correção** | 1. Substituir todas as invocações errôneas `buttonClass("primary")` e `buttonClass("secondary")` pelas classes corretas `buttonClass` e `secondaryButtonClass`.<br>2. Adicionar estado vazio inteligente quando não houver coaches, com botão CTA direto *"Manage & Import Coaches"* direcionando para `/admin/coaches`.<br>3. Blindar o preview do e-mail para renderização limpa e estável.<br>4. Exibir aviso de erro com botão de *"Retry"* caso a rede falhe. |
-| `src/lib/email/recruit-email-template.ts` | **Reforço** | Blindagem contra valores nulos/indefinidos em todas as propriedades do atleta. |
-| `BACKLOGER.md` | **Atualização** | Atualizar a TASK-059 contemplando o diagnóstico unificado de ambas as telas. |
-| `CERNE.md` | **Documentação** | Registrar os ajustes de estabilidade e renderização após aplicação e validação. |
+| Arquivo                                        |       Ação       | Responsabilidade                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| :--------------------------------------------- | :--------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/routes/_authenticated/admin/coaches.tsx`  |   **Correção**   | 1. Substituir todas as invocações errôneas `buttonClass("primary")` e `buttonClass("secondary")` pelas classes corretas `buttonClass` e `secondaryButtonClass`.<br>2. Ajustar o componente `<Panel title="Coaches Directory">` com título obrigatório.<br>3. Corrigir o uso de `<EmptyState>No coaches found matching your search.</EmptyState>`.<br>4. Garantir total fluidez no cadastro manual, edição, exclusão e importador de planilhas.                     |
+| `src/components/send-recruit-email-dialog.tsx` |   **Correção**   | 1. Substituir todas as invocações errôneas `buttonClass("primary")` e `buttonClass("secondary")` pelas classes corretas `buttonClass` e `secondaryButtonClass`.<br>2. Adicionar estado vazio inteligente quando não houver coaches, com botão CTA direto _"Manage & Import Coaches"_ direcionando para `/admin/coaches`.<br>3. Blindar o preview do e-mail para renderização limpa e estável.<br>4. Exibir aviso de erro com botão de _"Retry"_ caso a rede falhe. |
+| `src/lib/email/recruit-email-template.ts`      |   **Reforço**    | Blindagem contra valores nulos/indefinidos em todas as propriedades do atleta.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `BACKLOGER.md`                                 | **Atualização**  | Atualizar a TASK-059 contemplando o diagnóstico unificado de ambas as telas.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `CERNE.md`                                     | **Documentação** | Registrar os ajustes de estabilidade e renderização após aplicação e validação.                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ---
 
 ## 3. Plano de Validação e Testes
+
 1. Validar que `/admin/coaches` carrega perfeitamente sem nenhum erro, exibe o estado vazio amigável quando não há dados, abre o modal de cadastro manual e abre o importador de planilhas.
-2. Validar que no perfil do atleta (`/admin/athletes/$id`), ao clicar em *"Send to Coaches"*, o modal abre sem nenhum erro, exibe o preview do e-mail e as opções de envio/importação.
+2. Validar que no perfil do atleta (`/admin/athletes/$id`), ao clicar em _"Send to Coaches"_, o modal abre sem nenhum erro, exibe o preview do e-mail e as opções de envio/importação.
 3. Executar o suite de testes automatizados (`npm run test`).
 4. Executar o linter (`npm run lint`).
 5. Validar o build de produção (`compile_applet`).

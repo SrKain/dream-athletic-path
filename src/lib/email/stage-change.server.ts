@@ -24,7 +24,7 @@ const CELEBRATION_TEMPLATE = "stage_advancement_celebration";
 
 /**
  * Envia (ou agenda) o e-mail de celebração quando o atleta conclui uma etapa.
- * Server-only: usa service role e as chaves do Resend.
+ * Server-only: usa service role e as credenciais do Amazon SES.
  */
 export async function sendStageCelebration(
   input: StageCelebrationInput,

@@ -3,6 +3,8 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { generateSitemapXml } from "./lib/sitemap";
+import { processSnsWebhook } from "./lib/email/ses-webhook.server";
+import { processScheduledEmails } from "./lib/email/email.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -120,6 +122,32 @@ export default {
           headers: {
             "content-type": "application/xml; charset=utf-8",
             "cache-control": "public, max-age=3600, s-maxage=3600",
+          },
+        });
+      }
+
+      if (url.pathname === "/api/webhooks/ses" && request.method === "POST") {
+        const rawBody = await request.text();
+        const result = await processSnsWebhook(rawBody);
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        });
+      }
+
+      if (
+        url.pathname === "/api/cron/process-scheduled-emails" &&
+        (request.method === "POST" || request.method === "GET")
+      ) {
+        const result = await processScheduledEmails();
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
           },
         });
       }
