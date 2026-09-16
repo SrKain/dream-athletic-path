@@ -807,21 +807,26 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com 100% de sucesso.
 
-## Atualização 2026-09-09 — Auditoria, Diagnóstico e Estabilização do CSS (TASK-065)
+## Atualização 2026-09-15 — Correção do Select de Agency Visual Settings, Logging de Erros e Migração 0019 (TASK-066)
 
-- **Diagnóstico das Causas de Quebra do CSS**:
-  - Conflito de ordem de `@import` externo com o parser do LightningCSS (resolvido injetando fontes via `<link>` no `<head>` de `__root.tsx`).
-  - Fallback da fonte display para Bebas Neue forçando caixa alta irrecuperável e pesos de fonte descalibrados.
-  - Sintaxe `source(none)` e `@source "../src"` no Tailwind CSS v4 simplificada para `@import "tailwindcss";` nativo.
-  - Pseudo-classes `.liquid-button:hover` e `.liquid-button:active` consolidadas dentro de `@utility liquid-button` com aninhamento direto `&:hover` e `&:active`.
-  - Remoção de códigos hexadecimais legados e consolidação integral dos tokens oficiais Go Team Go (`#f69e00`, `#032812`, `#084323`, `#114f8f`, `#ff1616`).
-- **Arquivos Refinados**:
-  - `src/styles.css`: Importações limpas e compatíveis com Tailwind v4 / LightningCSS; aninhamento de estados interativos em `@utility liquid-button`.
-  - `src/routes/__root.tsx`: Injeção de fontes (*Barlow Semi Condensed*, *Oswald*, *Quicksand*, *Space Grotesk*) e estilos de base.
-- **Validação e Testes**:
-  - Vitest: 15 arquivos de testes, 98 testes unitários passando (100%).
+- **Causa Raiz & Resolução do Bug de Identidade Visual (Logo / Hero / Favicon)**:
+  - Na migração `0013_full_english_pivot_and_course_of_interest.sql`, as colunas `hero_title_pt`, `hero_subtitle_pt` e `catalog_heading_pt` foram removidas da tabela `agency_visual_settings`.
+  - A constante `AGENCY_VISUAL_PUBLIC_SELECT` em `src/lib/athletes.functions.ts` ainda referenciava essas colunas inexistentes, fazendo com que o Supabase/PostgREST rejeitasse a consulta pública inteira com erro `400 / 42703 (undefined_column)`.
+  - A constante foi corrigida para selecionar estritamente as colunas válidas: `agency_id, hero_title_en, hero_subtitle_en, catalog_heading_en, logo_url, hero_background_url`.
+- **Tratamento e Logging de Erros**:
+  - Adicionado logging explícito via `console.error` em `getAgencyVisual`, `listPublicAthletes` e `getPublicAthlete` ao consultar `agency_visual_settings`, prevenindo que falhas silenciosas futuras ocultem erros de schema ou permissão.
+- **Saneamento de Tipagem e Componentes**:
+  - `src/types/db.ts`: Removidos os campos obsoletos `hero_title_pt`, `hero_subtitle_pt` e `catalog_heading_pt` da interface `AgencyVisualSettings`.
+  - `src/routes/index.tsx`: Removidas as leituras residuais de fallbacks `_pt` da Home.
+- **Testes Unitários de Projeção**:
+  - `src/lib/athletes.functions.test.ts`: Adicionada suite de testes para `AGENCY_VISUAL_PUBLIC_SELECT` assegurando que colunas `_pt` jamais sejam selecionadas e que todos os campos visuais em inglês e branding estejam presentes.
+- **Histórico de Migrations (`db/migrations/0019_fix_universities_rls_role_reference.sql`)**:
+  - Criada a migração 0019 formalizando o hotfix de RLS para `universities` e `email_suppressions` com `public.is_agency_admin()`, sincronizando o repositório com o diário de bordo.
+- **Validação de Qualidade**:
+  - Vitest: 15 arquivos de testes, 100 testes unitários passando (100% de sucesso).
   - ESLint: 0 erros.
-  - Compilação de produção (`compile_applet`): Concluída com sucesso.
+  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
+
 
 
 

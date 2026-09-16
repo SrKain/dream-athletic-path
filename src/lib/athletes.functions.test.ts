@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PUBLIC_ATHLETE_SELECT } from "./athletes.functions";
+import { AGENCY_VISUAL_PUBLIC_SELECT, PUBLIC_ATHLETE_SELECT } from "./athletes.functions";
 
 describe("public athlete projection", () => {
   it("never selects private identity fields", () => {
@@ -20,5 +20,22 @@ describe("public athlete projection", () => {
     expect(PUBLIC_ATHLETE_SELECT).toContain("birth_date");
     expect(PUBLIC_ATHLETE_SELECT).toContain("height_cm");
     expect(PUBLIC_ATHLETE_SELECT).toContain("weight_kg");
+  });
+});
+
+describe("agency visual public projection", () => {
+  it("never selects dropped _pt columns", () => {
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).not.toMatch(/\bhero_title_pt\b/);
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).not.toMatch(/\bhero_subtitle_pt\b/);
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).not.toMatch(/\bcatalog_heading_pt\b/);
+  });
+
+  it("contains valid branding and english text columns", () => {
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("agency_id");
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("hero_title_en");
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("hero_subtitle_en");
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("catalog_heading_en");
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("logo_url");
+    expect(AGENCY_VISUAL_PUBLIC_SELECT).toContain("hero_background_url");
   });
 });

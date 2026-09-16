@@ -107,11 +107,8 @@ export interface AthleteVideo {
 
 export interface AgencyVisualSettings {
   agency_id: string;
-  hero_title_pt?: string | null;
   hero_title_en: string | null;
-  hero_subtitle_pt?: string | null;
   hero_subtitle_en: string | null;
-  catalog_heading_pt?: string | null;
   catalog_heading_en: string | null;
   logo_url?: string | null;
   hero_background_url?: string | null;

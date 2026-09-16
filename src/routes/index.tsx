@@ -239,16 +239,13 @@ function Catalog() {
   );
 
   const heroTitle =
-    visual?.hero_title_en ||
-    visual?.hero_title_pt ||
-    "Athletes ready to play, study, and compete in the USA.";
+    visual?.hero_title_en || "Athletes ready to play, study, and compete in the USA.";
 
   const heroSubtitle =
     visual?.hero_subtitle_en ||
-    visual?.hero_subtitle_pt ||
     "Explore athlete profiles by position, watch game film, and discover top international recruits with verified academic and athletic credentials.";
 
-  const catalogHeading = visual?.catalog_heading_en || visual?.catalog_heading_pt || "Our Athletes";
+  const catalogHeading = visual?.catalog_heading_en || "Our Athletes";
   const heroImageSrc = visual?.hero_background_url || catalogHeroImage;
 
   if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;

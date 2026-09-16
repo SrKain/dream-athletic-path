@@ -411,4 +411,29 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
 - **Status:** [CONCLUÍDO]
 
+---
+
+## TASK-066 — 2026-09-15 20:05 — Correção do Select de Agency Visual Settings, Logging de Erros e Migração 0019
+
+- **Solicitante:** Kauan / Usuário Humano ("A Home pública e o perfil individual do atleta perderam a logo da agência, o fundo do hero e o favicon...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** 
+  1. Corrigir a constante `AGENCY_VISUAL_PUBLIC_SELECT` removendo colunas inexistentes (`hero_title_pt`, `hero_subtitle_pt`, `catalog_heading_pt`) dropadas na migração 0013.
+  2. Auditar `src/types/db.ts` (`AgencyVisualSettings`) e remover campos `_pt` obsoletos.
+  3. Adicionar checagem e log de erro nas 3 chamadas que consultam `agency_visual_settings` (`getAgencyVisual`, `listPublicAthletes`, `getPublicAthlete`).
+  4. Realizar varredura por outros selects com colunas `_pt` residuais ou dropadas.
+  5. Criar `db/migrations/0019_fix_universities_rls_role_reference.sql` com as RLS policies atualizadas para `public.is_agency_admin()`.
+  6. Validar com Vitest e ESLint, e atualizar `CERNE.md` e `BACKLOGER.md`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-15-2005-correcao-select-agency-visual-settings.md`.
+- **Entrega:**
+  - `src/lib/athletes.functions.ts`: Projeção `AGENCY_VISUAL_PUBLIC_SELECT` atualizada exclusivamente com colunas ativas. Adicionado logging detalhado com `console.error` para `agency_visual_settings` nas três funções de consumo.
+  - `src/types/db.ts`: Interface `AgencyVisualSettings` saneada.
+  - `src/routes/index.tsx`: Remoção de acessos residuais aos fallbacks `_pt`.
+  - `src/lib/athletes.functions.test.ts`: Adicionados testes unitários verificando a projeção de `AGENCY_VISUAL_PUBLIC_SELECT`.
+  - `db/migrations/0019_fix_universities_rls_role_reference.sql`: Migração criada com as policies de RLS para `universities` e `email_suppressions` usando `public.is_agency_admin()`.
+  - 15 arquivos de testes Vitest (100 testes) executados e 100% aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+
 

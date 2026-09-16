@@ -36,7 +36,7 @@ export const PUBLIC_ATHLETE_SELECT =
   "id, slug, full_name, birth_date, height_cm, weight_kg, nationality, sport_id, position_id, photo_url, cover_url, is_public, is_featured, created_at, position:positions(name_en,name_pt,abbreviation), sport:sports(name_en,name_pt,slug), country:countries(name_en,name_pt,flag_emoji)";
 
 export const AGENCY_VISUAL_PUBLIC_SELECT =
-  "agency_id, hero_title_pt, hero_title_en, hero_subtitle_pt, hero_subtitle_en, catalog_heading_pt, catalog_heading_en, logo_url, hero_background_url";
+  "agency_id, hero_title_en, hero_subtitle_en, catalog_heading_en, logo_url, hero_background_url";
 
 export const PUBLIC_PROFILE_SELECT =
   "athlete_id, high_school_graduation, graduation_year, athlete_status, highlight_video_url, gpa, current_school, course_of_interest, english_level, toefl_duolingo_score, seeking_opportunities, budget, bio_en, team_contribution_en, college_start_date";
@@ -56,11 +56,14 @@ export const getAgencyVisual = createServerFn({ method: "GET" }).handler(
     const { getPublicServerClient } = await import("@/lib/supabase/clients.server");
     const client = getPublicServerClient();
     if (!client) return null;
-    const { data } = await client
+    const { data, error } = await client
       .from("agency_visual_settings")
       .select(AGENCY_VISUAL_PUBLIC_SELECT)
       .limit(1)
       .maybeSingle();
+    if (error) {
+      console.error("[getAgencyVisual] agency_visual_settings:", error.message);
+    }
     return (data ?? null) as AgencyVisualSettings | null;
   },
 );
@@ -99,6 +102,10 @@ export const listPublicAthletes = createServerFn({ method: "GET" }).handler(
     if (athletesResult.error) {
       console.error("[feed] erro ao carregar atletas:", athletesResult.error.message);
       return { ...empty, configured: true };
+    }
+
+    if (visualResult.error) {
+      console.error("[listPublicAthletes] agency_visual_settings:", visualResult.error.message);
     }
 
     const athletes = (athletesResult.data ?? []) as unknown as AthleteCard[];
@@ -421,6 +428,12 @@ export const getPublicAthlete = createServerFn({ method: "GET" })
       console.error(
         "[getPublicAthlete] athlete_videos indisponível. Verifique a migration 0009 e as políticas RLS:",
         videos.error.message,
+      );
+    }
+    if (visualResult.error) {
+      console.error(
+        "[getPublicAthlete] agency_visual_settings indisponível:",
+        visualResult.error.message,
       );
     }
     return {
