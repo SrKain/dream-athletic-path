@@ -19,22 +19,39 @@ import {
   Filter,
   Layers,
   FileText,
+  DollarSign,
+  GraduationCap,
+  Ban,
+  MessageSquareWarning,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
-import { Panel, buttonClass, secondaryButtonClass } from "@/components/admin-ui";
+import { buttonClass, secondaryButtonClass } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 import {
   sendMailerServerFn,
   getSuppressedEmailsServerFn,
   getMailerHistoryServerFn,
+  getActiveInterestSignalsServerFn,
 } from "@/lib/email/recruit-email.functions";
-import { renderRecruitEmail } from "@/lib/email/recruit-email-template";
+import {
+  renderRecruitEmail,
+  renderMultiAthleteRecruitEmail,
+  type RecruitEmailData,
+} from "@/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "@/lib/email/recruit-email-catalog-template";
-import type { University, UniversityCoach, RecruitEmailLog, UniversityLeague } from "@/types/db";
-import { LEAGUES, US_STATES } from "@/lib/universities-constants";
+import type {
+  University,
+  UniversityCoach,
+  RecruitEmailLog,
+  UniversityLeague,
+  UniversityBudgetLevel,
+  UniversityToeflLevel,
+  CoachInterestSignal,
+} from "@/types/db";
+import { LEAGUES, US_STATES, BUDGET_LEVELS, TOEFL_LEVELS } from "@/lib/universities-constants";
 
 interface MailerSearch {
   mode?: "single" | "multi" | "catalog";
@@ -99,7 +116,10 @@ interface RecipientItem {
   universityState: string;
   league: UniversityLeague | null;
   isHbcu: boolean;
+  budgetLevel: UniversityBudgetLevel | null;
+  toeflLevel: UniversityToeflLevel | null;
   isSuppressed: boolean;
+  signals: CoachInterestSignal[];
 }
 
 function MailerPage() {
@@ -115,6 +135,7 @@ function MailerPage() {
   const [athletes, setAthletes] = useState<AthleteSummary[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [suppressedEmails, setSuppressedEmails] = useState<Set<string>>(new Set());
+  const [interestSignals, setInterestSignals] = useState<CoachInterestSignal[]>([]);
   const [historyLogs, setHistoryLogs] = useState<RecruitEmailLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -138,6 +159,9 @@ function MailerPage() {
   const [filterState, setFilterState] = useState("all");
   const [filterLeague, setFilterLeague] = useState("all");
   const [filterHbcu, setFilterHbcu] = useState("all");
+  const [filterBudget, setFilterBudget] = useState("all");
+  const [filterToefl, setFilterToefl] = useState("all");
+  const [filterHideSignaled, setFilterHideSignaled] = useState(false);
 
   // Modal de Confirmação & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -147,7 +171,7 @@ function MailerPage() {
   async function loadInitialData() {
     setLoading(true);
     try {
-      const [athletesRes, uniRes, suppressedRes, historyRes] = await Promise.all([
+      const [athletesRes, uniRes, suppressedRes, historyRes, signalsRes] = await Promise.all([
         supabase
           .from("athletes")
           .select(
@@ -169,6 +193,7 @@ function MailerPage() {
         supabase.from("universities").select("*").order("name", { ascending: true }),
         getSuppressedEmailsServerFn().catch(() => []),
         getMailerHistoryServerFn().catch(() => []),
+        getActiveInterestSignalsServerFn().catch(() => []),
       ]);
 
       if (athletesRes.error) {
@@ -214,6 +239,10 @@ function MailerPage() {
       if (historyRes) {
         setHistoryLogs((historyRes as RecruitEmailLog[]) || []);
       }
+
+      if (signalsRes) {
+        setInterestSignals((signalsRes as CoachInterestSignal[]) || []);
+      }
     } catch (err) {
       console.error("[mailer] Error loading data:", err);
       toast.error("Failed to load mailer data.");
@@ -225,6 +254,19 @@ function MailerPage() {
   useEffect(() => {
     void loadInitialData();
   }, []);
+
+  // Mapeamento de sinais de interesse ativos agrupados por e-mail do coach
+  const signalsByEmail = useMemo(() => {
+    const map = new Map<string, CoachInterestSignal[]>();
+    for (const sig of interestSignals) {
+      const email = sig.coach_email.toLowerCase().trim();
+      if (!map.has(email)) {
+        map.set(email, []);
+      }
+      map.get(email)!.push(sig);
+    }
+    return map;
+  }, [interestSignals]);
 
   // Normalizar lista de todos os coaches disponíveis
   const allRecipients = useMemo<RecipientItem[]>(() => {
@@ -240,6 +282,7 @@ function MailerPage() {
           `${coach.first_name || ""} ${coach.last_name || ""}`.trim() || "Coach";
         const key = `${uni.id}__${coach.id || cleanEmail}`;
         const isSuppressed = suppressedEmails.has(cleanEmail);
+        const signals = signalsByEmail.get(cleanEmail) || [];
 
         list.push({
           key,
@@ -251,15 +294,18 @@ function MailerPage() {
           universityState: uni.state,
           league: uni.league,
           isHbcu: !!uni.is_hbcu,
+          budgetLevel: uni.budget_level,
+          toeflLevel: uni.toefl_level,
           isSuppressed,
+          signals,
         });
       }
     }
 
     return list;
-  }, [universities, suppressedEmails]);
+  }, [universities, suppressedEmails, signalsByEmail]);
 
-  // Destinatários filtrados pela busca e selects
+  // Destinatários filtrados pela busca e selects combinados via AND
   const filteredRecipients = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
 
@@ -278,10 +324,22 @@ function MailerPage() {
       if (filterLeague !== "all" && item.league !== filterLeague) return false;
       if (filterHbcu === "hbcu" && !item.isHbcu) return false;
       if (filterHbcu === "non_hbcu" && item.isHbcu) return false;
+      if (filterBudget !== "all" && item.budgetLevel !== filterBudget) return false;
+      if (filterToefl !== "all" && item.toeflLevel !== filterToefl) return false;
+      if (filterHideSignaled && item.signals.length > 0) return false;
 
       return true;
     });
-  }, [allRecipients, recipientSearch, filterState, filterLeague, filterHbcu]);
+  }, [
+    allRecipients,
+    recipientSearch,
+    filterState,
+    filterLeague,
+    filterHbcu,
+    filterBudget,
+    filterToefl,
+    filterHideSignaled,
+  ]);
 
   // Controles de seleção de coaches
   function toggleRecipient(key: string) {
@@ -336,6 +394,11 @@ function MailerPage() {
     return athletes.find((a) => a.id === selectedAthleteId) || athletes[0] || null;
   }, [athletes, selectedAthleteId]);
 
+  // Atletas selecionados no modo multi
+  const selectedMultiAthletesList = useMemo(() => {
+    return athletes.filter((a) => selectedMultiAthleteIds.has(a.id));
+  }, [athletes, selectedMultiAthleteIds]);
+
   // Gera HTML de Preview dinâmico
   const previewHtml = useMemo(() => {
     if (sendMode === "catalog") {
@@ -350,23 +413,35 @@ function MailerPage() {
     }
 
     if (sendMode === "multi") {
-      const sampleAth = athletes.find((a) => selectedMultiAthleteIds.has(a.id)) || athletes[0];
-      if (!sampleAth) return "<p>Selecione ao menos um atleta para visualizar o preview.</p>";
+      const targets =
+        selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
 
-      const { html } = renderRecruitEmail({
-        athleteName: sampleAth.full_name,
-        athleteSlug: sampleAth.slug,
-        photoUrl: sampleAth.photo_url,
-        positionName: sampleAth.position_name,
-        sportName: sampleAth.sport_name,
-        heightCm: sampleAth.height_cm,
-        nationality: sampleAth.nationality,
-        countryFlag: sampleAth.country_flag,
-        highSchoolGraduation: sampleAth.high_school_graduation,
-        graduationYear: sampleAth.graduation_year,
-        gpa: sampleAth.gpa,
-        athleteStatus: sampleAth.athlete_status,
-        highlightNote: sampleAth.highlight_note,
+      if (targets.length === 0) {
+        return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>";
+      }
+
+      const athletesData: RecruitEmailData[] = targets.map((ath) => ({
+        athleteId: ath.id,
+        athleteName: ath.full_name,
+        athleteSlug: ath.slug,
+        photoUrl: ath.photo_url,
+        positionName: ath.position_name,
+        sportName: ath.sport_name,
+        heightCm: ath.height_cm,
+        nationality: ath.nationality,
+        countryFlag: ath.country_flag,
+        highSchoolGraduation: ath.high_school_graduation,
+        graduationYear: ath.graduation_year,
+        gpa: ath.gpa,
+        athleteStatus: ath.athlete_status,
+        highlightNote: ath.highlight_note,
+        recipientEmail: "coach@example.edu",
+      }));
+
+      const { html } = renderMultiAthleteRecruitEmail({
+        athletes: athletesData,
+        coachName: "Smith",
+        institutionName: "University Athletics",
         recipientEmail: "coach@example.edu",
       });
       return html;
@@ -374,10 +449,11 @@ function MailerPage() {
 
     // single mode
     if (!currentSingleAthlete) {
-      return "<p>Nenhum atleta selecionado.</p>";
+      return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>";
     }
 
     const { html } = renderRecruitEmail({
+      athleteId: currentSingleAthlete.id,
       athleteName: currentSingleAthlete.full_name,
       athleteSlug: currentSingleAthlete.slug,
       photoUrl: currentSingleAthlete.photo_url,
@@ -397,7 +473,7 @@ function MailerPage() {
   }, [
     sendMode,
     currentSingleAthlete,
-    selectedMultiAthleteIds,
+    selectedMultiAthletesList,
     athletes,
     catalogHeadline,
     catalogMessage,
@@ -416,11 +492,71 @@ function MailerPage() {
     return selectedRecipientsList.filter((r) => r.isSuppressed).length;
   }, [selectedRecipientsList]);
 
+  // FRENTE 1: No modo multi-atleta agora é 1 e-mail por coach contendo todos os cards empilhados
   const totalCalculatedDispatches = useMemo(() => {
-    if (sendMode === "catalog") return activeSelectedRecipients.length;
-    if (sendMode === "multi") return selectedMultiAthleteIds.size * activeSelectedRecipients.length;
-    return activeSelectedRecipients.length; // single
-  }, [sendMode, activeSelectedRecipients, selectedMultiAthleteIds]);
+    return activeSelectedRecipients.length;
+  }, [activeSelectedRecipients]);
+
+  // Helper para verificar sinais de interesse contextuais para cada coach
+  function getCoachBadges(rec: RecipientItem) {
+    if (!rec.signals || rec.signals.length === 0) return null;
+
+    const badges: Array<{ label: string; color: string; tooltip: string }> = [];
+
+    for (const sig of rec.signals) {
+      if (sig.reason === "fully_recruited") {
+        badges.push({
+          label: "Already Full",
+          color: "bg-rose-950/60 text-rose-300 border-rose-700/50",
+          tooltip: "Coach sinalizou que o elenco está cheio para esta temporada.",
+        });
+      } else if (sig.reason === "position_not_needed") {
+        const targetPositions =
+          sendMode === "single"
+            ? [currentSingleAthlete?.position_name].filter(Boolean)
+            : sendMode === "multi"
+              ? selectedMultiAthletesList.map((a) => a.position_name).filter(Boolean)
+              : [];
+
+        const isMatch =
+          !sig.position ||
+          targetPositions.some((pos) => pos?.toLowerCase() === sig.position?.toLowerCase());
+
+        badges.push({
+          label: sig.position ? `No ${sig.position}` : "Position not needed",
+          color: isMatch
+            ? "bg-amber-950/60 text-amber-300 border-amber-700/50"
+            : "bg-zinc-800 text-zinc-400 border-zinc-700",
+          tooltip: `Coach não busca a posição ${sig.position || "informada"}.`,
+        });
+      } else if (sig.reason === "specific_athlete_dislike") {
+        const targetIds =
+          sendMode === "single"
+            ? [currentSingleAthlete?.id].filter(Boolean)
+            : sendMode === "multi"
+              ? Array.from(selectedMultiAthleteIds)
+              : [];
+
+        const isMatch = !!sig.athlete_id && targetIds.includes(sig.athlete_id);
+
+        badges.push({
+          label: "Athlete mismatch",
+          color: isMatch
+            ? "bg-red-950/60 text-red-300 border-red-700/50"
+            : "bg-zinc-800 text-zinc-400 border-zinc-700",
+          tooltip: "Coach sinalizou desinteresse neste perfil específico.",
+        });
+      } else if (sig.reason === "other_positions_only") {
+        badges.push({
+          label: "Other positions only",
+          color: "bg-sky-950/60 text-sky-300 border-sky-700/50",
+          tooltip: "Coach busca apenas outras posições específicas.",
+        });
+      }
+    }
+
+    return badges;
+  }
 
   // Ação de Disparo
   async function handleSendMailer() {
@@ -475,7 +611,7 @@ function MailerPage() {
         toast.success(`Disparo concluído! ${res.totalSent} e-mails enviados com sucesso.`);
         if (res.totalSuppressed > 0) {
           toast.info(
-            `${res.totalSuppressed} contatos foram ignorados por estarem na lista de descadastro (unsubscribed).`,
+            `${res.totalSuppressed} contatos foram ignorados por estarem na lista de descadastro (unsubscribed/pausados).`,
           );
         }
         setConfirmModalOpen(false);
@@ -509,7 +645,7 @@ function MailerPage() {
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Dispare e-mails de recrutamento esportivo para coaches universitários com
-                rastreamento, templates premium e opt-out automático.
+                rastreamento, templates unificados multi-atleta e feedback de interesse.
               </p>
             </div>
 
@@ -564,13 +700,13 @@ function MailerPage() {
                       <span className="text-[11px] font-bold text-primary uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="font-semibold text-sm text-foreground">Atleta Específico</div>
+                  <div className="font-semibold text-sm text-foreground">Atleta Individual</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Envio focado do perfil completo e highlights de um único atleta selecionado.
                   </div>
                 </button>
 
-                {/* Modo 2: Multi-atleta */}
+                {/* Modo 2: Multi-atleta (Unificado) */}
                 <button
                   type="button"
                   onClick={() => setSendMode("multi")}
@@ -589,11 +725,11 @@ function MailerPage() {
                     )}
                   </div>
                   <div className="font-semibold text-sm text-foreground">
-                    Multi-atleta (Em lote)
+                    Multi-atleta (Showcase Unificado)
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Selecione múltiplos atletas e envie seus teasers individuais para a lista de
-                    coaches.
+                    Envia 1 único e-mail por coach com os cartões de todas as atletas selecionadas
+                    empilhados.
                   </div>
                 </button>
 
@@ -678,10 +814,11 @@ function MailerPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-                          Selecione os Atletas para o Envio em Lote
+                          Selecione as Atletas para o E-mail Unificado
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {selectedMultiAthleteIds.size} de {athletes.length} atletas selecionados
+                          {selectedMultiAthleteIds.size} de {athletes.length} atletas selecionadas
+                          (serão empilhadas em 1 único e-mail por coach)
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -690,7 +827,7 @@ function MailerPage() {
                           onClick={selectAllAthletes}
                           className="text-xs text-primary font-semibold hover:underline cursor-pointer"
                         >
-                          Selecionar Todos
+                          Selecionar Todas
                         </button>
                         <span className="text-muted-foreground text-xs">•</span>
                         <button
@@ -725,7 +862,7 @@ function MailerPage() {
                             <div className="truncate flex-1">
                               <span className="font-semibold text-foreground">{ath.full_name}</span>{" "}
                               <span className="text-[11px] text-muted-foreground">
-                                ({ath.sport_name || "Atleta"})
+                                ({ath.position_name || ath.sport_name || "Atleta"})
                               </span>
                             </div>
                           </div>
@@ -784,53 +921,108 @@ function MailerPage() {
                         {suppressedSelectedCount > 0 && (
                           <span className="text-amber-500 font-semibold">
                             {" "}
-                            • {suppressedSelectedCount} suprimidos
+                            • {suppressedSelectedCount} pausados/suprimidos
                           </span>
                         )}
                         )
                       </div>
                     </div>
 
-                    {/* Filtros de Destinatários */}
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          type="text"
-                          placeholder="Buscar coach, universidade, cidade..."
-                          value={recipientSearch}
-                          onChange={(e) => setRecipientSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background"
-                        />
+                    {/* FRENTE 2: FILTROS AVANÇADOS COMBINADOS VIA AND */}
+                    <div className="space-y-2">
+                      {/* Linha 1: Busca Textual + Estado + Liga */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <div className="relative sm:col-span-6">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Buscar coach, universidade, cidade..."
+                            value={recipientSearch}
+                            onChange={(e) => setRecipientSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background"
+                          />
+                        </div>
+                        <select
+                          value={filterState}
+                          onChange={(e) => setFilterState(e.target.value)}
+                          className="sm:col-span-3 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">Estado: Todos</option>
+                          {US_STATES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={filterLeague}
+                          onChange={(e) => setFilterLeague(e.target.value)}
+                          className="sm:col-span-3 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">Liga: Todas</option>
+                          {LEAGUES.map((lg) => (
+                            <option key={lg} value={lg}>
+                              {lg}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <select
-                        value={filterState}
-                        onChange={(e) => setFilterState(e.target.value)}
-                        className="text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
-                      >
-                        <option value="all">Estado: Todos</option>
-                        {US_STATES.map((st) => (
-                          <option key={st} value={st}>
-                            {st}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={filterLeague}
-                        onChange={(e) => setFilterLeague(e.target.value)}
-                        className="text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
-                      >
-                        <option value="all">Liga: Todas</option>
-                        {LEAGUES.map((lg) => (
-                          <option key={lg} value={lg}>
-                            {lg}
-                          </option>
-                        ))}
-                      </select>
+
+                      {/* Linha 2: HBCU + Budget Level + TOEFL Level */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <select
+                          value={filterHbcu}
+                          onChange={(e) => setFilterHbcu(e.target.value)}
+                          className="sm:col-span-4 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">HBCU: Todas</option>
+                          <option value="hbcu">Somente HBCU</option>
+                          <option value="non_hbcu">Sem HBCU</option>
+                        </select>
+
+                        <select
+                          value={filterBudget}
+                          onChange={(e) => setFilterBudget(e.target.value)}
+                          className="sm:col-span-4 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">Budget: Todos</option>
+                          {BUDGET_LEVELS.map((bg) => (
+                            <option key={bg} value={bg}>
+                              Budget: ${bg}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={filterToefl}
+                          onChange={(e) => setFilterToefl(e.target.value)}
+                          className="sm:col-span-4 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">TOEFL: Todos</option>
+                          {TOEFL_LEVELS.map((tf) => (
+                            <option key={tf} value={tf}>
+                              TOEFL: {tf}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Linha 3: Toggle Ocultar Sinais de Interesse */}
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={filterHideSignaled}
+                            onChange={(e) => setFilterHideSignaled(e.target.checked)}
+                            className="rounded border-border text-primary focus:ring-primary/40"
+                          />
+                          <span>Ocultar coaches com sinais de interesse ativos</span>
+                        </label>
+                      </div>
                     </div>
 
                     {/* Barra de Seleção Rápida */}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50 text-muted-foreground">
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50 text-muted-foreground">
                       <div>
                         Exibindo <strong>{filteredRecipients.length}</strong> coaches
                       </div>
@@ -840,7 +1032,8 @@ function MailerPage() {
                           onClick={selectAllFiltered}
                           className="text-primary font-semibold hover:underline cursor-pointer"
                         >
-                          Marcar Visíveis
+                          Marcar Visíveis (
+                          {filteredRecipients.filter((r) => !r.isSuppressed).length})
                         </button>
                         <span>•</span>
                         <button
@@ -862,6 +1055,8 @@ function MailerPage() {
                       ) : (
                         filteredRecipients.map((rec) => {
                           const isChecked = selectedRecipientKeys.has(rec.key);
+                          const badges = getCoachBadges(rec);
+
                           return (
                             <div
                               key={rec.key}
@@ -883,13 +1078,24 @@ function MailerPage() {
                                 />
                                 <div className="min-w-0">
                                   <div className="font-semibold text-foreground flex items-center gap-1.5 truncate">
-                                    {rec.name}
+                                    <span>{rec.name}</span>
                                     {rec.isSuppressed && (
                                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
                                         <ShieldAlert className="w-3 h-3 text-amber-500" />
-                                        Unsubscribed
+                                        Opt-out (Pausado)
                                       </span>
                                     )}
+                                    {badges &&
+                                      badges.map((b, bIdx) => (
+                                        <span
+                                          key={bIdx}
+                                          title={b.tooltip}
+                                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border ${b.color}`}
+                                        >
+                                          <MessageSquareWarning className="w-2.5 h-2.5 shrink-0" />
+                                          {b.label}
+                                        </span>
+                                      ))}
                                   </div>
                                   <div className="text-muted-foreground truncate">{rec.email}</div>
                                 </div>
@@ -898,9 +1104,15 @@ function MailerPage() {
                               <div className="text-right shrink-0 pl-2">
                                 <div className="font-medium text-foreground truncate max-w-[160px]">
                                   {rec.universityName}
+                                  {rec.isHbcu && (
+                                    <span className="ml-1 text-[10px] text-amber-400 font-bold">
+                                      [HBCU]
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-[11px] text-muted-foreground">
                                   {rec.universityState} {rec.league ? `• ${rec.league}` : ""}
+                                  {rec.budgetLevel ? ` • $${rec.budgetLevel}` : ""}
                                 </div>
                               </div>
                             </div>
@@ -939,12 +1151,20 @@ function MailerPage() {
                           <span>Modo:</span>
                           <strong className="text-foreground capitalize">
                             {sendMode === "single"
-                              ? "Atleta Específico"
+                              ? "Atleta Individual"
                               : sendMode === "multi"
-                                ? "Multi-atleta"
+                                ? "Multi-atleta (Unificado)"
                                 : "Catálogo Institucional"}
                           </strong>
                         </div>
+                        {sendMode === "multi" && (
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Atletas no E-mail:</span>
+                            <strong className="text-foreground">
+                              {selectedMultiAthleteIds.size} atletas empilhadas
+                            </strong>
+                          </div>
+                        )}
                         <div className="flex justify-between text-muted-foreground">
                           <span>Destinatários Ativos:</span>
                           <strong className="text-emerald-500 font-semibold">
@@ -960,7 +1180,8 @@ function MailerPage() {
                         <div className="flex justify-between text-muted-foreground pt-1 border-t border-border/40 font-semibold">
                           <span>Total de E-mails a Disparar:</span>
                           <span className="text-foreground">
-                            {totalCalculatedDispatches} envios
+                            {totalCalculatedDispatches}{" "}
+                            {totalCalculatedDispatches === 1 ? "e-mail" : "e-mails"}
                           </span>
                         </div>
                       </div>
@@ -1047,7 +1268,9 @@ function MailerPage() {
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground">
                                 {log.email_type === "catalog_general"
                                   ? "Catálogo Geral"
-                                  : "Teaser Atleta"}
+                                  : log.email_type === "athlete_teaser_multi"
+                                    ? "Multi-Atleta (Unificado)"
+                                    : "Teaser Atleta"}
                               </span>
                             </td>
                             <td className="p-3 text-muted-foreground max-w-xs truncate">
@@ -1115,9 +1338,9 @@ function MailerPage() {
                   <span className="text-muted-foreground">Modo:</span>
                   <span className="font-bold text-foreground capitalize">
                     {sendMode === "single"
-                      ? "Atleta Específico"
+                      ? "Atleta Individual"
                       : sendMode === "multi"
-                        ? "Multi-atleta"
+                        ? "Multi-atleta (Unificado)"
                         : "Catálogo Institucional"}
                   </span>
                 </div>
@@ -1131,9 +1354,9 @@ function MailerPage() {
                 )}
                 {sendMode === "multi" && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Atletas Selecionados:</span>
+                    <span className="text-muted-foreground">Atletas Selecionadas:</span>
                     <span className="font-bold text-foreground">
-                      {selectedMultiAthleteIds.size}
+                      {selectedMultiAthleteIds.size} atletas (empilhadas em 1 e-mail)
                     </span>
                   </div>
                 )}
@@ -1156,8 +1379,8 @@ function MailerPage() {
               </div>
 
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Cada e-mail incluirá automaticamente o rodapé oficial e o link de descadastro
-                (unsubscribe) obrigatório por compliance.
+                Cada e-mail incluirá automaticamente o rodapé com link de feedback de interesse e
+                descadastro (unsubscribe) em conformidade.
               </p>
 
               <div className="flex items-center justify-end gap-2.5 pt-2">

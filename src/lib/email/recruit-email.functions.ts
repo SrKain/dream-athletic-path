@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAgency } from "@/lib/supabase/auth-middleware";
-import type { SendMailerInput } from "./recruit-email.server";
+import type { SendMailerInput, CoachInterestSignalInput } from "./recruit-email.server";
+import type { SuppressionType } from "@/types/db";
 
 // 1. Envio do Mailer (Requer agência)
 export const sendMailerServerFn = createServerFn({ method: "POST" })
@@ -20,15 +21,33 @@ export const getSuppressedEmailsServerFn = createServerFn({ method: "GET" })
     return Array.from(set);
   });
 
-// 3. Descadastro Público (Aberto para o link do e-mail)
+// 3. Descadastro Público (Aberto para o link do e-mail com suporte a 2 níveis)
 export const unsubscribeServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { email: string; reason?: string }) => data)
+  .inputValidator(
+    (data: { email: string; reason?: string; suppressionType?: SuppressionType }) => data,
+  )
   .handler(async ({ data }) => {
     const { unsubscribeEmailAddress } = await import("./recruit-email.server");
-    return unsubscribeEmailAddress(data.email, data.reason);
+    return unsubscribeEmailAddress(data.email, data.reason, data.suppressionType);
   });
 
-// 4. Histórico de Envios (Requer agência)
+// 4. Submissão Pública de Sinal de Interesse / Feedback do Treinador (Validade de 6 meses)
+export const submitInterestSignalServerFn = createServerFn({ method: "POST" })
+  .inputValidator((data: CoachInterestSignalInput) => data)
+  .handler(async ({ data }) => {
+    const { recordCoachInterestSignal } = await import("./recruit-email.server");
+    return recordCoachInterestSignal(data);
+  });
+
+// 5. Consulta de Sinais de Interesse Ativos (Requer agência)
+export const getActiveInterestSignalsServerFn = createServerFn({ method: "GET" })
+  .middleware([requireAgency])
+  .handler(async () => {
+    const { getActiveCoachInterestSignals } = await import("./recruit-email.server");
+    return getActiveCoachInterestSignals();
+  });
+
+// 6. Histórico de Envios (Requer agência)
 export const getMailerHistoryServerFn = createServerFn({ method: "GET" })
   .middleware([requireAgency])
   .handler(async () => {
@@ -49,7 +68,7 @@ export const getMailerHistoryServerFn = createServerFn({ method: "GET" })
     return data || [];
   });
 
-// 5. Retrocompatibilidade para chamadas legadas
+// 7. Retrocompatibilidade para chamadas legadas
 export const sendRecruitEmailServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { athleteId: string; coachIds: string[] }) => data)

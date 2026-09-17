@@ -867,19 +867,46 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
-## Atualização 2026-09-16 — Correção da Query de Atletas e Tratamento de Erros no Mailer (TASK-068)
+## Atualização 2026-09-17 — Mailer: Unificação Multi-Atleta, Filtros Avançados, Sinais de Interesse e Descadastro em 2 Níveis (TASK-070)
 
-- **Correção da Consulta de Atletas no Painel `/admin/mailer` (`src/routes/_authenticated/admin/mailer.tsx`)**:
-  - Substituído o filtro incorreto `.eq("status", "approved")` por `.eq("is_public", true).is("deleted_at", null)`.
-  - A tabela `public.athletes` gerencia publicação via `is_public` (e exclusão lógica via `deleted_at`), não contendo a coluna `status`.
-- **Tratamento e Exibição de Erros do Supabase**:
-  - Implementada verificação explícita de `athletesRes.error` e `uniRes.error` em `loadInitialData()`.
-  - Em caso de falha em qualquer consulta, o erro é registrado no `console.error` e notificado visualmente via `toast.error`, eliminando falhas silenciosas.
-- **Auditoria de Varredura**:
-  - Verificadas todas as chamadas `.eq("status", ...)` e `.from("athletes")` no projeto para garantir que nenhuma outra consulta utilize colunas inexistentes.
-- **Validação de Qualidade**:
-  - Vitest: 16 arquivos de testes, 106 testes unitários aprovados (100% de sucesso).
+- **Unificação de Disparo Multi-Atleta (`src/lib/email/recruit-email-template.ts` & `src/lib/email/recruit-email.server.ts`)**:
+  - Implementada função `renderMultiAthleteRecruitEmail` que compõe um único e-mail elegante com design mobile-first e Quiet Luxury contendo todos os cards das atletas selecionadas empilhados (com foto, nome, posição, biometria, ano de formatura, acadêmico, highlight quote e botão CTA individual de acesso ao perfil).
+  - Atualizado `sendRecruitEmailsServer` para agrupar envios por destinatário no modo `multi_athlete`, disparando 1 único e-mail com Configuration Set do SES, gerando 1 log consolidado na auditoria e incrementando a contagem de e-mails enviados.
+  - Atualizado o modal de pré-visualização e disparo em `src/routes/_authenticated/admin/mailer.tsx` para refletir visualmente o e-mail unificado empilhado.
+
+- **Filtros Avançados de Destinatários no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
+  - Adicionados filtros por:
+    - **HBCU**: Todas as Instituições vs. Apenas HBCU vs. Não-HBCU.
+    - **Budget Level**: Seleção multi-nível (Ex: High, Mid, Low).
+    - **TOEFL Level**: Seleção multi-nível (Ex: None, Basic, Moderate, High).
+  - Combinados com os filtros existentes (Gênero/Divisão, Liga, Estado) via lógica restritiva `AND`.
+
+- **Sinais de Interesse de Coaches (`coach_interest_signals`) & Desinteresse Inteligente**:
+  - **Migration `0020_interest_signals_and_suppression_levels.sql`**:
+    - Criação da tabela `coach_interest_signals` com `email`, `coach_id`, `athlete_id`, `position`, `reason`, `notes`, `expires_at` (padrão de 6 meses via `now() + interval '6 months'`) e `created_at`.
+    - Atualização da tabela `email_suppressions` com `suppression_type` (`temporary_6m` ou `permanent`) e `expires_at`.
+  - **Nova Rota Pública de Feedback (`src/routes/feedback.tsx`)**:
+    - Tela pública para o coach registrar desinteresse com 4 opções padronizadas:
+      1. *Roster is full for this recruiting class*
+      2. *Not currently recruiting for this position*
+      3. *Need players for other specific positions*
+      4. *Not recruiting international student-athletes*
+    - Suporte a campo opcional para posições abertas e observações, com expiração automática em 6 meses.
+  - **Badges Visuais de Alerta de Conflito no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
+    - Carregamento de sinais ativos via `getActiveInterestSignalsServerFn`.
+    - Exibição de alertas visuais (badges amarelos/âmbar) na listagem de destinatários quando houver colisão de posição ou roster lotado recente para aquele coach/instituição.
+
+- **Descadastro em 2 Níveis (`src/routes/unsubscribe.tsx`)**:
+  - Reformulada tela de unsubscribe com duas opções claras e transparentes:
+    1. **Pausar por 6 meses (`temporary_6m`)**: Pausa temporária recomendada para ciclos de temporada.
+    2. **Descadastro Permanente (`permanent`)**: Supressão perpétua de comunicações de recrutamento.
+  - Verificação de supressão ativa em `getSuppressedEmailSet` respeitando a data de expiração (`expires_at > now()`).
+
+- **Testes Automatizados & Qualidade**:
+  - Criado `src/lib/email/recruit-email-multi.test.ts` com cobertura completa de renderização de e-mail multi-atleta empilhado, rodapé com links contextualizados e parâmetros seguros.
+  - Vitest: 17 arquivos de testes, 109 testes unitários aprovados (100% de sucesso).
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
+
 
 

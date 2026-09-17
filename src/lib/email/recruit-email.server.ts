@@ -1,8 +1,13 @@
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getSesClient, getSesConfig } from "./ses-client.server";
-import { renderRecruitEmail, type RecruitEmailData } from "./recruit-email-template";
+import {
+  renderRecruitEmail,
+  renderMultiAthleteRecruitEmail,
+  type RecruitEmailData,
+} from "./recruit-email-template";
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
+import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 
 export interface MailerRecipient {
   coachId?: string;
@@ -30,21 +35,40 @@ export interface SendMailerResult {
   errors?: string[];
 }
 
-// Obter Set de e-mails suprimidos (em caixa baixa)
+export interface CoachInterestSignalInput {
+  coachId?: string | null;
+  coachEmail: string;
+  reason: InterestSignalReason;
+  athleteId?: string | null;
+  athleteName?: string | null;
+  position?: string | null;
+  notes?: string | null;
+}
+
+// Obter Set de e-mails suprimidos (em caixa baixa) considerando expiração
 export async function getSuppressedEmailSet(): Promise<Set<string>> {
   const admin = getAdminClient();
-  const { data, error } = await admin.from("email_suppressions").select("email");
+  const { data, error } = await admin.from("email_suppressions").select("email, expires_at");
+
   if (error || !data) {
     console.error("[recruit-email] Error reading email_suppressions:", error?.message);
     return new Set();
   }
-  return new Set(data.map((item) => item.email.toLowerCase().trim()));
+
+  const now = new Date();
+  const activeSuppressed = data.filter((item) => {
+    if (!item.expires_at) return true; // Permanente
+    return new Date(item.expires_at) > now; // Temporário ainda ativo
+  });
+
+  return new Set(activeSuppressed.map((item) => item.email.toLowerCase().trim()));
 }
 
-// Registrar descadastro
+// Registrar descadastro com suporte a 2 níveis (Pausa temporária de 6 meses vs Permanente)
 export async function unsubscribeEmailAddress(
   email: string,
   reason = "user_unsubscribed",
+  suppressionType: SuppressionType = "permanent",
 ): Promise<{ success: boolean; message?: string }> {
   const cleanEmail = (email || "").toLowerCase().trim();
   if (!cleanEmail || !cleanEmail.includes("@")) {
@@ -52,9 +76,24 @@ export async function unsubscribeEmailAddress(
   }
 
   const admin = getAdminClient();
-  const { error } = await admin
-    .from("email_suppressions")
-    .upsert({ email: cleanEmail, reason }, { onConflict: "email" });
+  let expiresAt: string | null = null;
+
+  if (suppressionType === "temporary_6m") {
+    const sixMonthsLater = new Date();
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+    expiresAt = sixMonthsLater.toISOString();
+  }
+
+  const { error } = await admin.from("email_suppressions").upsert(
+    {
+      email: cleanEmail,
+      reason,
+      suppression_type: suppressionType,
+      expires_at: expiresAt,
+      created_at: new Date().toISOString(),
+    },
+    { onConflict: "email" },
+  );
 
   if (error) {
     console.error("[recruit-email] Error unsubscribing email:", error.message);
@@ -62,6 +101,59 @@ export async function unsubscribeEmailAddress(
   }
 
   return { success: true };
+}
+
+// Registrar sinal de interesse do coach (validade de 6 meses)
+export async function recordCoachInterestSignal(
+  input: CoachInterestSignalInput,
+): Promise<{ success: boolean; message?: string }> {
+  const cleanEmail = (input.coachEmail || "").toLowerCase().trim();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    return { success: false, message: "Invalid coach email format." };
+  }
+
+  const admin = getAdminClient();
+  const now = new Date();
+  const sixMonthsLater = new Date(now);
+  sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+  const { error } = await admin.from("coach_interest_signals").insert({
+    coach_id: input.coachId || null,
+    coach_email: cleanEmail,
+    reason: input.reason,
+    athlete_id: input.athleteId || null,
+    athlete_name: input.athleteName || null,
+    position: input.position || null,
+    notes: input.notes || null,
+    created_at: now.toISOString(),
+    expires_at: sixMonthsLater.toISOString(),
+  });
+
+  if (error) {
+    console.error("[recruit-email] Error recording interest signal:", error.message);
+    return { success: false, message: error.message };
+  }
+
+  return { success: true };
+}
+
+// Buscar todos os sinais de interesse de coaches ativos (não expirados)
+export async function getActiveCoachInterestSignals(): Promise<CoachInterestSignal[]> {
+  const admin = getAdminClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await admin
+    .from("coach_interest_signals")
+    .select("*")
+    .gt("expires_at", now)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    console.error("[recruit-email] Error fetching interest signals:", error?.message);
+    return [];
+  }
+
+  return data as CoachInterestSignal[];
 }
 
 // Carregar dados de um atleta formatados para o template
@@ -103,6 +195,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
   const nationalityName = countryRes.data?.name_en ?? athlete.nationality ?? null;
 
   return {
+    athleteId: athlete.id,
     athleteName: athlete.full_name,
     athleteSlug: athlete.slug,
     photoUrl: athlete.photo_url,
@@ -158,34 +251,50 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           {
             athlete_id: null,
             coach_id: rec.coachId ?? null,
-            subject: "Suppressed Email Recipient",
+            subject: "[Catalog] Go Team Go Scouting Showcase",
             status: "suppressed" as const,
-            error_message: "Recipient is on the unsubscribe suppression list.",
+            error_message: "Recipient is in suppression list (opted out or paused)",
             sent_at: now,
-            email_type: "catalog_general",
+            email_type: "catalog_general" as const,
             recipient_email: rec.email,
             recipient_name: rec.name,
             university_name: rec.universityName ?? null,
           },
         ];
       }
+
+      if (mode === "multi_athlete") {
+        return [
+          {
+            athlete_id: athleteIds[0] ?? null,
+            coach_id: rec.coachId ?? null,
+            subject: `[Multi-Athlete] Showcase with ${athleteIds.length} athletes`,
+            status: "suppressed" as const,
+            error_message: "Recipient is in suppression list (opted out or paused)",
+            sent_at: now,
+            email_type: "athlete_teaser_multi" as const,
+            recipient_email: rec.email,
+            recipient_name: rec.name,
+            university_name: rec.universityName ?? null,
+          },
+        ];
+      }
+
       return athleteIds.map((athId) => ({
         athlete_id: athId,
         coach_id: rec.coachId ?? null,
-        subject: "Suppressed Email Recipient",
+        subject: "[Prospect] Teaser Email",
         status: "suppressed" as const,
-        error_message: "Recipient is on the unsubscribe suppression list.",
+        error_message: "Recipient is in suppression list (opted out or paused)",
         sent_at: now,
-        email_type: "athlete_teaser",
+        email_type: "athlete_teaser" as const,
         recipient_email: rec.email,
         recipient_name: rec.name,
         university_name: rec.universityName ?? null,
       }));
     });
 
-    await admin
-      .from("recruit_email_logs")
-      .insert(suppressedLogs as unknown as Record<string, unknown>[]);
+    await admin.from("recruit_email_logs").insert(suppressedLogs);
   }
 
   if (activeRecipients.length === 0) {
@@ -194,69 +303,21 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       totalSent: 0,
       totalFailed: 0,
       totalSuppressed: suppressedRecipients.length,
-      message: "All selected recipients are on the unsubscribe suppression list.",
+      message: "All selected recipients are in the suppression list.",
     };
   }
 
-  const sesConfig = getSesConfig();
-  const from = sesConfig.from;
-
-  if (!sesConfig.isConfigured) {
-    console.warn(
-      "[recruit-email] AWS SES credentials missing (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY). Simulating failures for audit logs.",
-    );
-    const now = new Date().toISOString();
-    const failureLogs = activeRecipients.flatMap((rec) => {
-      const isCatalog = mode === "catalog" || athleteIds.length === 0;
-      if (isCatalog) {
-        return [
-          {
-            athlete_id: null,
-            coach_id: rec.coachId ?? null,
-            subject: "Recruit Mailer Showcase",
-            status: "failed" as const,
-            error_message: "AWS SES is not configured (missing credentials).",
-            sent_at: now,
-            email_type: "catalog_general",
-            recipient_email: rec.email,
-            recipient_name: rec.name,
-            university_name: rec.universityName ?? null,
-          },
-        ];
-      }
-      return athleteIds.map((athId) => ({
-        athlete_id: athId,
-        coach_id: rec.coachId ?? null,
-        subject: "Recruit Mailer Showcase",
-        status: "failed" as const,
-        error_message: "AWS SES is not configured (missing credentials).",
-        sent_at: now,
-        email_type: "athlete_teaser",
-        recipient_email: rec.email,
-        recipient_name: rec.name,
-        university_name: rec.universityName ?? null,
-      }));
-    });
-
-    await admin
-      .from("recruit_email_logs")
-      .insert(failureLogs as unknown as Record<string, unknown>[]);
-
-    return {
-      success: false,
-      totalSent: 0,
-      totalFailed: failureLogs.length,
-      totalSuppressed: suppressedRecipients.length,
-      message: "AWS SES credentials are not configured.",
-    };
-  }
-
+  // Inicializar SES
   const sesClient = getSesClient();
-  if (!sesClient) {
+  const sesConfig = getSesConfig();
+  const from = sesConfig.fromAddress;
+
+  if (!sesClient || !from) {
+    console.error("[recruit-email] SES not configured or invalid credentials.");
     return {
       success: false,
       totalSent: 0,
-      totalFailed: activeRecipients.length,
+      totalFailed: 0,
       totalSuppressed: suppressedRecipients.length,
       message: "Failed to initialize Amazon SES client.",
     };
@@ -276,7 +337,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     recipientEmail: string;
     recipientName: string;
     universityName: string | null;
-    emailType: "athlete_teaser" | "catalog_general";
+    emailType: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
   };
 
   const messagesToSend: PreparedMessage[] = [];
@@ -289,6 +350,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         customHeadline: catalogOptions?.customHeadline,
         customMessage: catalogOptions?.customMessage,
         recipientEmail: rec.email,
+        coachId: rec.coachId,
       });
 
       messagesToSend.push({
@@ -303,8 +365,39 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         emailType: "catalog_general",
       });
     }
+  } else if (mode === "multi_athlete") {
+    // FRENTE 1: Unificar disparo multi-atleta em 1 único e-mail por coach
+    const loadedAthletes: RecruitEmailData[] = [];
+    for (const athId of athleteIds) {
+      const emailData = await loadAthleteEmailData(athId);
+      if (emailData) loadedAthletes.push(emailData);
+    }
+
+    if (loadedAthletes.length > 0) {
+      for (const rec of activeRecipients) {
+        const { subject, html } = renderMultiAthleteRecruitEmail({
+          athletes: loadedAthletes,
+          coachName: rec.name,
+          institutionName: rec.universityName,
+          recipientEmail: rec.email,
+          coachId: rec.coachId,
+        });
+
+        messagesToSend.push({
+          to: rec.email,
+          subject,
+          html,
+          athleteId: loadedAthletes[0]?.athleteId ?? null,
+          coachId: rec.coachId ?? null,
+          recipientEmail: rec.email,
+          recipientName: rec.name,
+          universityName: rec.universityName ?? null,
+          emailType: "athlete_teaser_multi",
+        });
+      }
+    }
   } else {
-    // single_athlete ou multi_athlete
+    // single_athlete: 1 e-mail para cada combinação selecionada
     for (const athId of athleteIds) {
       const emailData = await loadAthleteEmailData(athId);
       if (!emailData) continue;
@@ -313,6 +406,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         const { subject, html } = renderRecruitEmail({
           ...emailData,
           recipientEmail: rec.email,
+          coachId: rec.coachId,
         });
 
         messagesToSend.push({

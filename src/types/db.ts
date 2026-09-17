@@ -435,11 +435,31 @@ export interface University {
   updated_at: string;
 }
 
+export type SuppressionType = "temporary_6m" | "permanent";
+
 export interface EmailSuppression {
   id: string;
   email: string;
   reason: string;
+  suppression_type?: SuppressionType;
+  expires_at?: string | null;
   created_at: string;
+}
+
+export type InterestSignalReason =
+  "position_not_needed" | "fully_recruited" | "other_positions_only" | "specific_athlete_dislike";
+
+export interface CoachInterestSignal {
+  id: string;
+  coach_id?: string | null;
+  coach_email: string;
+  reason: InterestSignalReason;
+  athlete_id?: string | null;
+  athlete_name?: string | null;
+  position?: string | null;
+  notes?: string | null;
+  created_at: string;
+  expires_at: string;
 }
 
 export interface RecruitEmailLog {
@@ -450,7 +470,7 @@ export interface RecruitEmailLog {
   status: "sent" | "failed" | "suppressed";
   error_message: string | null;
   sent_at: string;
-  email_type?: "athlete_teaser" | "catalog_general";
+  email_type?: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
   recipient_email?: string | null;
   recipient_name?: string | null;
   university_name?: string | null;

@@ -484,3 +484,42 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Linter ESLint (0 erros) e compilação de produção (`compile_applet`) 100% verificados.
 - **Status:** [CONCLUÍDO]
 
+---
+
+## TASK-069 — 2026-09-17 11:05 — Leitura Obrigatória e Assimilação de Contexto do README e Governança
+
+- **Solicitante:** Kauan / Usuário Humano ("leia o readme antes de começarmos")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Leitura integral do `README.md`, das documentações do projeto (`CERNE.md`, `BACKLOGER.md`, `think/README.md`) e absorção das regras de governança de IA antes de iniciar qualquer trabalho.
+- **Entrega:**
+  - Leitura completa do `README.md` realizada com foco em arquitetura, perfis de acesso (Agência, Atleta, Coach), regras obrigatórias de Supabase externo, pipeline, integridade de dados e processo de desenvolvimento.
+  - Leitura e alinhamento com os protocolos de governança de IA definidos em `AGENTS.md`, `README.md`, `CERNE.md`, `BACKLOGER.md` e `think/`.
+  - Confirmação de que nenhum código será alterado sem planejamento prévio registrado em `think/` e aprovação explícita do usuário.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-070 — 2026-09-17 11:10 — Feature Mailer: Unificação Multi-Atleta, Filtros Avançados, Sinais de Interesse e Descadastro 2 Níveis
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** 
+  1. Unificar disparo multi-atleta em 1 único e-mail por destinatário contendo os cartões de todas as atletas selecionadas empilhados.
+  2. Adicionar filtros de destinatários no Mailer (HBCU, Budget Level e TOEFL Level) combinados via AND com os existentes.
+  3. Sistema de sinal de interesse (link de desinteresse no rodapé, rota pública `/feedback` com 4 opções fixas, validade de 6 meses) + Badges de colisão no Mailer + Descadastro em 2 níveis (Pausa 6m vs Permanente).
+- **Planejamento:** Registrado no arquivo `think/2026-09-17-1110-mailer-multi-athlete-filtros-sinal-interesse-unsubscribe.md`.
+- **Entrega:**
+  - `db/migrations/0020_interest_signals_and_suppression_levels.sql`: Criada tabela `coach_interest_signals` e adicionadas colunas `suppression_type` e `expires_at` em `email_suppressions`.
+  - `src/types/db.ts`: Tipos `SuppressionType`, `InterestSignalReason`, `CoachInterestSignal` e atualizações em `EmailSuppression`.
+  - `src/lib/email/recruit-email-template.ts`: Criada `renderMultiAthleteRecruitEmail` (cards empilhados) e `renderEmailFooterHtml` com link dinâmico de feedback contextualizado e unsubscribe.
+  - `src/lib/email/recruit-email.server.ts`: Agrupamento e envio de e-mail unificado para múltiplos atletas, filtro de supressão respeitando `expires_at` e persistência de sinais.
+  - `src/lib/email/recruit-email.functions.ts`: Funções de servidor `submitInterestSignalServerFn`, `getActiveInterestSignalsServerFn` e `unsubscribeServerFn`.
+  - `src/routes/feedback.tsx`: Nova rota pública mobile-first para coaches sinalizarem desinteresse com 4 motivos fixos e expiração de 6 meses.
+  - `src/routes/unsubscribe.tsx`: Atualizada tela de unsubscribe oferecendo pausa temporária de 6 meses ou descadastro permanente.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Filtros adicionados (HBCU, Budget, TOEFL), badges visuais de alertas/sinais de interesse ativos nos coaches, e modal de prévia unificada.
+  - `src/lib/email/recruit-email-multi.test.ts`: Testes unitários para envio multi-atleta e rodapé de preferências.
+  - 17 arquivos de teste (109 testes unitários) 100% aprovados, ESLint com 0 erros e compilação de produção validada.
+- **Status:** [CONCLUÍDO]
+
+
+

@@ -4,11 +4,22 @@ export interface CatalogEmailData {
   customHeadline?: string | null;
   customMessage?: string | null;
   recipientEmail?: string | null;
+  coachId?: string | null;
 }
 
 export function renderCatalogEmail(data: CatalogEmailData = {}) {
   const safeCoachName = data.coachName ? `Coach ${data.coachName}` : "Coach";
   const portfolioUrl = "https://portfolio.goteamgoagency.com";
+
+  const queryParams = new URLSearchParams();
+  if (data.recipientEmail) queryParams.set("email", data.recipientEmail);
+  if (data.coachId) queryParams.set("coachId", data.coachId);
+
+  const feedbackQueryStr = queryParams.toString();
+  const feedbackUrl = feedbackQueryStr
+    ? `https://portfolio.goteamgoagency.com/feedback?${feedbackQueryStr}`
+    : `https://portfolio.goteamgoagency.com/feedback`;
+
   const unsubscribeUrl = data.recipientEmail
     ? `https://portfolio.goteamgoagency.com/unsubscribe?email=${encodeURIComponent(data.recipientEmail)}`
     : `https://portfolio.goteamgoagency.com/unsubscribe`;
@@ -151,9 +162,12 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
                 This recruiting showcase was prepared for collegiate coaches and athletic directors.<br>
                 © ${new Date().getFullYear()} Go Team Go. All rights reserved.
               </div>
-              <div style="font-size:10px;color:#4b6353;margin-top:12px;border-top:1px solid #e3e9dc;padding-top:12px;">
+              <div style="font-size:10px;color:#4b6353;margin-top:12px;border-top:1px solid #e3e9dc;padding-top:12px;line-height:1.6;">
+                Not recruiting international prospects or roster full? 
+                <a href="${feedbackUrl}" style="color:#084323;font-weight:700;text-decoration:underline;">Let us know here</a>.
+                <br>
                 If you no longer wish to receive recruitment showcases from Go Team Go, you can 
-                <a href="${unsubscribeUrl}" style="color:#4b6353;text-decoration:underline;">unsubscribe here</a>.
+                <a href="${unsubscribeUrl}" style="color:#4b6353;text-decoration:underline;">manage email preferences</a>.
               </div>
             </td>
           </tr>
