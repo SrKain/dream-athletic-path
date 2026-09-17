@@ -163,14 +163,18 @@ function MailerPage() {
             profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note)
           `,
           )
-          .eq("status", "approved")
+          .eq("is_public", true)
+          .is("deleted_at", null)
           .order("full_name", { ascending: true }),
         supabase.from("universities").select("*").order("name", { ascending: true }),
         getSuppressedEmailsServerFn().catch(() => []),
         getMailerHistoryServerFn().catch(() => []),
       ]);
 
-      if (athletesRes.data) {
+      if (athletesRes.error) {
+        console.error("[mailer] Error loading athletes:", athletesRes.error);
+        toast.error(`Failed to load athletes: ${athletesRes.error.message}`);
+      } else if (athletesRes.data) {
         const rawList = athletesRes.data as unknown as RawAthleteRecord[];
         const formatted: AthleteSummary[] = rawList.map((a) => ({
           id: a.id,
@@ -196,7 +200,10 @@ function MailerPage() {
         }
       }
 
-      if (uniRes.data) {
+      if (uniRes.error) {
+        console.error("[mailer] Error loading universities:", uniRes.error);
+        toast.error(`Failed to load universities: ${uniRes.error.message}`);
+      } else if (uniRes.data) {
         setUniversities((uniRes.data as University[]) || []);
       }
 

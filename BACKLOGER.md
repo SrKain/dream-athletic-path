@@ -463,3 +463,24 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - 16 arquivos de teste Vitest (106 testes) executados e 100% aprovados.
   - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
 - **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-068 — 2026-09-16 14:20 — Correção da Query de Atletas e Tratamento de Erro no Mailer Administrativo
+
+- **Solicitante:** Kauan / Usuário Humano ("BUG: no painel /admin/mailer, não é possível selecionar nenhum atleta... CAUSA RAIZ: em src/routes/_authenticated/admin/mailer.tsx...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Trocar `.eq("status", "approved")` por `.eq("is_public", true)` e `.is("deleted_at", null)` na query de `athletes` em `loadInitialData()` de `mailer.tsx`.
+  2. Adicionar checagem de erro em todos os resultados do `Promise.all` dentro de `loadInitialData()` (`athletesRes`, `uniRes`) com log e toast de erro.
+  3. Realizar varredura no projeto por outras queries com `.eq("status", ...)` contra `athletes`.
+  4. Validar com Vitest e ESLint, atualizando `CERNE.md` e `BACKLOGER.md`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-16-1420-correcao-query-atletas-mailer.md`.
+- **Entrega:**
+  - `src/routes/_authenticated/admin/mailer.tsx`: Atualizada a consulta para `athletes` com `.eq("is_public", true).is("deleted_at", null)`.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Adicionada checagem explícita de `athletesRes.error` e `uniRes.error` com logs detalhados e toasts de erro descritivos.
+  - Varredura em todo o repositório confirmando ausência de qualquer outra query com coluna inexistente em `athletes`.
+  - 16 arquivos de teste Vitest (106 testes) executados e 100% aprovados.
+  - Linter ESLint (0 erros) e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+

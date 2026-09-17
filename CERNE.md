@@ -867,3 +867,19 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
+## Atualização 2026-09-16 — Correção da Query de Atletas e Tratamento de Erros no Mailer (TASK-068)
+
+- **Correção da Consulta de Atletas no Painel `/admin/mailer` (`src/routes/_authenticated/admin/mailer.tsx`)**:
+  - Substituído o filtro incorreto `.eq("status", "approved")` por `.eq("is_public", true).is("deleted_at", null)`.
+  - A tabela `public.athletes` gerencia publicação via `is_public` (e exclusão lógica via `deleted_at`), não contendo a coluna `status`.
+- **Tratamento e Exibição de Erros do Supabase**:
+  - Implementada verificação explícita de `athletesRes.error` e `uniRes.error` em `loadInitialData()`.
+  - Em caso de falha em qualquer consulta, o erro é registrado no `console.error` e notificado visualmente via `toast.error`, eliminando falhas silenciosas.
+- **Auditoria de Varredura**:
+  - Verificadas todas as chamadas `.eq("status", ...)` e `.from("athletes")` no projeto para garantir que nenhuma outra consulta utilize colunas inexistentes.
+- **Validação de Qualidade**:
+  - Vitest: 16 arquivos de testes, 106 testes unitários aprovados (100% de sucesso).
+  - ESLint: 0 erros.
+  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
+
+
