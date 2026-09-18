@@ -908,5 +908,37 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - ESLint: 0 erros.
   - Compilação de produção (`compile_applet`): Build concluído com sucesso.
 
+## Atualização 2026-09-18 — Correção Consolidada: UI Pattern + Brand Assets (TASK-071)
+
+- **Refatoração Visual das Rotas Públicas (`src/routes/feedback.tsx` e `src/routes/unsubscribe.tsx`)**:
+  - **Identidade Visual e Design Tokens**: Eliminada a paleta hardcoded escura desalinhada (`#0b0b0c`, zinc-800/900). Aplicados os tokens oficiais do Design System: `--background`, `--primary` (esmeralda), `--gold` / `--secondary`, classes utilitárias `.glass-panel`, `.liquid-button`, `.eyebrow` e fontes Space Grotesk / Inter.
+  - **Lógica e Contratos Intactos**: Preservada integralmente a lógica de envio de sinais de interesse em `feedback.tsx` e o descadastro em 2 níveis (`temporary_6m` vs `permanent`) em `unsubscribe.tsx`.
+
+- **Preservação e Suporte a Logomarcas Vetoriais SVG (`src/lib/image-transform.ts` & `src/lib/uploads.ts`)**:
+  - **Bypass de Transformação para SVG**: A API de transformação do Supabase (`render/image`) não processa arquivos vetoriais `.svg`. A função `getOptimizedImageUrl` agora detecta extensões `.svg` (ou parâmetros `format=svg`) e retorna a URL original diretamente do bucket `public`, evitando que a logo quebre no cabeçalho.
+  - **Upload de Branding**: Adicionado o tipo de upload `branding` com suporte a `image/svg+xml`, `image/png`, `image/jpeg` e `image/webp` (até 5MB) em `src/lib/uploads.ts`, integrado ao painel administrativo em `src/routes/_authenticated/admin/visual.tsx`.
+
+- **Componente Unificado de Cabeçalho Público (`src/components/public-header.tsx`)**:
+  - Centralizado o cabeçalho público institucional com renderização dinâmica da logomarca da agência (`visual.logo_url`), fallback tipográfico de alto padrão ("Go Team Go"), botão de retorno ao catálogo e navegação consistente entre Home (`/`), Perfil da Atleta (`/athlete/$slug`), Feedback (`/feedback`) e Unsubscribe (`/unsubscribe`).
+
+- **Favicon Oficial da Marca e Fallbacks (`public/favicon.svg`, `public/favicon.ico` e `src/routes/__root.tsx`)**:
+  - Criado `public/favicon.svg` com o monograma GTG e brasão atlético nas cores oficiais da agência (verde esmeralda escuro e dourado/âmbar).
+  - Gerado `public/favicon.ico` binário nativo para suporte a todos os navegadores legados e modernos.
+  - Atualizado `src/routes/__root.tsx` para injetar o favicon SVG nativo com fallback para ICO, mantendo a substituição dinâmica caso a agência configure uma logo customizada em `agency_visual_settings`.
+
+- **Qualidade, Testes e Verificação**:
+  - Testes unitários adicionados em `src/lib/image-transform.test.ts` e `src/lib/uploads.test.ts`.
+  - Vitest: 17 arquivos de teste, 111 testes executados e 100% aprovados.
+  - ESLint: 0 erros e 0 avisos bloqueantes.
+  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
+
+## Atualização 2026-09-18 — Correção de Importação: getAgencyLogoImage (TASK-072)
+
+- **Correção em `src/routes/index.tsx`**:
+  - Adicionada a importação de `getAgencyLogoImage` a partir de `@/lib/image-transform` no componente `<Catalog>`, solucionando o erro de execução `ReferenceError: getAgencyLogoImage is not defined` no footer da página inicial.
+  - Validação completa com 111 testes unitários aprovados e build de produção verificado com sucesso.
+
+
+
 
 

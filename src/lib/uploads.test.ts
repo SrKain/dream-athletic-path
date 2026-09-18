@@ -16,6 +16,12 @@ describe("validateUpload", () => {
     });
   });
 
+  it("accepts SVG for agency branding", () => {
+    expect(validateUpload("branding", { type: "image/svg+xml", size: 1024 })).toEqual({
+      valid: true,
+    });
+  });
+
   it("rejects files above the size limit", () => {
     expect(
       validateUpload("document", {

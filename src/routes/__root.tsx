@@ -138,10 +138,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           rel: "stylesheet",
           href: appCss,
         },
-        logoUrl
-          ? { rel: "icon", href: logoUrl }
-          : { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-        ...(logoUrl ? [{ rel: "apple-touch-icon", href: logoUrl }] : []),
+        ...(logoUrl
+          ? [
+              { rel: "icon", href: logoUrl },
+              { rel: "apple-touch-icon", href: logoUrl },
+            ]
+          : [
+              { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+              { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
+              { rel: "apple-touch-icon", href: "/favicon.svg" },
+            ]),
       ],
     };
   },

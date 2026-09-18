@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, CheckCircle2, Clock, Mail, ShieldAlert, ShieldX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Mail, CheckCircle2, ShieldAlert, ArrowLeft, Clock, ShieldX } from "lucide-react";
+
+import { PublicHeader } from "@/components/public-header";
 import { unsubscribeServerFn } from "@/lib/email/recruit-email.functions";
 import type { SuppressionType } from "@/types/db";
 
@@ -15,6 +17,16 @@ export const Route = createFileRoute("/unsubscribe")({
       email: typeof search.email === "string" ? search.email : undefined,
     };
   },
+  head: () => ({
+    meta: [
+      { title: "Manage Email Preferences | Go Team Go" },
+      {
+        name: "description",
+        content:
+          "Manage collegiate recruiting email preferences and suppression settings with Go Team Go.",
+      },
+    ],
+  }),
   component: UnsubscribePage,
 });
 
@@ -63,213 +75,227 @@ export function UnsubscribePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0c] text-[#f4f4f5] flex flex-col items-center justify-center p-4 selection:bg-emerald-500/30 selection:text-emerald-200">
-      <div className="w-full max-w-lg bg-[#141416] border border-[#26262a] rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        {/* Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400" />
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
+      <PublicHeader showBackToCatalog backLabel="Return to Catalog" />
 
-        {isSuccess ? (
-          <div className="text-center py-6 space-y-5">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-950/60 border border-emerald-600/40 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
+      <main className="container-edge flex flex-1 items-center justify-center py-10 sm:py-14">
+        <div className="w-full max-w-lg glass-panel rounded-2xl p-6 sm:p-8 shadow-xl border border-border/80 relative overflow-hidden">
+          {/* Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/80 to-secondary" />
 
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                {suppressionType === "temporary_6m"
-                  ? "Communications Paused"
-                  : "Unsubscribed Permanently"}
-              </h1>
-              <p className="text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">
-                {suppressionType === "temporary_6m" ? (
-                  <>
-                    The address <strong className="text-zinc-200">{email}</strong> will be paused
-                    from receiving recruit evaluations and showcase messages for the next{" "}
-                    <strong>6 months</strong>.
-                  </>
-                ) : (
-                  <>
-                    The address <strong className="text-zinc-200">{email}</strong> has been added to
-                    our permanent suppression list. You will no longer receive any recruiting
-                    messages from Go Team Go Agency.
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Return to Go Team Go Portfolio
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="text-center space-y-1.5">
-              <div className="mx-auto w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-3 shadow-inner">
-                <Mail className="w-6 h-6" />
-              </div>
-              <div className="text-[11px] font-bold tracking-widest text-emerald-500 uppercase">
-                Go Team Go Agency
-              </div>
-              <h1 className="text-xl font-extrabold text-white tracking-tight">
-                Manage Email Preferences
-              </h1>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Choose how you would like Go Team Go Agency to manage communications for your
-                program.
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-1">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300" htmlFor="unsubscribe-email">
-                  Coach / Recruiter Email
-                </label>
-                <input
-                  id="unsubscribe-email"
-                  type="email"
-                  required
-                  placeholder="coach@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
-                />
+          {isSuccess ? (
+            <div className="text-center py-4 space-y-5">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center text-secondary shadow-sm">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              {/* Escolha entre 2 Níveis de Descadastro */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-zinc-300">
-                  Select your preference:
-                </label>
-                <div className="space-y-2.5">
-                  <label
-                    htmlFor="suppression-type-temp"
-                    className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      suppressionType === "temporary_6m"
-                        ? "bg-emerald-950/30 border-emerald-500/50 text-white"
-                        : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:bg-zinc-900"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      id="suppression-type-temp"
-                      name="suppression_type"
-                      value="temporary_6m"
-                      checked={suppressionType === "temporary_6m"}
-                      onChange={() => setSuppressionType("temporary_6m")}
-                      className="mt-1 h-4 w-4 text-emerald-500 border-zinc-700 focus:ring-emerald-500"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                        <Clock className="w-3.5 h-3.5" />
-                        Pause for now (6 Months) — Recommended
-                      </div>
-                      <div className="text-[11px] text-zinc-400 leading-normal">
-                        Temporarily pauses all recruit showcase emails during this recruiting cycle.
-                        Automatically re-evaluates next season.
-                      </div>
-                    </div>
-                  </label>
-
-                  <label
-                    htmlFor="suppression-type-perm"
-                    className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      suppressionType === "permanent"
-                        ? "bg-rose-950/30 border-rose-500/50 text-white"
-                        : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:bg-zinc-900"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      id="suppression-type-perm"
-                      name="suppression_type"
-                      value="permanent"
-                      checked={suppressionType === "permanent"}
-                      onChange={() => setSuppressionType("permanent")}
-                      className="mt-1 h-4 w-4 text-rose-500 border-zinc-700 focus:ring-rose-500"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
-                        <ShieldX className="w-3.5 h-3.5" />
-                        Unsubscribe permanently
-                      </div>
-                      <div className="text-[11px] text-zinc-400 leading-normal">
-                        Permanently adds this address to our suppression list. You will not receive
-                        future athlete evaluations or spotlights.
-                      </div>
-                    </div>
-                  </label>
-                </div>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                  {suppressionType === "temporary_6m"
+                    ? "Communications Paused"
+                    : "Unsubscribed Permanently"}
+                </h1>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+                  {suppressionType === "temporary_6m" ? (
+                    <>
+                      The address <strong className="text-foreground font-semibold">{email}</strong>{" "}
+                      will be paused from receiving recruit evaluations and showcase messages for
+                      the next <strong className="text-foreground">6 months</strong>.
+                    </>
+                  ) : (
+                    <>
+                      The address <strong className="text-foreground font-semibold">{email}</strong>{" "}
+                      has been added to our permanent suppression list. You will no longer receive
+                      any recruiting messages from Go Team Go Agency.
+                    </>
+                  )}
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-300" htmlFor="unsubscribe-reason">
-                  Optional Reason
-                </label>
-                <select
-                  id="unsubscribe-reason"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all cursor-pointer"
+              <div className="pt-4 border-t border-border/70 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline transition-colors"
                 >
-                  <option value="not_interested">
-                    Not currently recruiting international prospects
-                  </option>
-                  <option value="wrong_sport">
-                    Not the correct coach or department for this sport
-                  </option>
-                  <option value="too_many_emails">Receiving too many recruiting messages</option>
-                  <option value="roster_full">
-                    Roster already finalized for this academic year
-                  </option>
-                  <option value="other">Other reason</option>
-                </select>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Return to Go Team Go Hub
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-2 shadow-sm">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div className="eyebrow text-primary tracking-widest text-[11px]">
+                  Go Team Go Agency
+                </div>
+                <h1 className="font-display text-2xl font-bold text-foreground tracking-tight">
+                  Manage Email Preferences
+                </h1>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Choose how you would like Go Team Go Agency to manage communications for your
+                  program.
+                </p>
               </div>
 
-              <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-lg p-3 text-[11px] text-zinc-400 flex items-start gap-2.5">
-                <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>
-                  All changes take effect immediately across our automated collegiate dispatch
-                  system.
-                </span>
+              <div className="space-y-4 pt-1">
+                <div className="space-y-1.5">
+                  <label
+                    className="text-xs font-semibold text-foreground"
+                    htmlFor="unsubscribe-email"
+                  >
+                    Coach / Recruiter Email
+                  </label>
+                  <input
+                    id="unsubscribe-email"
+                    type="email"
+                    required
+                    placeholder="coach@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-xl bg-background/80 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  />
+                </div>
+
+                {/* Escolha entre 2 Níveis de Descadastro */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground">
+                    Select your preference:
+                  </label>
+                  <div className="space-y-2.5">
+                    <label
+                      htmlFor="suppression-type-temp"
+                      className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        suppressionType === "temporary_6m"
+                          ? "bg-primary/10 border-primary shadow-sm"
+                          : "bg-card/60 border-border/70 hover:bg-muted/50 hover:border-border text-muted-foreground"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        id="suppression-type-temp"
+                        name="suppression_type"
+                        value="temporary_6m"
+                        checked={suppressionType === "temporary_6m"}
+                        onChange={() => setSuppressionType("temporary_6m")}
+                        className="mt-0.5 h-4 w-4 accent-primary text-primary focus:ring-primary"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                          <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>Pause for now (6 Months) — Recommended</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground leading-normal">
+                          Temporarily pauses all recruit showcase emails during this recruiting
+                          cycle. Automatically re-evaluates next season.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label
+                      htmlFor="suppression-type-perm"
+                      className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        suppressionType === "permanent"
+                          ? "bg-destructive/10 border-destructive shadow-sm"
+                          : "bg-card/60 border-border/70 hover:bg-muted/50 hover:border-border text-muted-foreground"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        id="suppression-type-perm"
+                        name="suppression_type"
+                        value="permanent"
+                        checked={suppressionType === "permanent"}
+                        onChange={() => setSuppressionType("permanent")}
+                        className="mt-0.5 h-4 w-4 accent-destructive text-destructive focus:ring-destructive"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-destructive">
+                          <ShieldX className="w-3.5 h-3.5 shrink-0" />
+                          <span>Unsubscribe permanently</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground leading-normal">
+                          Permanently adds this address to our suppression list. You will not
+                          receive future athlete evaluations or spotlights.
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    className="text-xs font-medium text-foreground"
+                    htmlFor="unsubscribe-reason"
+                  >
+                    Optional Reason
+                  </label>
+                  <select
+                    id="unsubscribe-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full h-10 px-3.5 rounded-xl bg-background/80 border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all cursor-pointer"
+                  >
+                    <option value="not_interested">
+                      Not currently recruiting international prospects
+                    </option>
+                    <option value="wrong_sport">
+                      Not the correct coach or department for this sport
+                    </option>
+                    <option value="too_many_emails">Receiving too many recruiting messages</option>
+                    <option value="roster_full">
+                      Roster already finalized for this academic year
+                    </option>
+                    <option value="other">Other reason</option>
+                  </select>
+                </div>
+
+                <div className="bg-muted/60 border border-border/70 rounded-xl p-3 text-[11px] text-muted-foreground flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    All changes take effect immediately across our automated collegiate dispatch
+                    system.
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={
+                    suppressionType === "temporary_6m"
+                      ? "liquid-button w-full h-11 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                      : "w-full h-11 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-50"
+                  }
+                >
+                  {isSubmitting ? (
+                    <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : suppressionType === "temporary_6m" ? (
+                    "Confirm 6-Month Pause"
+                  ) : (
+                    "Confirm Permanent Unsubscribe"
+                  )}
+                </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-11 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-950/40 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : suppressionType === "temporary_6m" ? (
-                  "Confirm 6-Month Pause"
-                ) : (
-                  "Confirm Permanent Unsubscribe"
-                )}
-              </button>
-            </div>
+              <div className="text-center pt-2 flex items-center justify-center gap-4 text-xs">
+                <Link
+                  to="/feedback"
+                  search={{ email }}
+                  className="text-primary hover:underline transition-colors text-[11px] font-medium"
+                >
+                  Just need specific positions? Provide roster feedback instead
+                </Link>
+              </div>
+            </form>
+          )}
+        </div>
+      </main>
 
-            <div className="text-center pt-2 flex items-center justify-center gap-4 text-xs">
-              <Link
-                to="/feedback"
-                search={{ email }}
-                className="text-amber-400 hover:text-amber-300 underline transition-colors"
-              >
-                Just need specific positions? Provide roster feedback instead
-              </Link>
-            </div>
-          </form>
-        )}
-      </div>
-
-      <div className="mt-8 text-center text-xs text-zinc-600">
+      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border/40">
         © {new Date().getFullYear()} Go Team Go Agency. All rights reserved.
-      </div>
+      </footer>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export type UploadKind = "photo" | "document" | "video";
+export type UploadKind = "photo" | "document" | "video" | "branding";
 
 const megabytes = (value: number) => value * 1024 * 1024;
 
@@ -12,6 +12,10 @@ export const uploadRules = {
   photo: {
     maxBytes: megabytes(envLimit("VITE_MAX_PHOTO_SIZE_MB", 10)),
     mimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  },
+  branding: {
+    maxBytes: megabytes(envLimit("VITE_MAX_PHOTO_SIZE_MB", 10)),
+    mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/svg+xml"],
   },
   document: {
     maxBytes: megabytes(envLimit("VITE_MAX_DOCUMENT_SIZE_MB", 25)),

@@ -81,4 +81,14 @@ describe("image-transform utility", () => {
     expect(bg).toContain("width=1280");
     expect(bg).toContain("quality=80");
   });
+
+  it("preserves SVG URLs without rewriting to render/image transformation", () => {
+    const supabaseSvg =
+      "https://ugxoweynkdzzfdbbppnv.supabase.co/storage/v1/object/public/athlete-media/agency/branding/logo-123.svg";
+    const externalSvg = "https://example.com/assets/brand-icon.svg?color=orange";
+
+    expect(getOptimizedImageUrl(supabaseSvg, { width: 400 })).toBe(supabaseSvg);
+    expect(getAgencyLogoImage(supabaseSvg)).toBe(supabaseSvg);
+    expect(getOptimizedImageUrl(externalSvg, { width: 200 })).toBe(externalSvg);
+  });
 });

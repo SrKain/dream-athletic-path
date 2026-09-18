@@ -68,7 +68,7 @@ function VisualSettingsPage() {
 
   async function uploadImage(kind: "logo" | "hero", file?: File) {
     if (!file) return;
-    const validation = validateUpload("photo", file);
+    const validation = validateUpload(kind === "logo" ? "branding" : "photo", file);
     if (!validation.valid) return toast.error("Imagem inválida ou acima do limite permitido.");
 
     if (kind === "logo") setUploadingLogo(true);

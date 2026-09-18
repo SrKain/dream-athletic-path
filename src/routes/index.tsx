@@ -7,6 +7,7 @@ import { ConfigurationNotice } from "@/components/configuration-notice";
 import { GlobalHighlightsViewer } from "@/components/global-highlights-viewer";
 import { HomeHighlightsStoryBar } from "@/components/home-highlights-story-bar";
 import { PoweredByIasinSignature } from "@/components/powered-by-iasin-signature";
+import { PublicHeader } from "@/components/public-header";
 import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useI18n } from "@/i18n/i18n-provider";
@@ -254,23 +255,7 @@ function Catalog() {
     <main className="min-h-screen overflow-hidden bg-background text-foreground flex flex-col justify-between">
       <div>
         {/* Header */}
-        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
-          <div className="container-edge flex h-16 items-center justify-between md:h-20">
-            <Link to="/" className="flex items-center gap-3">
-              {visual?.logo_url ? (
-                <img
-                  src={getAgencyLogoImage(visual.logo_url)}
-                  alt="Go Team Go Agency logo"
-                  className="h-8 md:h-10 w-auto object-contain"
-                />
-              ) : (
-                <span className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
-                  Go Team Go
-                </span>
-              )}
-            </Link>
-          </div>
-        </header>
+        <PublicHeader visual={visual} />
 
         {/* Hero Section */}
         <section className="relative overflow-hidden border-b border-border/70 min-h-[380px] md:min-h-[460px] flex items-center">

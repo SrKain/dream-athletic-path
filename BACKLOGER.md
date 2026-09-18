@@ -521,5 +521,45 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - 17 arquivos de teste (109 testes unitários) 100% aprovados, ESLint com 0 erros e compilação de produção validada.
 - **Status:** [CONCLUÍDO]
 
+---
+
+## TASK-072 — 2026-09-18 08:42 — Correção: ReferenceError getAgencyLogoImage em src/routes/index.tsx
+
+- **Solicitante:** Kauan / Usuário Humano (via Error Boundary Report)
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Corrigir erro de execução `ReferenceError: getAgencyLogoImage is not defined` no componente `<Catalog>` em `src/routes/index.tsx`.
+- **Causa Raiz:** A função `getAgencyLogoImage` era utilizada no footer de `src/routes/index.tsx`, porém sua importação a partir de `@/lib/image-transform` não havia sido incluída no arquivo.
+- **Entrega:**
+  - `src/routes/index.tsx`: Adicionada a importação explícita de `getAgencyLogoImage` de `@/lib/image-transform`.
+  - 17 arquivos de teste (111 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção verificada com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-071 — 2026-09-18 07:22 — Correção Consolidada: UI Pattern + Brand Assets (Entrega Única)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Pacote consolidado com 4 correções em bloco único:
+  1. Refatorar `src/routes/feedback.tsx` com tokens oficiais de UI (`--background`, `--primary`, `--gold`, `.glass-panel`, `.liquid-button`, `.eyebrow`, fontes Space Grotesk/Inter).
+  2. Refatorar `src/routes/unsubscribe.tsx` com os mesmos tokens de UI mantendo lógica de descadastro em 2 níveis intacta.
+  3. Resolver exibição da logo no cabeçalho (bypass do Supabase Image Transformation para SVGs, suporte a SVG em uploads e centralização do header público).
+  4. Substituir favicon padrão pelo logotipo oficial da Go Team Go (`favicon.svg` e `favicon.ico`) e suporte a favicon dinâmico.
+- **Planejamento:** Registrado no arquivo `think/2026-09-18-0722-ui-pattern-brand-assets-consolidados.md`.
+- **Entrega:**
+  - `src/routes/feedback.tsx`: Refatorado para o Design System oficial com estética Quiet Luxury, `PublicHeader`, input focus emerald, badges e `.liquid-button`.
+  - `src/routes/unsubscribe.tsx`: Refatorado com tokens oficiais, cards de preferência interativos e contraste aprimorado.
+  - `src/lib/image-transform.ts`: Implementado bypass de transformação do Supabase (`render/image`) para URLs SVG.
+  - `src/lib/uploads.ts`: Adicionado tipo de upload `branding` com suporte a `image/svg+xml`.
+  - `src/routes/_authenticated/admin/visual.tsx`: Atualizada validação e input para permitir upload de SVGs na identidade visual.
+  - `src/components/public-header.tsx`: Criado componente unificado para Home, Perfil, Feedback e Unsubscribe.
+  - `src/routes/index.tsx` & `src/routes/athlete.$slug.tsx`: Integrados com `PublicHeader`.
+  - `public/favicon.svg` & `public/favicon.ico`: Criados os assets vetorial e binário oficiais com monograma e brasão Go Team Go.
+  - `src/routes/__root.tsx`: Atualizado para vincular `favicon.svg`, `favicon.ico` e suporte dinâmico a `logo_url`.
+  - `src/lib/image-transform.test.ts` & `src/lib/uploads.test.ts`: Testes unitários para SVG e branding upload.
+  - 17 arquivos de teste (111 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
+- **Status:** [CONCLUÍDO]
+
+
 
 

@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, CheckCircle2, MessageSquareQuote, Send, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { MessageSquareQuote, CheckCircle2, ArrowLeft, Send, Sparkles } from "lucide-react";
+
+import { PublicHeader } from "@/components/public-header";
 import { submitInterestSignalServerFn } from "@/lib/email/recruit-email.functions";
 import type { InterestSignalReason } from "@/types/db";
 
@@ -21,6 +23,15 @@ export const Route = createFileRoute("/feedback")({
       position: typeof search.position === "string" ? search.position : undefined,
     };
   },
+  head: () => ({
+    meta: [
+      { title: "Coach Recruiting Feedback | Go Team Go" },
+      {
+        name: "description",
+        content: "Calibrate your roster recruiting preferences and position needs with Go Team Go.",
+      },
+    ],
+  }),
   component: FeedbackPage,
 });
 
@@ -96,173 +107,190 @@ function FeedbackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0c] text-[#f4f4f5] flex flex-col items-center justify-center p-4 selection:bg-amber-500/30 selection:text-amber-200">
-      <div className="w-full max-w-lg bg-[#141416] border border-[#26262a] rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        {/* Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-emerald-500" />
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
+      <PublicHeader showBackToCatalog backLabel="Return to Catalog" />
 
-        {isSuccess ? (
-          <div className="text-center py-6 space-y-5">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-950/60 border border-emerald-600/40 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
+      <main className="container-edge flex flex-1 items-center justify-center py-10 sm:py-14">
+        <div className="w-full max-w-lg glass-panel rounded-2xl p-6 sm:p-8 shadow-xl border border-border/80 relative overflow-hidden">
+          {/* Subtle Top Accent */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/80 to-secondary" />
 
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                <Sparkles className="w-3 h-3" />
-                Active for 6 Months
-              </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Feedback Registered</h1>
-              <p className="text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">
-                Thank you Coach. We have recorded your preferences for{" "}
-                <strong className="text-zinc-200">{email}</strong>. Our team will tailor future
-                outreach to align with your roster availability over the next 6 months.
-              </p>
-            </div>
-
-            <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Return to Go Team Go Hub
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="text-center space-y-1.5">
-              <div className="mx-auto w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 mb-3 shadow-inner">
-                <MessageSquareQuote className="w-6 h-6" />
-              </div>
-              <div className="text-[11px] font-bold tracking-widest text-amber-400 uppercase">
-                Go Team Go Agency • Coach Roster Feedback
-              </div>
-              <h1 className="text-xl font-extrabold text-white tracking-tight">
-                Recruiting Interest & Needs
-              </h1>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Help us calibrate future prospect emails to match your exact program needs. Your
-                preference will remain active for 6 months.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300" htmlFor="feedback-email">
-                  Coach / Recruiter Email
-                </label>
-                <input
-                  id="feedback-email"
-                  type="email"
-                  required
-                  placeholder="coach@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
-                />
+          {isSuccess ? (
+            <div className="text-center py-4 space-y-5">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center text-secondary shadow-sm">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              {/* Opções de Sinalização */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-zinc-300">
-                  Select the reason that best applies:
-                </label>
-                <div className="space-y-2">
-                  {REASON_OPTIONS.map((opt) => (
-                    <label
-                      key={opt.id}
-                      htmlFor={`feedback-reason-${opt.id}`}
-                      className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
-                        selectedReason === opt.id
-                          ? "bg-amber-500/10 border-amber-500/50 text-white"
-                          : "bg-zinc-900/60 border-zinc-800/80 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        id={`feedback-reason-${opt.id}`}
-                        name="interest_reason"
-                        value={opt.id}
-                        checked={selectedReason === opt.id}
-                        onChange={() => setSelectedReason(opt.id)}
-                        className="mt-1 h-4 w-4 text-amber-500 border-zinc-700 focus:ring-amber-500"
-                      />
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-zinc-100">{opt.title}</div>
-                        <div className="text-[11px] text-zinc-400 leading-normal">
-                          {opt.description}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-[11px] font-bold text-primary eyebrow">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Active for 6 Months
                 </div>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                  Feedback Registered
+                </h1>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+                  Thank you Coach. We have recorded your preferences for{" "}
+                  <strong className="text-foreground font-semibold">{email}</strong>. Our team will
+                  tailor future outreach to align with your roster availability over the next 6
+                  months.
+                </p>
               </div>
 
-              {/* Campo adicional de posição quando aplicável */}
-              {(selectedReason === "position_not_needed" ||
-                selectedReason === "other_positions_only") && (
-                <div className="space-y-1.5 pt-1">
-                  <label className="text-xs font-medium text-zinc-300" htmlFor="feedback-position">
-                    Position (Optional / Specific):
-                  </label>
-                  <input
-                    id="feedback-position"
-                    type="text"
-                    placeholder="e.g., Setter, Center Back, Point Guard"
-                    value={positionInput}
-                    onChange={(e) => setPositionInput(e.target.value)}
-                    className="w-full h-10 px-3.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
-                  />
-                </div>
-              )}
-
-              {/* Observações adicionais */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-300" htmlFor="feedback-notes">
-                  Additional Notes for our Recruiting Team (Optional)
-                </label>
-                <textarea
-                  id="feedback-notes"
-                  rows={2}
-                  placeholder="e.g., Only recruiting Class of 2027 or looking for Left-Footed Wingers..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 space-y-3">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-11 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20 active:scale-[0.99]"
-              >
-                {isSubmitting ? (
-                  <span className="inline-block w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    Submit Recruiting Feedback
-                  </>
-                )}
-              </button>
-
-              <div className="text-center">
+              <div className="pt-4 border-t border-border/70 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
-                  to="/unsubscribe"
-                  search={{ email }}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-400 underline transition-colors"
+                  to="/"
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline transition-colors"
                 >
-                  Looking to stop all recruiting emails completely? Manage unsubscribe here
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Return to Go Team Go Hub
                 </Link>
               </div>
             </div>
-          </form>
-        )}
-      </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-2 shadow-sm">
+                  <MessageSquareQuote className="w-6 h-6" />
+                </div>
+                <div className="eyebrow text-primary tracking-widest text-[11px]">
+                  Go Team Go • Coach Roster Feedback
+                </div>
+                <h1 className="font-display text-2xl font-bold text-foreground tracking-tight">
+                  Recruiting Interest & Needs
+                </h1>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Help us calibrate future prospect emails to match your exact program needs. Your
+                  preference will remain active for 6 months.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground" htmlFor="feedback-email">
+                    Coach / Recruiter Email
+                  </label>
+                  <input
+                    id="feedback-email"
+                    type="email"
+                    required
+                    placeholder="coach@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-xl bg-background/80 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  />
+                </div>
+
+                {/* Opções de Sinalização */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground">
+                    Select the reason that best applies:
+                  </label>
+                  <div className="space-y-2">
+                    {REASON_OPTIONS.map((opt) => {
+                      const isSelected = selectedReason === opt.id;
+                      return (
+                        <label
+                          key={opt.id}
+                          htmlFor={`feedback-reason-${opt.id}`}
+                          className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-primary/10 border-primary shadow-sm"
+                              : "bg-card/60 border-border/70 hover:bg-muted/50 hover:border-border text-muted-foreground"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            id={`feedback-reason-${opt.id}`}
+                            name="interest_reason"
+                            value={opt.id}
+                            checked={isSelected}
+                            onChange={() => setSelectedReason(opt.id)}
+                            className="mt-0.5 h-4 w-4 accent-primary text-primary focus:ring-primary"
+                          />
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-bold text-foreground">{opt.title}</div>
+                            <div className="text-[11px] text-muted-foreground leading-normal">
+                              {opt.description}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Campo adicional de posição quando aplicável */}
+                {(selectedReason === "position_not_needed" ||
+                  selectedReason === "other_positions_only") && (
+                  <div className="space-y-1.5 pt-1">
+                    <label
+                      className="text-xs font-medium text-foreground"
+                      htmlFor="feedback-position"
+                    >
+                      Position (Optional / Specific):
+                    </label>
+                    <input
+                      id="feedback-position"
+                      type="text"
+                      placeholder="e.g., Setter, Outside Hitter, Libero"
+                      value={positionInput}
+                      onChange={(e) => setPositionInput(e.target.value)}
+                      className="w-full h-10 px-3.5 rounded-xl bg-background/80 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                    />
+                  </div>
+                )}
+
+                {/* Observações adicionais */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground" htmlFor="feedback-notes">
+                    Additional Notes for our Recruiting Team (Optional)
+                  </label>
+                  <textarea
+                    id="feedback-notes"
+                    rows={2}
+                    placeholder="e.g., Only recruiting Class of 2027 or looking for Left-Footed Wingers..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full p-3 rounded-xl bg-background/80 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-3">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="liquid-button w-full h-11 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <span className="inline-block w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      Submit Recruiting Feedback
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <Link
+                    to="/unsubscribe"
+                    search={{ email }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
+                  >
+                    Looking to stop all recruiting emails completely? Manage unsubscribe here
+                  </Link>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      </main>
+
+      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border/40">
+        © {new Date().getFullYear()} Go Team Go Agency. All rights reserved.
+      </footer>
     </div>
   );
 }

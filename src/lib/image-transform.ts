@@ -6,9 +6,19 @@ export interface ImageTransformOptions {
   format?: "origin";
 }
 
+function isSvgUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return pathname.endsWith(".svg");
+  } catch {
+    return url.toLowerCase().split("?")[0].endsWith(".svg");
+  }
+}
+
 /**
  * Transforms a Supabase Storage public URL into an optimized Supabase Image Transformation URL.
  * If the URL is not from Supabase Storage or is already a transformed URL, returns a safe URL.
+ * SVG files are preserved as original vector files since render/image does not support SVG format.
  *
  * Example:
  * Input:  https://[project].supabase.co/storage/v1/object/public/athlete-media/xyz.jpg
@@ -19,6 +29,7 @@ export function getOptimizedImageUrl(
   options: ImageTransformOptions = {},
 ): string {
   if (!originalUrl) return "";
+  if (isSvgUrl(originalUrl)) return originalUrl;
 
   // Check if it is a Supabase Storage object public URL
   const objectPublicMarker = "/storage/v1/object/public/";
