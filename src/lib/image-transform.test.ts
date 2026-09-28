@@ -72,7 +72,8 @@ describe("image-transform utility", () => {
 
   it("correctly generates agency logo preset", () => {
     const logo = getAgencyLogoImage(supabaseObjectUrl);
-    expect(logo).toContain("width=260");
+    expect(logo).toContain("width=400");
+    expect(logo).toContain("resize=contain");
     expect(logo).toContain("quality=85");
   });
 

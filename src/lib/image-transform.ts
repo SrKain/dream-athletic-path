@@ -8,10 +8,11 @@ export interface ImageTransformOptions {
 
 function isSvgUrl(url: string): boolean {
   try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    return pathname.endsWith(".svg");
+    const parsed = new URL(url);
+    return parsed.pathname.toLowerCase().endsWith(".svg");
   } catch {
-    return url.toLowerCase().split("?")[0].endsWith(".svg");
+    const cleanUrl = url.toLowerCase().split("?")[0].split("#")[0];
+    return cleanUrl.endsWith(".svg");
   }
 }
 
@@ -118,11 +119,12 @@ export function getAthleteGalleryImage(url: string | null | undefined): string {
 }
 
 /**
- * Preset: Agency Branding Logo (260px max width, 85% quality)
+ * Preset: Agency Branding Logo (400px max width for retina crispness, contain resize, 85% quality)
  */
 export function getAgencyLogoImage(url: string | null | undefined): string {
   return getOptimizedImageUrl(url, {
-    width: 260,
+    width: 400,
+    resize: "contain",
     quality: 85,
   });
 }

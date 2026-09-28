@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { getAgencyLogoImage } from "@/lib/image-transform";
+import { AgencyLogo } from "@/components/agency-logo";
 import type { AgencyVisualSettings } from "@/types/db";
 
 export interface PublicHeaderProps {
@@ -25,17 +25,7 @@ export function PublicHeader({
           to="/"
           className="flex items-center gap-3 transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
         >
-          {visual?.logo_url ? (
-            <img
-              src={getAgencyLogoImage(visual.logo_url)}
-              alt="Go Team Go Agency logo"
-              className="h-8 md:h-10 w-auto object-contain"
-            />
-          ) : (
-            <span className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
-              Go Team Go
-            </span>
-          )}
+          <AgencyLogo logoUrl={visual?.logo_url} variant="header" />
         </Link>
 
         <div className="flex items-center gap-3">

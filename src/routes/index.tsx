@@ -21,7 +21,8 @@ import {
   getAthleteStatus,
 } from "@/lib/catalog";
 import { buildContactEmailUrl } from "@/lib/contact";
-import { getAgencyLogoImage, getCatalogHeroBackgroundImage } from "@/lib/image-transform";
+import { getCatalogHeroBackgroundImage } from "@/lib/image-transform";
+import { AgencyLogo } from "@/components/agency-logo";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { formatHeightImperial } from "@/lib/units";
@@ -565,15 +566,7 @@ function Catalog() {
       <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            {visual?.logo_url ? (
-              <img
-                src={getAgencyLogoImage(visual.logo_url)}
-                alt="Go Team Go Agency logo"
-                className="h-7 w-auto object-contain"
-              />
-            ) : (
-              <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
-            )}
+            <AgencyLogo logoUrl={visual?.logo_url} variant="footer" />
             <span className="text-xs text-muted-foreground">
               · Connecting elite athletes with college programs across the USA.
             </span>

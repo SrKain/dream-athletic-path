@@ -523,7 +523,32 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 ---
 
-## TASK-072 — 2026-09-18 08:42 — Correção: ReferenceError getAgencyLogoImage em src/routes/index.tsx
+## TASK-073 — 2026-09-28 14:45 — Correção: Logo do Header Público e Padronização do Componente de Marca
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Diagnóstico e resolução da logo quebrada/minúscula em produção (portfolio.goteamgoagency.com):
+  1. Diagnóstico com evidências reais no banco e via `curl -sI`.
+  2. Criação do componente único `AgencyLogo` (`src/components/agency-logo.tsx`) com fallback em cascata de 3 níveis: transformada -> original crua -> texto tipográfico "Go Team Go".
+  3. Dimensões explícitas e seguras (`max-w-[200px]`, `object-contain`, `decoding="async"`, `alt="Go Team Go Agency"`).
+  4. Ajuste em `getAgencyLogoImage` com `width: 400`, `resize: "contain"`, `quality: 85`.
+  5. Normalização de MIME type / extensões no upload do admin (`admin/visual.tsx`).
+  6. Substituição de `<img>` fragmentados no `PublicHeader`, footer da Home (`src/routes/index.tsx`) e footer do perfil (`src/routes/athlete.$slug.tsx`).
+  7. Testes unitários para `AgencyLogo` e `image-transform.ts`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-28-1445-correcao-logo-header-publico-fallback.md`.
+- **Entrega:**
+  - `src/components/agency-logo.tsx`: Componente de logo consolidado com suporte a variantes `header`/`footer` e recuperação resiliente via `onError`.
+  - `src/components/public-header.tsx`: Atualizado para utilizar `<AgencyLogo />`.
+  - `src/routes/index.tsx`: Rodapé atualizado para utilizar `<AgencyLogo />`.
+  - `src/routes/athlete.$slug.tsx`: Rodapé atualizado para utilizar `<AgencyLogo />`.
+  - `src/lib/image-transform.ts`: Atualizado `getAgencyLogoImage` com `width: 400` e `resize: "contain"`, melhorada detecção em `isSvgUrl`.
+  - `src/routes/_authenticated/admin/visual.tsx`: Normalização de extensão por `file.type` MIME no upload de branding.
+  - `src/components/agency-logo.test.tsx`: Testes unitários para renderização, classes de variantes, SVG e fallback.
+  - `src/lib/image-transform.test.ts`: Testes atualizados para a nova assinatura de preset de logo.
+  - `src/lib/email/recruit-email-multi.test.ts`: Normalizado import para `vitest`.
+  - 18 arquivos de teste (116 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
 
 - **Solicitante:** Kauan / Usuário Humano (via Error Boundary Report)
 - **Executor:** Antigravity AI / Gemini Coding Agent

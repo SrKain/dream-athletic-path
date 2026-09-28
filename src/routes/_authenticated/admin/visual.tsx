@@ -74,7 +74,13 @@ function VisualSettingsPage() {
     if (kind === "logo") setUploadingLogo(true);
     else setUploadingHero(true);
 
-    const ext = file.name.split(".").pop() || "jpg";
+    let ext = "jpg";
+    if (file.type === "image/svg+xml") ext = "svg";
+    else if (file.type === "image/png") ext = "png";
+    else if (file.type === "image/webp") ext = "webp";
+    else if (file.type === "image/jpeg" || file.type === "image/jpg") ext = "jpg";
+    else if (file.name.includes(".")) ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+
     const path = `agency/branding/${kind}-${Date.now()}.${ext}`;
     const stored = await supabase.storage
       .from("athlete-media")

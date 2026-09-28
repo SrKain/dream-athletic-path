@@ -107,6 +107,7 @@ bun run validate
 
 ## 4. Componentes Principais (`src/components`)
 
+- [`agency-logo.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/agency-logo.tsx): **[NOVO]** Componente unificado de renderização da logomarca da agência com resiliência e fallback em cascata de 3 níveis: (1) URL transformada otimizada (`render/image` com `width: 400` e `resize: "contain"`), (2) URL original crua em caso de erro de carregamento (`onError`), e (3) texto tipográfico "Go Team Go" caso a logo não exista ou ocorra erro duplo. Suporta variantes `header` e `footer` com limites dimensionais explícitos para evitar colapso visual de layout.
 - [`app-shell.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/app-shell.tsx): Layout estrutural responsivo com sidebar, navbar, menu mobile e perfil do usuário logado.
 - [`stage-timeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/stage-timeline.tsx): Componente visual da linha do tempo e checklist interativo das etapas do atleta.
 - [`proposal-experience.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/proposal-experience.tsx): Interface de leitura, navegação por blocos e aceite da proposta esportiva pelo atleta.
@@ -937,6 +938,37 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Correção em `src/routes/index.tsx`**:
   - Adicionada a importação de `getAgencyLogoImage` a partir de `@/lib/image-transform` no componente `<Catalog>`, solucionando o erro de execução `ReferenceError: getAgencyLogoImage is not defined` no footer da página inicial.
   - Validação completa com 111 testes unitários aprovados e build de produção verificado com sucesso.
+
+## Atualização 2026-09-28 — Correção da Logo do Header Público e Padronização do Componente de Marca (TASK-073)
+
+- **Diagnóstico e Causa Raiz**:
+  - Em produção, a logo no header e no rodapé aparecia minúscula e deformada (~11px de largura).
+  - A causa raiz foi identificada na transformação do Supabase Storage (`render/image`): ao receber apenas `width=260` sem `resize: "contain"`, a API aplicava `resizing_type: fill` preservando a altura original (724px), transformando uma imagem panorâmica de 2172x724 (3:1) em uma tira vertical de 260x724 (0.359:1). Ao aplicar `h-8` (32px), a largura calculada tornava-se 11.49px, colapsando a logo e vazando alt text cortado.
+  - Adicionalmente, faltava uma cadeia de fallback para proteção em falhas de rede ou erro na URL transformada.
+
+- **Componente Unificado `AgencyLogo` (`src/components/agency-logo.tsx`)**:
+  - Criado componente único com tratamento de ciclo de vida e fallback em cascata de 3 níveis:
+    1. **Nível 1 (Otimizado)**: Tenta carregar a URL transformada com `getAgencyLogoImage(logoUrl)` (`width=400`, `resize=contain`, `quality=85`).
+    2. **Nível 2 (Original)**: Ao interceptar evento `onError` na URL transformada, alterna instantaneamente para a URL original crua (`logoUrl`).
+    3. **Nível 3 (Texto)**: Se a URL original também disparar `onError` (ou se não houver logo cadastrada), exibe o fallback tipográfico "Go Team Go".
+  - Dimensões explícitas e seguras: `max-w-[200px]` (header) e `max-w-[180px]` (footer), com `object-contain`, `shrink-0`, `alt="Go Team Go Agency"` e `decoding="async"`.
+
+- **Ajustes de Otimização e Upload (`src/lib/image-transform.ts` & `src/routes/_authenticated/admin/visual.tsx`)**:
+  - `getAgencyLogoImage` configurado para `width: 400`, `resize: "contain"`, `quality: 85`.
+  - `isSvgUrl` aprimorado para manipulação de URLs complexas com query parameters.
+  - Upload no painel administrativo (`admin/visual.tsx`) atualizado com normalização automática de extensões baseada no MIME type (`file.type`).
+
+- **Consolidação nos Consumidores**:
+  - `src/components/public-header.tsx`: Substituído `<img>` fragmentado por `<AgencyLogo logoUrl={visual?.logo_url} variant="header" />`.
+  - `src/routes/index.tsx`: Rodapé atualizado com `<AgencyLogo logoUrl={visual?.logo_url} variant="footer" />`.
+  - `src/routes/athlete.$slug.tsx`: Rodapé atualizado com `<AgencyLogo logoUrl={visual?.logo_url} variant="footer" />`.
+
+- **Qualidade & Testes**:
+  - Criada suite unitária `src/components/agency-logo.test.tsx` cobrindo renderização padrão, variantes, bypass de SVG e fallbacks.
+  - Atualizado `src/lib/image-transform.test.ts`.
+  - Corrigido import em `src/lib/email/recruit-email-multi.test.ts` para `vitest`.
+  - 18 arquivos de teste, 116 testes unitários 100% aprovados, ESLint sem erros e compilação de produção validada com sucesso.
+
 
 
 
