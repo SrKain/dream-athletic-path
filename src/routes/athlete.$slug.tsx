@@ -23,22 +23,14 @@ import {
 import { useEffect, useMemo, useRef } from "react";
 
 import { PoweredByIasinSignature } from "@/components/powered-by-iasin-signature";
-import { PublicHeader } from "@/components/public-header";
 import { PublicYoutubePlayer } from "@/components/public-youtube-player";
 import { ReadingProgressBar } from "@/components/reading-progress-bar";
 import { AthleteProfileSkeleton } from "@/components/skeletons/athlete-profile-skeleton";
-import { AgencyLogo } from "@/components/agency-logo";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useActiveSection } from "@/hooks/use-active-section";
 import { getPublicAthlete, type PublicAthletePayload } from "@/lib/athletes.functions";
 import { calculateAge, getAthleteCountryEn, getAthletePositionEn } from "@/lib/catalog";
 import { buildContactEmailUrl } from "@/lib/contact";
-import {
-  getAthleteCardImage,
-  getAthleteGalleryImage,
-  getAthleteHeroImage,
-  getOptimizedImageUrl,
-} from "@/lib/image-transform";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { groupPublicVideos } from "@/lib/public-videos";
 import { formatGpa, formatHeightImperial, formatWeightImperial } from "@/lib/units";
@@ -67,13 +59,7 @@ export const Route = createFileRoute("/athlete/$slug")({
     const posName = athlete.position?.name_en || "";
     const countryName = athlete.country?.name_en || "";
     const gradYear = profile?.high_school_graduation || profile?.graduation_year;
-    const rawPhoto = athlete.photo_url ?? getAthleteDisplayImage(athlete);
-    const photo = getOptimizedImageUrl(rawPhoto, {
-      width: 1200,
-      height: 630,
-      resize: "cover",
-      quality: 85,
-    });
+    const photo = athlete.photo_url ?? getAthleteDisplayImage(athlete);
     const canonicalUrl = `https://portfolio.goteamgoagency.com/athlete/${athlete.slug}`;
 
     const titleParts = [
@@ -240,7 +226,29 @@ function PublicAthleteProfile() {
       {/* ── READING PROGRESS BAR ── */}
       <ReadingProgressBar />
       {/* ── STICKY MAIN HEADER ── */}
-      <PublicHeader visual={visual} showBackToCatalog backLabel="Back to Catalog" />
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+        <div className="container-edge flex h-16 items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            {visual?.logo_url ? (
+              <img
+                src={visual.logo_url}
+                alt="Go Team Go Agency logo"
+                className="h-8 md:h-10 w-auto object-contain"
+              />
+            ) : (
+              <span className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
+                Go Team Go
+              </span>
+            )}
+          </Link>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-card/60 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Catalog
+          </Link>
+        </div>
+      </header>
 
       {/* ── VISUAL BREADCRUMB NAVIGATION ── */}
       <nav
@@ -304,11 +312,11 @@ function PublicAthleteProfile() {
 
         <div className="container-edge relative z-10 px-6 sm:px-10 md:px-12 lg:px-16 xl:px-20 py-16 sm:py-20 lg:py-24 w-full">
           <div className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16 xl:gap-20 lg:items-center">
-            {/* Retrato do Atleta em Proporção Natural 3:4 */}
+            {/* Retrato do Atleta em Proporção Editorial 4:5 */}
             <div className="flex justify-center sm:justify-start">
-              <div className="relative aspect-[3/4] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
+              <div className="relative aspect-[4/5] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
                 <img
-                  src={getAthleteHeroImage(photoUrl)}
+                  src={photoUrl}
                   alt={`${athlete.full_name} — ${positionLabel ?? "Volleyball"} — Go Team Go Agency headshot`}
                   className="h-full w-full object-cover object-top"
                 />
@@ -800,7 +808,7 @@ function PublicAthleteProfile() {
               >
                 {item.image_url && (
                   <img
-                    src={getAthleteGalleryImage(item.image_url)}
+                    src={item.image_url}
                     alt={`${athlete.full_name} — ${item.title_en || "Achievement"}`}
                     loading="lazy"
                     className="aspect-[16/9] w-full object-cover"
@@ -857,7 +865,7 @@ function PublicAthleteProfile() {
                 ) : (
                   <img
                     key={item.id}
-                    src={getAthleteGalleryImage(item.url)}
+                    src={item.url}
                     alt={item.caption_en || `${athlete.full_name} — Photo ${idx + 1}`}
                     loading="lazy"
                     className="aspect-[4/3] w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02] duration-300"
@@ -920,9 +928,7 @@ function PublicAthleteProfile() {
               <div className="flex items-center gap-4">
                 <div className="aspect-[4/5] w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-950 shadow-inner">
                   <img
-                    src={getAthleteCardImage(
-                      nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete),
-                    )}
+                    src={nextAthlete.photo_url || getAthleteDisplayImage(nextAthlete)}
                     alt={`${nextAthlete.full_name} — ${getAthletePositionEn(nextAthlete) || "Athlete"}`}
                     className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
                   />
@@ -957,7 +963,15 @@ function PublicAthleteProfile() {
       <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <AgencyLogo logoUrl={visual?.logo_url} variant="footer" />
+            {visual?.logo_url ? (
+              <img
+                src={visual.logo_url}
+                alt="Go Team Go Agency logo"
+                className="h-7 w-auto object-contain"
+              />
+            ) : (
+              <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
+            )}
             <span className="text-xs text-muted-foreground">
               · Connecting elite athletes with college programs across the USA.
             </span>

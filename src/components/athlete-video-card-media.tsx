@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useCenterInView } from "@/hooks/use-center-in-view";
-import { getAthleteCardImage } from "@/lib/image-transform";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 
 /**
@@ -43,7 +42,7 @@ export function AthleteVideoCardMedia({
       className="relative aspect-[3/4] overflow-hidden bg-muted"
     >
       <img
-        src={getAthleteCardImage(photoUrl)}
+        src={photoUrl}
         alt={alt}
         loading="lazy"
         className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]"

@@ -15,7 +15,6 @@ import { toast } from "sonner";
 
 import { likeHighlightVideo } from "@/lib/athletes.functions";
 import { buildContactEmailUrl } from "@/lib/contact";
-import { getAthleteStoryAvatar } from "@/lib/image-transform";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 import type { HighlightFeedItem } from "@/types/db";
@@ -266,7 +265,7 @@ export function GlobalHighlightsViewer({ feed, startIndex, onClose }: GlobalHigh
             >
               <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full p-[2px] bg-[#f69e00] shadow-md">
                 <img
-                  src={getAthleteStoryAvatar(photoSrc)}
+                  src={photoSrc}
                   alt={currentItem.athleteName}
                   className="h-full w-full rounded-full object-cover object-top"
                 />

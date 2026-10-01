@@ -3,8 +3,6 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { generateSitemapXml } from "./lib/sitemap";
-import { processResendWebhook } from "./lib/email/resend-webhook.server";
-import { processScheduledEmails } from "./lib/email/email.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -47,70 +45,6 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-/**
- * Injects CDN/Edge and browser Cache-Control headers to dramatically reduce Supabase egress.
- * Public routes (catalog `/`, athlete profiles `/athlete/:slug`, and public server functions)
- * are cached on Vercel Edge / CDN with stale-while-revalidate.
- * Admin and authenticated requests are strictly protected with no-store.
- */
-function applyCacheControlHeaders(request: Request, response: Response): Response {
-  // Never cache error responses, non-GET/HEAD methods, or responses that already set private/no-store
-  if (response.status !== 200 || (request.method !== "GET" && request.method !== "HEAD")) {
-    return response;
-  }
-
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-
-  // Protect private/authenticated routes
-  if (
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/portal") ||
-    pathname.startsWith("/auth") ||
-    request.headers.get("authorization") ||
-    request.headers.get("cookie")?.includes("sb-")
-  ) {
-    const headers = new Headers(response.headers);
-    headers.set("cache-control", "private, no-cache, no-store, must-revalidate");
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  }
-
-  let cacheControl = "";
-  if (pathname === "/" || pathname === "") {
-    // Public Catalog: 60s in browser, 5min in Edge CDN, up to 24h stale-while-revalidate
-    cacheControl = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
-  } else if (pathname.startsWith("/athlete/")) {
-    // Athlete Profile: 2min in browser, 15min in Edge CDN, up to 24h stale-while-revalidate
-    cacheControl = "public, max-age=120, s-maxage=900, stale-while-revalidate=86400";
-  } else if (pathname.includes("listPublicAthletes") || pathname.includes("getPublicAthlete")) {
-    // Public Server Function calls
-    cacheControl = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
-  }
-
-  const existingCacheControl = response.headers.get("cache-control") ?? "";
-  if (
-    cacheControl &&
-    !existingCacheControl.includes("no-store") &&
-    !existingCacheControl.includes("private")
-  ) {
-    const headers = new Headers(response.headers);
-    headers.set("cache-control", cacheControl);
-    headers.set("cdn-cache-control", cacheControl);
-    headers.set("vercel-cdn-cache-control", cacheControl);
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  }
-
-  return response;
-}
-
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -126,41 +60,9 @@ export default {
         });
       }
 
-      if (url.pathname === "/api/webhooks/resend" && request.method === "POST") {
-        const rawBody = await request.text();
-        const headers: Record<string, string> = {};
-        request.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-        const result = await processResendWebhook(rawBody, headers);
-        const status = result.type === "Unauthorized" ? 401 : 200;
-        return new Response(JSON.stringify(result), {
-          status,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-          },
-        });
-      }
-
-      if (
-        url.pathname === "/api/cron/process-scheduled-emails" &&
-        (request.method === "POST" || request.method === "GET")
-      ) {
-        const result = await processScheduledEmails();
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-          },
-        });
-      }
-
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      const normalized = await normalizeCatastrophicSsrResponse(response);
-      return applyCacheControlHeaders(request, normalized);
+      return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

@@ -15,7 +15,7 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 - **Interface & Estilização**: **Tailwind CSS v4** (`@tailwindcss/vite`), **shadcn UI** / **Radix UI**, Lucide Icons, design **Mobile-First** e regras consolidadas no guia oficial [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
 - **Backend, Autenticação e Armazenamento**: **Supabase externo** (`@supabase/supabase-js`) com autenticação por E-mail/Senha, Row Level Security (RLS) e Buckets de Storage para mídias e documentos.
 - **Geração de Propostas**: Geração dinâmica de propostas e exportação em PDF via `@react-pdf/renderer`.
-- **Serviço de E-mail**: Arquitetura centralizada integrada ao **Resend (SDK oficial `resend`)** com suporte a Batch API (até 100 mensagens por lote), Webhooks com verificação Svix para captura de Bounces/Complaints sincronizados com `email_suppressions`, e-mails transacionais com controle de janela comercial (`email_log`) e Mailer de recrutamento em massa para coaches universitários.
+- **Serviço de E-mail**: Arquitetura integrada ao **Resend** para notificações transacionais.
 - **Qualidade & Testes**: **Vitest**, **ESLint**, **Prettier**.
 
 ### Governança de Planejamento Compartilhado
@@ -81,33 +81,31 @@ bun run validate
 
 ## 3. Mapeamento de Rotas e Telas (`src/routes`)
 
-| Rota / Arquivo                                                                                                                                                                                    | Acesso / Perfil     | Descrição e Problema Resolvido                                                                                                                                                                                                                                                                                                                                                                                                              |
-| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`src/routes/__root.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/__root.tsx)                                                   | Público             | Shell raiz da aplicação com `QueryClientProvider`, `AppProviders`, injeção de CSS global, manipulador de erros 404/Error Boundary e **[NOVO]** `loader` com `getAgencyVisual` para injeção dinâmica da logomarca da agência como favicon (`rel="icon"` e `rel="apple-touch-icon"`) e fallback automático para `/favicon.ico`.                                                                                                               |
-| [`src/routes/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/index.tsx)                                                     | Público             | **Feed Público / Catálogo de Atletas**: Layout estilo streaming (cards de atletas com badge dinâmica "TRANSFER" para status universitário diferente de Junior, busca por nome, filtros recolhíveis por esporte/posição, carrosséis de destaques, seção de CTA institucional para contato e rodapé com assinatura animada "Powered by iasin.").                                                                                              |
+| Rota / Arquivo                                                                                                                                                                                    | Acesso / Perfil     | Descrição e Problema Resolvido                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`src/routes/__root.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/__root.tsx)                                                   | Público             | Shell raiz da aplicação com `QueryClientProvider`, `AppProviders`, injeção de CSS global, manipulador de erros 404/Error Boundary e **[NOVO]** `loader` com `getAgencyVisual` para injeção dinâmica da logomarca da agência como favicon (`rel="icon"` e `rel="apple-touch-icon"`) e fallback automático para `/favicon.ico`. |
+| [`src/routes/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/index.tsx)                                                     | Público             | **Feed Público / Catálogo de Atletas**: Layout estilo streaming (cards de atletas com badge dinâmica "TRANSFER" para status universitário diferente de Junior, busca por nome, filtros recolhíveis por esporte/posição, carrosséis de destaques, seção de CTA institucional para contato e rodapé com assinatura animada "Powered by iasin."). |
 | [`src/routes/athlete.$slug.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/athlete.$slug.tsx)                                     | Público             | **Perfil Público do Atleta**: Exibe bio, fotos, destaques, estatísticas de recrutamento, GPA, nível de inglês, conquistas para Coaches. **[ATUALIZADO]** Cabeçalho dinâmico sincronizado com `visual.logo_url` da agência (mesmas dimensões e fallback da Home), botão "Back to Catalog", hero cinematográfico de _Luxo Minimalista (Quiet Luxury)_, linha de Stories/Reels circulares e seção de vídeos _In Court_ e _Apresentação/Sobre_. |
-| [`src/routes/login.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/login.tsx)                                                     | Público             | **Tela de Login**: Autenticação por e-mail e senha usando Supabase Auth.                                                                                                                                                                                                                                                                                                                                                                    |
-| [`src/routes/forgot-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/forgot-password.tsx)                                 | Público             | Solicitante de e-mail para recuperação de senha.                                                                                                                                                                                                                                                                                                                                                                                            |
-| [`src/routes/reset-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/reset-password.tsx)                                   | Autenticado (Token) | Redefinição de senha do usuário.                                                                                                                                                                                                                                                                                                                                                                                                            |
-| [`src/routes/auth.accept-invite.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/auth.accept-invite.tsx)                           | Público (Token)     | Aceite de convite por novos atletas para definição de senha.                                                                                                                                                                                                                                                                                                                                                                                |
-| [`src/routes/proposal.$token.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.tsx)                                 | Público (Token)     | **Experiência Interativa da Proposta Esportiva**: Exibição da proposta enviada ao atleta com botões de aceite/recusa.                                                                                                                                                                                                                                                                                                                       |
-| [`src/routes/proposal.$token.pdf.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.pdf.tsx)                         | Público (Token)     | **Download/Stream de PDF**: Renderiza a proposta formatada em documento PDF via `@react-pdf/renderer`.                                                                                                                                                                                                                                                                                                                                      |
-| [`src/routes/_authenticated/route.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/route.tsx)                       | Autenticado         | Layout pai autenticado com proteção de rotas e redirecionamento caso não haja sessão.                                                                                                                                                                                                                                                                                                                                                       |
-| [`src/routes/_authenticated/admin/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/index.tsx)           | Agência (Admin)     | Dashboard da Agência: Visão geral de métricas, atletas cadastrados e atalhos de gestão.                                                                                                                                                                                                                                                                                                                                                     |
-| [`src/routes/_authenticated/admin/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx)     | Agência (Admin)     | **Gestão de Pipeline**: Quadro Kanban/Linha do tempo dos atletas em cada etapa de recrutamento.                                                                                                                                                                                                                                                                                                                                             |
-| [`src/routes/_authenticated/admin/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/documents.tsx)   | Agência (Admin)     | **Central de Documentos**: Aprovação, reprovação e acompanhamento de arquivos enviados pelos atletas.                                                                                                                                                                                                                                                                                                                                       |
-| [`src/routes/_authenticated/admin/settings.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx)     | Agência (Admin)     | Configurações da Agência, etapas do pipeline e parâmetros do sistema.                                                                                                                                                                                                                                                                                                                                                                       |
-| [`src/routes/_authenticated/admin/coaches.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/coaches.tsx)       | Agência (Admin)     | **[NOVO] Gestão de Coaches Universitários**: Listagem, busca textual em tempo real, cadastro e edição manual, exclusão com confirmação e importação em massa via planilha (CSV/XLSX) com validação de formato de e-mail, prevenção de duplicados e resumo prévio de importação.                                                                                                                                                             |
-| [`src/routes/_authenticated/portal/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx)         | Atleta              | **Home do Atleta**: Resumo do progresso, alertas de pendências de documentos e etapa atual. **Atualizado**: Integrado componente `<ConfettiCelebration />` que dispara animação quando URL contém `?celebrate=true`.                                                                                                                                                                                                                        |
-| [`src/routes/_authenticated/portal/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/pipeline.tsx)   | Atleta              | Visualização detalhada do pipeline e etapas a cumprir.                                                                                                                                                                                                                                                                                                                                                                                      |
-| [`src/routes/_authenticated/portal/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/documents.tsx) | Atleta              | **Envio de Documentos do Atleta**: Upload de PDFs, histórico de status e correções solicitadas pela agência.                                                                                                                                                                                                                                                                                                                                |
-| [`src/routes/_authenticated/portal/media.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/media.tsx)         | Atleta              | **Envio de Mídias**: Upload de fotos e links/vídeos de destaque para o perfil público.                                                                                                                                                                                                                                                                                                                                                      |
+| [`src/routes/login.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/login.tsx)                                                     | Público             | **Tela de Login**: Autenticação por e-mail e senha usando Supabase Auth.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [`src/routes/forgot-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/forgot-password.tsx)                                 | Público             | Solicitante de e-mail para recuperação de senha.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [`src/routes/reset-password.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/reset-password.tsx)                                   | Autenticado (Token) | Redefinição de senha do usuário.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [`src/routes/auth.accept-invite.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/auth.accept-invite.tsx)                           | Público (Token)     | Aceite de convite por novos atletas para definição de senha.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [`src/routes/proposal.$token.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.tsx)                                 | Público (Token)     | **Experiência Interativa da Proposta Esportiva**: Exibição da proposta enviada ao atleta com botões de aceite/recusa.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`src/routes/proposal.$token.pdf.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/proposal.$token.pdf.tsx)                         | Público (Token)     | **Download/Stream de PDF**: Renderiza a proposta formatada em documento PDF via `@react-pdf/renderer`.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| [`src/routes/_authenticated/route.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/route.tsx)                       | Autenticado         | Layout pai autenticado com proteção de rotas e redirecionamento caso não haja sessão.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`src/routes/_authenticated/admin/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/index.tsx)           | Agência (Admin)     | Dashboard da Agência: Visão geral de métricas, atletas cadastrados e atalhos de gestão.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| [`src/routes/_authenticated/admin/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx)     | Agência (Admin)     | **Gestão de Pipeline**: Quadro Kanban/Linha do tempo dos atletas em cada etapa de recrutamento.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [`src/routes/_authenticated/admin/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/documents.tsx)   | Agência (Admin)     | **Central de Documentos**: Aprovação, reprovação e acompanhamento de arquivos enviados pelos atletas.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`src/routes/_authenticated/admin/settings.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx)     | Agência (Admin)     | Configurações da Agência, etapas do pipeline e parâmetros do sistema.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`src/routes/_authenticated/portal/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx)         | Atleta              | **Home do Atleta**: Resumo do progresso, alertas de pendências de documentos e etapa atual. **Atualizado**: Integrado componente `<ConfettiCelebration />` que dispara animação quando URL contém `?celebrate=true`.                                                                                                                                                                                                                                                                                                                                          |
+| [`src/routes/_authenticated/portal/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/pipeline.tsx)   | Atleta              | Visualização detalhada do pipeline e etapas a cumprir.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| [`src/routes/_authenticated/portal/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/documents.tsx) | Atleta              | **Envio de Documentos do Atleta**: Upload de PDFs, histórico de status e correções solicitadas pela agência.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [`src/routes/_authenticated/portal/media.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/media.tsx)         | Atleta              | **Envio de Mídias**: Upload de fotos e links/vídeos de destaque para o perfil público.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ---
 
 ## 4. Componentes Principais (`src/components`)
 
-- [`agency-logo.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/agency-logo.tsx): **[NOVO]** Componente unificado de renderização da logomarca da agência com resiliência e fallback em cascata de 3 níveis: (1) URL transformada otimizada (`render/image` com `width: 400` e `resize: "contain"`), (2) URL original crua em caso de erro de carregamento (`onError`), e (3) texto tipográfico "Go Team Go" caso a logo não exista ou ocorra erro duplo. Suporta variantes `header` e `footer` com limites dimensionais explícitos para evitar colapso visual de layout.
 - [`app-shell.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/app-shell.tsx): Layout estrutural responsivo com sidebar, navbar, menu mobile e perfil do usuário logado.
 - [`stage-timeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/stage-timeline.tsx): Componente visual da linha do tempo e checklist interativo das etapas do atleta.
 - [`proposal-experience.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/proposal-experience.tsx): Interface de leitura, navegação por blocos e aceite da proposta esportiva pelo atleta.
@@ -122,7 +120,6 @@ bun run validate
 - [`reading-progress-bar.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/reading-progress-bar.tsx): **[NOVO]** Barra superior fixa de progresso de leitura em tom esmeralda (`h-1 z-50 bg-primary`) com medição otimizada via `requestAnimationFrame` e `aria-hidden="true"`.
 - [`skeletons/catalog-skeleton.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/skeletons/catalog-skeleton.tsx): **[NOVO]** Skeleton acessível para o Catálogo público integrado via `pendingComponent` do TanStack Router.
 - [`skeletons/athlete-profile-skeleton.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/skeletons/athlete-profile-skeleton.tsx): **[NOVO]** Skeleton acessível para o Perfil do Atleta integrado via `pendingComponent` do TanStack Router.
-- [`send-recruit-email-dialog.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/send-recruit-email-dialog.tsx): **[NOVO]** Modal de seleção e disparo de e-mails para coaches universitários com preview WYSIWYG do e-mail do atleta, contadores dinâmicos, busca, seleção em lote e confirmação de envio.
 - [`confetti-celebration.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/confetti-celebration.tsx): Componente de animação de confetes usando `canvas-confetti`. Dispara automaticamente quando o portal do atleta é acessado com parâmetro `?celebrate=true` (link vindo do e-mail de celebração). Cores emerald (#30b884) e gold (#eab308) do design system. Auto-remove o parâmetro da URL após 3 segundos de animação.
 - [`ui/*`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/components/ui): Biblioteca de componentes atomizados (buttons, dialogs, badges, cards, inputs, dropdowns) construídos sobre Radix UI e Tailwind CSS.
 
@@ -145,15 +142,9 @@ bun run validate
 
 - [`src/lib/email/sending-window.test.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/sending-window.test.ts): Suite completa de testes Vitest cobrindo todos os cenários de janela de envio: manhãs e tardes de semana, sábados, domingos, horários de almoço e transições entre dias.
 
-- [`src/lib/email/resend-client.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/resend-client.server.ts): Singleton do cliente Resend SDK com leitura centralizada de `RESEND_API_KEY`, `EMAIL_FROM` e `RESEND_WEBHOOK_SECRET`, proteção server-only e reset de cache para testes unitários.
-
-- [`src/lib/email/resend-webhook.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/resend-webhook.server.ts): Processador de eventos de webhook do Resend (`email.bounced`, `email.complained`, `email.delivered`, `email.sent`, `email.opened`, `email.clicked`) com validação de assinatura criptográfica Svix e sincronização automática com a tabela `email_suppressions`.
-
 - [`src/lib/email/templates.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/templates.ts): Catálogo de templates de e-mail com novo template `stage_advancement_celebration` seguindo rigorosamente as especificações do [UI&UX.md](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md) (Dark Premium theme, emerald/gold accents, Space Grotesk typography, 48px CTA button, mobile-first design).
 
-- [`src/lib/email/email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/email.server.ts): Serviço centralizado de e-mail via Resend. Suporte a agendamento inteligente via parâmetro `respectSendingWindow`. Registra status `"sent"`, `"scheduled"` ou `"failed"` na tabela `email_log` com provider ID retornado pelo Resend.
-
-- [`src/lib/email/recruit-email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/recruit-email.server.ts): Motor de disparo em lote do Mailer (Single, Multi e Catalog) para coaches universitários integrado ao Resend Batch API (`resend.batch.send`), com controle de supressão, descadastro em 2 níveis e registro de sinais de interesse em `coach_interest_signals`.
+- [`src/lib/email/email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/email.server.ts): Serviço centralizado de e-mail via Resend. **Atualizado** com suporte a agendamento inteligente via parâmetro `respectSendingWindow`. Quando ativado, verifica a janela de envio e utiliza o parâmetro nativo `scheduled_at` do Resend para agendar e-mails fora do horário permitido. Registra status `"scheduled"` e timestamp `scheduled_for` na tabela `email_log`.
 
 - [`src/lib/email/stage-change.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/stage-change.server.ts): Server Function `notifyStageAdvancementServerFn` que orquestra o envio de e-mails celebrativos quando atleta avança de etapa. Carrega mensagem customizada de `pipeline_stages.celebration_message_en`, substitui placeholders, monta dados do e-mail e dispara com respeito à janela de envio. Retorna informações de agendamento quando aplicável.
 
@@ -205,9 +196,6 @@ Entidades do PostgreSQL executadas no Supabase Externo:
 - `athlete_stage_progress`: Progresso individual do atleta em cada etapa (Status: `not_started`, `in_progress`, `blocked`, `completed`).
 - `documents`: Documentos enviados (PDF, PNG, JPG) armazenados no Supabase Storage.
 - `email_log`: Registro de todos os e-mails enviados pela plataforma. **Atualizado**: Nova coluna `scheduled_for TIMESTAMPTZ` para rastrear quando e-mails agendados serão enviados via Resend.
-- `coaches`: **[NOVO]** Cadastro de técnicos/coaches universitários (id, name, email, institution, created_at, updated_at) com busca e importação.
-- `recruit_email_logs`: **[NOVO]** Log de auditoria dos e-mails teaser disparados para coaches (id, coach_id, athlete_id, sender_email, status, error_message, resend_email_id, created_at).
-- `athlete_profiles.highlight_note`: **[NOVO]** Frase de gancho/destaque opcional configurada pela agência para os e-mails teaser de recrutamento.
 - `proposals` & `proposal_versions`: Propostas esportivas formais e controle de versões.
 
 ### 6.1 Migração 0007: Stage Celebration Messages
@@ -391,7 +379,7 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
     - Exclusão do textarea de biografia em português (`bio_pt`), mantendo apenas **"Athlete Biography (English)"**.
     - Consultas de posições e países ordenadas exclusivamente por `name_en`.
   - **Perfil Público do Atleta (`src/routes/athlete.$slug.tsx`)**:
-    - Adicionado **"Course of Interest"** na grade acadêmica e de elegibilidade (_Academic & Eligibility Details_).
+    - Adicionado **"Course of Interest"** na grade acadêmica e de elegibilidade (*Academic & Eligibility Details*).
     - Biografia, títulos, badges e posições consultam unicamente `name_en` e campos em inglês.
   - **Configurações e Visual Admin (`admin/settings.tsx`, `admin/visual.tsx`)**:
     - Removidos inputs bilíngues redundantes e unificada toda a interface em inglês dos EUA.
@@ -532,7 +520,7 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 
 - **Posicionamento Institucional Global Go Team Go Agency**:
   - Ajustado o foco e toda a copy pública para representar o escopo internacional real da agência (recrutamento de estudantes-atletas do mundo inteiro para ligas universitárias dos EUA - NCAA, NAIA, NJCAA).
-  - Eliminados todos os vieses hardcoded de _"Brazilian athletes/recruits"_ na copy pública, metadados e fallbacks.
+  - Eliminados todos os vieses hardcoded de *"Brazilian athletes/recruits"* na copy pública, metadados e fallbacks.
 - **Catálogo Público & SEO (`src/routes/index.tsx`)**:
   - `pageTitle`: Atualizado para `"International Volleyball Recruits & College Athletes Catalog | Go Team Go Agency"`.
   - `pageDescription`: Atualizado para `"Explore [N] verified international volleyball recruits ready to compete and study in the USA. Verified academic credentials, game film, and athletic metrics."`.
@@ -585,14 +573,14 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
     - `general`: Assunto genérico com nota customizável.
 - **Pontos de Contato Atualizados**:
   - **Página Inicial (`src/routes/index.tsx`)**:
-    - **Hero**: Adicionado botão de contato editorial _"Talk to our team"_ (`liquid-button`) disparando `mailto:` com o contexto `hero`.
-    - **Final do Catálogo**: Botão _"Talk to Go Team Go"_ atualizado para e-mail com contexto `catalog` e ícone `Mail`.
-    - **Rodapé (Footer)**: Adicionado link discreto _"Get in touch"_ com contexto `footer`.
+    - **Hero**: Adicionado botão de contato editorial *"Talk to our team"* (`liquid-button`) disparando `mailto:` com o contexto `hero`.
+    - **Final do Catálogo**: Botão *"Talk to Go Team Go"* atualizado para e-mail com contexto `catalog` e ícone `Mail`.
+    - **Rodapé (Footer)**: Adicionado link discreto *"Get in touch"* com contexto `footer`.
   - **Perfil do Atleta (`src/routes/athlete.$slug.tsx`)**:
-    - **Hero**: Botão _"Recruit Athlete"_ atualizado para `mailto:` contextual do atleta, com ícone `Mail`.
-    - **Barra de Navegação Sticky**: Botão _"Recruit"_ com ícone `Mail`, mantendo a rolagem fluida até a âncora `#recruit-cta`.
-    - **Seção `#recruit-cta`**: Texto ajustado para contato via e-mail e botão atualizado para _"Recruit [FirstName] via Email"_.
-    - **Rodapé (Footer)**: Adicionado link discreto _"Get in touch"_ com contexto `footer`.
+    - **Hero**: Botão *"Recruit Athlete"* atualizado para `mailto:` contextual do atleta, com ícone `Mail`.
+    - **Barra de Navegação Sticky**: Botão *"Recruit"* com ícone `Mail`, mantendo a rolagem fluida até a âncora `#recruit-cta`.
+    - **Seção `#recruit-cta`**: Texto ajustado para contato via e-mail e botão atualizado para *"Recruit [FirstName] via Email"*.
+    - **Rodapé (Footer)**: Adicionado link discreto *"Get in touch"* com contexto `footer`.
   - **Visualizador Global de Highlights (`src/components/global-highlights-viewer.tsx`)**:
     - Botão lateral de recrutamento no player de reels atualizado para disparar `mailto:` contextual com o nome e slug do atleta ativo, com ícone `Mail`.
 - **Exceção Mandatória Respeitada**:
@@ -603,466 +591,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Criado arquivo de testes `src/lib/contact.test.ts` cobrindo todos os cenários de `buildMailtoUrl`, `buildContactEmailUrl`, sanitização, acentuação e preservação do helper de WhatsApp (89/89 testes aprovados).
   - Execução de `bun run typecheck`, `bun run lint` e `bun run test` 100% aprovada.
 
-## Atualização 2026-09-02 — Feature "Recruit Email" para Coaches Universitários (TASK-058)
 
-- **Migration SQL (`db/migrations/0016_coaches_and_recruit_emails.sql`)**:
-  - Tabela `coaches`: `id` (UUID), `name` (TEXT), `email` (TEXT UNIQUE NOT NULL), `institution` (TEXT NOT NULL), `created_at`, `updated_at`. Índices em `email` e `institution`. RLS habilitado restrito a usuários com papel `agency_admin`.
-  - Tabela `recruit_email_logs`: `id` (UUID), `coach_id` (FK `coaches`), `athlete_id` (FK `athletes`), `sender_email` (TEXT), `status` (`sent` / `failed`), `error_message` (TEXT), `resend_email_id` (TEXT), `created_at`. Índices em `athlete_id`, `coach_id` e `created_at`.
-  - Coluna `highlight_note TEXT` adicionada em `athlete_profiles` para customização da frase de gancho no teaser do atleta.
-- **Tipagem TypeScript (`src/types/db.ts`)**:
-  - Interfaces `Coach` e `RecruitEmailLog` adicionadas e exportadas.
-  - Interface `AthleteProfile` atualizada com o campo opcional `highlight_note?: string | null`.
-- **Módulo de E-mail Teaser Dark/Emerald Premium (`src/lib/email/recruit-email-template.ts`)**:
-  - Renderiza HTML em linha com layout responsivo mobile-first, paleta esmeralda/dourado (`#061b13`, `#30b884`, `#eab308`), retrato 4:5 do atleta, badges de posição/país, bloco biométrico (altura imperial ft/in, peso lbs, data de nascimento, classe/ano), bloco acadêmico (GPA formatado e curso de interesse), frase de destaque configurada (`highlight_note`), CTA exclusivo em formato de botão pílula verde direcionando ao perfil público oficial e rodapé da agência Go Team Go.
-  - Helper `generateRecruitEmailSubject` com formato: `Recruiting Prospect: {Name} ({Position}, Class of {Year}) - Go Team Go`.
-- **Backend & Batch Sending (`src/lib/email/recruit-email.server.ts`)**:
-  - Envio em massa utilizando `resend.batch.send` (em lotes de até 100 destinatários por chamada para respeitar limites da API do Resend).
-  - Remetente fixado em `contact@goteamgoagency.com` com display name `Go Team Go Agency`.
-  - Persistência detalhada de logs de envio na tabela `recruit_email_logs` para rastreabilidade completa.
-- **Server Function Segura (`src/lib/email/recruit-email.functions.ts`)**:
-  - Server Function TanStack Start `sendRecruitEmailServerFn` com validação estrita de autenticação via `requireAgency(event)`, impedindo disparos não autorizados.
-- **Gestão de Coaches no Admin (`src/routes/_authenticated/admin/coaches.tsx`)**:
-  - Tabela com busca em tempo real por nome, e-mail ou instituição.
-  - Ações manuais de criação, edição e exclusão com diálogo de confirmação.
-  - Importador inteligente de planilhas CSV e XLSX:
-    - Drag-and-drop e seleção manual de arquivos.
-    - Parser com suporte flexível a delimitadores (, ; tab) e colunas comuns em inglês/português (name/nome, email/e-mail, institution/universidade/college/escola).
-    - Validação de e-mails válidos com regex, deduplicação em memória contra a base existente e entre as linhas do próprio arquivo.
-    - Card de resumo com contadores de registros válidos e descartados antes da confirmação.
-    - Modal de prévia com tabela paginada dos coaches prontos para inserção.
-- **Disparo do E-mail Teaser pelo Perfil do Atleta (`src/components/send-recruit-email-dialog.tsx` & `src/routes/_authenticated/admin/athletes/$id.tsx`)**:
-  - Botão _"Send to Coaches"_ em destaque no header administrativo do atleta.
-  - Modal com pré-visualização WYSIWYG em tempo real do e-mail montado.
-  - Seleção em massa com busca instantânea e checkboxes individuais ou de todos os coaches.
-  - Indicador numérico dinâmico no botão de disparo: _"Send to X coaches"_.
-  - Diálogo de confirmação de segurança com contagem final antes do envio.
-  - Campo "Recruit Email Hook Line" adicionado na aba de edição do atleta para personalização do gancho editorial antes do disparo.
-- **Navegação (`src/components/app-shell.tsx`)**:
-  - Item "Coaches" com ícone de graduação (`GraduationCap`) adicionado na barra lateral da agência.
-- **Validação Técnica**:
-  - Linting executado com zero erros.
-  - Compilação de produção TanStack Start / Vite validada com sucesso (`compile_applet`).
 
-## Atualização 2026-09-03 — Correção e Blindagem da Página de Coaches e Modal "Send to Coaches" (TASK-059)
 
-- **Correção de Invocação de Constantes CSS (`TypeError: buttonClass is not a function`)**:
-  - `src/components/admin-ui.tsx` exporta `buttonClass` e `secondaryButtonClass` como constantes de string Tailwind (`rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold...`), não como funções.
-  - Substituídas todas as ocorrências de `buttonClass("secondary")` e `buttonClass("primary")` por `secondaryButtonClass` e `buttonClass` em:
-    - `src/routes/_authenticated/admin/coaches.tsx` (botões do topo, cards de estado vazio, modais de criação/edição, importador de planilhas e exclusão).
-    - `src/components/send-recruit-email-dialog.tsx` (botões de Cancelar e Confirmar no rodapé e no modal de confirmação pré-disparo).
-- **Adequação de Componentes Admin UI (`Panel` e `EmptyState`)**:
-  - `src/routes/_authenticated/admin/coaches.tsx`:
-    - Adicionada a prop obrigatória `title="Coaches Directory"` ao componente `<Panel>`.
-    - Substituído o uso incorreto de props `title`/`description` em `<EmptyState>` pela renderização do texto diretamente como `children`, em estrita conformidade com a interface de `EmptyState` em `admin-ui.tsx`.
-- **Experiência de Usuário e Resiliência em Base Vazia (Empty State)**:
-  - `src/components/send-recruit-email-dialog.tsx`:
-    - Implementado Empty State amigável e explicativo para quando não há coaches cadastrados no banco de dados, com badge esmeralda e botão de ação direta que abre o diretório de coaches (`/admin/coaches`) para importação da planilha.
-    - Adicionado botão auxiliar _"Manage Coaches"_ com ícone `ExternalLink` no cabeçalho do diálogo modal.
-    - Tratamento de erro resiliente com banner vermelho e botão de _"Retry"_ caso a chamada Supabase sofra falhas de conexão.
-- **Blindagem do Iframe de Prévia de E-mail**:
-  - Removido o atributo `sandbox="allow-same-origin"` do iframe em `src/components/send-recruit-email-dialog.tsx`, substituindo por `sandbox="allow-popups allow-popups-to-escape-sandbox"` para evitar bloqueios de segurança de navegadores em contextos aninhados (como o preview do container e iframes pais).
-- **Blindagem de Template de E-mail (`src/lib/email/recruit-email-template.ts`)**:
-  - Tratamento com fallback seguro para `athleteName`, `athleteSlug` e cálculo da inicial, prevenindo quebras em atletas com propriedades parciais ou em preenchimento.
-- **Validação Automatizada & Qualidade de Código**:
-  - Suíte completa de testes unitários Vitest executada com 100% de sucesso (14 arquivos, 89 testes aprovados).
-  - Verificação de linter (`npm run lint` / ESLint) sem erros.
-  - Compilação de produção TanStack Start / Vite executada e validada com sucesso via `compile_applet`.
-
-## Atualização 2026-09-03 — Redução Drástica de Custo de Egress (Storage + PostgREST) (TASK-060)
-
-- **Diagnóstico & Contexto**:
-  - A aplicação enfrentou consumo acentuado de egress (~37 GB/dia em pico de ~1.000 coaches). A distribuição era ~66,1% Storage Egress e ~33,8% PostgREST Egress.
-  - As imagens eram baixadas em resolução original pesada (2MB a 5MB por foto de câmera) sem headers de cache `max-age` em objetos do Supabase Storage.
-  - O catálogo público e perfil do atleta executavam `select("*")` e queries irrestritas de likes, multiplicando o tráfego de dados por visitante.
-- **Utilitário de Transformação e Redimensionamento de Imagens (`src/lib/image-transform.ts`)**:
-  - Utiliza o endpoint oficial de Image Transformation do Supabase (`/storage/v1/render/image/public/<bucket>/<path>?width=W&height=H&resize=cover&quality=Q`).
-  - Funções de renderização otimizadas com presets responsivos e WebP automático:
-    - `getAthleteCardImage(url)`: 600x750px, quality 80 (redução de ~3.5MB para ~35KB, ~99% de economia por card).
-    - `getAthleteHeroImage(url)`: 800x1000px, quality 85 (redução de ~4MB para ~70KB).
-    - `getAthleteStoryAvatar(url)`: 160x160px, quality 80.
-    - `getAthleteGalleryImage(url)`: 800x600px, quality 80.
-    - `getAgencyLogoImage(url)`: 300x100px, resize contain.
-    - `getCatalogHeroBackgroundImage(url)`: 1920x800px, quality 80.
-  - Fallback automático e seguro para imagens não-Supabase (Unsplash, URLs locais, SVGs) sem quebrar o layout.
-  - Suíte completa de testes de unidade em `src/lib/image-transform.test.ts` (9 testes, 100% aprovados).
-- **Uploads com Cache-Control Long-Term (`max-age=31536000, immutable`)**:
-  - Atualizados todos os pontos de upload no painel admin com `cacheControl: "31536000"`:
-    - `src/routes/_authenticated/admin/athletes/$id.tsx` (foto do atleta, capa e mídias da galeria).
-    - `src/routes/_authenticated/admin/visual.tsx` (logotipo da agência e imagem de fundo do hero).
-    - `src/routes/_authenticated/admin/settings.tsx` (logotipo da agência).
-    - `src/routes/_authenticated/admin/proposals/$id.tsx` (anexos e ativos de propostas).
-  - A estratégia combina cache imutável de 1 ano com cache-busting natural via UUID nos nomes de arquivos gerados.
-- **Migração SQL & Script Retroativo para Objetos Existentes**:
-  - Migration `db/migrations/0017_storage_cache_control_and_update_policy.sql` criada para atualizar o metadata de objetos existentes em `storage.objects` e garantir política RLS de UPDATE para administradores.
-  - Script autônomo `scripts/update-storage-cache-control.ts` acionável via `npm run storage:cache-control` (`vite-node`) para varrer e re-aplicar os metadados nos buckets públicos (`athlete-media`, `proposal-assets`, `stage-celebrations`).
-- **Cache de CDN/Edge em Rotas Públicas (`src/server.ts`)**:
-  - Middleware `applyCacheControlHeaders` implementado no entrypoint HTTP do servidor:
-    - Rota do catálogo (`/`): `Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=86400` + headers compatíveis com Vercel Edge Cache (`cdn-cache-control`, `vercel-cdn-cache-control`).
-    - Rota do perfil do atleta (`/athlete/:slug`): `public, max-age=120, s-maxage=900, stale-while-revalidate=86400`.
-    - Chamadas públicas de server function (`listPublicAthletes`, `getPublicAthlete`): `public, max-age=60, s-maxage=300, stale-while-revalidate=86400`.
-    - Rotas privadas (`/admin`, `/portal`, `/auth`) e requisições autenticadas blindadas estritamente com `private, no-cache, no-store, must-revalidate`.
-- **Otimização Drástica de Payload PostgREST (`src/lib/athletes.functions.ts`)**:
-  - Removido qualquer `select("*")` nas consultas públicas.
-  - Criadas constantes de projeção mínima com apenas as colunas consumidas pelas telas:
-    - `AGENCY_VISUAL_PUBLIC_SELECT`: apenas campos textuais públicos e URLs de logotipo/hero.
-    - `PUBLIC_PROFILE_SELECT`: apenas os campos exibidos na Fact Sheet e Bio do atleta.
-    - `PUBLIC_MEDIA_SELECT`: apenas metadados públicos e URLs de mídia.
-    - `PUBLIC_ACHIEVEMENTS_SELECT`: apenas títulos, datas e imagens de conquistas.
-    - `PUBLIC_VIDEOS_SELECT`: apenas URLs do YouTube, kind e títulos.
-  - Otimizada a consulta de contagem de likes em `listPublicAthletes`: em vez de carregar a tabela inteira por ID de atleta, filtra estritamente por `video_id IN (allVideoIds)`, economizando tráfego de dados.
-- **Componentes do Catálogo e Perfil Conectados**:
-  - `src/components/athlete-video-card-media.tsx`: card do atleta utiliza `getAthleteCardImage`.
-  - `src/components/home-highlights-story-bar.tsx` & `src/components/global-highlights-viewer.tsx`: stories utilizam `getAthleteStoryAvatar`.
-  - `src/routes/index.tsx`: logo do header, imagem do hero do catálogo e logo do rodapé otimizados.
-  - `src/routes/athlete.$slug.tsx`: logo, hero do atleta, fotos de conquistas, galeria de fotos, próximo atleta e tag `og:image` otimizados.
-- **Validação de Qualidade & Testes**:
-  - Testes unitários Vitest: 15 arquivos, 98 testes passaram com 100% de sucesso.
-  - Verificação de tipos TypeScript (`npm run typecheck`): 0 erros.
-  - Linter ESLint (`npm run lint`): 0 erros.
-  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
-
-### 4.14 Telemetria, Analytics e Rastreamento de Tráfego
-
-- **Google Analytics 4 (GA4)**: `G-4D6DTG650F` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
-- **Microsoft Clarity**: ID `y7zkn8qxno` injetado no `<head>` de `RootShell` em `src/routes/__root.tsx`.
-- **Meta Pixel (Facebook Pixel)**:
-  - Pixel ID: `1115203944400884`.
-  - Injetado no `<head>` de `RootShell` em `src/routes/__root.tsx` com fallback `<noscript>` e inicialização com `fbq('track', 'PageView')`.
-  - Componente de rastreamento client-side `MetaPixelTracker` integrado dentro de `<AppProviders>` em `RootComponent`, monitorando transições de rota via `useRouterState` para disparar eventos `PageView` em navegações SPA sem duplicidade na montagem inicial.
-
-## Atualização 2026-09-09 — Migração do Mailer para Aba Dedicada + Cadastro Estruturado de Universidades (TASK-062)
-
-- **Evolução de Banco de Dados (`db/migrations/0018_universities_and_mailer.sql`)**:
-  - Tabela `universities` criada:
-    - Campos institucionais: `id UUID`, `name TEXT NOT NULL`, `city TEXT NOT NULL`, `state TEXT NOT NULL (2 chars)`, `league TEXT`, `source_url TEXT`, `is_hbcu BOOLEAN DEFAULT FALSE`, `budget_level TEXT`, `toefl_level TEXT`.
-    - Sub-registros em `JSONB`: `coaches JSONB DEFAULT '[]'::jsonb` (lista de treinadores com `id`, `first_name`, `last_name`, `email`, `role`) e `history JSONB DEFAULT '[]'::jsonb` (timeline de acontecimentos e anotações com `id`, `date`, `event`).
-    - Índices criados para alta performance em buscas textuais e filtros: `name_trgm_idx`, `state_idx`, `league_idx`, `is_hbcu_idx`, `budget_level_idx`, `toefl_level_idx`.
-    - RLS ativado com permissão integral (`ALL`) para administradores da agência (`agency_admin`).
-  - Tabela `email_suppressions` criada:
-    - Armazenamento de contatos que solicitaram descadastro (opt-out / unsubscribe): `id UUID`, `email TEXT NOT NULL`, `reason TEXT`, `source TEXT DEFAULT 'unsubscribe_link'`, `created_at TIMESTAMPTZ`.
-    - Índice exclusivo `email_suppressions_email_lower_idx` em `lower(trim(email))` garantindo unicidade case-insensitive.
-    - Políticas RLS: leitura e gestão restritas a administradores; inserção anônima permitida para registro legítimo de descadastro via link público.
-  - Tabela `recruit_email_logs` evoluída:
-    - Desacoplamento da antiga foreign key com `coaches` (permitindo manter histórico perpétuo mesmo após exclusões ou edições de contatos).
-    - Adicionadas as colunas `email_type TEXT DEFAULT 'athlete_teaser'`, `recipient_name TEXT`, `recipient_email TEXT`, `university_name TEXT`.
-    - Status expandido para suportar `'sent'`, `'failed'`, `'suppressed'`.
-- **Novos Tipos TypeScript (`src/types/db.ts`)**:
-  - Tipos criados: `University`, `UniversityCoach`, `UniversityHistoryEntry`, `UniversityLeague`, `UniversityBudgetLevel`, `UniversityToeflLevel`, `EmailSuppression`.
-  - Interface `RecruitEmailLog` atualizada com novas colunas e status `suppressed`.
-- **Templates de E-mail de Recrutamento (`src/lib/email/`)**:
-  - `recruit-email-template.ts`: Adicionado parâmetro `recipientEmail` com injeção automática de URL de descadastro (`CANONICAL_BASE_URL/unsubscribe?email=...`) em conformidade com CAN-SPAM e boas práticas de entregabilidade.
-  - `recruit-email-catalog-template.ts`: Novo template institucional moderno (Dark/Emerald Theme) com apresentação do elenco geral de atletas, métricas de verificação da agência e botão CTA apontando para a home pública do portfólio.
-- **Camada de Backend e Servidor (`src/lib/email/recruit-email.server.ts` & `recruit-email.functions.ts`)**:
-  - Função `sendMailerEmails`:
-    - Processamento de três modos de envio: `single_athlete`, `multi_athlete`, `catalog`.
-    - Pré-filtragem automática contra a tabela `email_suppressions`, garantindo que contatos que deram opt-out nunca recebam novos e-mails.
-    - Envio em lote (chunking de 100 itens) para a API do Resend.
-    - Registro detalhado em `recruit_email_logs` com status correspondente (`sent`, `failed`, `suppressed`).
-  - Server functions expostas: `sendMailerServerFn`, `getSuppressedEmailsServerFn`, `unsubscribeServerFn`, `getMailerHistoryServerFn`.
-- **Rota Pública de Descadastro (`src/routes/unsubscribe.tsx`)**:
-  - Interface amigável e segura para coaches universitários optarem por não receber mais comunicações da agência.
-  - Pré-preenchimento automático via search param `?email=...`.
-  - Seleção opcional de motivos de descadastro (não recruta internacionais, vaga preenchida, não é o coach responsável, etc.).
-- **Gestão de Universidades e Coaches (`src/routes/_authenticated/admin/universities.tsx`)**:
-  - Painel com filtros multifacetados por Estado (50 estados americanos + DC), Liga (NJCAA D1/D2, NCAA D1/D2, NAIA), HBCU, Budget Level (`0–1000`, `1000–5000`, `5000–10000`, `10000+`) e TOEFL Level (`0`, `0–61`, `61+`).
-  - Modal de cadastro e edição completo com gerenciamento inline de sub-coaches e histórico de eventos.
-  - Importador inteligente de planilhas (`.xlsx` e `.csv`) com download de template pré-formatado, validação em linha e agrupamento automático de coaches sob a mesma universidade.
-- **Painel Central do Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
-  - Seletor dos 3 modos de envio: Atleta Específico, Multi-atleta (em lote) e Catálogo Institucional.
-  - Seletor de destinatários com filtros avançados e indicação de contatos com opt-out (suppressed).
-  - Pré-visualização WYSIWYG responsiva em tempo real com iframe seguro (`srcDoc`).
-  - Modal de confirmação com cálculo antecipado do volume total de disparos e contatos pulados.
-  - Aba de Histórico com auditoria de envios, status de entrega e motivos de falha/supressão.
-- **Navegação & Perfil do Atleta**:
-  - `src/components/app-shell.tsx`: Links de "Universidades" (`/admin/universities`) e "Mailer" (`/admin/mailer`) adicionados ao menu lateral.
-  - `src/routes/_authenticated/admin/athletes/$id.tsx`: Botão antigo de modal substituído por link contextual para o novo Mailer (`/admin/mailer?mode=single&athleteId=...`).
-
-## Atualização 2026-09-09 — Hotfix RLS, Redesign de E-mails com Paleta Oficial, Filtros Avançados e Otimização de Importação (TASK-063)
-
-- **Hotfix de RLS Migration (`db/migrations/0019_fix_universities_rls_role_reference.sql`)**:
-  - Resolvido erro de execução `column profiles.role does not exist` na migration 0018.
-  - Criada migration 0019 redefinindo todas as RLS policies das tabelas `universities` e `email_suppressions` para utilizar a função canônica do projeto `public.is_agency_admin()`.
-  - Migration `0018_universities_and_mailer.sql` também saneada preventivamente.
-- **Redesign dos Templates de E-mail com Identidade Visual Oficial**:
-  - `src/lib/email/recruit-email-template.ts` e `src/lib/email/recruit-email-catalog-template.ts` totalmente convertidos para a paleta oficial Go Team Go:
-    - Fundo envelope: `#f8faf5`.
-    - Container principal: `#ffffff` com borda `#e3e9dc` e sombra sutil.
-    - Tipografia principal: `#032812` (títulos e textos) e `#4b6353` (secundários/muted).
-    - Badges e destaques institucionais: fundo `#084323`, texto `#ffffff`.
-    - Botão de CTA e destaques de ação: `#f69e00` com texto `#032812` de alto contraste e legibilidade.
-    - Rodapé institucional: `#f0f4ec` com links em `#084323` e divisor `#e3e9dc`.
-    - Removidas 100% das cores do tema Dark legado (`#0b0b0c`, `#059669`, etc.).
-- **Filtros Avançados de Destinatários no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
-  - `src/lib/universities-constants.ts`: adicionado mapeamento `REGION_BY_STATE` contemplando todos os 50 estados americanos + DC divididos em 4 regiões (`Northeast`, `Midwest`, `South`, `West`).
-  - Painel do Mailer atualizado com novos dropdowns para Região dos EUA, Orçamento (Budget Level) e TOEFL/Duolingo Level, combinados com lógica estrita `AND` com os filtros existentes (Estado, Liga, HBCU).
-- **Otimização de Performance na Importação em Massa (`src/routes/_authenticated/admin/universities.tsx`)**:
-  - `handleConfirmImport` reescrito eliminando consultas individuais N+1 ao banco de dados.
-  - Carregamento prévio único de todas as universidades em um `Map` chaveado por `name_state` para buscas O(1).
-  - Separação das listas `toUpdate` e `toInsert` e execução paralela em lotes de 25 registros via `Promise.all`.
-- **Validação de Qualidade**:
-  - Testes unitários Vitest: 15 arquivos, 98 testes aprovados com 100% de sucesso.
-  - ESLint: 0 erros.
-  - Compilação de produção: Concluída com sucesso.
-
-## Atualização 2026-09-09 — Estabilização e Tipagem das Rotas Administrativas de Universidades e Mailer (TASK-064)
-
-- **Correção dos Wrappers de Rota e Layout**:
-  - `src/routes/_authenticated/admin/mailer.tsx` e `src/routes/_authenticated/admin/universities.tsx` atualizados para usar `<ProtectedPage role="agency_admin">` (prop `role` canônica) e `<AppShell role="agency_admin" title="...">`.
-  - Substituídos os componentes de painel incompatíveis por containers utilitários estilizados `glass-panel` com bordas e backgrounds alinhados ao design system.
-- **Tipagem Segura de Logs de Mailer (`src/lib/email/recruit-email.server.ts`)**:
-  - Tipagem refinada para inserções de auditoria no Supabase (`recruit_email_logs`) aceitando `athlete_id: null` para campanhas institucionais de catálogo geral sem recorrer a `any`.
-- **Validação de Qualidade**:
-  - ESLint: 0 erros.
-  - Compilação de produção (`compile_applet`): Build concluído com 100% de sucesso.
-
-## Atualização 2026-09-15 — Correção do Select de Agency Visual Settings, Logging de Erros e Migração 0019 (TASK-066)
-
-- **Causa Raiz & Resolução do Bug de Identidade Visual (Logo / Hero / Favicon)**:
-  - Na migração `0013_full_english_pivot_and_course_of_interest.sql`, as colunas `hero_title_pt`, `hero_subtitle_pt` e `catalog_heading_pt` foram removidas da tabela `agency_visual_settings`.
-  - A constante `AGENCY_VISUAL_PUBLIC_SELECT` em `src/lib/athletes.functions.ts` ainda referenciava essas colunas inexistentes, fazendo com que o Supabase/PostgREST rejeitasse a consulta pública inteira com erro `400 / 42703 (undefined_column)`.
-  - A constante foi corrigida para selecionar estritamente as colunas válidas: `agency_id, hero_title_en, hero_subtitle_en, catalog_heading_en, logo_url, hero_background_url`.
-- **Tratamento e Logging de Erros**:
-  - Adicionado logging explícito via `console.error` em `getAgencyVisual`, `listPublicAthletes` e `getPublicAthlete` ao consultar `agency_visual_settings`, prevenindo que falhas silenciosas futuras ocultem erros de schema ou permissão.
-- **Saneamento de Tipagem e Componentes**:
-  - `src/types/db.ts`: Removidos os campos obsoletos `hero_title_pt`, `hero_subtitle_pt` e `catalog_heading_pt` da interface `AgencyVisualSettings`.
-  - `src/routes/index.tsx`: Removidas as leituras residuais de fallbacks `_pt` da Home.
-- **Testes Unitários de Projeção**:
-  - `src/lib/athletes.functions.test.ts`: Adicionada suite de testes para `AGENCY_VISUAL_PUBLIC_SELECT` assegurando que colunas `_pt` jamais sejam selecionadas e que todos os campos visuais em inglês e branding estejam presentes.
-- **Histórico de Migrations (`db/migrations/0019_fix_universities_rls_role_reference.sql`)**:
-  - Criada a migração 0019 formalizando o hotfix de RLS para `universities` e `email_suppressions` com `public.is_agency_admin()`, sincronizando o repositório com o diário de bordo.
-- **Validação de Qualidade**:
-  - Vitest: 15 arquivos de testes, 100 testes unitários passando (100% de sucesso).
-  - ESLint: 0 erros.
-  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
-
-## Atualização 2026-09-16 — Migração Completa de E-mail de Resend para Amazon SES (TASK-067)
-
-- **Substituição de Dependências e Pacotes**:
-  - Pacote `resend` completamente desinstalado do projeto.
-  - Adicionado SDK oficial AWS `@aws-sdk/client-sesv2` para envio e gerenciamento de e-mails via Amazon SES API v2.
-- **Variáveis de Ambiente (`.env.example` e Runtime)**:
-  - Substituída a variável legada `RESEND_API_KEY` por:
-    - `AWS_ACCESS_KEY_ID`: ID da chave de acesso IAM.
-    - `AWS_SECRET_ACCESS_KEY`: Chave secreta de acesso IAM.
-    - `AWS_REGION`: Região AWS (ex: `us-east-1` ou `sa-east-1`).
-    - `SES_CONFIGURATION_SET`: Nome do Configuration Set associado ao tópico SNS para rastreamento de eventos.
-    - `SES_MAX_SEND_RATE`: Limite de taxa de envio da conta SES (default: `10` envios/segundo).
-  - `EMAIL_FROM` mantido com suporte a display name e fallback seguro (`Go Team Go <contact@goteamgoagency.com>`).
-- **Singleton e Configuração do SES (`src/lib/email/ses-client.server.ts`)**:
-  - Utilitários `getSesConfig()`, `getSesClient()` e `resetSesClientCache()`.
-  - Lazy initialization prevenindo quebras de startup quando credenciais não estiverem provisionadas no ambiente local.
-- **E-mails Transacionais e Janela de Envio (`src/lib/email/email.server.ts`)**:
-  - Migrado método `sendEmail` para `SendEmailCommand`.
-  - Envio imediato em horário comercial com fallback de agendamento na fila (`email_log` com `status: "scheduled"`).
-  - Função `processScheduledEmails()` para envio em lote de e-mails agendados que atingiram a janela de envio.
-  - Server function TanStack Start `processScheduledEmailsServerFn` em `src/lib/email/email.functions.ts`.
-- **Mailer de Recrutamento em Massa para Coaches (`src/lib/email/recruit-email.server.ts`)**:
-  - Substituído disparo batch do Resend por loop assíncrono controlado com rate limiting (throttling parametrizável via `SES_MAX_SEND_RATE`).
-  - Suporte completo a `ConfigurationSetName` para direcionar eventos de envio ao tópico SNS.
-  - Inserções individuais de auditoria na tabela `recruit_email_logs` com status `sent` ou `failed` e detalhamento de erros.
-  - Respeito estrito à tabela `email_suppressions` impedindo envio a contatos descadastrados ou com histórico de bounce/queixa.
-- **Processamento de Webhooks SNS de Bounce e Complaint (`src/lib/email/ses-webhook.server.ts` & `src/server.ts`)**:
-  - Criado processador `processSnsWebhook` que:
-    - Auto-confirma inscrições de tópicos SNS (`SubscriptionConfirmation`) validando domínios oficiais da AWS (`*.amazonaws.com`).
-    - Processa notificações SES (`Bounce` permanente e `Complaint`), inserindo automaticamente os e-mails na tabela `email_suppressions` com os motivos `ses_bounce_permanent` e `ses_complaint`.
-  - Exposta rota `POST /api/webhooks/ses` no `src/server.ts`.
-  - Exposta rota `POST|GET /api/cron/process-scheduled-emails` no `src/server.ts`.
-- **Testes Automatizados (`src/lib/email/ses-email.test.ts`)**:
-  - Cobertura de configuração, detecção de credenciais, confirmação de assinatura SNS com validação de domínio seguro e processamento de suppressions por Bounce/Complaint.
-- **Validação de Qualidade**:
-  - Vitest: 16 arquivos de testes, 106 testes unitários aprovados (100% de sucesso).
-  - ESLint: 0 erros.
-  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
-
-## Atualização 2026-09-17 — Mailer: Unificação Multi-Atleta, Filtros Avançados, Sinais de Interesse e Descadastro em 2 Níveis (TASK-070)
-
-- **Unificação de Disparo Multi-Atleta (`src/lib/email/recruit-email-template.ts` & `src/lib/email/recruit-email.server.ts`)**:
-  - Implementada função `renderMultiAthleteRecruitEmail` que compõe um único e-mail elegante com design mobile-first e Quiet Luxury contendo todos os cards das atletas selecionadas empilhados (com foto, nome, posição, biometria, ano de formatura, acadêmico, highlight quote e botão CTA individual de acesso ao perfil).
-  - Atualizado `sendRecruitEmailsServer` para agrupar envios por destinatário no modo `multi_athlete`, disparando 1 único e-mail com Configuration Set do SES, gerando 1 log consolidado na auditoria e incrementando a contagem de e-mails enviados.
-  - Atualizado o modal de pré-visualização e disparo em `src/routes/_authenticated/admin/mailer.tsx` para refletir visualmente o e-mail unificado empilhado.
-
-- **Filtros Avançados de Destinatários no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
-  - Adicionados filtros por:
-    - **HBCU**: Todas as Instituições vs. Apenas HBCU vs. Não-HBCU.
-    - **Budget Level**: Seleção multi-nível (Ex: High, Mid, Low).
-    - **TOEFL Level**: Seleção multi-nível (Ex: None, Basic, Moderate, High).
-  - Combinados com os filtros existentes (Gênero/Divisão, Liga, Estado) via lógica restritiva `AND`.
-
-- **Sinais de Interesse de Coaches (`coach_interest_signals`) & Desinteresse Inteligente**:
-  - **Migration `0020_interest_signals_and_suppression_levels.sql`**:
-    - Criação da tabela `coach_interest_signals` com `email`, `coach_id`, `athlete_id`, `position`, `reason`, `notes`, `expires_at` (padrão de 6 meses via `now() + interval '6 months'`) e `created_at`.
-    - Atualização da tabela `email_suppressions` com `suppression_type` (`temporary_6m` ou `permanent`) e `expires_at`.
-  - **Nova Rota Pública de Feedback (`src/routes/feedback.tsx`)**:
-    - Tela pública para o coach registrar desinteresse com 4 opções padronizadas:
-      1. _Roster is full for this recruiting class_
-      2. _Not currently recruiting for this position_
-      3. _Need players for other specific positions_
-      4. _Not recruiting international student-athletes_
-    - Suporte a campo opcional para posições abertas e observações, com expiração automática em 6 meses.
-  - **Badges Visuais de Alerta de Conflito no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
-    - Carregamento de sinais ativos via `getActiveInterestSignalsServerFn`.
-    - Exibição de alertas visuais (badges amarelos/âmbar) na listagem de destinatários quando houver colisão de posição ou roster lotado recente para aquele coach/instituição.
-
-- **Descadastro em 2 Níveis (`src/routes/unsubscribe.tsx`)**:
-  - Reformulada tela de unsubscribe com duas opções claras e transparentes:
-    1. **Pausar por 6 meses (`temporary_6m`)**: Pausa temporária recomendada para ciclos de temporada.
-    2. **Descadastro Permanente (`permanent`)**: Supressão perpétua de comunicações de recrutamento.
-  - Verificação de supressão ativa em `getSuppressedEmailSet` respeitando a data de expiração (`expires_at > now()`).
-
-- **Testes Automatizados & Qualidade**:
-  - Criado `src/lib/email/recruit-email-multi.test.ts` com cobertura completa de renderização de e-mail multi-atleta empilhado, rodapé com links contextualizados e parâmetros seguros.
-  - Vitest: 17 arquivos de testes, 109 testes unitários aprovados (100% de sucesso).
-  - ESLint: 0 erros.
-  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
-
-## Atualização 2026-09-18 — Correção Consolidada: UI Pattern + Brand Assets (TASK-071)
-
-- **Refatoração Visual das Rotas Públicas (`src/routes/feedback.tsx` e `src/routes/unsubscribe.tsx`)**:
-  - **Identidade Visual e Design Tokens**: Eliminada a paleta hardcoded escura desalinhada (`#0b0b0c`, zinc-800/900). Aplicados os tokens oficiais do Design System: `--background`, `--primary` (esmeralda), `--gold` / `--secondary`, classes utilitárias `.glass-panel`, `.liquid-button`, `.eyebrow` e fontes Space Grotesk / Inter.
-  - **Lógica e Contratos Intactos**: Preservada integralmente a lógica de envio de sinais de interesse em `feedback.tsx` e o descadastro em 2 níveis (`temporary_6m` vs `permanent`) em `unsubscribe.tsx`.
-
-- **Preservação e Suporte a Logomarcas Vetoriais SVG (`src/lib/image-transform.ts` & `src/lib/uploads.ts`)**:
-  - **Bypass de Transformação para SVG**: A API de transformação do Supabase (`render/image`) não processa arquivos vetoriais `.svg`. A função `getOptimizedImageUrl` agora detecta extensões `.svg` (ou parâmetros `format=svg`) e retorna a URL original diretamente do bucket `public`, evitando que a logo quebre no cabeçalho.
-  - **Upload de Branding**: Adicionado o tipo de upload `branding` com suporte a `image/svg+xml`, `image/png`, `image/jpeg` e `image/webp` (até 5MB) em `src/lib/uploads.ts`, integrado ao painel administrativo em `src/routes/_authenticated/admin/visual.tsx`.
-
-- **Componente Unificado de Cabeçalho Público (`src/components/public-header.tsx`)**:
-  - Centralizado o cabeçalho público institucional com renderização dinâmica da logomarca da agência (`visual.logo_url`), fallback tipográfico de alto padrão ("Go Team Go"), botão de retorno ao catálogo e navegação consistente entre Home (`/`), Perfil da Atleta (`/athlete/$slug`), Feedback (`/feedback`) e Unsubscribe (`/unsubscribe`).
-
-- **Favicon Oficial da Marca e Fallbacks (`public/favicon.svg`, `public/favicon.ico` e `src/routes/__root.tsx`)**:
-  - Criado `public/favicon.svg` com o monograma GTG e brasão atlético nas cores oficiais da agência (verde esmeralda escuro e dourado/âmbar).
-  - Gerado `public/favicon.ico` binário nativo para suporte a todos os navegadores legados e modernos.
-  - Atualizado `src/routes/__root.tsx` para injetar o favicon SVG nativo com fallback para ICO, mantendo a substituição dinâmica caso a agência configure uma logo customizada em `agency_visual_settings`.
-
-- **Qualidade, Testes e Verificação**:
-  - Testes unitários adicionados em `src/lib/image-transform.test.ts` e `src/lib/uploads.test.ts`.
-  - Vitest: 17 arquivos de teste, 111 testes executados e 100% aprovados.
-  - ESLint: 0 erros e 0 avisos bloqueantes.
-  - Compilação de produção (`compile_applet`): Build concluído com sucesso.
-
-## Atualização 2026-09-18 — Correção de Importação: getAgencyLogoImage (TASK-072)
-
-- **Correção em `src/routes/index.tsx`**:
-  - Adicionada a importação de `getAgencyLogoImage` a partir de `@/lib/image-transform` no componente `<Catalog>`, solucionando o erro de execução `ReferenceError: getAgencyLogoImage is not defined` no footer da página inicial.
-  - Validação completa com 111 testes unitários aprovados e build de produção verificado com sucesso.
-
-## Atualização 2026-09-28 — Correção da Logo do Header Público e Padronização do Componente de Marca (TASK-073)
-
-- **Diagnóstico e Causa Raiz**:
-  - Em produção, a logo no header e no rodapé aparecia minúscula e deformada (~11px de largura).
-  - A causa raiz foi identificada na transformação do Supabase Storage (`render/image`): ao receber apenas `width=260` sem `resize: "contain"`, a API aplicava `resizing_type: fill` preservando a altura original (724px), transformando uma imagem panorâmica de 2172x724 (3:1) em uma tira vertical de 260x724 (0.359:1). Ao aplicar `h-8` (32px), a largura calculada tornava-se 11.49px, colapsando a logo e vazando alt text cortado.
-  - Adicionalmente, faltava uma cadeia de fallback para proteção em falhas de rede ou erro na URL transformada.
-
-- **Componente Unificado `AgencyLogo` (`src/components/agency-logo.tsx`)**:
-  - Criado componente único com tratamento de ciclo de vida e fallback em cascata de 3 níveis:
-    1. **Nível 1 (Otimizado)**: Tenta carregar a URL transformada com `getAgencyLogoImage(logoUrl)` (`width=400`, `resize=contain`, `quality=85`).
-    2. **Nível 2 (Original)**: Ao interceptar evento `onError` na URL transformada, alterna instantaneamente para a URL original crua (`logoUrl`).
-    3. **Nível 3 (Texto)**: Se a URL original também disparar `onError` (ou se não houver logo cadastrada), exibe o fallback tipográfico "Go Team Go".
-  - Dimensões explícitas e seguras: `max-w-[200px]` (header) e `max-w-[180px]` (footer), com `object-contain`, `shrink-0`, `alt="Go Team Go Agency"` e `decoding="async"`.
-
-- **Ajustes de Otimização e Upload (`src/lib/image-transform.ts` & `src/routes/_authenticated/admin/visual.tsx`)**:
-  - `getAgencyLogoImage` configurado para `width: 400`, `resize: "contain"`, `quality: 85`.
-  - `isSvgUrl` aprimorado para manipulação de URLs complexas com query parameters.
-  - Upload no painel administrativo (`admin/visual.tsx`) atualizado com normalização automática de extensões baseada no MIME type (`file.type`).
-
-- **Consolidação nos Consumidores**:
-  - `src/components/public-header.tsx`: Substituído `<img>` fragmentado por `<AgencyLogo logoUrl={visual?.logo_url} variant="header" />`.
-  - `src/routes/index.tsx`: Rodapé atualizado com `<AgencyLogo logoUrl={visual?.logo_url} variant="footer" />`.
-  - `src/routes/athlete.$slug.tsx`: Rodapé atualizado com `<AgencyLogo logoUrl={visual?.logo_url} variant="footer" />`.
-
-- **Qualidade & Testes**:
-  - Criada suite unitária `src/components/agency-logo.test.tsx` cobrindo renderização padrão, variantes, bypass de SVG e fallbacks.
-  - Atualizado `src/lib/image-transform.test.ts`.
-  - Corrigido import em `src/lib/email/recruit-email-multi.test.ts` para `vitest`.
-  - 18 arquivos de teste, 116 testes unitários 100% aprovados, ESLint sem erros e compilação de produção validada com sucesso.
-
-## Atualização 2026-10-01 — Redesign dos 3 E-mails do Mailer: Layout "Recruiting Board" (Poster 2027) (TASK-074)
-
-- **Módulo de Tokens e Marca (`src/lib/email/email-brand.ts`)**:
-  - Centralização de cores e tokens institucionais: verde-escuro profundo (`#032812`), verde primário (`#084323`), verde hero (`#05301a`), verde bottom bar (`#08311c`), dourado primário (`#f69e00`), dourado claro (`#f0a500`), fundos `#f3f6f1` (cards), `#eef3ec` (CTA bar), `#f8faf5` (corpo externo) e branco `#ffffff`.
-  - URLs absolutas oficiais para produção (`https://portfolio.goteamgoagency.com/email/...`): logo institucional, hero background, manuscritos editoriais e ícones.
-  - Assinatura oficial de Fabiana Andrade (`Founder | Go Team Go Agency`, `fabiana@goteamgoagency.com`, `@goteamgoagency`, `www.goteamgoagency.com`).
-  - Mapeamento estático bidirecional `ALPHA2_TO_ALPHA3` (ISO 3166-1) eliminando necessidade de novas migrations no banco.
-
-- **Motor Modular de Layout de E-mail (`src/lib/email/email-layout.ts`)**:
-  - Implementação de 13 blocos funcionais reutilizáveis em HTML compatível com Gmail, Outlook (MSO/VML), Apple Mail e Webmail:
-    - `escapeHtml`: Sanitização estrita contra injeção e XSS de strings dinâmicas.
-    - `renderEmailShell`: Container rígido de 680px centralizado sobre fundo `#f8faf5` com meta tags para desabilitar inversões indesejadas de Dark Mode em clientes móveis.
-    - `renderEmailHeader`: Logotipo oficial à esquerda e texto editorial "INTERNATIONAL ATHLETES. / REAL OPPORTUNITIES." com traço dourado à direita.
-    - `renderEmailHero`: Faixa visual (~280px) com foto de quadra de vôlei P&B e degradê verde esmeralda, ano dinâmico em dourado gigante, tipografia extra-bold e manuscrito _"more than a game"_.
-    - `renderEmailIntro`: Seção em 2 colunas com saudação e texto à esquerda e 4 diferenciais com ícones dedicados à direita (academics verificados, film/highlights, comunicação direta e suporte completo).
-    - `renderFeaturedHeader`: Título de seção com linha divisória dourada fina e nota _"MORE ATHLETES AVAILABLE UPON REQUEST"_.
-    - `renderAthleteCard`: Card individual com sequência numérica (01..N), badge de país Alpha-3 e bandeira PNG circular, foto com proporção 1.22:1 e badge de posição fixada na base, nome bold em caixa alta, 5 linhas de atributos com ícones (altura em imperial+métrica, turma de graduação, GPA, destaque de conquista e financeiro omitido se vazio per instrução do usuário), badge discreta `TRANSFER` quando aplicável, e botão pill `"WATCH HIGHLIGHTS →"`.
-    - `renderAthleteGrid`: Grid inteligente em 4 colunas (25% cada) com centralização equilibrada de linhas incompletas.
-    - `renderRequestCtaBar`: Barra de solicitação com botão `mailto:` pré-formatado para Fabiana Andrade solicitando perfis específicos.
-    - `renderSignature`: Bloco com logotipo, divisor dourado vertical, dados completos de Fabiana Andrade e manuscrito _"Different Athletes Brighter Futures"_.
-    - `renderFeedbackBlock`: Botão contornado `"Not the right fit? Tell us why →"` direcionando para `/feedback`.
-    - `renderBottomBar`: Barra final 2/3 verde escura com lema acadêmico e 1/3 dourada com _"GO FURTHER. TOGETHER."_.
-    - `renderLegalFooter`: Rodapé com direitos autorais e link obrigatório `/unsubscribe`.
-
-- **Templates do Mailer (`src/lib/email/recruit-email-template.ts` & `recruit-email-catalog-template.ts`)**:
-  - `renderRecruitEmail`: Renderiza o template unitário (_"ATHLETE SPOTLIGHT"_), centralizando o card do atleta a 50% de largura e linkando diretamente seu highlight de vídeo ou perfil.
-  - `renderMultiAthleteRecruitEmail`: Renderiza o template multi-atleta com grid de 4 colunas e detecção dinâmica de esporte e intervalo de graduação.
-  - `renderCatalogEmail`: Renderiza a vitrine de portfólio completo destacando as modalidades esportivas ativas (vôlei, futebol, basquete, tênis, atletismo, natação) e links diretos ao catálogo sem favorecer atletas individuais.
-  - Geração de versão texto puro (`Body.Text`) correspondente para todos os 3 templates (`generateRecruitEmailPlainText`, `generateMultiAthletePlainText`, `generateCatalogPlainText`).
-
-- **Serviço de Envio Amazon SES (`src/lib/email/recruit-email.server.ts` & `email.server.ts`)**:
-  - Consulta automática a vídeos de destaque (`athlete_videos` com `kind: "highlight"`) e maiores conquistas (`achievements`) para enriquecer os cards de e-mail.
-  - Inclusão da chave `Body.Text` em todas as invocações de `SendEmailCommand` para maximizar reputação de entregabilidade e prevenir marcação como spam.
-
-- **Assets Binários e Vetoriais (`public/email/`)**:
-  - `logo-gtg.png`: Brasão oficial e logotipo renderizados em 2x.
-  - `hero-email.jpg`: Composição visual 1360×560px com atmosfera editorial esportiva e gradiente verde esmeralda.
-  - `handwritten-more-than-a-game.png` & `handwritten-different-athletes.png`: Caligrafias artísticas transparentes com sublinhado dourado.
-  - `public/email/icons/`: 14 ícones transparentes em PNG 2x (academic, film, users, globe, height, grad-cap, stats, star, dollar, play-circle, arrow-gold, email, instagram, website).
-  - `public/email/flags/`: 11 bandeiras circulares em PNG 2x (BRA, USA, CAN, COL, ARG, DOM, PRI, ITA, ESP, DEU e default).
-
-- **Modais de Pré-Visualização no Admin**:
-  - `src/components/send-recruit-email-dialog.tsx`: Iframe de pré-visualização atualizado com fundo `#f8faf5`.
-  - `src/routes/_authenticated/admin/mailer.tsx`: Iframe e dados de prévia sincronizados com o novo layout nos modos `single`, `multi` e `catalog`.
-
-- **Testes & Qualidade**:
-  - `src/lib/email/recruit-email-multi.test.ts`: 10 testes cobrindo variações de 1, 2, 4, 5 e 8 atletas, spot unitário, omissão de financeiro nulo, sanitização XSS, ausência de SVGs inline/emojis/base64, conformidade de tamanho (<100KB), saudações com fallback e rodapé de descadastro/feedback.
-  - 18 arquivos de teste e 123 testes unitários 100% aprovados.
-  - ESLint sem erros.
-  - Compilação de produção (`compile_applet`): Sucesso total.
-
----
-
-### [2026-10-01] Refinamento, Personalização Editorial e Integração Real do Mailer (TASK-075)
-
-- **Personalização Editorial em Tempo Real (`/admin/mailer`)**:
-  - Inclusão de campos editáveis para **Saudação (Greeting)** (`customGreeting`), **Introdução Principal** (`customIntroduction`) e **Chamada/Hook** (`customHook`) em todos os 3 modos de envio (`single`, `multi` e `catalog`), além de título e mensagem institucional no catálogo.
-  - O iframe de preview WYSIWYG reage instantaneamente a cada digitação com sanitização completa contra XSS via `escapeHtml`.
-  - Os valores personalizados são repassados ao backend no payload do `sendMailerServerFn` e inseridos tanto no HTML quanto na versão plain text (`Body.Text`) enviada pelo Amazon SES.
-
-- **Exclusão de Outras Modalidades no Catálogo (`src/lib/email/recruit-email-catalog-template.ts`)**:
-  - Removidas integralmente todas as menções e tabelas de modalidades não atendidas pela agência (Soccer, Basketball, Tennis, Track & Field, Swimming).
-  - O layout e o plain text agora são 100% focados na atuação da Go Team Go em **Volleyball** e no convite de exploração do elenco completo.
-
-- **Identidade Visual Dinâmica da Agência (`agency_visual_settings`)**:
-  - O Mailer carrega oficialmente `logo_url` e `hero_background_url` de `agency_visual_settings`.
-  - As URLs dinâmicas são propagadas tanto para o preview do Admin quanto para o disparo real via SES no backend. Ao alterar a logo ou o hero em `/admin/visual`, os próximos e-mails e previews passam a utilizar a nova imagem automaticamente.
-
-- **Resolução Real de Highlights ("Take a Look" e Botões dos Cards)**:
-  - O produto prioriza `athlete_videos` com `kind = 'highlight'` (ordenado por `sort_order ASC, created_at DESC`) com fallback para `athlete_profiles.highlight_video_url`.
-  - O botão do card `"WATCH HIGHLIGHTS →"` conecta diretamente à URL do vídeo da atleta (convertida via `youtubeWatchUrl`).
-  - Quando a atleta não possui highlight cadastrado, o botão é adaptado com segurança para `"VIEW FULL PROFILE →"` apontando para `/athlete/{slug}`, evitando links vazios ou quebrados.
-  - A chamada textual "Take a Look" no modo individual se torna um link ativo apontando para o vídeo de highlight.
-
-- **Qualidade & Testes**:
-  - Suite `recruit-email-multi.test.ts` expandida para 14 testes cobrindo personalização editorial, integridade do catálogo sem esportes terceiros, branding dinâmico e resolução de highlights.
-  - 18 arquivos de teste (127 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
-
-### [2026-10-01] Correção Visual: Máscara Verde no Hero do Mailer e Zoom no Perfil do Atleta (TASK-078)
-
-- **Máscara Verde Institucional no Hero dos E-mails (`src/lib/email/email-layout.ts`)**:
-  - Implementada a máscara/overlay verde institucional sobre a imagem de fundo do hero de e-mails em `renderEmailHero`.
-  - Estrutura em múltiplos backgrounds CSS: `background-image: linear-gradient(to right, rgba(3, 40, 18, 0.94) 0%, rgba(5, 48, 26, 0.88) 55%, rgba(8, 67, 35, 0.65) 100%), url('${heroBg}')`.
-  - Camada intermediária de fallback com tabela interna estilizada com `background: linear-gradient(...)` e `background-color: rgba(3, 40, 18, 0.86)` garantindo renderização consistente em clientes de e-mail que não suportam múltiplos backgrounds no `<td>`.
-  - Preservada a compatibilidade VML para Outlook com `color="${EMAIL_COLORS.darkGreenDeep}"`, além de manter intactos textos, tipografia e responsividade.
-
-- **Correção de Enquadramento e Zoom no Perfil do Atleta (`src/routes/athlete.$slug.tsx` & `src/lib/image-transform.ts`)**:
-  - Ajustado o container do retrato do atleta em `athlete.$slug.tsx` para a proporção `aspect-[3/4]` (alinhado com os cards do catálogo na Home), eliminando o super zoom artificial e o crop excessivo do rosto.
-  - Atualizado o preset `getAthleteHeroImage` em `src/lib/image-transform.ts` para `{ width: 600, height: 800, resize: "cover", quality: 85 }`, garantindo que imagens horizontais ou de alta resolução sejam transformadas no Supabase Storage na proporção natural 3:4 antes da renderização no navegador.
-  - Atualizados os testes unitários em `src/lib/image-transform.test.ts` (10/10 testes passando).
-  - Validada a suite completa (18 arquivos de teste, 131 testes passando) e compilação de produção com sucesso.
