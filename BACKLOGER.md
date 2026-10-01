@@ -737,3 +737,14 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Mantido o `package-lock.json` não rastreado; nenhum push ou alteração em migrations remotas foi feito.
 - **Plano:** `think/2026-10-01-1921-reverter-commits-apos-ponto-correto.md`.
 - **Status:** [CONCLUÍDO]
+
+## TASK-081 — 2026-10-01 19:46 — Correção da instalação/build Vercel após reversão
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** GitHub Copilot CLI
+- **Pedido:** Investigar a falha de build na Vercel após a reversão, registrar um plano e corrigir o problema com aprovação humana.
+- **Diagnóstico confirmado pelo log:** A etapa `bun install` recebia HTTP 403 ao buscar `@tanstack/react-start@1.168.48` e `@tanstack/start-server-core@1.169.30`; a Vercel identificou `@tanstack/react-start@1.168.48` como vulnerável. A falha ocorria antes de `vite build`.
+- **Correções aplicadas:** atualização de `@tanstack/react-start` para `^1.168.60`, regeneração de `bun.lock` (React Start `1.168.60`, server core `1.169.39`), remoção do `package-lock.json` divergente, declaração de Bun `1.3.14`, requisito de Node `>=22.12.0` e correção do script `validate` para usar Bun.
+- **Validação parcial:** `bun install --frozen-lockfile` passou com Bun 1.3.14; 138 testes passaram; ESLint passou com 10 warnings; typecheck passou isoladamente. Build local ainda está em verificação, pois duas execuções síncronas foram interrompidas por SIGTERM durante a geração dos chunks.
+- **Plano:** `think/2026-10-01-1946-diagnostico-correcao-build-vercel.md`.
+- **Status:** [PENDENTE]

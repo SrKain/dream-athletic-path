@@ -1074,3 +1074,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Validação:** após os reverts, o conteúdo rastreado da aplicação foi comparado com o commit de referência e não havia diferenças. Esta nota e o registro no BACKLOGER são documentação posterior.
 - **Preservação:** sem push, reset, rebase ou force push. `package-lock.json` não rastreado mantido. Alterações/migrations já aplicadas no Supabase externo não são revertidas por Git.
 - **Plano:** `think/2026-10-01-1921-reverter-commits-apos-ponto-correto.md`.
+
+## Atualização 2026-10-01 — Correção da instalação/build Vercel após reversão (TASK-081)
+
+- **Causa confirmada pelo log da Vercel**: a implantação falhava durante `bun install`, antes de `vite build`, ao baixar `@tanstack/react-start@1.168.48` e `@tanstack/start-server-core@1.169.30` (HTTP 403). A Vercel também identificou o React Start bloqueado como vulnerável.
+- **Dependências e gerenciador**: `@tanstack/react-start` foi atualizado para `^1.168.60`, com resolução do `@tanstack/start-server-core` para `1.169.39`; `bun.lock` foi regenerado. `package-lock.json` conflitante foi removido para manter Bun como gerenciador único e eliminar a detecção divergente de package manager.
+- **Contrato de runtime**: `package.json` declara `packageManager: "bun@1.3.14"`, `engines.node >=22.12.0` (requisito do release TanStack escolhido) e o script `validate` usa `bun run`.
+- **Segurança**: não foi usado o bypass `DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS`.
+- **Validação em andamento**: a instalação congelada com Bun 1.3.14 concluiu sem alterações; testes (19 arquivos, 138 testes) passaram; ESLint passou com 10 avisos preexistentes; typecheck passou quando executado isoladamente. A build Vite local encerrou com SIGTERM durante `rendering chunks` em duas tentativas síncronas; uma terceira execução está em andamento para verificar se a execução isolada conclui.
+- **Plano:** `think/2026-10-01-1946-diagnostico-correcao-build-vercel.md`.
