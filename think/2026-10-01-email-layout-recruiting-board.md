@@ -13,11 +13,13 @@
 ## 1. Contexto e Objetivo
 
 O Mailer do Go Team Go atualmente envia três formatos de e-mail de recrutamento para coaches universitários americanos:
+
 1. **Unitário** (`renderRecruitEmail`): Focado em 1 atleta específico.
 2. **Multi-Atleta** (`renderMultiAthleteRecruitEmail`): Seleção curada de 2 a 8+ atletas empilhados.
 3. **Portfólio / Catálogo Geral** (`renderCatalogEmail`): Apresentação institucional da agência e convite ao catálogo completo.
 
 O objetivo desta tarefa é realizar um **redesign completo e rigoroso** dos 3 templates para seguir **com exatidão visual absoluta a imagem de referência ("2027 VOLLEYBALL RECRUITING BOARD")**:
+
 - Mesma ordem de seções, proporções, tipografia, paleta e peso editorial de poster/showcase esportivo americano.
 - Eliminação do visual antigo (badges genéricas, cartões em lista simples, cabeçalho antigo).
 - Unificação arquitetural: criação de um motor modular de renderização de e-mails HTML (`src/lib/email/email-layout.ts` e `src/lib/email/email-brand.ts`) para garantir coerência visual de 100% entre os 3 templates e o preview no Admin.
@@ -28,22 +30,22 @@ O objetivo desta tarefa é realizar um **redesign completo e rigoroso** dos 3 te
 
 Conforme a regra inegociável §0.4, analisamos todas as colunas necessárias contra `db/migrations/` e `src/types/db.ts`:
 
-| Campo Requerido pelo Layout | Tabela Existente | Coluna / Origem | Status no Schema |
-| :--- | :--- | :--- | :--- |
-| Nome do Atleta | `athletes` | `full_name` (text) | ✅ Existente |
-| Slug / URL do Perfil | `athletes` | `slug` (text) | ✅ Existente |
-| Foto do Atleta | `athletes` | `photo_url` (text) | ✅ Existente |
-| Altura (cm -> ft/in) | `athletes` | `height_cm` (integer) | ✅ Existente |
-| Posição | `positions` | `name_en` (text via `position_id`) | ✅ Existente |
-| Esporte | `sports` | `name_en` (text via `sport_id`) | ✅ Existente |
-| País (Alpha-2 / Nome) | `countries` | `code`, `name_en`, `flag_emoji` | ✅ Existente |
-| Ano de Graduação | `athlete_profiles` | `high_school_graduation` / `graduation_year` | ✅ Existente |
-| GPA | `athlete_profiles` | `gpa` (numeric) | ✅ Existente |
-| Linha de Destaque (Hook) | `athlete_profiles` | `highlight_note` (text) | ✅ Existente |
-| Conquista Pública (Fallback Hook) | `achievements` | `title_en` (`is_public = true`) | ✅ Existente |
-| Situação Financeira (Budget) | `athlete_profiles` | `budget` (text) | ✅ Existente |
-| Status / Transfer | `athlete_profiles` | `athlete_status` (text) | ✅ Existente |
-| Vídeo de Highlight | `athlete_videos` / `athlete_profiles` | `youtube_url` (`kind='highlight'`) ou `highlight_video_url` | ✅ Existente |
+| Campo Requerido pelo Layout       | Tabela Existente                      | Coluna / Origem                                             | Status no Schema |
+| :-------------------------------- | :------------------------------------ | :---------------------------------------------------------- | :--------------- |
+| Nome do Atleta                    | `athletes`                            | `full_name` (text)                                          | ✅ Existente     |
+| Slug / URL do Perfil              | `athletes`                            | `slug` (text)                                               | ✅ Existente     |
+| Foto do Atleta                    | `athletes`                            | `photo_url` (text)                                          | ✅ Existente     |
+| Altura (cm -> ft/in)              | `athletes`                            | `height_cm` (integer)                                       | ✅ Existente     |
+| Posição                           | `positions`                           | `name_en` (text via `position_id`)                          | ✅ Existente     |
+| Esporte                           | `sports`                              | `name_en` (text via `sport_id`)                             | ✅ Existente     |
+| País (Alpha-2 / Nome)             | `countries`                           | `code`, `name_en`, `flag_emoji`                             | ✅ Existente     |
+| Ano de Graduação                  | `athlete_profiles`                    | `high_school_graduation` / `graduation_year`                | ✅ Existente     |
+| GPA                               | `athlete_profiles`                    | `gpa` (numeric)                                             | ✅ Existente     |
+| Linha de Destaque (Hook)          | `athlete_profiles`                    | `highlight_note` (text)                                     | ✅ Existente     |
+| Conquista Pública (Fallback Hook) | `achievements`                        | `title_en` (`is_public = true`)                             | ✅ Existente     |
+| Situação Financeira (Budget)      | `athlete_profiles`                    | `budget` (text)                                             | ✅ Existente     |
+| Status / Transfer                 | `athlete_profiles`                    | `athlete_status` (text)                                     | ✅ Existente     |
+| Vídeo de Highlight                | `athlete_videos` / `athlete_profiles` | `youtube_url` (`kind='highlight'`) ou `highlight_video_url` | ✅ Existente     |
 
 **Conclusão Formal:** Todas as informações já existem no banco de dados. **Nenhuma migration SQL será criada ou executada.**
 
@@ -52,10 +54,12 @@ Conforme a regra inegociável §0.4, analisamos todas as colunas necessárias co
 ## 3. Decisões Consolidadas e Respostas Humanas Aprovadas
 
 ### Decisão 1: Linha Financeira do Card (`budget`) — APROVADO: OMITIR SE VAZIO
+
 - Se `athlete_profiles.budget` estiver preenchido, renderizar a linha com ícone de cifrão: `"Financial: " + budget`.
 - Se estiver vazio/nulo, **omitir a linha completamente**, conforme determinação explícita do usuário.
 
 ### Decisão 2: Título do Hero no E-mail Unitário — APROVADO
+
 - No e-mail unitário (1 único atleta):
   - Ano: `{GraduationYear}` em dourado (ex: `2027`)
   - Título: `{SPORT}` e `ATHLETE SPOTLIGHT` em branco, caixa alta, 2 linhas
@@ -64,6 +68,7 @@ Conforme a regra inegociável §0.4, analisamos todas as colunas necessárias co
   - Card centralizado com largura de 50%.
 
 ### Decisão 3: E-mail de Portfólio Geral (`renderCatalogEmail`) — APROVADO: SEM ATLETAS INDIVIDUAIS
+
 - **Negado o uso de 4 atletas individuais** para não transparecer favoritismo ou preferência por determinados atletas no disparo institucional geral.
 - O e-mail de portfólio completo utilizará o mesmo envelope, tipografia e blocos da referência:
   - Header idêntico com logo Go Team Go e lema.
@@ -74,19 +79,21 @@ Conforme a regra inegociável §0.4, analisamos todas as colunas necessárias co
   - Assinatura oficial, botão de feedback e barra inferior com descadastro legal.
 
 ### Decisão 4: Bandeiras e Código Alpha-3 dos Países
+
 - Mapeamento estático type-safe `ALPHA2_TO_ALPHA3` no código.
 - Bandeiras PNG em `public/email/flags/`.
 
 ### Decisão 5: Botão "Recrutar" dentro do Card
+
 - O botão dentro do card é exclusivamente `"WATCH HIGHLIGHTS →"`.
 - Solicitação de contato e recrutamento concentrada na CTA Bar `"REQUEST MORE ATHLETES →"`.
 
 ### Decisão 6: Link do Botão "WATCH HIGHLIGHTS"
+
 - Prioridade:
   1. Primeiro vídeo de highlight cadastrado em `athlete_videos` (`kind = 'highlight'`) convertido para URL direta do YouTube (`youtubeWatchUrl`).
   2. Fallback 1: `athlete_profiles.highlight_video_url`.
   3. Fallback 2: URL pública do perfil do atleta (`https://portfolio.goteamgoagency.com/athlete/{slug}`).
-
 
 ---
 
@@ -105,6 +112,7 @@ src/lib/email/
 ```
 
 ### 4.1. `email-brand.ts`
+
 - Cores institucionais:
   - Dark Green Primário: `#084323` / `#05301a` / `#032812`
   - Dourado / Accent: `#f69e00` / `#f0a500`
@@ -127,6 +135,7 @@ src/lib/email/
   - Site: `www.goteamgoagency.com`
 
 ### 4.2. `email-layout.ts` (Blocos Reutilizáveis)
+
 1. `escapeHtml(str)`: Sanitização estrita contra XSS para todas as strings interpoladas.
 2. `renderEmailShell({ title, preheader, bodyHtml })`: Envelope de tabela 680px, meta tags `color-scheme: light only`, CSS inline para clientes móveis e Outlook.
 3. `renderEmailHeader()`: Logo Go Team Go à esquerda + texto em caixa alta "INTERNATIONAL ATHLETES. / REAL OPPORTUNITIES." à direita com traço dourado.
@@ -156,6 +165,7 @@ src/lib/email/
 ## 5. Geração de Assets Físicos em `public/email/`
 
 Para não depender de links externos instáveis ou SVGs (bloqueados no Gmail e Outlook), geraremos os assets em PNG 2x nítidos diretamente no repositório:
+
 - `public/email/hero-email.jpg`: Banner de alta qualidade com atleta de vôlei e degradê verde-escuro (#05301a -> transparente).
 - `public/email/logo-gtg.png`: Logo oficial em PNG 2x com a tagline "PEOPLE · OPPORTUNITIES · A BRIGHTER TOMORROW".
 - `public/email/handwritten-more-than-a-game.png`: Assinatura manuscrita em PNG transparente com traço dourado.
@@ -179,6 +189,7 @@ Para não depender de links externos instáveis ou SVGs (bloqueados no Gmail e O
 ## 6. Versão Texto Puro (`Body.Text`) para SES
 
 Em conformidade com as melhores práticas de entregabilidade contra caixas de spam e filtros institucionais de universidades (.edu):
+
 - Criaremos geradores de texto puro para os 3 e-mails contendo:
   - Título, saudação e texto introdutório
   - Lista textual dos atletas (Nome, Posição, Altura, Graduação, GPA, Conquista, Link do Perfil / Highlights)
@@ -188,6 +199,7 @@ Em conformidade com as melhores práticas de entregabilidade contra caixas de sp
   - Link de descadastro em conformidade com CAN-SPAM Act
 
 No ponto de envio do SES (`recruit-email.server.ts` e `email.server.ts`), o payload incluirá simultaneamente:
+
 ```typescript
 Body: {
   Html: { Data: html, Charset: "UTF-8" },
@@ -218,17 +230,17 @@ Body: {
 
 ## 8. Arquivos Afetados no Projeto
 
-- `src/lib/email/email-brand.ts` *(Novo)*
-- `src/lib/email/email-layout.ts` *(Novo)*
-- `src/lib/email/recruit-email-template.ts` *(Refatoração completa)*
-- `src/lib/email/recruit-email-catalog-template.ts` *(Refatoração completa)*
-- `src/lib/email/recruit-email.server.ts` *(Adição de Text body + consulta enriquecida de destaques)*
-- `src/lib/email/email.server.ts` *(Adição de suporte a Text body)*
-- `src/components/send-recruit-email-dialog.tsx` *(Ajuste de preview)*
-- `src/routes/_authenticated/admin/mailer.tsx` *(Ajuste de preview)*
-- `src/lib/email/recruit-email-multi.test.ts` *(Testes expandidos)*
-- `public/email/...` *(Novos assets visuais em PNG/JPG)*
-- `CERNE.md` e `BACKLOGER.md` *(Atualização de documentação viva e registro da TASK-074)*
+- `src/lib/email/email-brand.ts` _(Novo)_
+- `src/lib/email/email-layout.ts` _(Novo)_
+- `src/lib/email/recruit-email-template.ts` _(Refatoração completa)_
+- `src/lib/email/recruit-email-catalog-template.ts` _(Refatoração completa)_
+- `src/lib/email/recruit-email.server.ts` _(Adição de Text body + consulta enriquecida de destaques)_
+- `src/lib/email/email.server.ts` _(Adição de suporte a Text body)_
+- `src/components/send-recruit-email-dialog.tsx` _(Ajuste de preview)_
+- `src/routes/_authenticated/admin/mailer.tsx` _(Ajuste de preview)_
+- `src/lib/email/recruit-email-multi.test.ts` _(Testes expandidos)_
+- `public/email/...` _(Novos assets visuais em PNG/JPG)_
+- `CERNE.md` e `BACKLOGER.md` _(Atualização de documentação viva e registro da TASK-074)_
 
 ---
 

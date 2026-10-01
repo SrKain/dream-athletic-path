@@ -474,4 +474,98 @@ export interface RecruitEmailLog {
   recipient_email?: string | null;
   recipient_name?: string | null;
   university_name?: string | null;
+  provider_id?: string | null;
+}
+
+export type EmailEventType =
+  | "email.sent"
+  | "email.delivered"
+  | "email.delivery_delayed"
+  | "email.opened"
+  | "email.clicked"
+  | "email.bounced"
+  | "email.complained"
+  | "email.unsubscribed"
+  | "email.failed"
+  | "email.suppressed"
+  | string;
+
+export interface EmailEvent {
+  id: string;
+  provider: string;
+  provider_event_id: string;
+  provider_email_id: string;
+  event_type: EmailEventType;
+  recipient: string;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MailerMetricsTotals {
+  sent: number;
+  delivered: number;
+  opened: number;
+  unique_opened: number;
+  clicked: number;
+  unique_clicked: number;
+  bounced: number;
+  bounced_permanent: number;
+  bounced_transient: number;
+  delivery_delayed: number;
+  unsubscribed: number;
+  complained: number;
+  failed: number;
+  suppressed: number;
+  delivery_rate: number;
+  open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+  complaint_rate: number;
+  unsubscribe_rate: number;
+}
+
+export interface MailerMetricsTimePoint {
+  period: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+}
+
+export interface CampaignModePerformance {
+  mode: "single_athlete" | "multi_athlete" | "catalog";
+  label: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  delivery_rate: number;
+  open_rate: number;
+  click_rate: number;
+}
+
+export interface DeliveryProblemItem {
+  id: string;
+  recipient: string;
+  university_name?: string | null;
+  event_type: string;
+  reason?: string | null;
+  occurred_at: string;
+}
+
+export interface MailerMetricsReport {
+  dataSource: "resend_api" | "local_database" | "unavailable";
+  startDate: string;
+  endDate: string;
+  granularity: "daily" | "hourly";
+  totals: MailerMetricsTotals;
+  timeSeries: MailerMetricsTimePoint[];
+  campaigns: CampaignModePerformance[];
+  deliveryProblems: DeliveryProblemItem[];
+  lastUpdated: string;
+  apiConfigured: boolean;
+  message?: string;
 }

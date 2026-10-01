@@ -87,6 +87,7 @@ describe("Resend Configuration & Client", () => {
 
 describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => {
   beforeEach(() => {
+    delete process.env.RESEND_WEBHOOK_SECRET;
     vi.clearAllMocks();
   });
 

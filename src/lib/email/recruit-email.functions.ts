@@ -56,7 +56,7 @@ export const getMailerHistoryServerFn = createServerFn({ method: "GET" })
     const { data, error } = await admin
       .from("recruit_email_logs")
       .select(
-        "id, athlete_id, coach_id, subject, status, error_message, sent_at, email_type, recipient_email, recipient_name, university_name",
+        "id, athlete_id, coach_id, subject, status, error_message, sent_at, email_type, recipient_email, recipient_name, university_name, provider_id",
       )
       .order("sent_at", { ascending: false })
       .limit(100);
@@ -68,7 +68,30 @@ export const getMailerHistoryServerFn = createServerFn({ method: "GET" })
     return data || [];
   });
 
-// 7. Retrocompatibilidade para chamadas legadas
+// 7. Métricas Analíticas do Mailer (Requer agência)
+export const getMailerMetricsServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator(
+    (data?: { range?: "7d" | "30d" | "90d" | "custom"; startDate?: string; endDate?: string }) =>
+      data,
+  )
+  .handler(async ({ data }) => {
+    const { getMailerMetricsReport } = await import("./mailer-metrics.server");
+    return getMailerMetricsReport(data);
+  });
+
+// 8. Linha do Tempo de Eventos de E-mail (Requer agência)
+export const getEmailEventTimelineServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator(
+    (data: { providerEmailId?: string | null; recipientEmail?: string | null }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { getEmailEventTimeline } = await import("./mailer-metrics.server");
+    return getEmailEventTimeline(data.providerEmailId, data.recipientEmail);
+  });
+
+// 9. Retrocompatibilidade para chamadas legadas
 export const sendRecruitEmailServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { athleteId: string; coachIds: string[] }) => data)

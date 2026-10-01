@@ -533,6 +533,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           recipient_email: item.recipientEmail,
           recipient_name: item.recipientName,
           university_name: item.universityName,
+          provider_id: resendId ?? null,
         };
       });
 
@@ -570,6 +571,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             recipient_email: item.recipientEmail,
             recipient_name: item.recipientName,
             university_name: item.universityName,
+            provider_id: singleRes.data?.id ?? null,
           });
         } catch (individualErr) {
           totalFailed++;

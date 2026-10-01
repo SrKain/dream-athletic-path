@@ -81,4 +81,3 @@
   - Disparo de recrutamento em `src/lib/email/recruit-email.server.ts` migrado para loop individual com rate limiting e logging individual de auditoria.
   - Webhook de SNS em `src/lib/email/ses-webhook.server.ts` exposto em `POST /api/webhooks/ses` no `src/server.ts` com confirmação automática de assinatura e supressão de Bounce / Complaint.
   - 106 testes automatizados passando (16 suítes). Build de produção e linter 100% aprovados.
-

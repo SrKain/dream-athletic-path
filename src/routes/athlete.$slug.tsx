@@ -304,9 +304,9 @@ function PublicAthleteProfile() {
 
         <div className="container-edge relative z-10 px-6 sm:px-10 md:px-12 lg:px-16 xl:px-20 py-16 sm:py-20 lg:py-24 w-full">
           <div className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16 xl:gap-20 lg:items-center">
-            {/* Retrato do Atleta em Proporção Editorial 4:5 */}
+            {/* Retrato do Atleta em Proporção Natural 3:4 */}
             <div className="flex justify-center sm:justify-start">
-              <div className="relative aspect-[4/5] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
+              <div className="relative aspect-[3/4] w-52 sm:w-60 md:w-72 shrink-0 overflow-hidden rounded-2xl bg-zinc-950 shadow-2xl ring-1 ring-white/15">
                 <img
                   src={getAthleteHeroImage(photoUrl)}
                   alt={`${athlete.full_name} — ${positionLabel ?? "Volleyball"} — Go Team Go Agency headshot`}

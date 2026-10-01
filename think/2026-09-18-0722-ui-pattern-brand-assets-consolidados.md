@@ -30,8 +30,8 @@ Este plano cobre quatro correções essenciais em um bloco único e indivisível
 
 4. **ITEM 4 — Correção do Favicon e Fallback Oficial:**
    - **Diagnóstico da Causa Raiz:**
-     - *(a)* No estado inicial ou quando a agência ainda não cadastrou uma logo personalizada, `agency_visual_settings.logo_url` é nulo/vazio, fazendo `src/routes/__root.tsx` recorrer ao fallback `/favicon.ico`.
-     - *(b)* O arquivo físico `public/favicon.ico` era o ícone residual padrão do Lovable.
+     - _(a)_ No estado inicial ou quando a agência ainda não cadastrou uma logo personalizada, `agency_visual_settings.logo_url` é nulo/vazio, fazendo `src/routes/__root.tsx` recorrer ao fallback `/favicon.ico`.
+     - _(b)_ O arquivo físico `public/favicon.ico` era o ícone residual padrão do Lovable.
    - **Solução:**
      - Criar `public/favicon.svg` e substituir `public/favicon.ico` pelo ícone e monograma oficial da Go Team Go (Verde Escuro `#032812` + Laranja Dourado `#f69e00`).
      - Atualizar `src/routes/__root.tsx` para referenciar o favicon SVG e o favicon ICO atualizado, mantendo a sobrescrita dinâmica quando `logo_url` estiver preenchido.
@@ -40,29 +40,30 @@ Este plano cobre quatro correções essenciais em um bloco único e indivisível
 
 ## 2. Arquivos Envolvidos e Modificações
 
-| Arquivo | Ação | Descrição |
-| :--- | :--- | :--- |
-| `src/routes/feedback.tsx` | Modificação | Refatoração visual com tokens oficiais, `.glass-panel`, `.eyebrow`, `.liquid-button`. |
-| `src/routes/unsubscribe.tsx` | Modificação | Refatoração visual com tokens oficiais, cards de seleção em 2 níveis e botões contextuais. |
-| `src/lib/image-transform.ts` | Modificação | Bypass do render/image quando a URL for SVG (`.svg`). |
-| `src/lib/image-transform.test.ts` | Modificação | Novos testes unitários validando preservação de URLs SVG. |
-| `src/lib/uploads.ts` | Modificação | Adição de `branding` em `uploadRules` com suporte a `image/svg+xml`. |
-| `src/lib/uploads.test.ts` | Modificação | Testes unitários para validação de `branding` e SVG. |
-| `src/routes/_authenticated/admin/visual.tsx` | Modificação | Uso de `validateUpload("branding", file)`. |
-| `src/components/public-header.tsx` | Criação | Componente unificado de header público com logo dinâmico e fallback tipográfico. |
-| `src/routes/index.tsx` | Modificação | Utilização do `PublicHeader`. |
-| `src/routes/athlete.$slug.tsx` | Modificação | Utilização do `PublicHeader`. |
-| `src/routes/__root.tsx` | Modificação | Inclusão de `favicon.svg` e vínculo correto do favicon estático e dinâmico. |
-| `public/favicon.svg` | Criação | Vetor oficial do monograma Go Team Go. |
-| `public/favicon.ico` | Modificação | Favicon estático com a marca Go Team Go. |
-| `CERNE.md` | Modificação | Documentação da entrega TASK-071. |
-| `BACKLOGER.md` | Modificação | Registro da TASK-071 concluída com os 4 itens. |
+| Arquivo                                      | Ação        | Descrição                                                                                  |
+| :------------------------------------------- | :---------- | :----------------------------------------------------------------------------------------- |
+| `src/routes/feedback.tsx`                    | Modificação | Refatoração visual com tokens oficiais, `.glass-panel`, `.eyebrow`, `.liquid-button`.      |
+| `src/routes/unsubscribe.tsx`                 | Modificação | Refatoração visual com tokens oficiais, cards de seleção em 2 níveis e botões contextuais. |
+| `src/lib/image-transform.ts`                 | Modificação | Bypass do render/image quando a URL for SVG (`.svg`).                                      |
+| `src/lib/image-transform.test.ts`            | Modificação | Novos testes unitários validando preservação de URLs SVG.                                  |
+| `src/lib/uploads.ts`                         | Modificação | Adição de `branding` em `uploadRules` com suporte a `image/svg+xml`.                       |
+| `src/lib/uploads.test.ts`                    | Modificação | Testes unitários para validação de `branding` e SVG.                                       |
+| `src/routes/_authenticated/admin/visual.tsx` | Modificação | Uso de `validateUpload("branding", file)`.                                                 |
+| `src/components/public-header.tsx`           | Criação     | Componente unificado de header público com logo dinâmico e fallback tipográfico.           |
+| `src/routes/index.tsx`                       | Modificação | Utilização do `PublicHeader`.                                                              |
+| `src/routes/athlete.$slug.tsx`               | Modificação | Utilização do `PublicHeader`.                                                              |
+| `src/routes/__root.tsx`                      | Modificação | Inclusão de `favicon.svg` e vínculo correto do favicon estático e dinâmico.                |
+| `public/favicon.svg`                         | Criação     | Vetor oficial do monograma Go Team Go.                                                     |
+| `public/favicon.ico`                         | Modificação | Favicon estático com a marca Go Team Go.                                                   |
+| `CERNE.md`                                   | Modificação | Documentação da entrega TASK-071.                                                          |
+| `BACKLOGER.md`                               | Modificação | Registro da TASK-071 concluída com os 4 itens.                                             |
 
 ---
 
 ## 3. Detalhamento da Implementação
 
 ### 3.1 `src/lib/image-transform.ts`
+
 ```ts
 function isSvgUrl(url: string): boolean {
   try {
@@ -84,13 +85,16 @@ export function getOptimizedImageUrl(
 ```
 
 ### 3.2 `src/components/public-header.tsx`
+
 Criação de um header padronizado, acessível e com estética Quiet Luxury:
+
 - Logo dinâmico da agência via `getAgencyLogoImage(visual?.logo_url)`.
 - Fallback em tipografia display ("Go Team Go") caso não haja logo cadastrado.
 - Suporte a slots de ações (ex: botão de retorno ao catálogo, links de contato).
 - Efeito backdrop-blur e sticky top-0.
 
 ### 3.3 `src/routes/feedback.tsx` e `src/routes/unsubscribe.tsx`
+
 - Layout centralizado com `bg-background text-foreground`.
 - Painel `glass-panel` com cantos arredondados, bordas sutis `border-border/70`.
 - Título com `font-display`, subtítulos refinados e tags `.eyebrow`.
@@ -98,6 +102,7 @@ Criação de um header padronizado, acessível e com estética Quiet Luxury:
 - Botões estilizados com `.liquid-button` e transições suaves.
 
 ### 3.4 Favicons (`public/favicon.svg` & `public/favicon.ico`)
+
 - Emblema com fundo `#032812`, bordas arredondadas e monograma estilizado "GTG" em `#f69e00`.
 - Injeção em `__root.tsx`:
   - `{ rel: "icon", href: logoUrl || "/favicon.svg", type: logoUrl?.endsWith(".svg") ? "image/svg+xml" : undefined }`

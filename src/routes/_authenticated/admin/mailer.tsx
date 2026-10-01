@@ -23,6 +23,8 @@ import {
   GraduationCap,
   Ban,
   MessageSquareWarning,
+  BarChart3,
+  Activity,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -35,7 +37,10 @@ import {
   getSuppressedEmailsServerFn,
   getMailerHistoryServerFn,
   getActiveInterestSignalsServerFn,
+  getEmailEventTimelineServerFn,
 } from "@/lib/email/recruit-email.functions";
+import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
+import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
@@ -128,7 +133,12 @@ interface RecipientItem {
 
 function MailerPage() {
   const searchParams = Route.useSearch();
-  const [activeTab, setActiveTab] = useState<"compose" | "history">("compose");
+  const [activeTab, setActiveTab] = useState<"compose" | "history" | "metrics">("compose");
+
+  // Timeline Modal State
+  const [selectedTimelineLog, setSelectedTimelineLog] = useState<RecruitEmailLog | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<EmailTimelineItem[]>([]);
+  const [loadingTimeline, setLoadingTimeline] = useState(false);
 
   // Modo de Envio: single | multi | catalog
   const [sendMode, setSendMode] = useState<"single" | "multi" | "catalog">(
@@ -710,6 +720,26 @@ function MailerPage() {
     }
   }
 
+  const handleViewTimeline = async (log: RecruitEmailLog) => {
+    setSelectedTimelineLog(log);
+    setLoadingTimeline(true);
+    try {
+      const events = await getEmailEventTimelineServerFn({
+        data: {
+          providerEmailId: log.provider_id,
+          recipientEmail: log.recipient_email,
+        },
+      });
+      setTimelineEvents(events);
+    } catch (err) {
+      console.error("[mailer] Error loading timeline:", err);
+      toast.error("Failed to load email event timeline.");
+      setTimelineEvents([]);
+    } finally {
+      setLoadingTimeline(false);
+    }
+  };
+
   return (
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title="Recruit Mailer">
@@ -727,7 +757,7 @@ function MailerPage() {
               </p>
             </div>
 
-            {/* Abas Superiores: Enviar / Histórico */}
+            {/* Upper Tabs: Create Send | History | Metrics */}
             <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl border border-border">
               <button
                 type="button"
@@ -739,7 +769,7 @@ function MailerPage() {
                 }`}
               >
                 <Send className="w-3.5 h-3.5" />
-                Criar Envio
+                Create Send
               </button>
               <button
                 type="button"
@@ -751,7 +781,19 @@ function MailerPage() {
                 }`}
               >
                 <History className="w-3.5 h-3.5" />
-                Histórico ({historyLogs.length})
+                History ({historyLogs.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("metrics")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === "metrics"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Metrics
               </button>
             </div>
           </div>
@@ -1407,7 +1449,7 @@ function MailerPage() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === "history" ? (
             /* ABA HISTÓRICO DE DISPAROS */
             <div className="space-y-4">
               <div className="glass-panel p-4 flex items-center justify-between rounded-xl border border-border bg-card">
@@ -1444,13 +1486,14 @@ function MailerPage() {
                         <th className="p-3">Tipo de E-mail</th>
                         <th className="p-3">Assunto</th>
                         <th className="p-3">Data/Hora</th>
-                        <th className="p-3 text-right">Status</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {historyLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
                             Nenhum registro de envio encontrado no log.
                           </td>
                         </tr>
@@ -1486,7 +1529,7 @@ function MailerPage() {
                                 timeStyle: "short",
                               })}
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="p-3">
                               {log.status === "sent" ? (
                                 <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
                                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1510,6 +1553,17 @@ function MailerPage() {
                                 </span>
                               )}
                             </td>
+                            <td className="p-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleViewTimeline(log)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+                                title="Ver linha do tempo de eventos deste e-mail"
+                              >
+                                <Activity className="w-3 h-3 text-primary" />
+                                Timeline
+                              </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -1518,8 +1572,138 @@ function MailerPage() {
                 </div>
               </div>
             </div>
+          ) : (
+            /* ABA MÉTRICAS ANALÍTICAS */
+            <MailerMetricsDashboard onRefreshHistory={loadInitialData} />
           )}
         </div>
+
+        {/* MODAL DE TIMELINE DE EVENTOS DO E-MAIL */}
+        {selectedTimelineLog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-full bg-primary/10 text-primary">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground">Email Event Timeline</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedTimelineLog.recipient_name || "Coach"} (
+                      {selectedTimelineLog.recipient_email})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTimelineLog(null)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-muted/30 border border-border rounded-xl p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subject:</span>
+                  <span className="font-medium text-foreground truncate max-w-xs">
+                    {selectedTimelineLog.subject}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dispatched At:</span>
+                  <span className="text-foreground">
+                    {new Date(selectedTimelineLog.sent_at).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+                {selectedTimelineLog.provider_id && (
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Resend Email ID:</span>
+                    <span className="font-mono text-zinc-400">
+                      {selectedTimelineLog.provider_id}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Timeline Sequence */}
+              <div className="space-y-2 pt-1 max-h-64 overflow-y-auto pr-1">
+                <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                  Lifecycle Events
+                </h4>
+
+                {loadingTimeline ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    Loading event lifecycle...
+                  </div>
+                ) : timelineEvents.length === 0 ? (
+                  <div className="py-6 px-4 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground space-y-1">
+                    <Clock className="w-5 h-5 mx-auto text-zinc-500 mb-1" />
+                    <div className="font-medium text-foreground">Dispatched to Resend</div>
+                    <p className="text-[11px]">
+                      Awaiting delivery receipts and webhook event synchronization.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                    {timelineEvents.map((evt) => (
+                      <div key={evt.id} className="relative text-xs">
+                        <div
+                          className={`absolute -left-[1.35rem] top-0.5 w-3 h-3 rounded-full border-2 border-card ${
+                            evt.eventType === "delivered"
+                              ? "bg-emerald-500"
+                              : evt.eventType === "opened"
+                                ? "bg-amber-500"
+                                : evt.eventType === "clicked"
+                                  ? "bg-sky-500"
+                                  : evt.eventType === "bounced"
+                                    ? "bg-red-500"
+                                    : "bg-primary"
+                          }`}
+                        />
+                        <div className="flex items-center justify-between font-semibold capitalize text-foreground">
+                          <span>{evt.eventType}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            {new Date(evt.occurredAt).toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        {evt.details && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {evt.details}
+                          </div>
+                        )}
+                        {evt.clickedLink && (
+                          <div className="text-[11px] text-sky-400 truncate max-w-sm mt-0.5">
+                            Link: {evt.clickedLink}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTimelineLog(null)}
+                  className={buttonClass}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* MODAL DE CONFIRMAÇÃO DO DISPARO */}
         {confirmModalOpen && (

@@ -218,15 +218,16 @@ export function renderEmailHero(params: {
   const heroBg = params.heroBackgroundUrl?.trim() || EMAIL_ASSETS.heroBgUrl;
 
   return `
-  <!-- HERO (280px) -->
+  <!-- HERO (280px) COM MÁSCARA VERDE INSTITUCIONAL -->
   <tr>
-    <td bgcolor="${EMAIL_COLORS.darkGreenHero}" background="${heroBg}" valign="top" style="background-color:${EMAIL_COLORS.darkGreenHero};background-image:url('${heroBg}');background-size:cover;background-position:center right;background-repeat:no-repeat;padding:26px 28px 24px 28px;">
+    <td bgcolor="${EMAIL_COLORS.darkGreenDeep}" background="${heroBg}" valign="top" style="background-color:${EMAIL_COLORS.darkGreenDeep};background-image:linear-gradient(to right, rgba(3, 40, 18, 0.94) 0%, rgba(5, 48, 26, 0.88) 55%, rgba(8, 67, 35, 0.65) 100%), url('${heroBg}');background-size:cover;background-position:center right;background-repeat:no-repeat;padding:0;">
       <!--[if gte mso 9]>
       <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:680px;height:280px;">
-        <v:fill type="frame" src="${heroBg}" color="${EMAIL_COLORS.darkGreenHero}" />
+        <v:fill type="frame" src="${heroBg}" color="${EMAIL_COLORS.darkGreenDeep}" />
         <v:textbox inset="0,0,0,0">
       <![endif]-->
-      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+      <!-- Camada / Máscara Verde Institucional Translúcida com Fallback para Clientes que não suportam múltiplos backgrounds -->
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background:linear-gradient(to right, rgba(3, 40, 18, 0.94) 0%, rgba(5, 48, 26, 0.88) 55%, rgba(8, 67, 35, 0.65) 100%);background-color:rgba(3, 40, 18, 0.86);padding:26px 28px 24px 28px;">
         <!-- Linha do Manuscrito Top-Right -->
         <tr>
           <td align="left" valign="top">

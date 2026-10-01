@@ -96,13 +96,15 @@ export function getAthleteStoryAvatar(url: string | null | undefined): string {
 }
 
 /**
- * Preset: Athlete Profile Hero Image (720px max width, 78% quality)
- * Balanced between high-DPI display crispness and egress bandwidth.
+ * Preset: Athlete Profile Hero Image (600x800 px, 3:4 aspect ratio, 85% quality)
+ * Preserves natural framing and high-DPI display crispness.
  */
 export function getAthleteHeroImage(url: string | null | undefined): string {
   return getOptimizedImageUrl(url, {
-    width: 720,
-    quality: 78,
+    width: 600,
+    height: 800,
+    resize: "cover",
+    quality: 85,
   });
 }
 

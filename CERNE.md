@@ -894,10 +894,10 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
     - Atualização da tabela `email_suppressions` com `suppression_type` (`temporary_6m` ou `permanent`) e `expires_at`.
   - **Nova Rota Pública de Feedback (`src/routes/feedback.tsx`)**:
     - Tela pública para o coach registrar desinteresse com 4 opções padronizadas:
-      1. *Roster is full for this recruiting class*
-      2. *Not currently recruiting for this position*
-      3. *Need players for other specific positions*
-      4. *Not recruiting international student-athletes*
+      1. _Roster is full for this recruiting class_
+      2. _Not currently recruiting for this position_
+      3. _Need players for other specific positions_
+      4. _Not recruiting international student-athletes_
     - Suporte a campo opcional para posições abertas e observações, com expiração automática em 6 meses.
   - **Badges Visuais de Alerta de Conflito no Mailer (`src/routes/_authenticated/admin/mailer.tsx`)**:
     - Carregamento de sinais ativos via `getActiveInterestSignalsServerFn`.
@@ -988,19 +988,19 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
     - `escapeHtml`: Sanitização estrita contra injeção e XSS de strings dinâmicas.
     - `renderEmailShell`: Container rígido de 680px centralizado sobre fundo `#f8faf5` com meta tags para desabilitar inversões indesejadas de Dark Mode em clientes móveis.
     - `renderEmailHeader`: Logotipo oficial à esquerda e texto editorial "INTERNATIONAL ATHLETES. / REAL OPPORTUNITIES." com traço dourado à direita.
-    - `renderEmailHero`: Faixa visual (~280px) com foto de quadra de vôlei P&B e degradê verde esmeralda, ano dinâmico em dourado gigante, tipografia extra-bold e manuscrito *"more than a game"*.
+    - `renderEmailHero`: Faixa visual (~280px) com foto de quadra de vôlei P&B e degradê verde esmeralda, ano dinâmico em dourado gigante, tipografia extra-bold e manuscrito _"more than a game"_.
     - `renderEmailIntro`: Seção em 2 colunas com saudação e texto à esquerda e 4 diferenciais com ícones dedicados à direita (academics verificados, film/highlights, comunicação direta e suporte completo).
-    - `renderFeaturedHeader`: Título de seção com linha divisória dourada fina e nota *"MORE ATHLETES AVAILABLE UPON REQUEST"*.
+    - `renderFeaturedHeader`: Título de seção com linha divisória dourada fina e nota _"MORE ATHLETES AVAILABLE UPON REQUEST"_.
     - `renderAthleteCard`: Card individual com sequência numérica (01..N), badge de país Alpha-3 e bandeira PNG circular, foto com proporção 1.22:1 e badge de posição fixada na base, nome bold em caixa alta, 5 linhas de atributos com ícones (altura em imperial+métrica, turma de graduação, GPA, destaque de conquista e financeiro omitido se vazio per instrução do usuário), badge discreta `TRANSFER` quando aplicável, e botão pill `"WATCH HIGHLIGHTS →"`.
     - `renderAthleteGrid`: Grid inteligente em 4 colunas (25% cada) com centralização equilibrada de linhas incompletas.
     - `renderRequestCtaBar`: Barra de solicitação com botão `mailto:` pré-formatado para Fabiana Andrade solicitando perfis específicos.
-    - `renderSignature`: Bloco com logotipo, divisor dourado vertical, dados completos de Fabiana Andrade e manuscrito *"Different Athletes Brighter Futures"*.
+    - `renderSignature`: Bloco com logotipo, divisor dourado vertical, dados completos de Fabiana Andrade e manuscrito _"Different Athletes Brighter Futures"_.
     - `renderFeedbackBlock`: Botão contornado `"Not the right fit? Tell us why →"` direcionando para `/feedback`.
-    - `renderBottomBar`: Barra final 2/3 verde escura com lema acadêmico e 1/3 dourada com *"GO FURTHER. TOGETHER."*.
+    - `renderBottomBar`: Barra final 2/3 verde escura com lema acadêmico e 1/3 dourada com _"GO FURTHER. TOGETHER."_.
     - `renderLegalFooter`: Rodapé com direitos autorais e link obrigatório `/unsubscribe`.
 
 - **Templates do Mailer (`src/lib/email/recruit-email-template.ts` & `recruit-email-catalog-template.ts`)**:
-  - `renderRecruitEmail`: Renderiza o template unitário (*"ATHLETE SPOTLIGHT"*), centralizando o card do atleta a 50% de largura e linkando diretamente seu highlight de vídeo ou perfil.
+  - `renderRecruitEmail`: Renderiza o template unitário (_"ATHLETE SPOTLIGHT"_), centralizando o card do atleta a 50% de largura e linkando diretamente seu highlight de vídeo ou perfil.
   - `renderMultiAthleteRecruitEmail`: Renderiza o template multi-atleta com grid de 4 colunas e detecção dinâmica de esporte e intervalo de graduação.
   - `renderCatalogEmail`: Renderiza a vitrine de portfólio completo destacando as modalidades esportivas ativas (vôlei, futebol, basquete, tênis, atletismo, natação) e links diretos ao catálogo sem favorecer atletas individuais.
   - Geração de versão texto puro (`Body.Text`) correspondente para todos os 3 templates (`generateRecruitEmailPlainText`, `generateMultiAthletePlainText`, `generateCatalogPlainText`).
@@ -1053,9 +1053,16 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Suite `recruit-email-multi.test.ts` expandida para 14 testes cobrindo personalização editorial, integridade do catálogo sem esportes terceiros, branding dinâmico e resolução de highlights.
   - 18 arquivos de teste (127 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
 
+### [2026-10-01] Correção Visual: Máscara Verde no Hero do Mailer e Zoom no Perfil do Atleta (TASK-078)
 
+- **Máscara Verde Institucional no Hero dos E-mails (`src/lib/email/email-layout.ts`)**:
+  - Implementada a máscara/overlay verde institucional sobre a imagem de fundo do hero de e-mails em `renderEmailHero`.
+  - Estrutura em múltiplos backgrounds CSS: `background-image: linear-gradient(to right, rgba(3, 40, 18, 0.94) 0%, rgba(5, 48, 26, 0.88) 55%, rgba(8, 67, 35, 0.65) 100%), url('${heroBg}')`.
+  - Camada intermediária de fallback com tabela interna estilizada com `background: linear-gradient(...)` e `background-color: rgba(3, 40, 18, 0.86)` garantindo renderização consistente em clientes de e-mail que não suportam múltiplos backgrounds no `<td>`.
+  - Preservada a compatibilidade VML para Outlook com `color="${EMAIL_COLORS.darkGreenDeep}"`, além de manter intactos textos, tipografia e responsividade.
 
-
-
-
-
+- **Correção de Enquadramento e Zoom no Perfil do Atleta (`src/routes/athlete.$slug.tsx` & `src/lib/image-transform.ts`)**:
+  - Ajustado o container do retrato do atleta em `athlete.$slug.tsx` para a proporção `aspect-[3/4]` (alinhado com os cards do catálogo na Home), eliminando o super zoom artificial e o crop excessivo do rosto.
+  - Atualizado o preset `getAthleteHeroImage` em `src/lib/image-transform.ts` para `{ width: 600, height: 800, resize: "cover", quality: 85 }`, garantindo que imagens horizontais ou de alta resolução sejam transformadas no Supabase Storage na proporção natural 3:4 antes da renderização no navegador.
+  - Atualizados os testes unitários em `src/lib/image-transform.test.ts` (10/10 testes passando).
+  - Validada a suite completa (18 arquivos de teste, 131 testes passando) e compilação de produção com sucesso.

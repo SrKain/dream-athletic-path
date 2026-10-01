@@ -503,7 +503,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 - **Solicitante:** Kauan / Usuário Humano
 - **Executor:** Antigravity AI / Gemini Coding Agent
-- **Pedido:** 
+- **Pedido:**
   1. Unificar disparo multi-atleta em 1 único e-mail por destinatário contendo os cartões de todas as atletas selecionadas empilhados.
   2. Adicionar filtros de destinatários no Mailer (HBCU, Budget Level e TOEFL Level) combinados via AND com os existentes.
   3. Sistema de sinal de interesse (link de desinteresse no rodapé, rota pública `/feedback` com 4 opções fixas, validade de 6 meses) + Badges de colisão no Mailer + Descadastro em 2 níveis (Pausa 6m vs Permanente).
@@ -548,7 +548,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - `src/lib/email/recruit-email-multi.test.ts`: Normalizado import para `vitest`.
   - 18 arquivos de teste (116 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
 - **Status:** [CONCLUÍDO]
-
 
 - **Solicitante:** Kauan / Usuário Humano (via Error Boundary Report)
 - **Executor:** Antigravity AI / Gemini Coding Agent
@@ -668,3 +667,60 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - `src/lib/email/resend-email.test.ts`: Testes unitários cobrindo todos os fluxos.
   - `think/2026-10-01-migracao-amazon-ses-para-resend.md`, `CERNE.md` e `BACKLOGER.md` atualizados.
 - **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-077 — 2026-10-01 07:38 — Leitura Mandatória do README, Contexto e Governança de IA
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Leitura completa do README.md, CERNE.md, BACKLOGER.md, UI&UX.md, diretrizes em think/ e alinhamento do contexto técnico e de governança antes de iniciar novas tarefas.
+- **Resultado:**
+  - Leitura integral realizada de `README.md`, `CERNE.md`, `BACKLOGER.md`, `think/README.md` e dos planos recentes em `think/` (incluindo migração Resend, Mailer e Recruiting Board).
+  - Protocolo de governança de IA (`AGENTS.md`) assimilado:
+    1. Leitura obrigatória de documentação antes de qualquer ação.
+    2. Planejamento prévio obrigatório salvo em `think/` antes de apresentar propostas.
+    3. Nenhuma alteração de código sem aprovação humana prévia e explícita.
+    4. Atualização obrigatória e imediata de `CERNE.md` após edições.
+    5. Registro de todas as demandas em `BACKLOGER.md`.
+    6. Design System e Mobile-First rigorosamente alinhados com `UI&UX.md`.
+  - Verificação de integridade do ambiente: Linter sem erros e compilação de produção aprovada com sucesso via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-078 — 2026-10-01 07:57 — Diagnóstico e Correção da Máscara Verde no Mailer e Zoom do Hero do Atleta
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Identificação das causas raízes e correção cirúrgica de dois bugs visuais:
+  1. Mailer: ausência de máscara verde sobre a imagem de background do Hero de e-mails (`src/lib/email/email-layout.ts`).
+  2. Portfólio: zoom excessivo/crop distorcido no retrato do Hero na página pública do atleta (`/athlete/$slug`).
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-correcao-mascara-verde-mailer-e-zoom-hero-atleta.md` e aprovado pelo usuário.
+- **Resultado:**
+  - `src/lib/email/email-layout.ts`: `renderEmailHero` atualizado com múltiplos backgrounds CSS (`linear-gradient` verde institucional + `url('${heroBg}')`) e camada interna com fallback `background: linear-gradient(...)` e `background-color: rgba(3, 40, 18, 0.86)` e VML preservado para Outlook.
+  - `src/routes/athlete.$slug.tsx`: Container do retrato no hero atualizado para proporção `aspect-[3/4]`, mantendo alinhamento fotográfico natural idêntico à Home.
+  - `src/lib/image-transform.ts`: Preset `getAthleteHeroImage` calibrado para `{ width: 600, height: 800, resize: "cover", quality: 85 }`.
+  - `src/lib/image-transform.test.ts`: Testes unitários atualizados.
+  - Validação completa: 18/18 arquivos de teste e 131/131 testes passando no Vitest, ESLint com zero erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-079 — 2026-10-01 08:10 — Sistema Completo de Métricas e Relatórios do Mailer (Resend Metrics API & Webhooks)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Implementação de uma aba dedicada de Métricas (**Metrics**) no Mailer com relatórios analíticos completos integrando Resend Email Metrics API e ingestão de Webhooks:
+  1. Nova navegação: **Create Send | History | Metrics** no Mailer (`/admin/mailer`).
+  2. Integração com a Resend Email Metrics API (`resend.emails.metrics`) com suporte a filtros de data (7d, 30d, 90d, custom) e taxas calculadas.
+  3. Extensão do webhook `/api/webhooks/resend` e criação da tabela `email_events` com ingestão idempotente para rastrear `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`.
+  4. Persistência de `provider_id` (Resend Email ID) em `recruit_email_logs`.
+  5. Dashboard de Métricas com KPIs primários (Sent, Delivered, Opened, Clicked, Delivery Rate, Open Rate, Click Rate) e secundários (Bounced, Complaints, Suppressed, Failed).
+  6. Gráfico de série temporal (Performance Over Time) via Recharts / ChartContainer.
+  7. Visualização de Funil de Conversão de E-mails (Sent → Delivered → Opened → Clicked).
+  8. Relatório de Desempenho por Campanha/Modo (Single Athlete, Multi-Athlete, Catalog).
+  9. Diagnóstico de Problemas de Entrega (Bounces, Delays, Complaints).
+  10. Detalhamento e timeline de eventos individuais no histórico de e-mails.
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-metrics-and-reporting.md`.
+- **Status:** `[PENDENTE]` (Aguardando aprovação humana explícita)

@@ -59,8 +59,10 @@ describe("image-transform utility", () => {
 
   it("correctly generates hero image preset", () => {
     const hero = getAthleteHeroImage(supabaseObjectUrl);
-    expect(hero).toContain("width=720");
-    expect(hero).toContain("quality=78");
+    expect(hero).toContain("width=600");
+    expect(hero).toContain("height=800");
+    expect(hero).toContain("resize=cover");
+    expect(hero).toContain("quality=85");
   });
 
   it("correctly generates gallery image preset", () => {

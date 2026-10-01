@@ -155,7 +155,54 @@ export async function processResendWebhook(
   const processedEmails: string[] = [];
   const admin = getAdminClient();
 
-  // 3. Processamento de Bounces (E-mails inexistentes, caixas cheias ou rejeitadas)
+  // 3. Ingestão Idempotente na tabela email_events
+  const rawSvixId = headers["svix-id"] || headers["Svix-Id"];
+  const svixId = typeof rawSvixId === "string" ? rawSvixId : undefined;
+  const providerEmailId = String(data.email_id || data.id || "");
+  const occurredAt = event.created_at || data.created_at || new Date().toISOString();
+  const baseEventId = svixId || `${providerEmailId || "resend"}_${eventType}_${occurredAt}`;
+
+  const clickData = (data.click as Record<string, unknown> | undefined) || undefined;
+  const clickedLink =
+    clickData?.link ||
+    (typeof (data as Record<string, unknown>).link === "string"
+      ? (data as Record<string, unknown>).link
+      : null);
+
+  for (const rawTo of rawRecipients) {
+    const email = (rawTo || "").toLowerCase().trim();
+    if (!email) continue;
+
+    const eventId = rawRecipients.length > 1 ? `${baseEventId}_${email}` : baseEventId;
+
+    try {
+      await admin.from("email_events").upsert(
+        {
+          provider: "resend",
+          provider_event_id: eventId,
+          provider_email_id: providerEmailId,
+          event_type: eventType,
+          recipient: email,
+          occurred_at: occurredAt,
+          payload: {
+            from: data.from,
+            subject: data.subject,
+            bounce_type: data.bounce_type,
+            click: clickData,
+            clicked_link: clickedLink,
+          },
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "provider_event_id", ignoreDuplicates: true },
+      );
+      processedEmails.push(email);
+    } catch (ingestErr) {
+      // Falhas no log de evento não devem quebrar o webhook
+      console.warn(`[resend-webhook] Failed to ingest event ${eventId}:`, ingestErr);
+    }
+  }
+
+  // 4. Processamento de Bounces (E-mails inexistentes, caixas cheias ou rejeitadas)
   if (eventType === "email.bounced") {
     const reason = `resend_bounce${data.bounce_type ? `_${data.bounce_type.toLowerCase()}` : ""}`;
     for (const rawTo of rawRecipients) {
@@ -170,7 +217,6 @@ export async function processResendWebhook(
         console.error(`[resend-webhook] Failed to suppress bounced email ${email}:`, error.message);
       } else {
         console.info(`[resend-webhook] Suppressed bounced email: ${email} (Reason: ${reason})`);
-        processedEmails.push(email);
       }
     }
 
@@ -182,7 +228,7 @@ export async function processResendWebhook(
     };
   }
 
-  // 4. Processamento de Complaints (Spam / Denúncia)
+  // 5. Processamento de Complaints (Spam / Denúncia)
   if (eventType === "email.complained") {
     const reason = "resend_complaint";
     for (const rawTo of rawRecipients) {
@@ -200,7 +246,6 @@ export async function processResendWebhook(
         );
       } else {
         console.info(`[resend-webhook] Suppressed complained email: ${email} (Reason: ${reason})`);
-        processedEmails.push(email);
       }
     }
 
@@ -212,10 +257,11 @@ export async function processResendWebhook(
     };
   }
 
-  // 5. Demais eventos (email.sent, email.delivered, email.opened, email.clicked)
+  // 6. Demais eventos registrados com sucesso (email.sent, email.delivered, email.opened, email.clicked, etc.)
   return {
     success: true,
     type: eventType,
-    message: "Event acknowledged",
+    processedEmails,
+    message: `Event ${eventType} recorded successfully for ${processedEmails.length} recipient(s)`,
   };
 }

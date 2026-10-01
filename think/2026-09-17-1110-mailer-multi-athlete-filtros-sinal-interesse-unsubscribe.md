@@ -25,12 +25,12 @@ O módulo de Mailer para prospecção esportiva universitária da **Go Team Go A
 
 3. **Frente 3 — Sistema de "Sinal de Interesse" e Descadastro em Dois Níveis:**
    - **3a) Link e Página Pública de Feedback de Interesse (`/feedback` ou `/interests`):**
-     - Inserir no rodapé de todo e-mail de recrutamento um link claro para feedback: *"Not interested in this? Provide feedback"* (com parâmetros `email`, `coachId`, `athleteId`, `position`).
+     - Inserir no rodapé de todo e-mail de recrutamento um link claro para feedback: _"Not interested in this? Provide feedback"_ (com parâmetros `email`, `coachId`, `athleteId`, `position`).
      - Criação da rota pública `/feedback` com formulário de escolha única entre as 4 opções fixas:
-       1. `position_not_needed`: *"I don't need athletes in this position"*
-       2. `fully_recruited`: *"I've already filled all the spots I needed"*
-       3. `other_positions_only`: *"I'm only interested in other positions"*
-       4. `specific_athlete_dislike`: *"I'm not interested in this specific athlete"*
+       1. `position_not_needed`: _"I don't need athletes in this position"_
+       2. `fully_recruited`: _"I've already filled all the spots I needed"_
+       3. `other_positions_only`: _"I'm only interested in other positions"_
+       4. `specific_athlete_dislike`: _"I'm not interested in this specific athlete"_
      - Persistência na nova tabela `coach_interest_signals` com validade de 6 meses (`expires_at = now() + interval '6 months'`).
    - **3b) Sinais Visuais no Mailer:**
      - Identificar coaches com sinais ativos (não expirados) e exibir badges contextuais:
@@ -38,7 +38,7 @@ O módulo de Mailer para prospecção esportiva universitária da **Go Team Go A
        - `position_not_needed` $\rightarrow$ Badge **"Not interested in [Position]"** (quando coincide com a posição da atleta selecionada)
        - `specific_athlete_dislike` $\rightarrow$ Badge **"Not interested in [Athlete Name]"** (quando a atleta em questão está selecionada)
        - `other_positions_only` $\rightarrow$ Badge informativo
-     - Adicionar controle de filtro: *"Ocultar coaches com sinais ativos"*.
+     - Adicionar controle de filtro: _"Ocultar coaches com sinais ativos"_.
    - **3c) Descadastro em Dois Níveis (`/unsubscribe`):**
      - Nível 1: **"Pause for now (6 months)"** $\rightarrow$ Bloqueio temporário de todos os disparos com expiração automática em 6 meses (`expires_at = now() + interval '6 months'`).
      - Nível 2: **"Unsubscribe permanently"** $\rightarrow$ Bloqueio definitivo na suppression list (`expires_at is null`).
@@ -101,6 +101,7 @@ create policy "Public can insert coach_interest_signals"
 ## 3. Arquitetura de Templates de E-mail
 
 ### 3.1 Template de E-mail Multi-Atleta (`renderMultiAthleteRecruitEmail`)
+
 - Criar a função `renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData)` em `src/lib/email/recruit-email-template.ts`.
 - Estrutura:
   - **Header:** Go Team Go Official Recruiting Showcase — Multi-Athlete Spotlight.
@@ -109,14 +110,21 @@ create policy "Public can insert coach_interest_signals"
   - **Rodapé:** Assinatura institucional, link de **"Provide recruiting feedback / Not interested in this?"** (com link apontando para `/feedback`) e link de **"Unsubscribe"** (apontando para `/unsubscribe`).
 
 ### 3.2 Atualização do Rodapé em Todos os Templates
+
 - No `renderRecruitEmail` (individual), no `renderMultiAthleteRecruitEmail` e no `renderCatalogEmail`, o rodapé incluirá:
   ```html
-  <div style="font-size:10px;color:#4b6353;margin-top:12px;border-top:1px solid #e3e9dc;padding-top:12px;line-height:1.6;">
-    Not interested in this position or roster full? 
-    <a href="${feedbackUrl}" style="color:#084323;font-weight:700;text-decoration:underline;">Let us know here</a>.
-    <br>
-    If you wish to stop receiving recruit messages, you can 
-    <a href="${unsubscribeUrl}" style="color:#4b6353;text-decoration:underline;">manage email preferences</a>.
+  <div
+    style="font-size:10px;color:#4b6353;margin-top:12px;border-top:1px solid #e3e9dc;padding-top:12px;line-height:1.6;"
+  >
+    Not interested in this position or roster full?
+    <a href="${feedbackUrl}" style="color:#084323;font-weight:700;text-decoration:underline;"
+      >Let us know here</a
+    >.
+    <br />
+    If you wish to stop receiving recruit messages, you can
+    <a href="${unsubscribeUrl}" style="color:#4b6353;text-decoration:underline;"
+      >manage email preferences</a
+    >.
   </div>
   ```
 
@@ -125,6 +133,7 @@ create policy "Public can insert coach_interest_signals"
 ## 4. Arquitetura de Backend e Server Functions
 
 ### 4.1 Modificações em `src/lib/email/recruit-email.server.ts`
+
 1. **Lógica de Envio Multi-Atleta Unificado:**
    - Quando `mode === "multi_athlete"`, carregar os dados de todas as atletas em `athleteIds`.
    - Para cada coach em `activeRecipients`, montar 1 única mensagem chamando `renderMultiAthleteRecruitEmail` e disparar 1 único e-mail no Amazon SES.
@@ -132,9 +141,7 @@ create policy "Public can insert coach_interest_signals"
 2. **Atualização do `getSuppressedEmailSet`:**
    - Modificar a query para:
      ```ts
-     const { data } = await admin
-       .from("email_suppressions")
-       .select("email, expires_at");
+     const { data } = await admin.from("email_suppressions").select("email, expires_at");
      // Filtrar apenas se expires_at for nulo (permanente) OU se expires_at > now() (temporário ativo)
      ```
 3. **Atualização do `unsubscribeEmailAddress`:**
@@ -145,6 +152,7 @@ create policy "Public can insert coach_interest_signals"
    - `getActiveCoachInterestSignals()`: Carrega todos os registros onde `expires_at > now()`.
 
 ### 4.2 Novas Server Functions em `src/lib/email/recruit-email.functions.ts`
+
 - `submitInterestSignalServerFn`: Função pública para registrar sinais vindo de `/feedback`.
 - `getActiveInterestSignalsServerFn`: Função protegida (`requireAgency`) para alimentar os badges do Mailer.
 - Atualização da `unsubscribeServerFn` para receber `type: "temporary_6m" | "permanent"`.
@@ -154,28 +162,31 @@ create policy "Public can insert coach_interest_signals"
 ## 5. Arquitetura de Frontend e Telas
 
 ### 5.1 Nova Rota Pública `/feedback` (`src/routes/feedback.tsx`)
+
 - Recebe query params: `email`, `coachId`, `athleteId`, `position`.
 - UI limpa, mobile-first, no tema escuro da agência.
 - Exibe o e-mail do destinatário e, quando disponível, a atleta/posição referenciada.
 - Permite escolher uma das 4 opções:
-  - *"I don't need athletes in this position"* (captura `position` automaticamente se disponível ou permite preencher).
-  - *"I've already filled all the spots I needed"*
-  - *"I'm only interested in other positions"*
-  - *"I'm not interested in this specific athlete"* (captura `athlete_id`).
-- Ao submeter, exibe mensagem clara: *"Thank you Coach. Your preferences have been registered for the next 6 months. We will calibrate our future outreach accordingly."*
+  - _"I don't need athletes in this position"_ (captura `position` automaticamente se disponível ou permite preencher).
+  - _"I've already filled all the spots I needed"_
+  - _"I'm only interested in other positions"_
+  - _"I'm not interested in this specific athlete"_ (captura `athlete_id`).
+- Ao submeter, exibe mensagem clara: _"Thank you Coach. Your preferences have been registered for the next 6 months. We will calibrate our future outreach accordingly."_
 
 ### 5.2 Evolução da Rota `/unsubscribe` (`src/routes/unsubscribe.tsx`)
+
 - Apresenta claramente duas opções selecionáveis:
   1. **Pause Communications for 6 Months (Recommended)**: Pausa temporária automática.
   2. **Unsubscribe Permanently**: Bloqueio definitivo na lista de supressão.
 - Exibe explicitamente o e-mail que está sendo afetado.
 
 ### 5.3 Evolução do Mailer (`src/routes/_authenticated/admin/mailer.tsx`)
+
 1. **Filtros Adicionais de Destinatários:**
-   - Select de **HBCU**: *Todos / Somente HBCU / Sem HBCU*
-   - Select de **Budget**: *Todos / $0–$1,000 / $1,000–$5,000 / $5,000–$10,000 / $10,000+*
-   - Select de **TOEFL**: *Todos / 0 / 0–61 / 61+*
-   - Filtro toggle/checkbox: *"Ocultar coaches com sinais de interesse ativos"*
+   - Select de **HBCU**: _Todos / Somente HBCU / Sem HBCU_
+   - Select de **Budget**: _Todos / $0–$1,000 / $1,000–$5,000 / $5,000–$10,000 / $10,000+_
+   - Select de **TOEFL**: _Todos / 0 / 0–61 / 61+_
+   - Filtro toggle/checkbox: _"Ocultar coaches com sinais de interesse ativos"_
 2. **Badges de Sinais de Interesse:**
    - Consultar sinais ativos via `getActiveInterestSignalsServerFn`.
    - Comparar cada coach com o contexto da seleção atual:
