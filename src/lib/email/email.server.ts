@@ -50,6 +50,12 @@ export async function sendEmail({
   const sesConfig = getSesConfig();
   const from = sesConfig.from;
   const { subject, html } = renderEmail(template, data);
+  const text = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (!sesConfig.isConfigured) {
     console.warn(
@@ -112,6 +118,10 @@ export async function sendEmail({
             Body: {
               Html: {
                 Data: html,
+                Charset: "UTF-8",
+              },
+              Text: {
+                Data: text,
                 Charset: "UTF-8",
               },
             },

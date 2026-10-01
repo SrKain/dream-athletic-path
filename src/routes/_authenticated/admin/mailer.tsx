@@ -86,6 +86,7 @@ interface RawAthleteRecord {
     graduation_year: number | null;
     high_school_graduation: string | null;
     highlight_note: string | null;
+    budget: string | null;
   } | null;
 }
 
@@ -104,6 +105,7 @@ interface AthleteSummary {
   graduation_year?: number | null;
   high_school_graduation?: string | null;
   highlight_note?: string | null;
+  budget?: string | null;
 }
 
 interface RecipientItem {
@@ -184,7 +186,7 @@ function MailerPage() {
             nationality,
             sport:sports(name_en),
             position:positions(name_en),
-            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note)
+            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget)
           `,
           )
           .eq("is_public", true)
@@ -216,6 +218,7 @@ function MailerPage() {
           graduation_year: a.profile?.graduation_year ?? null,
           high_school_graduation: a.profile?.high_school_graduation ?? null,
           highlight_note: a.profile?.highlight_note ?? null,
+          budget: a.profile?.budget ?? null,
         }));
         setAthletes(formatted);
 
@@ -435,6 +438,7 @@ function MailerPage() {
         gpa: ath.gpa,
         athleteStatus: ath.athlete_status,
         highlightNote: ath.highlight_note,
+        budget: ath.budget,
         recipientEmail: "coach@example.edu",
       }));
 
@@ -467,6 +471,7 @@ function MailerPage() {
       gpa: currentSingleAthlete.gpa,
       athleteStatus: currentSingleAthlete.athlete_status,
       highlightNote: currentSingleAthlete.highlight_note,
+      budget: currentSingleAthlete.budget,
       recipientEmail: "coach@example.edu",
     });
     return html;

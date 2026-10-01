@@ -171,7 +171,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     return null;
   }
 
-  const [profileRes, sportRes, posRes, countryRes] = await Promise.all([
+  const [profileRes, sportRes, posRes, countryRes, videoRes, achievementRes] = await Promise.all([
     admin.from("athlete_profiles").select("*").eq("athlete_id", athleteId).maybeSingle(),
     athlete.sport_id
       ? admin.from("sports").select("name_en").eq("id", athlete.sport_id).maybeSingle()
@@ -186,6 +186,22 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
           .eq("code", athlete.nationality)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    admin
+      .from("athlete_videos")
+      .select("youtube_url")
+      .eq("athlete_id", athleteId)
+      .eq("kind", "highlight")
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("achievements")
+      .select("title_en")
+      .eq("athlete_id", athleteId)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const profile = profileRes.data;
@@ -193,6 +209,8 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
   const positionName = posRes.data?.name_en ?? null;
   const countryFlag = countryRes.data?.flag_emoji ?? null;
   const nationalityName = countryRes.data?.name_en ?? athlete.nationality ?? null;
+  const highlightVideoUrl = videoRes.data?.youtube_url ?? profile?.highlight_video_url ?? null;
+  const achievementTitle = achievementRes.data?.title_en ?? null;
 
   return {
     athleteId: athlete.id,
@@ -209,6 +227,9 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     gpa: profile?.gpa,
     athleteStatus: profile?.athlete_status,
     highlightNote: profile?.highlight_note,
+    achievementTitle,
+    budget: profile?.budget,
+    highlightVideoUrl,
   };
 }
 
@@ -332,6 +353,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     to: string;
     subject: string;
     html: string;
+    text: string;
     athleteId: string | null;
     coachId: string | null;
     recipientEmail: string;
@@ -344,7 +366,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
   if (mode === "catalog") {
     for (const rec of activeRecipients) {
-      const { subject, html } = renderCatalogEmail({
+      const { subject, html, text } = renderCatalogEmail({
         coachName: rec.name,
         institutionName: rec.universityName,
         customHeadline: catalogOptions?.customHeadline,
@@ -357,6 +379,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         to: rec.email,
         subject,
         html,
+        text,
         athleteId: null,
         coachId: rec.coachId ?? null,
         recipientEmail: rec.email,
@@ -375,7 +398,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
     if (loadedAthletes.length > 0) {
       for (const rec of activeRecipients) {
-        const { subject, html } = renderMultiAthleteRecruitEmail({
+        const { subject, html, text } = renderMultiAthleteRecruitEmail({
           athletes: loadedAthletes,
           coachName: rec.name,
           institutionName: rec.universityName,
@@ -387,6 +410,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           to: rec.email,
           subject,
           html,
+          text,
           athleteId: loadedAthletes[0]?.athleteId ?? null,
           coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
@@ -403,16 +427,19 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       if (!emailData) continue;
 
       for (const rec of activeRecipients) {
-        const { subject, html } = renderRecruitEmail({
+        const { subject, html, text } = renderRecruitEmail({
           ...emailData,
           recipientEmail: rec.email,
           coachId: rec.coachId,
+          coachName: rec.name,
+          institutionName: rec.universityName,
         });
 
         messagesToSend.push({
           to: rec.email,
           subject,
           html,
+          text,
           athleteId: athId,
           coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
@@ -447,6 +474,10 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             Body: {
               Html: {
                 Data: item.html,
+                Charset: "UTF-8",
+              },
+              Text: {
+                Data: item.text,
                 Charset: "UTF-8",
               },
             },

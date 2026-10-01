@@ -126,6 +126,8 @@ export function SendRecruitEmailDialog({
       gpa: profile?.gpa,
       athleteStatus: profile?.athlete_status,
       highlightNote: profile?.highlight_note,
+      budget: profile?.budget,
+      highlightVideoUrl: profile?.highlight_video_url,
     });
   }, [
     athlete.full_name,
@@ -141,6 +143,8 @@ export function SendRecruitEmailDialog({
     profile?.gpa,
     profile?.athlete_status,
     profile?.highlight_note,
+    profile?.budget,
+    profile?.highlight_video_url,
   ]);
 
   // Ações de seleção
@@ -476,7 +480,7 @@ export function SendRecruitEmailDialog({
               <iframe
                 title="Email Preview"
                 srcDoc={emailTemplate.html}
-                className="w-full h-full rounded-xl border border-zinc-800 bg-[#0b0b0c]"
+                className="w-full h-full rounded-xl border border-zinc-800 bg-[#f8faf5]"
                 sandbox="allow-popups allow-popups-to-escape-sandbox"
               />
             </div>

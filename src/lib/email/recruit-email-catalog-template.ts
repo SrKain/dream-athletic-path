@@ -1,3 +1,16 @@
+import { EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE, EMAIL_ASSETS } from "./email-brand";
+import {
+  escapeHtml,
+  renderEmailShell,
+  renderEmailHeader,
+  renderEmailHero,
+  renderEmailIntro,
+  renderSignature,
+  renderFeedbackBlock,
+  renderBottomBar,
+  renderLegalFooter,
+} from "./email-layout";
+
 export interface CatalogEmailData {
   coachName?: string | null;
   institutionName?: string | null;
@@ -7,181 +20,167 @@ export interface CatalogEmailData {
   coachId?: string | null;
 }
 
+export function generateCatalogPlainText(data: CatalogEmailData): string {
+  const coachGreeting = data.coachName ? `Coach ${data.coachName}` : "Coach";
+  const portfolioUrl = EMAIL_BASE_URL;
+
+  const lines = [
+    `GO TEAM GO AGENCY — COLLEGIATE RECRUITING PORTFOLIO`,
+    `==============================================`,
+    ``,
+    `Hi ${coachGreeting},`,
+    ``,
+    data.customHeadline || "Discover Verified International Recruits Ready for College Athletics",
+    ``,
+    data.customMessage ||
+      "At Go Team Go Agency, we represent high-performance international student-athletes actively seeking competitive collegiate programs in the US. Every prospect undergoes athletic vetting, academic credential evaluation, and match highlight verification.",
+    ``,
+    `EXPLORE FULL ATHLETE ROSTER ONLINE:`,
+    `${portfolioUrl}`,
+    ``,
+    `KEY PROGRAM DISCIPLINES:`,
+    `- Volleyball (Outside Hitter, Setter, Middle Blocker, Libero / DS)`,
+    `- Soccer (Men's & Women's)`,
+    `- Basketball`,
+    `- Tennis`,
+    `- Track & Field`,
+    `- Swimming`,
+    ``,
+    `NEED A SPECIFIC PROFILE?`,
+    `Contact Founder Fabiana Andrade directly at ${EMAIL_SIGNATURE.email} to request custom athlete matches.`,
+    ``,
+    `----------------------------------------------`,
+    `${EMAIL_SIGNATURE.name}`,
+    `${EMAIL_SIGNATURE.role}`,
+    `Email: ${EMAIL_SIGNATURE.email}`,
+    `Instagram: ${EMAIL_SIGNATURE.instagram}`,
+    `Website: ${EMAIL_SIGNATURE.websiteUrl}`,
+    `----------------------------------------------`,
+    `Not recruiting currently? Share feedback: ${portfolioUrl}/feedback?email=${encodeURIComponent(data.recipientEmail || "")}`,
+    `Manage email preferences / Unsubscribe: ${portfolioUrl}/unsubscribe?email=${encodeURIComponent(data.recipientEmail || "")}`,
+  ];
+
+  return lines.join("\n");
+}
+
 export function renderCatalogEmail(data: CatalogEmailData = {}) {
-  const safeCoachName = data.coachName ? `Coach ${data.coachName}` : "Coach";
-  const portfolioUrl = "https://portfolio.goteamgoagency.com";
-
-  const queryParams = new URLSearchParams();
-  if (data.recipientEmail) queryParams.set("email", data.recipientEmail);
-  if (data.coachId) queryParams.set("coachId", data.coachId);
-
-  const feedbackQueryStr = queryParams.toString();
-  const feedbackUrl = feedbackQueryStr
-    ? `https://portfolio.goteamgoagency.com/feedback?${feedbackQueryStr}`
-    : `https://portfolio.goteamgoagency.com/feedback`;
-
-  const unsubscribeUrl = data.recipientEmail
-    ? `https://portfolio.goteamgoagency.com/unsubscribe?email=${encodeURIComponent(data.recipientEmail)}`
-    : `https://portfolio.goteamgoagency.com/unsubscribe`;
+  const coachGreeting = data.coachName ? data.coachName.replace(/^Coach\s+/i, "") : null;
+  const portfolioUrl = EMAIL_BASE_URL;
 
   const subject = data.institutionName
     ? `International Student-Athlete Roster • Go Team Go Recruiting Showcase (${data.institutionName})`
     : `International Student-Athlete Roster • Go Team Go Recruiting Showcase`;
 
-  const headline =
-    data.customHeadline?.trim() ||
-    "Discover Verified International Recruits Ready for College Athletics";
-  const introMessage =
-    data.customMessage?.trim() ||
-    "At Go Team Go Agency, we represent top-tier international student-athletes actively seeking competitive collegiate programs in the US. Each prospect in our portfolio undergoes rigorous athletic screening, academic credential verification, and highlight reel curation.";
+  const introParagraph = data.customMessage?.trim()
+    ? escapeHtml(data.customMessage.trim())
+    : "At Go Team Go Agency, we represent top-tier international student-athletes actively seeking competitive collegiate programs in the US. Each prospect in our portfolio undergoes rigorous athletic screening, academic credential verification, and highlight reel curation.";
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f8faf5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#032812;-webkit-font-smoothing:antialiased;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f8faf5;min-height:100vh;padding:24px 12px;">
-    <tr>
-      <td align="center" valign="top">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:580px;background-color:#ffffff;border:1px solid #e3e9dc;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(3,40,18,0.06);">
-          
-          <!-- Top Accent Bar -->
-          <tr>
-            <td style="background-color:#f69e00;height:4px;line-height:4px;font-size:0;">&nbsp;</td>
-          </tr>
+  // Roster Disciplines Banner (sem atletas individuais para evitar favoritismo)
+  const rosterDisciplinesHtml = `
+  <!-- ROSTER DISCIPLINES SHOWCASE -->
+  <tr>
+    <td style="padding:10px 28px 24px 28px;background-color:${EMAIL_COLORS.white};">
+      <div style="background-color:${EMAIL_COLORS.cardBg};border:1px solid ${EMAIL_COLORS.cardBorder};border-radius:12px;padding:22px 24px;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:1.4px;text-transform:uppercase;margin-bottom:12px;">
+          ACTIVE SPORT DISCIPLINES AVAILABLE FOR IMMEDIATE SCOUTING
+        </div>
 
-          <!-- Header -->
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
           <tr>
-            <td style="padding:24px 28px 18px 28px;border-bottom:1px solid #e3e9dc;background-color:#ffffff;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td>
-                    <div style="font-size:11px;font-weight:800;color:#084323;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">
-                      Go Team Go Agency • Official Scouting Showcase
-                    </div>
-                    <div style="font-size:18px;font-weight:800;color:#032812;letter-spacing:-0.02em;">
-                      Collegiate Scouting Hub
-                    </div>
-                  </td>
-                  <td align="right" valign="middle">
-                    <span style="display:inline-block;background-color:#084323;color:#ffffff;padding:5px 12px;border-radius:9999px;font-size:11px;font-weight:800;letter-spacing:0.04em;">
-                      2025 / 2026 ROSTER
-                    </span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Greeting & Headline -->
-          <tr>
-            <td style="padding:28px 28px 20px 28px;">
-              <div style="font-size:15px;font-weight:600;color:#032812;margin-bottom:8px;">
-                Hello, ${safeCoachName}
+            <td width="50%" valign="top" style="padding-right:12px;" class="mobile-stack">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.8;color:${EMAIL_COLORS.textDark};font-weight:700;">
+                🏐 Volleyball <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">(OH, MB, Setter, Libero)</span><br>
+                ⚽ Soccer <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">(Men's &amp; Women's)</span><br>
+                🏀 Basketball
               </div>
-              <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:800;color:#032812;line-height:1.3;letter-spacing:-0.02em;">
-                ${headline}
-              </h1>
-              <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#4b6353;">
-                ${introMessage}
-              </p>
             </td>
-          </tr>
-
-          <!-- Three Pillar Cards -->
-          <tr>
-            <td style="padding:0 28px 24px 28px;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td width="31%" style="padding:4px;" valign="top">
-                    <div style="background:#f8faf5;border:1px solid #e3e9dc;border-radius:10px;padding:14px 10px;text-align:center;">
-                      <div style="font-size:11px;color:#084323;font-weight:800;letter-spacing:0.05em;margin-bottom:4px;text-transform:uppercase;">Verified Video</div>
-                      <div style="font-size:12px;color:#4b6353;line-height:1.4;">Unedited match clips, full games & technical highlights.</div>
-                    </div>
-                  </td>
-                  <td width="3%" style="padding:0;"></td>
-                  <td width="32%" style="padding:4px;" valign="top">
-                    <div style="background:#f8faf5;border:1px solid #e3e9dc;border-radius:10px;padding:14px 10px;text-align:center;">
-                      <div style="font-size:11px;color:#084323;font-weight:800;letter-spacing:0.05em;margin-bottom:4px;text-transform:uppercase;">Academic Track</div>
-                      <div style="font-size:12px;color:#4b6353;line-height:1.4;">Certified GPAs, TOEFL/Duolingo scores & NCAA Eligibility ID.</div>
-                    </div>
-                  </td>
-                  <td width="3%" style="padding:0;"></td>
-                  <td width="31%" style="padding:4px;" valign="top">
-                    <div style="background:#f8faf5;border:1px solid #e3e9dc;border-radius:10px;padding:14px 10px;text-align:center;">
-                      <div style="font-size:11px;color:#084323;font-weight:800;letter-spacing:0.05em;margin-bottom:4px;text-transform:uppercase;">Fast Placement</div>
-                      <div style="font-size:12px;color:#4b6353;line-height:1.4;">Direct communication with athlete, family & agency advisors.</div>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Featured Sports Banner -->
-          <tr>
-            <td style="padding:0 28px 24px 28px;">
-              <div style="background:#f8faf5;border:1px solid #e3e9dc;border-radius:12px;padding:18px 20px;">
-                <div style="font-size:11px;color:#4b6353;text-transform:uppercase;font-weight:800;letter-spacing:0.08em;margin-bottom:10px;">
-                  Active Sport Disciplines Available
-                </div>
-                <div style="font-size:13px;color:#032812;font-weight:700;line-height:1.8;">
-                  ⚽ Men's & Women's Soccer &nbsp;•&nbsp; 🏀 Basketball &nbsp;•&nbsp; 🎾 Tennis<br>
-                  🏃 Track & Field &nbsp;•&nbsp; 🏐 Volleyball &nbsp;•&nbsp; 🏊 Swimming
-                </div>
+            <td width="50%" valign="top" style="padding-left:12px;" class="mobile-stack">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.8;color:${EMAIL_COLORS.textDark};font-weight:700;">
+                🎾 Tennis<br>
+                🏃 Track &amp; Field<br>
+                🏊 Swimming
               </div>
             </td>
           </tr>
-
-          <!-- Primary CTA Button -->
-          <tr>
-            <td style="padding:8px 28px 32px 28px;text-align:center;">
-              <a href="${portfolioUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:#f69e00;color:#032812;font-size:15px;font-weight:800;text-decoration:none;padding:16px 36px;border-radius:10px;letter-spacing:0.02em;box-shadow:0 6px 18px rgba(246,158,0,0.35);">
-                Explore Full Athlete Roster & Highlights →
-              </a>
-              <div style="margin-top:12px;font-size:12px;color:#4b6353;">
-                Direct access to athlete profiles, statistics, and full-match videos.
-              </div>
-            </td>
-          </tr>
-
-          <!-- Rodapé Institucional -->
-          <tr>
-            <td style="background-color:#f0f4ec;padding:24px 28px;border-top:1px solid #e3e9dc;text-align:center;">
-              <div style="font-size:12px;font-weight:800;color:#032812;margin-bottom:4px;letter-spacing:0.05em;">
-                GO TEAM GO AGENCY
-              </div>
-              <div style="font-size:11px;color:#4b6353;margin-bottom:12px;line-height:1.5;">
-                International Student-Athlete Recruiting & Placement<br>
-                Direct inquiries: <a href="mailto:contact@goteamgoagency.com" style="color:#084323;font-weight:700;text-decoration:underline;">contact@goteamgoagency.com</a>
-              </div>
-              <div style="font-size:10px;color:#4b6353;line-height:1.4;">
-                This recruiting showcase was prepared for collegiate coaches and athletic directors.<br>
-                © ${new Date().getFullYear()} Go Team Go. All rights reserved.
-              </div>
-              <div style="font-size:10px;color:#4b6353;margin-top:12px;border-top:1px solid #e3e9dc;padding-top:12px;line-height:1.6;">
-                Not recruiting international prospects or roster full? 
-                <a href="${feedbackUrl}" style="color:#084323;font-weight:700;text-decoration:underline;">Let us know here</a>.
-                <br>
-                If you no longer wish to receive recruitment showcases from Go Team Go, you can 
-                <a href="${unsubscribeUrl}" style="color:#4b6353;text-decoration:underline;">manage email preferences</a>.
-              </div>
-            </td>
-          </tr>
-
         </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+
+        <!-- Direct CTA to Public Catalog -->
+        <div style="margin-top:20px;text-align:center;">
+          <a href="${portfolioUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:${EMAIL_COLORS.goldPrimary};color:${EMAIL_COLORS.darkGreenPrimary};font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;text-decoration:none;padding:14px 32px;border-radius:24px;box-shadow:0 4px 14px rgba(246,158,0,0.35);">
+            EXPLORE FULL ATHLETE ROSTER &amp; HIGHLIGHTS &rarr;
+          </a>
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:${EMAIL_COLORS.textMuted};margin-top:8px;">
+            Immediate access to verified video highlights, biometric data, and academic credentials.
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>`;
+
+  // Request CTA Bar
+  const requestCtaHtml = `
+  <!-- CTA REQUEST BAR -->
+  <tr>
+    <td style="padding:0 28px 24px 28px;background-color:${EMAIL_COLORS.white};">
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:${EMAIL_COLORS.ctaBg};border:1px solid ${EMAIL_COLORS.cardBorder};border-radius:12px;padding:18px 20px;">
+        <tr>
+          <td width="36" valign="middle" class="mobile-hide" style="padding-right:14px;">
+            <img src="${EMAIL_ASSETS.icons.users}" alt="Recruiting Roster" width="32" height="32" style="width:32px;height:32px;display:block;border:0;" />
+          </td>
+          <td valign="middle" class="mobile-stack" align="left" style="padding-right:12px;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">
+              LOOKING FOR A SPECIFIC POSITION OR CLASS YEAR?
+            </div>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:${EMAIL_COLORS.textMuted};line-height:1.45;">
+              Send us your scholarship availability and roster needs, and our advisors will prepare a personalized candidate dossier.
+            </div>
+          </td>
+          <td valign="middle" align="right" class="mobile-stack" style="padding-top:6px;white-space:nowrap;">
+            <a href="mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent("[Go Team Go Showcase] Specific Roster Request")}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:${EMAIL_COLORS.darkGreenPrimary};color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;text-decoration:none;padding:11px 18px;border-radius:24px;">
+              REQUEST CANDIDATE DOSSIER &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+
+  const bodyContentHtml = [
+    renderEmailHeader(),
+    renderEmailHero({
+      yearText: "2027",
+      sportText: "COLLEGIATE",
+      titleLine2: "RECRUITING BOARD",
+      subtitleText: "INTERNATIONAL ATHLETES AVAILABLE NOW",
+    }),
+    renderEmailIntro({
+      coachFirstName: coachGreeting,
+      customParagraph: introParagraph,
+      sportText: "collegiate athletics",
+      yearText: "2027",
+    }),
+    rosterDisciplinesHtml,
+    requestCtaHtml,
+    renderSignature(),
+    renderFeedbackBlock({
+      recipientEmail: data.recipientEmail,
+      coachId: data.coachId,
+    }),
+    renderBottomBar(),
+    renderLegalFooter({ recipientEmail: data.recipientEmail }),
+  ].join("");
+
+  const html = renderEmailShell({
+    title: subject,
+    preheader: `Official Go Team Go Collegiate Recruiting Board — Verified international student-athletes ready for US college athletics.`,
+    bodyContentHtml,
+  });
+
+  const text = generateCatalogPlainText(data);
 
   return {
     subject,
     html,
-    portfolioUrl,
+    text,
   };
 }

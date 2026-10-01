@@ -585,6 +585,33 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - 17 arquivos de teste (111 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
 - **Status:** [CONCLUÍDO]
 
+---
 
+## TASK-074 — 2026-10-01 05:50 — Redesign dos 3 E-mails do Mailer: Layout "Recruiting Board" (Poster 2027) — Entrega Única
 
-
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Redesign completo e unificado dos 3 e-mails do Mailer (multi-atleta, unitário e portfólio completo) para o novo layout editorial "Recruiting Board" (referência visual do poster "2027 VOLLEYBALL RECRUITING BOARD"):
+  1. Criação do módulo arquitetural `src/lib/email/email-brand.ts` (cores oficiais, tokens, constantes de assinatura de Fabiana Andrade, URLs absolutas de assets e mapeamento ISO alpha-2 para alpha-3).
+  2. Criação do motor modular `src/lib/email/email-layout.ts` com 13 blocos reutilizáveis compatíveis com tabelas HTML (Gmail, Outlook VML, Apple Mail, Webmail): `escapeHtml`, `renderEmailShell` (680px, light only), `renderEmailHeader`, `renderEmailHero`, `renderEmailIntro` (2 colunas com 4 benefícios), `renderFeaturedHeader`, `renderAthleteCard` (01..N, Alpha-3, foto 1.22:1, etiqueta de posição, nome bold, 5 linhas com ícones, botão pill "WATCH HIGHLIGHTS →", badge TRANSFER discreta e omissão de budget vazio), `renderAthleteGrid` (4 colunas com centralização inteligente), `renderRequestCtaBar`, `renderSignature`, `renderFeedbackBlock` ("Not the right fit? Tell us why →"), `renderBottomBar` (2/3 verde + 1/3 dourado) e `renderLegalFooter` (`/unsubscribe`).
+  3. Refatoração de `src/lib/email/recruit-email-template.ts`: `renderRecruitEmail` (unitário com card 50% centralizado e Hero "ATHLETE SPOTLIGHT") e `renderMultiAthleteRecruitEmail` (multi com grid 4-colunas e ano dinâmico).
+  4. Refatoração de `src/lib/email/recruit-email-catalog-template.ts`: `renderCatalogEmail` utilizando o mesmo shell e identidade de poster, destacando as modalidades esportivas ativas e CTAs diretos sem listar atletas individuais (para evitar favorecimento, conforme decisão do usuário).
+  5. Geração de assets PNG/JPG oficiais de alta resolução em `public/email/`: `logo-gtg.png`, `hero-email.jpg` (volleyball court P&B com degradê verde esmeralda integrado), manuscritos `handwritten-more-than-a-game.png` e `handwritten-different-athletes.png`, 14 ícones vetoriais em `public/email/icons/` e 11 bandeiras em `public/email/flags/`.
+  6. Entregabilidade SES: Adição de versão texto puro (`Body.Text`) no envio de `recruit-email.server.ts` e `email.server.ts`.
+  7. Ajuste nos modais de prévia do admin (`send-recruit-email-dialog.tsx` e `mailer.tsx`).
+  8. Testes automatizados expandidos em `recruit-email-multi.test.ts` cobrindo 1, 2, 4, 5 e 8 atletas, campos ausentes, escape de segurança contra XSS, links obrigatórios, ausência de SVGs/emojis/base64 e peso < 100KB.
+- **Planejamento:** Registrado e aprovado em `think/2026-10-01-email-layout-recruiting-board.md`.
+- **Entrega:**
+  - `src/lib/email/email-brand.ts`: Criado com tokens, cores, URLs de assets e mapeamento `ALPHA2_TO_ALPHA3`.
+  - `src/lib/email/email-layout.ts`: Criado com todos os 13 blocos reutilizáveis do design system do e-mail.
+  - `src/lib/email/recruit-email-template.ts`: Refatorado com `renderRecruitEmail` e `renderMultiAthleteRecruitEmail`.
+  - `src/lib/email/recruit-email-catalog-template.ts`: Refatorado com `renderCatalogEmail`.
+  - `src/lib/email/recruit-email.server.ts`: Atualizado com carregamento de highlights de `athlete_videos` e conquistas, e envio SES com `Body.Text`.
+  - `src/lib/email/email.server.ts`: Atualizado com versão `Body.Text` no envio SES geral.
+  - `src/components/send-recruit-email-dialog.tsx`: Atualizado com inputs enriquecidos para o preview.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Atualizado com `budget` e preview consistente.
+  - `public/email/...`: Assets gerados e commitados.
+  - `scripts/preview-emails.ts`: Script gerador de previews estáticos em `docs/email-previews/`.
+  - `src/lib/email/recruit-email-multi.test.ts`: 10 testes rigorosos cobrindo todos os cenários.
+  - 18 arquivos de teste (123 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]

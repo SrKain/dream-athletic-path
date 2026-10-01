@@ -969,6 +969,58 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Corrigido import em `src/lib/email/recruit-email-multi.test.ts` para `vitest`.
   - 18 arquivos de teste, 116 testes unitários 100% aprovados, ESLint sem erros e compilação de produção validada com sucesso.
 
+## Atualização 2026-10-01 — Redesign dos 3 E-mails do Mailer: Layout "Recruiting Board" (Poster 2027) (TASK-074)
+
+- **Módulo de Tokens e Marca (`src/lib/email/email-brand.ts`)**:
+  - Centralização de cores e tokens institucionais: verde-escuro profundo (`#032812`), verde primário (`#084323`), verde hero (`#05301a`), verde bottom bar (`#08311c`), dourado primário (`#f69e00`), dourado claro (`#f0a500`), fundos `#f3f6f1` (cards), `#eef3ec` (CTA bar), `#f8faf5` (corpo externo) e branco `#ffffff`.
+  - URLs absolutas oficiais para produção (`https://portfolio.goteamgoagency.com/email/...`): logo institucional, hero background, manuscritos editoriais e ícones.
+  - Assinatura oficial de Fabiana Andrade (`Founder | Go Team Go Agency`, `fabiana@goteamgoagency.com`, `@goteamgoagency`, `www.goteamgoagency.com`).
+  - Mapeamento estático bidirecional `ALPHA2_TO_ALPHA3` (ISO 3166-1) eliminando necessidade de novas migrations no banco.
+
+- **Motor Modular de Layout de E-mail (`src/lib/email/email-layout.ts`)**:
+  - Implementação de 13 blocos funcionais reutilizáveis em HTML compatível com Gmail, Outlook (MSO/VML), Apple Mail e Webmail:
+    - `escapeHtml`: Sanitização estrita contra injeção e XSS de strings dinâmicas.
+    - `renderEmailShell`: Container rígido de 680px centralizado sobre fundo `#f8faf5` com meta tags para desabilitar inversões indesejadas de Dark Mode em clientes móveis.
+    - `renderEmailHeader`: Logotipo oficial à esquerda e texto editorial "INTERNATIONAL ATHLETES. / REAL OPPORTUNITIES." com traço dourado à direita.
+    - `renderEmailHero`: Faixa visual (~280px) com foto de quadra de vôlei P&B e degradê verde esmeralda, ano dinâmico em dourado gigante, tipografia extra-bold e manuscrito *"more than a game"*.
+    - `renderEmailIntro`: Seção em 2 colunas com saudação e texto à esquerda e 4 diferenciais com ícones dedicados à direita (academics verificados, film/highlights, comunicação direta e suporte completo).
+    - `renderFeaturedHeader`: Título de seção com linha divisória dourada fina e nota *"MORE ATHLETES AVAILABLE UPON REQUEST"*.
+    - `renderAthleteCard`: Card individual com sequência numérica (01..N), badge de país Alpha-3 e bandeira PNG circular, foto com proporção 1.22:1 e badge de posição fixada na base, nome bold em caixa alta, 5 linhas de atributos com ícones (altura em imperial+métrica, turma de graduação, GPA, destaque de conquista e financeiro omitido se vazio per instrução do usuário), badge discreta `TRANSFER` quando aplicável, e botão pill `"WATCH HIGHLIGHTS →"`.
+    - `renderAthleteGrid`: Grid inteligente em 4 colunas (25% cada) com centralização equilibrada de linhas incompletas.
+    - `renderRequestCtaBar`: Barra de solicitação com botão `mailto:` pré-formatado para Fabiana Andrade solicitando perfis específicos.
+    - `renderSignature`: Bloco com logotipo, divisor dourado vertical, dados completos de Fabiana Andrade e manuscrito *"Different Athletes Brighter Futures"*.
+    - `renderFeedbackBlock`: Botão contornado `"Not the right fit? Tell us why →"` direcionando para `/feedback`.
+    - `renderBottomBar`: Barra final 2/3 verde escura com lema acadêmico e 1/3 dourada com *"GO FURTHER. TOGETHER."*.
+    - `renderLegalFooter`: Rodapé com direitos autorais e link obrigatório `/unsubscribe`.
+
+- **Templates do Mailer (`src/lib/email/recruit-email-template.ts` & `recruit-email-catalog-template.ts`)**:
+  - `renderRecruitEmail`: Renderiza o template unitário (*"ATHLETE SPOTLIGHT"*), centralizando o card do atleta a 50% de largura e linkando diretamente seu highlight de vídeo ou perfil.
+  - `renderMultiAthleteRecruitEmail`: Renderiza o template multi-atleta com grid de 4 colunas e detecção dinâmica de esporte e intervalo de graduação.
+  - `renderCatalogEmail`: Renderiza a vitrine de portfólio completo destacando as modalidades esportivas ativas (vôlei, futebol, basquete, tênis, atletismo, natação) e links diretos ao catálogo sem favorecer atletas individuais.
+  - Geração de versão texto puro (`Body.Text`) correspondente para todos os 3 templates (`generateRecruitEmailPlainText`, `generateMultiAthletePlainText`, `generateCatalogPlainText`).
+
+- **Serviço de Envio Amazon SES (`src/lib/email/recruit-email.server.ts` & `email.server.ts`)**:
+  - Consulta automática a vídeos de destaque (`athlete_videos` com `kind: "highlight"`) e maiores conquistas (`achievements`) para enriquecer os cards de e-mail.
+  - Inclusão da chave `Body.Text` em todas as invocações de `SendEmailCommand` para maximizar reputação de entregabilidade e prevenir marcação como spam.
+
+- **Assets Binários e Vetoriais (`public/email/`)**:
+  - `logo-gtg.png`: Brasão oficial e logotipo renderizados em 2x.
+  - `hero-email.jpg`: Composição visual 1360×560px com atmosfera editorial esportiva e gradiente verde esmeralda.
+  - `handwritten-more-than-a-game.png` & `handwritten-different-athletes.png`: Caligrafias artísticas transparentes com sublinhado dourado.
+  - `public/email/icons/`: 14 ícones transparentes em PNG 2x (academic, film, users, globe, height, grad-cap, stats, star, dollar, play-circle, arrow-gold, email, instagram, website).
+  - `public/email/flags/`: 11 bandeiras circulares em PNG 2x (BRA, USA, CAN, COL, ARG, DOM, PRI, ITA, ESP, DEU e default).
+
+- **Modais de Pré-Visualização no Admin**:
+  - `src/components/send-recruit-email-dialog.tsx`: Iframe de pré-visualização atualizado com fundo `#f8faf5`.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Iframe e dados de prévia sincronizados com o novo layout nos modos `single`, `multi` e `catalog`.
+
+- **Testes & Qualidade**:
+  - `src/lib/email/recruit-email-multi.test.ts`: 10 testes cobrindo variações de 1, 2, 4, 5 e 8 atletas, spot unitário, omissão de financeiro nulo, sanitização XSS, ausência de SVGs inline/emojis/base64, conformidade de tamanho (<100KB), saudações com fallback e rodapé de descadastro/feedback.
+  - 18 arquivos de teste e 123 testes unitários 100% aprovados.
+  - ESLint sem erros.
+  - Compilação de produção (`compile_applet`): Sucesso total.
+
+
 
 
 
