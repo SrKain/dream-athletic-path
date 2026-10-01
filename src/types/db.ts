@@ -90,6 +90,7 @@ export interface AthleteProfile {
   team_contribution_en: string | null;
   athlete_status?: AthleteStatus | string | null;
   college_start_date?: string | null;
+  highlight_note?: string | null;
 }
 
 export type AthleteVideoKind = "presentation" | "highlight" | "feature" | "in_court";
@@ -106,11 +107,8 @@ export interface AthleteVideo {
 
 export interface AgencyVisualSettings {
   agency_id: string;
-  hero_title_pt?: string | null;
   hero_title_en: string | null;
-  hero_subtitle_pt?: string | null;
   hero_subtitle_en: string | null;
-  catalog_heading_pt?: string | null;
   catalog_heading_en: string | null;
   logo_url?: string | null;
   hero_background_url?: string | null;
@@ -390,4 +388,184 @@ export interface AthleteVideoLike {
   athlete_id: string;
   user_fingerprint: string;
   created_at: string;
+}
+
+export interface Coach {
+  id: string;
+  name: string;
+  email: string;
+  institution: string | null;
+  created_at: string;
+}
+
+export type UniversityLeague = "NJCAA D1" | "NJCAA D2" | "NCAA D1" | "NCAA D2" | "NAIA";
+
+export type UniversityBudgetLevel = "0–1000" | "1000–5000" | "5000–10000" | "10000+";
+
+export type UniversityToeflLevel = "0" | "0–61" | "61+";
+
+export interface UniversityCoach {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+}
+
+export interface UniversityHistoryEntry {
+  id: string;
+  date: string;
+  event: string;
+}
+
+export interface University {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  league: UniversityLeague | null;
+  source_url: string | null;
+  is_hbcu: boolean;
+  budget_level: UniversityBudgetLevel | null;
+  toefl_level: UniversityToeflLevel | null;
+  coaches: UniversityCoach[];
+  history: UniversityHistoryEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type SuppressionType = "temporary_6m" | "permanent";
+
+export interface EmailSuppression {
+  id: string;
+  email: string;
+  reason: string;
+  suppression_type?: SuppressionType;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export type InterestSignalReason =
+  "position_not_needed" | "fully_recruited" | "other_positions_only" | "specific_athlete_dislike";
+
+export interface CoachInterestSignal {
+  id: string;
+  coach_id?: string | null;
+  coach_email: string;
+  reason: InterestSignalReason;
+  athlete_id?: string | null;
+  athlete_name?: string | null;
+  position?: string | null;
+  notes?: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface RecruitEmailLog {
+  id: string;
+  athlete_id: string | null;
+  coach_id: string | null;
+  subject: string;
+  status: "sent" | "failed" | "suppressed";
+  error_message: string | null;
+  sent_at: string;
+  email_type?: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
+  recipient_email?: string | null;
+  recipient_name?: string | null;
+  university_name?: string | null;
+  provider_id?: string | null;
+}
+
+export type EmailEventType =
+  | "email.sent"
+  | "email.delivered"
+  | "email.delivery_delayed"
+  | "email.opened"
+  | "email.clicked"
+  | "email.bounced"
+  | "email.complained"
+  | "email.unsubscribed"
+  | "email.failed"
+  | "email.suppressed"
+  | string;
+
+export interface EmailEvent {
+  id: string;
+  provider: string;
+  provider_event_id: string;
+  provider_email_id: string;
+  event_type: EmailEventType;
+  recipient: string;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MailerMetricsTotals {
+  sent: number;
+  delivered: number;
+  opened: number;
+  unique_opened: number;
+  clicked: number;
+  unique_clicked: number;
+  bounced: number;
+  bounced_permanent: number;
+  bounced_transient: number;
+  delivery_delayed: number;
+  unsubscribed: number;
+  complained: number;
+  failed: number;
+  suppressed: number;
+  delivery_rate: number;
+  open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+  complaint_rate: number;
+  unsubscribe_rate: number;
+}
+
+export interface MailerMetricsTimePoint {
+  period: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+}
+
+export interface CampaignModePerformance {
+  mode: "single_athlete" | "multi_athlete" | "catalog";
+  label: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  delivery_rate: number;
+  open_rate: number;
+  click_rate: number;
+}
+
+export interface DeliveryProblemItem {
+  id: string;
+  recipient: string;
+  university_name?: string | null;
+  event_type: string;
+  reason?: string | null;
+  occurred_at: string;
+}
+
+export interface MailerMetricsReport {
+  dataSource: "resend_api" | "local_database" | "unavailable";
+  startDate: string;
+  endDate: string;
+  granularity: "daily" | "hourly";
+  totals: MailerMetricsTotals;
+  timeSeries: MailerMetricsTimePoint[];
+  campaigns: CampaignModePerformance[];
+  deliveryProblems: DeliveryProblemItem[];
+  lastUpdated: string;
+  apiConfigured: boolean;
+  message?: string;
 }

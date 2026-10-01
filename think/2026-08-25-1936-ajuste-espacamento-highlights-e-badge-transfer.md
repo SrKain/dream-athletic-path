@@ -12,6 +12,7 @@
 Este plano atende a duas correções pontuais no catálogo público da Home (`/`):
 
 ### 1.1. Ajuste de Espaçamento e Contraste na Seção de Highlights (Sem mexer no Hero)
+
 - **Restrição Estrita**: Não alterar gradiente, cor de fundo ou qualquer estilo do Hero (`#catalog-hero`). O Hero permanece 100% inalterado.
 - **Diagnóstico**: O início da seção de Highlights (`#highlights-bar`) logo abaixo do Hero apresenta espaçamento superior insuficiente (`py-5 md:py-6`), deixando o título "Highlights · 8 Athletes" muito próximo da borda divisória superior, sem o respiro visual adequado.
 - **Ação**:
@@ -19,6 +20,7 @@ Este plano atende a duas correções pontuais no catálogo público da Home (`/`
   2. Ajustar o contraste tipográfico do cabeçalho ("Highlights · X Athletes") e dos rótulos de nome/posição das atletas contra o fundo da seção, assegurando conformidade estrita com WCAG AA (taxa de contraste ≥ 4.5:1 para texto normal), sem alterar a cor de fundo da seção.
 
 ### 1.2. Correção da Condicional da Badge "TRANSFER" no Card do Atleta (Home)
+
 - **Diagnóstico**: Em `src/routes/index.tsx`, a condicional no componente `AthleteCardItem` estava verificando incorretamente `rawStatus.toLowerCase() !== "junior"`.
 - **Regra de Negócio Exata**:
   - A badge "TRANSFER" deve ser exibida **apenas e exclusivamente** quando o `Athlete Status` for um destes 4 (quatro) valores:
@@ -36,19 +38,20 @@ Este plano atende a duas correções pontuais no catálogo público da Home (`/`
 
 ## 2. Arquivos Envolvidos
 
-| Arquivo | Ação | Responsabilidade |
-| :--- | :---: | :--- |
-| `src/components/home-highlights-story-bar.tsx` | **Edição** | Ajuste do `padding-top` da seção de Highlights e refinamento de contraste dos textos e contadores sobre o fundo. |
-| `src/routes/index.tsx` | **Edição** | Correção da condicional da badge "TRANSFER" no `AthleteCardItem` para os 4 status elegíveis: Freshman, Sophomore, Junior e Senior. |
-| `think/2026-08-25-1936-ajuste-espacamento-highlights-e-badge-transfer.md` | **Criação** | Registro formal do plano de implementação para governança e aprovação. |
-| `CERNE.md` | **Edição** | Atualização da documentação viva com as correções aplicadas. |
-| `BACKLOGER.md` | **Edição** | Registro de conclusão da tarefa no diário de bordo. |
+| Arquivo                                                                   |    Ação     | Responsabilidade                                                                                                                   |
+| :------------------------------------------------------------------------ | :---------: | :--------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/home-highlights-story-bar.tsx`                            | **Edição**  | Ajuste do `padding-top` da seção de Highlights e refinamento de contraste dos textos e contadores sobre o fundo.                   |
+| `src/routes/index.tsx`                                                    | **Edição**  | Correção da condicional da badge "TRANSFER" no `AthleteCardItem` para os 4 status elegíveis: Freshman, Sophomore, Junior e Senior. |
+| `think/2026-08-25-1936-ajuste-espacamento-highlights-e-badge-transfer.md` | **Criação** | Registro formal do plano de implementação para governança e aprovação.                                                             |
+| `CERNE.md`                                                                | **Edição**  | Atualização da documentação viva com as correções aplicadas.                                                                       |
+| `BACKLOGER.md`                                                            | **Edição**  | Registro de conclusão da tarefa no diário de bordo.                                                                                |
 
 ---
 
 ## 3. Detalhamento das Alterações
 
 ### 3.1. `src/components/home-highlights-story-bar.tsx`
+
 - Alterar a classe do elemento `<section id="highlights-bar">`:
   - De: `className="border-b border-border/70 bg-surface/50 py-5 md:py-6"`
   - Para: `className="border-b border-border/70 bg-surface/50 pt-9 pb-6 md:pt-12 md:pb-8"`
@@ -59,14 +62,11 @@ Este plano atende a duas correções pontuais no catálogo público da Home (`/`
   - Posição: `text-[11px] font-semibold text-foreground/75`.
 
 ### 3.2. `src/routes/index.tsx`
+
 - Atualizar a verificação da badge no `AthleteCardItem`:
+
 ```tsx
-const TRANSFER_ELIGIBLE_STATUSES = new Set([
-  "freshman",
-  "sophomore",
-  "junior",
-  "senior",
-]);
+const TRANSFER_ELIGIBLE_STATUSES = new Set(["freshman", "sophomore", "junior", "senior"]);
 
 const rawStatus = getAthleteStatus(athlete);
 const showTransferBadge = Boolean(

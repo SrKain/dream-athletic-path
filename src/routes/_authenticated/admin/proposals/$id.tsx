@@ -121,7 +121,9 @@ function ProposalEditor() {
     if (!file || !proposal) return;
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg",
       path = `${proposal.id}/${block.id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("proposal-assets").upload(path, file);
+    const { error } = await supabase.storage
+      .from("proposal-assets")
+      .upload(path, file, { cacheControl: "31536000" });
     if (error) return toast.error(error.message);
     const { data } = supabase.storage.from("proposal-assets").getPublicUrl(path);
     patchBlock(block.id, { imageUrl: data.publicUrl });

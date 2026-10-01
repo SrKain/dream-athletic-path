@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Trash2, Upload } from "lucide-react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Send, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -239,6 +239,7 @@ function AthleteEditor() {
       if (downloaded.error) return toast.error(downloaded.error.message);
       const uploaded = await supabase.storage.from("athlete-media").upload(path, downloaded.data, {
         upsert: true,
+        cacheControl: "31536000",
       });
       if (uploaded.error) return toast.error(uploaded.error.message);
       nextUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -266,7 +267,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -291,7 +292,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -388,7 +389,7 @@ function AthleteEditor() {
     const path = `${currentAthlete.id}/achievements/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, cacheControl: "31536000" });
     if (stored.error) toast.error(stored.error.message);
     else {
       const publicUrl = supabase.storage.from("athlete-media").getPublicUrl(path).data.publicUrl;
@@ -409,10 +410,18 @@ function AthleteEditor() {
   return (
     <ProtectedPage role="agency_admin">
       <AppShell role="agency_admin" title={athlete.full_name}>
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <button className={buttonClass} onClick={save}>
             Salvar alterações
           </button>
+          <Link
+            to="/admin/mailer"
+            search={{ mode: "single", athleteId: id }}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors cursor-pointer"
+          >
+            <Send className="h-4 w-4" />
+            Recruit Mailer
+          </Link>
           <button className={secondaryButtonClass} onClick={invite}>
             Enviar convite
           </button>
@@ -605,6 +614,17 @@ function AthleteEditor() {
                         onChange={(e) =>
                           setProfile({ ...profile, team_contribution_en: e.target.value })
                         }
+                      />
+                    </Field>
+                    <Field
+                      label="Recruit Email Hook Line (Teaser highlight for coaches blast)"
+                      wide
+                    >
+                      <input
+                        className={inputClass}
+                        placeholder="e.g. Dynamic 6'1 outside hitter with 10'2 approach touch and proven leadership."
+                        value={profile.highlight_note ?? ""}
+                        onChange={(e) => setProfile({ ...profile, highlight_note: e.target.value })}
                       />
                     </Field>
                     <Field label="Athlete Status (Academic / Collegiate Level)">

@@ -11,11 +11,13 @@
 ## 1. Contexto & Diagnóstico
 
 No ambiente GitHub Codespace / terminal independente onde o runtime do TanStack Start e o `bun` não estão presentes, a execução standalone via `npx tsx scripts/indexnow-bulk.ts` falha com:
+
 ```
 ERR_MODULE_NOT_FOUND: Cannot find package '@tanstack/react-start'
 ```
 
 ### Causa Raiz
+
 O script `scripts/indexnow-bulk.ts` importava a função `submitToIndexNow` de `src/lib/indexnow.ts`. Como `src/lib/indexnow.ts` importa utilitários do `@tanstack/react-start` (como `createServerFn`), a resolução de módulos do Node via `npx tsx` não consegue resolver esses pacotes fora do contexto de compilação da aplicação web.
 
 ---
@@ -25,6 +27,7 @@ O script `scripts/indexnow-bulk.ts` importava a função `submitToIndexNow` de `
 O objetivo é reescrever `scripts/indexnow-bulk.ts` para ser **100% autocontido (standalone)**, sem depender de nenhum arquivo de `src/` ou do TanStack Start.
 
 ### O que SERÁ feito:
+
 1. **Constantes Locais**:
    - `INDEXNOW_KEY = '1675dcaaacd2469b9461671a29b307e0'`
    - `HOST = 'portfolio.goteamgoagency.com'`
@@ -50,6 +53,7 @@ O objetivo é reescrever `scripts/indexnow-bulk.ts` para ser **100% autocontido 
 ---
 
 ## 3. Plano de Testes & Validação
+
 1. Executar `npx tsx scripts/indexnow-bulk.ts` e verificar a saída de sucesso e status HTTP retornado pelo endpoint do IndexNow.
 2. Executar `vitest run` para garantir que a suíte existente de 80 testes continue com 100% de aprovação.
 3. Executar `npm run lint` para validação de estilo.

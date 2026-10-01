@@ -9,45 +9,36 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
-import { Route as AuthenticatedPortalRouteRouteImport } from './routes/_authenticated/portal/route'
-import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
-import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProposalTokenRouteImport } from './routes/proposal.$token'
-import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
-import { Route as AuthenticatedAdminDocumentsRouteImport } from './routes/_authenticated/admin/documents'
-import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
-import { Route as AuthenticatedAdminPipelineRouteImport } from './routes/_authenticated/admin/pipeline'
-import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
-import { Route as AuthenticatedAdminVisualRouteImport } from './routes/_authenticated/admin/visual'
+import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
+import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
+import { Route as AuthenticatedPortalRouteRouteImport } from './routes/_authenticated/portal/route'
+import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal/index'
-import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal/documents'
-import { Route as AuthenticatedPortalMediaRouteImport } from './routes/_authenticated/portal/media'
-import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal/notifications'
-import { Route as AuthenticatedPortalPipelineRouteImport } from './routes/_authenticated/portal/pipeline'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as ProposalTokenPdfRouteImport } from './routes/proposal.$token.pdf'
-import { Route as AuthenticatedAdminAthletesIndexRouteImport } from './routes/_authenticated/admin/athletes/index'
-import { Route as AuthenticatedAdminAthletesIdRouteImport } from './routes/_authenticated/admin/athletes/$id'
+import { Route as AuthenticatedPortalPipelineRouteImport } from './routes/_authenticated/portal/pipeline'
+import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal/notifications'
+import { Route as AuthenticatedPortalMediaRouteImport } from './routes/_authenticated/portal/media'
+import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal/documents'
+import { Route as AuthenticatedAdminVisualRouteImport } from './routes/_authenticated/admin/visual'
+import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
+import { Route as AuthenticatedAdminPipelineRouteImport } from './routes/_authenticated/admin/pipeline'
+import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
+import { Route as AuthenticatedAdminDocumentsRouteImport } from './routes/_authenticated/admin/documents'
 import { Route as AuthenticatedAdminProposalsIndexRouteImport } from './routes/_authenticated/admin/proposals/index'
+import { Route as AuthenticatedAdminAthletesIndexRouteImport } from './routes/_authenticated/admin/athletes/index'
 import { Route as AuthenticatedAdminProposalsIdRouteImport } from './routes/_authenticated/admin/proposals/$id'
+import { Route as AuthenticatedAdminAthletesIdRouteImport } from './routes/_authenticated/admin/athletes/$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -55,30 +46,18 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPortalRouteRoute =
-  AuthenticatedPortalRouteRouteImport.update({
-    id: '/portal',
-    path: '/portal',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AthleteSlugRoute = AthleteSlugRouteImport.update({
-  id: '/athlete/$slug',
-  path: '/athlete/$slug',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
-  id: '/auth/accept-invite',
-  path: '/auth/accept-invite',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProposalTokenRoute = ProposalTokenRouteImport.update({
@@ -86,57 +65,47 @@ const ProposalTokenRoute = ProposalTokenRouteImport.update({
   path: '/proposal/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedAdminRouteRoute,
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/auth/accept-invite',
+  path: '/auth/accept-invite',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminDocumentsRoute =
-  AuthenticatedAdminDocumentsRouteImport.update({
-    id: '/documents',
-    path: '/documents',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
+const AthleteSlugRoute = AthleteSlugRouteImport.update({
+  id: '/athlete/$slug',
+  path: '/athlete/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedPortalRouteRoute =
+  AuthenticatedPortalRouteRouteImport.update({
+    id: '/portal',
+    path: '/portal',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAdminNotificationsRoute =
-  AuthenticatedAdminNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
-const AuthenticatedAdminPipelineRoute =
-  AuthenticatedAdminPipelineRouteImport.update({
-    id: '/pipeline',
-    path: '/pipeline',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
-const AuthenticatedAdminSettingsRoute =
-  AuthenticatedAdminSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
-const AuthenticatedAdminVisualRoute =
-  AuthenticatedAdminVisualRouteImport.update({
-    id: '/visual',
-    path: '/visual',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPortalIndexRoute =
   AuthenticatedPortalIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedPortalRouteRoute,
   } as any)
-const AuthenticatedPortalDocumentsRoute =
-  AuthenticatedPortalDocumentsRouteImport.update({
-    id: '/documents',
-    path: '/documents',
-    getParentRoute: () => AuthenticatedPortalRouteRoute,
-  } as any)
-const AuthenticatedPortalMediaRoute =
-  AuthenticatedPortalMediaRouteImport.update({
-    id: '/media',
-    path: '/media',
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
+const ProposalTokenPdfRoute = ProposalTokenPdfRouteImport.update({
+  id: '/pdf',
+  path: '/pdf',
+  getParentRoute: () => ProposalTokenRoute,
+} as any)
+const AuthenticatedPortalPipelineRoute =
+  AuthenticatedPortalPipelineRouteImport.update({
+    id: '/pipeline',
+    path: '/pipeline',
     getParentRoute: () => AuthenticatedPortalRouteRoute,
   } as any)
 const AuthenticatedPortalNotificationsRoute =
@@ -145,27 +114,46 @@ const AuthenticatedPortalNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedPortalRouteRoute,
   } as any)
-const AuthenticatedPortalPipelineRoute =
-  AuthenticatedPortalPipelineRouteImport.update({
-    id: '/pipeline',
-    path: '/pipeline',
+const AuthenticatedPortalMediaRoute =
+  AuthenticatedPortalMediaRouteImport.update({
+    id: '/media',
+    path: '/media',
     getParentRoute: () => AuthenticatedPortalRouteRoute,
   } as any)
-const ProposalTokenPdfRoute = ProposalTokenPdfRouteImport.update({
-  id: '/pdf',
-  path: '/pdf',
-  getParentRoute: () => ProposalTokenRoute,
-} as any)
-const AuthenticatedAdminAthletesIndexRoute =
-  AuthenticatedAdminAthletesIndexRouteImport.update({
-    id: '/athletes/',
-    path: '/athletes/',
+const AuthenticatedPortalDocumentsRoute =
+  AuthenticatedPortalDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthenticatedPortalRouteRoute,
+  } as any)
+const AuthenticatedAdminVisualRoute =
+  AuthenticatedAdminVisualRouteImport.update({
+    id: '/visual',
+    path: '/visual',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedAdminAthletesIdRoute =
-  AuthenticatedAdminAthletesIdRouteImport.update({
-    id: '/athletes/$id',
-    path: '/athletes/$id',
+const AuthenticatedAdminSettingsRoute =
+  AuthenticatedAdminSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminPipelineRoute =
+  AuthenticatedAdminPipelineRouteImport.update({
+    id: '/pipeline',
+    path: '/pipeline',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminNotificationsRoute =
+  AuthenticatedAdminNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminDocumentsRoute =
+  AuthenticatedAdminDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAdminProposalsIndexRoute =
@@ -174,10 +162,22 @@ const AuthenticatedAdminProposalsIndexRoute =
     path: '/proposals/',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminAthletesIndexRoute =
+  AuthenticatedAdminAthletesIndexRouteImport.update({
+    id: '/athletes/',
+    path: '/athletes/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminProposalsIdRoute =
   AuthenticatedAdminProposalsIdRouteImport.update({
     id: '/proposals/$id',
     path: '/proposals/$id',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminAthletesIdRoute =
+  AuthenticatedAdminAthletesIdRouteImport.update({
+    id: '/athletes/$id',
+    path: '/athletes/$id',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 
@@ -358,25 +358,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -386,39 +372,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/portal': {
-      id: '/_authenticated/portal'
-      path: '/portal'
-      fullPath: '/portal'
-      preLoaderRoute: typeof AuthenticatedPortalRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/athlete/$slug': {
-      id: '/athlete/$slug'
-      path: '/athlete/$slug'
-      fullPath: '/athlete/$slug'
-      preLoaderRoute: typeof AthleteSlugRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/accept-invite': {
-      id: '/auth/accept-invite'
-      path: '/auth/accept-invite'
-      fullPath: '/auth/accept-invite'
-      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proposal/$token': {
@@ -428,47 +400,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProposalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin/': {
-      id: '/_authenticated/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
+    '/auth/accept-invite': {
+      id: '/auth/accept-invite'
+      path: '/auth/accept-invite'
+      fullPath: '/auth/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin/documents': {
-      id: '/_authenticated/admin/documents'
-      path: '/documents'
-      fullPath: '/admin/documents'
-      preLoaderRoute: typeof AuthenticatedAdminDocumentsRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
+    '/athlete/$slug': {
+      id: '/athlete/$slug'
+      path: '/athlete/$slug'
+      fullPath: '/athlete/$slug'
+      preLoaderRoute: typeof AthleteSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin/notifications': {
-      id: '/_authenticated/admin/notifications'
-      path: '/notifications'
-      fullPath: '/admin/notifications'
-      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
+    '/_authenticated/portal': {
+      id: '/_authenticated/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof AuthenticatedPortalRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin/pipeline': {
-      id: '/_authenticated/admin/pipeline'
-      path: '/pipeline'
-      fullPath: '/admin/pipeline'
-      preLoaderRoute: typeof AuthenticatedAdminPipelineRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
-    }
-    '/_authenticated/admin/settings': {
-      id: '/_authenticated/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
-    }
-    '/_authenticated/admin/visual': {
-      id: '/_authenticated/admin/visual'
-      path: '/visual'
-      fullPath: '/admin/visual'
-      preLoaderRoute: typeof AuthenticatedAdminVisualRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/portal/': {
       id: '/_authenticated/portal/'
@@ -477,18 +435,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalIndexRouteImport
       parentRoute: typeof AuthenticatedPortalRouteRoute
     }
-    '/_authenticated/portal/documents': {
-      id: '/_authenticated/portal/documents'
-      path: '/documents'
-      fullPath: '/portal/documents'
-      preLoaderRoute: typeof AuthenticatedPortalDocumentsRouteImport
-      parentRoute: typeof AuthenticatedPortalRouteRoute
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/portal/media': {
-      id: '/_authenticated/portal/media'
-      path: '/media'
-      fullPath: '/portal/media'
-      preLoaderRoute: typeof AuthenticatedPortalMediaRouteImport
+    '/proposal/$token/pdf': {
+      id: '/proposal/$token/pdf'
+      path: '/pdf'
+      fullPath: '/proposal/$token/pdf'
+      preLoaderRoute: typeof ProposalTokenPdfRouteImport
+      parentRoute: typeof ProposalTokenRoute
+    }
+    '/_authenticated/portal/pipeline': {
+      id: '/_authenticated/portal/pipeline'
+      path: '/pipeline'
+      fullPath: '/portal/pipeline'
+      preLoaderRoute: typeof AuthenticatedPortalPipelineRouteImport
       parentRoute: typeof AuthenticatedPortalRouteRoute
     }
     '/_authenticated/portal/notifications': {
@@ -498,32 +463,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
       parentRoute: typeof AuthenticatedPortalRouteRoute
     }
-    '/_authenticated/portal/pipeline': {
-      id: '/_authenticated/portal/pipeline'
-      path: '/pipeline'
-      fullPath: '/portal/pipeline'
-      preLoaderRoute: typeof AuthenticatedPortalPipelineRouteImport
+    '/_authenticated/portal/media': {
+      id: '/_authenticated/portal/media'
+      path: '/media'
+      fullPath: '/portal/media'
+      preLoaderRoute: typeof AuthenticatedPortalMediaRouteImport
       parentRoute: typeof AuthenticatedPortalRouteRoute
     }
-    '/proposal/$token/pdf': {
-      id: '/proposal/$token/pdf'
-      path: '/pdf'
-      fullPath: '/proposal/$token/pdf'
-      preLoaderRoute: typeof ProposalTokenPdfRouteImport
-      parentRoute: typeof ProposalTokenRoute
+    '/_authenticated/portal/documents': {
+      id: '/_authenticated/portal/documents'
+      path: '/documents'
+      fullPath: '/portal/documents'
+      preLoaderRoute: typeof AuthenticatedPortalDocumentsRouteImport
+      parentRoute: typeof AuthenticatedPortalRouteRoute
     }
-    '/_authenticated/admin/athletes/': {
-      id: '/_authenticated/admin/athletes/'
-      path: '/athletes'
-      fullPath: '/admin/athletes/'
-      preLoaderRoute: typeof AuthenticatedAdminAthletesIndexRouteImport
+    '/_authenticated/admin/visual': {
+      id: '/_authenticated/admin/visual'
+      path: '/visual'
+      fullPath: '/admin/visual'
+      preLoaderRoute: typeof AuthenticatedAdminVisualRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/admin/athletes/$id': {
-      id: '/_authenticated/admin/athletes/$id'
-      path: '/athletes/$id'
-      fullPath: '/admin/athletes/$id'
-      preLoaderRoute: typeof AuthenticatedAdminAthletesIdRouteImport
+    '/_authenticated/admin/settings': {
+      id: '/_authenticated/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/pipeline': {
+      id: '/_authenticated/admin/pipeline'
+      path: '/pipeline'
+      fullPath: '/admin/pipeline'
+      preLoaderRoute: typeof AuthenticatedAdminPipelineRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/notifications': {
+      id: '/_authenticated/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/documents': {
+      id: '/_authenticated/admin/documents'
+      path: '/documents'
+      fullPath: '/admin/documents'
+      preLoaderRoute: typeof AuthenticatedAdminDocumentsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/proposals/': {
@@ -533,11 +519,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminProposalsIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/athletes/': {
+      id: '/_authenticated/admin/athletes/'
+      path: '/athletes'
+      fullPath: '/admin/athletes/'
+      preLoaderRoute: typeof AuthenticatedAdminAthletesIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/proposals/$id': {
       id: '/_authenticated/admin/proposals/$id'
       path: '/proposals/$id'
       fullPath: '/admin/proposals/$id'
       preLoaderRoute: typeof AuthenticatedAdminProposalsIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/athletes/$id': {
+      id: '/_authenticated/admin/athletes/$id'
+      path: '/athletes/$id'
+      fullPath: '/admin/athletes/$id'
+      preLoaderRoute: typeof AuthenticatedAdminAthletesIdRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
   }
