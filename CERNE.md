@@ -15,7 +15,7 @@ O **Go Team Go (Sport Scout Hub)** é uma plataforma SaaS para **Agências de In
 - **Interface & Estilização**: **Tailwind CSS v4** (`@tailwindcss/vite`), **shadcn UI** / **Radix UI**, Lucide Icons, design **Mobile-First** e regras consolidadas no guia oficial [`UI&UX.md`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md).
 - **Backend, Autenticação e Armazenamento**: **Supabase externo** (`@supabase/supabase-js`) com autenticação por E-mail/Senha, Row Level Security (RLS) e Buckets de Storage para mídias e documentos.
 - **Geração de Propostas**: Geração dinâmica de propostas e exportação em PDF via `@react-pdf/renderer`.
-- **Serviço de E-mail**: Arquitetura integrada ao **Amazon SES (Simple Email Service v2 via `@aws-sdk/client-sesv2`)** com Configuration Sets e tópicos SNS para captura de Bounces/Complaints, e-mails transacionais com janela comercial (`email_log`) e mailer de recrutamento em massa para coaches.
+- **Serviço de E-mail**: Arquitetura centralizada integrada ao **Resend (SDK oficial `resend`)** com suporte a Batch API (até 100 mensagens por lote), Webhooks com verificação Svix para captura de Bounces/Complaints sincronizados com `email_suppressions`, e-mails transacionais com controle de janela comercial (`email_log`) e Mailer de recrutamento em massa para coaches universitários.
 - **Qualidade & Testes**: **Vitest**, **ESLint**, **Prettier**.
 
 ### Governança de Planejamento Compartilhado
@@ -145,9 +145,15 @@ bun run validate
 
 - [`src/lib/email/sending-window.test.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/sending-window.test.ts): Suite completa de testes Vitest cobrindo todos os cenários de janela de envio: manhãs e tardes de semana, sábados, domingos, horários de almoço e transições entre dias.
 
+- [`src/lib/email/resend-client.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/resend-client.server.ts): Singleton do cliente Resend SDK com leitura centralizada de `RESEND_API_KEY`, `EMAIL_FROM` e `RESEND_WEBHOOK_SECRET`, proteção server-only e reset de cache para testes unitários.
+
+- [`src/lib/email/resend-webhook.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/resend-webhook.server.ts): Processador de eventos de webhook do Resend (`email.bounced`, `email.complained`, `email.delivered`, `email.sent`, `email.opened`, `email.clicked`) com validação de assinatura criptográfica Svix e sincronização automática com a tabela `email_suppressions`.
+
 - [`src/lib/email/templates.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/templates.ts): Catálogo de templates de e-mail com novo template `stage_advancement_celebration` seguindo rigorosamente as especificações do [UI&UX.md](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/UI&UX.md) (Dark Premium theme, emerald/gold accents, Space Grotesk typography, 48px CTA button, mobile-first design).
 
-- [`src/lib/email/email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/email.server.ts): Serviço centralizado de e-mail via Resend. **Atualizado** com suporte a agendamento inteligente via parâmetro `respectSendingWindow`. Quando ativado, verifica a janela de envio e utiliza o parâmetro nativo `scheduled_at` do Resend para agendar e-mails fora do horário permitido. Registra status `"scheduled"` e timestamp `scheduled_for` na tabela `email_log`.
+- [`src/lib/email/email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/email.server.ts): Serviço centralizado de e-mail via Resend. Suporte a agendamento inteligente via parâmetro `respectSendingWindow`. Registra status `"sent"`, `"scheduled"` ou `"failed"` na tabela `email_log` com provider ID retornado pelo Resend.
+
+- [`src/lib/email/recruit-email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/recruit-email.server.ts): Motor de disparo em lote do Mailer (Single, Multi e Catalog) para coaches universitários integrado ao Resend Batch API (`resend.batch.send`), com controle de supressão, descadastro em 2 níveis e registro de sinais de interesse em `coach_interest_signals`.
 
 - [`src/lib/email/stage-change.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/stage-change.server.ts): Server Function `notifyStageAdvancementServerFn` que orquestra o envio de e-mails celebrativos quando atleta avança de etapa. Carrega mensagem customizada de `pipeline_stages.celebration_message_en`, substitui placeholders, monta dados do e-mail e dispara com respeito à janela de envio. Retorna informações de agendamento quando aplicável.
 
@@ -1019,6 +1025,33 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - 18 arquivos de teste e 123 testes unitários 100% aprovados.
   - ESLint sem erros.
   - Compilação de produção (`compile_applet`): Sucesso total.
+
+---
+
+### [2026-10-01] Refinamento, Personalização Editorial e Integração Real do Mailer (TASK-075)
+
+- **Personalização Editorial em Tempo Real (`/admin/mailer`)**:
+  - Inclusão de campos editáveis para **Saudação (Greeting)** (`customGreeting`), **Introdução Principal** (`customIntroduction`) e **Chamada/Hook** (`customHook`) em todos os 3 modos de envio (`single`, `multi` e `catalog`), além de título e mensagem institucional no catálogo.
+  - O iframe de preview WYSIWYG reage instantaneamente a cada digitação com sanitização completa contra XSS via `escapeHtml`.
+  - Os valores personalizados são repassados ao backend no payload do `sendMailerServerFn` e inseridos tanto no HTML quanto na versão plain text (`Body.Text`) enviada pelo Amazon SES.
+
+- **Exclusão de Outras Modalidades no Catálogo (`src/lib/email/recruit-email-catalog-template.ts`)**:
+  - Removidas integralmente todas as menções e tabelas de modalidades não atendidas pela agência (Soccer, Basketball, Tennis, Track & Field, Swimming).
+  - O layout e o plain text agora são 100% focados na atuação da Go Team Go em **Volleyball** e no convite de exploração do elenco completo.
+
+- **Identidade Visual Dinâmica da Agência (`agency_visual_settings`)**:
+  - O Mailer carrega oficialmente `logo_url` e `hero_background_url` de `agency_visual_settings`.
+  - As URLs dinâmicas são propagadas tanto para o preview do Admin quanto para o disparo real via SES no backend. Ao alterar a logo ou o hero em `/admin/visual`, os próximos e-mails e previews passam a utilizar a nova imagem automaticamente.
+
+- **Resolução Real de Highlights ("Take a Look" e Botões dos Cards)**:
+  - O produto prioriza `athlete_videos` com `kind = 'highlight'` (ordenado por `sort_order ASC, created_at DESC`) com fallback para `athlete_profiles.highlight_video_url`.
+  - O botão do card `"WATCH HIGHLIGHTS →"` conecta diretamente à URL do vídeo da atleta (convertida via `youtubeWatchUrl`).
+  - Quando a atleta não possui highlight cadastrado, o botão é adaptado com segurança para `"VIEW FULL PROFILE →"` apontando para `/athlete/{slug}`, evitando links vazios ou quebrados.
+  - A chamada textual "Take a Look" no modo individual se torna um link ativo apontando para o vídeo de highlight.
+
+- **Qualidade & Testes**:
+  - Suite `recruit-email-multi.test.ts` expandida para 14 testes cobrindo personalização editorial, integridade do catálogo sem esportes terceiros, branding dinâmico e resolução de highlights.
+  - 18 arquivos de teste (127 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
 
 
 

@@ -1,6 +1,5 @@
-import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getAdminClient } from "@/lib/supabase/clients.server";
-import { getSesClient, getSesConfig } from "./ses-client.server";
+import { getResendClient, getResendConfig } from "./resend-client.server";
 import { renderEmail, type EmailTemplate } from "./templates";
 import {
   isWithinSendingWindow,
@@ -9,7 +8,7 @@ import {
 } from "./sending-window";
 
 /**
- * Serviço centralizado de e-mail (Amazon SES).
+ * Serviço centralizado de e-mail (Resend).
  * Todo disparo da plataforma passa por aqui e é registrado em `email_log`.
  */
 export interface SendEmailInput {
@@ -47,8 +46,8 @@ export async function sendEmail({
   data = {},
   respectSendingWindow = false,
 }: SendEmailInput): Promise<SendEmailResult> {
-  const sesConfig = getSesConfig();
-  const from = sesConfig.from;
+  const resendConfig = getResendConfig();
+  const from = resendConfig.from;
   const { subject, html } = renderEmail(template, data);
   const text = html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -57,16 +56,16 @@ export async function sendEmail({
     .replace(/\s+/g, " ")
     .trim();
 
-  if (!sesConfig.isConfigured) {
+  if (!resendConfig.isConfigured) {
     console.warn(
-      `[email] Credenciais AWS SES ausentes (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) — disparo "${template}" não enviado.`,
+      `[email] Chave Resend ausente (RESEND_API_KEY) — disparo "${template}" não enviado.`,
     );
     await logEmail({
       template,
       to,
       subject,
       status: "skipped",
-      error: "missing_aws_credentials",
+      error: "missing_resend_api_key",
       data,
     });
     return { sent: false, reason: "not_configured" };
@@ -98,40 +97,25 @@ export async function sendEmail({
         windowDescription: windowDesc,
       };
     } else {
-      // Envio imediato via Amazon SES
-      const sesClient = getSesClient();
-      if (!sesClient) {
-        throw new Error("Falha ao inicializar o cliente Amazon SES");
+      // Envio imediato via Resend
+      const resendClient = getResendClient();
+      if (!resendClient) {
+        throw new Error("Falha ao inicializar o cliente Resend");
       }
 
-      const command = new SendEmailCommand({
-        FromEmailAddress: from,
-        Destination: {
-          ToAddresses: [to],
-        },
-        Content: {
-          Simple: {
-            Subject: {
-              Data: subject,
-              Charset: "UTF-8",
-            },
-            Body: {
-              Html: {
-                Data: html,
-                Charset: "UTF-8",
-              },
-              Text: {
-                Data: text,
-                Charset: "UTF-8",
-              },
-            },
-          },
-        },
-        ConfigurationSetName: sesConfig.configurationSet || undefined,
+      const response = await resendClient.emails.send({
+        from,
+        to: [to],
+        subject,
+        html,
+        text,
       });
 
-      const result = await sesClient.send(command);
-      const messageId = result.MessageId;
+      if (response.error) {
+        throw new Error(response.error.message || "Resend send failed");
+      }
+
+      const messageId = response.data?.id;
 
       await logEmail({
         template,
@@ -146,7 +130,7 @@ export async function sendEmail({
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
-    console.error(`[email] falha ao enviar "${template}" via SES:`, message);
+    console.error(`[email] falha ao enviar "${template}" via Resend:`, message);
     await logEmail({ template, to, subject, status: "failed", error: message, data });
     return { sent: false, reason: "provider_error" };
   }
@@ -155,18 +139,18 @@ export async function sendEmail({
 /**
  * Processador de fila de e-mails agendados.
  * Busca registros pendentes com `status = 'scheduled'` e `scheduled_for <= now()`
- * e realiza o disparo via Amazon SES.
+ * e realiza o disparo via Resend.
  */
 export async function processScheduledEmails(): Promise<{
   processed: number;
   successful: number;
   failed: number;
 }> {
-  const sesConfig = getSesConfig();
-  const sesClient = getSesClient();
+  const resendConfig = getResendConfig();
+  const resendClient = getResendClient();
 
-  if (!sesConfig.isConfigured || !sesClient) {
-    console.warn("[email-scheduler] SES não configurado. Processamento adiado.");
+  if (!resendConfig.isConfigured || !resendClient) {
+    console.warn("[email-scheduler] Resend não configurado. Processamento adiado.");
     return { processed: 0, successful: 0, failed: 0 };
   }
 
@@ -195,27 +179,30 @@ export async function processScheduledEmails(): Promise<{
         (item.payload as Record<string, string | number | undefined>) || {},
       );
 
-      const command = new SendEmailCommand({
-        FromEmailAddress: sesConfig.from,
-        Destination: {
-          ToAddresses: [item.to_email],
-        },
-        Content: {
-          Simple: {
-            Subject: { Data: subject || item.subject || "Notification", Charset: "UTF-8" },
-            Body: { Html: { Data: html, Charset: "UTF-8" } },
-          },
-        },
-        ConfigurationSetName: sesConfig.configurationSet || undefined,
+      const text = html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const response = await resendClient.emails.send({
+        from: resendConfig.from,
+        to: [item.to_email],
+        subject: subject || item.subject || "Notification",
+        html,
+        text,
       });
 
-      const response = await sesClient.send(command);
+      if (response.error) {
+        throw new Error(response.error.message || "Resend scheduled send failed");
+      }
 
       await admin
         .from("email_log")
         .update({
           status: "sent",
-          provider_id: response.MessageId ?? null,
+          provider_id: response.data?.id ?? null,
           error: null,
         })
         .eq("id", item.id);

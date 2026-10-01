@@ -165,7 +165,9 @@ export function renderEmailShell(params: {
  * à direita, alinhado à direita com letter-spacing largo:
  * "INTERNATIONAL ATHLETES. / REAL OPPORTUNITIES." + traço dourado curto (~60px).
  */
-export function renderEmailHeader(): string {
+export function renderEmailHeader(params?: { logoUrl?: string | null }): string {
+  const logoSrc = params?.logoUrl?.trim() || EMAIL_ASSETS.logoUrl;
+
   return `
   <!-- HEADER -->
   <tr>
@@ -175,7 +177,7 @@ export function renderEmailHeader(): string {
           <!-- Logo à esquerda -->
           <td align="left" valign="middle" class="mobile-stack">
             <a href="https://portfolio.goteamgoagency.com" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block;">
-              <img src="${EMAIL_ASSETS.logoUrl}" alt="Go Team Go Agency" width="240" height="52" style="width:240px;height:auto;max-height:56px;display:block;border:0;" />
+              <img src="${logoSrc}" alt="Go Team Go Agency" width="240" height="52" style="width:240px;height:auto;max-height:56px;display:block;border:0;" />
             </a>
           </td>
           <!-- Frase editorial à direita -->
@@ -194,7 +196,7 @@ export function renderEmailHeader(): string {
 
 /**
  * B) HERO: Faixa full-width (~280px de altura).
- * Fundo P&B com degradê verde-escuro (#05301a → transparente).
+ * Fundo com degradê verde-escuro (#05301a → transparente) sobre a imagem oficial da agência.
  * Ano gigante em dourado (#f0a500/#f69e00),
  * Títulos em branco extra-bold caixa alta,
  * Subtítulo "INTERNATIONAL ATHLETES AVAILABLE NOW" com letter-spacing largo,
@@ -205,6 +207,7 @@ export function renderEmailHero(params: {
   sportText?: string;
   titleLine2?: string;
   subtitleText?: string;
+  heroBackgroundUrl?: string | null;
 }): string {
   const safeYear = escapeHtml(params.yearText || "2027");
   const safeSport = escapeHtml(params.sportText || "VOLLEYBALL").toUpperCase();
@@ -212,14 +215,15 @@ export function renderEmailHero(params: {
   const safeSubtitle = escapeHtml(
     params.subtitleText || "INTERNATIONAL ATHLETES AVAILABLE NOW",
   ).toUpperCase();
+  const heroBg = params.heroBackgroundUrl?.trim() || EMAIL_ASSETS.heroBgUrl;
 
   return `
   <!-- HERO (280px) -->
   <tr>
-    <td bgcolor="${EMAIL_COLORS.darkGreenHero}" background="${EMAIL_ASSETS.heroBgUrl}" valign="top" style="background-color:${EMAIL_COLORS.darkGreenHero};background-image:url('${EMAIL_ASSETS.heroBgUrl}');background-size:cover;background-position:center right;background-repeat:no-repeat;padding:26px 28px 24px 28px;">
+    <td bgcolor="${EMAIL_COLORS.darkGreenHero}" background="${heroBg}" valign="top" style="background-color:${EMAIL_COLORS.darkGreenHero};background-image:url('${heroBg}');background-size:cover;background-position:center right;background-repeat:no-repeat;padding:26px 28px 24px 28px;">
       <!--[if gte mso 9]>
       <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:680px;height:280px;">
-        <v:fill type="frame" src="${EMAIL_ASSETS.heroBgUrl}" color="${EMAIL_COLORS.darkGreenHero}" />
+        <v:fill type="frame" src="${heroBg}" color="${EMAIL_COLORS.darkGreenHero}" />
         <v:textbox inset="0,0,0,0">
       <![endif]-->
       <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -262,25 +266,76 @@ export function renderEmailHero(params: {
   </tr>`;
 }
 
-/**
- * C) INTRO em 2 colunas:
- * Esquerda (~65%): Saudação personalizada, parágrafo explicativo e callout em bold.
- * Direita (~35%), separada por linha vertical dourada fina: 4 pilares com ícones oficiais.
- */
-export function renderEmailIntro(params: {
+export interface RenderEmailIntroParams {
   coachFirstName?: string | null;
+  customGreeting?: string | null;
   customParagraph?: string | null;
+  customIntroduction?: string | null;
+  customHook?: string | null;
+  highlightUrl?: string | null;
   sportText?: string;
   yearText?: string;
-}): string {
+}
+
+/**
+ * C) INTRO em 2 colunas:
+ * Esquerda (~65%): Saudação personalizada, parágrafo explicativo e callout/hook em bold.
+ * Direita (~35%), separada por linha vertical dourada fina: 4 pilares com ícones oficiais.
+ */
+export function renderEmailIntro(params: RenderEmailIntroParams): string {
   const rawFirstName = (params.coachFirstName || "").trim();
-  const greeting = rawFirstName ? `Hi Coach ${escapeHtml(rawFirstName)},` : "Hi Coach,";
+  let greeting: string;
+  if (params.customGreeting && params.customGreeting.trim().length > 0) {
+    greeting = escapeHtml(params.customGreeting.trim());
+  } else if (rawFirstName) {
+    greeting = `Hi Coach ${escapeHtml(rawFirstName)},`;
+  } else {
+    greeting = "Hi Coach,";
+  }
+
   const sport = escapeHtml(params.sportText || "volleyball");
   const year = escapeHtml(params.yearText || "2027");
 
+  const rawParagraph = params.customIntroduction || params.customParagraph;
   const paragraph =
-    params.customParagraph ||
-    `We're excited to share a selection of international ${sport} student-athletes who are actively looking for the right collegiate opportunity for ${year}. Each athlete is academically prepared, verified, and has full video available.`;
+    rawParagraph && rawParagraph.trim().length > 0
+      ? escapeHtml(rawParagraph.trim())
+      : `We're excited to share a selection of international ${sport} student-athletes who are actively looking for the right collegiate opportunity for ${year}. Each athlete is academically prepared, verified, and has full video available.`;
+
+  // Hook / Take a look Callout
+  let hookHtml: string;
+  if (params.customHook && params.customHook.trim().length > 0) {
+    const customHookText = escapeHtml(params.customHook.trim());
+    if (params.highlightUrl) {
+      hookHtml = `
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};">
+          <a href="${params.highlightUrl}" target="_blank" rel="noopener noreferrer" style="color:${EMAIL_COLORS.darkGreenPrimary};text-decoration:underline;">
+            ${customHookText}
+          </a><br>
+          <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">I'd be happy to send full profiles or schedule a call.</span>
+        </div>`;
+    } else {
+      hookHtml = `
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};">
+          ${customHookText}<br>
+          <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">I'd be happy to send full profiles or schedule a call.</span>
+        </div>`;
+    }
+  } else if (params.highlightUrl) {
+    hookHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};">
+        <a href="${params.highlightUrl}" target="_blank" rel="noopener noreferrer" style="color:${EMAIL_COLORS.darkGreenPrimary};text-decoration:underline;">
+          Take a look at the verified match highlights &amp; profile below.
+        </a><br>
+        <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">I'd be happy to send full profiles or schedule a call.</span>
+      </div>`;
+  } else {
+    hookHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};">
+        Take a look at our current roster below.<br>
+        <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">I'd be happy to send full profiles or schedule a call.</span>
+      </div>`;
+  }
 
   return `
   <!-- INTRO 2 COLUNAS -->
@@ -296,10 +351,7 @@ export function renderEmailIntro(params: {
             <div style="font-family:Arial,Helvetica,sans-serif;font-size:13.5px;line-height:1.65;color:${EMAIL_COLORS.textDark};margin-bottom:16px;">
               ${paragraph}
             </div>
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};">
-              Take a look at our current roster below.<br>
-              <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">I'd be happy to send full profiles or schedule a call.</span>
-            </div>
+            ${hookHtml}
           </td>
 
           <!-- Divisor Dourado Fino (Vertical) -->
@@ -415,13 +467,21 @@ export function renderAthleteCard(
     ? `${EMAIL_BASE_URL}/athlete/${encodeURIComponent(athlete.athleteSlug)}`
     : EMAIL_BASE_URL;
 
-  // Link do botão WATCH HIGHLIGHTS
+  // Link do botão WATCH HIGHLIGHTS / VIEW FULL PROFILE
   let watchHighlightsUrl = profileUrl;
-  if (athlete.highlightVideoUrl) {
+  let hasValidHighlight = false;
+  if (athlete.highlightVideoUrl && athlete.highlightVideoUrl.trim().length > 0) {
     const parsed = youtubeWatchUrl(athlete.highlightVideoUrl);
-    if (parsed) watchHighlightsUrl = parsed;
-    else watchHighlightsUrl = athlete.highlightVideoUrl;
+    if (parsed) {
+      watchHighlightsUrl = parsed;
+      hasValidHighlight = true;
+    } else if (athlete.highlightVideoUrl.trim().startsWith("http")) {
+      watchHighlightsUrl = athlete.highlightVideoUrl.trim();
+      hasValidHighlight = true;
+    }
   }
+
+  const buttonLabel = hasValidHighlight ? "WATCH HIGHLIGHTS" : "VIEW FULL PROFILE";
 
   // País
   const alpha3 = getCountryAlpha3(athlete.nationality);
@@ -599,7 +659,7 @@ export function renderAthleteCard(
       </td>
     </tr>
 
-    <!-- Bottom Action Button: WATCH HIGHLIGHTS -->
+    <!-- Bottom Action Button: WATCH HIGHLIGHTS / VIEW FULL PROFILE -->
     <tr>
       <td style="padding:0 10px 12px 10px;">
         <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -612,7 +672,7 @@ export function renderAthleteCard(
                       <img src="${EMAIL_ASSETS.icons.playCircle}" alt="Play" width="18" height="18" style="width:18px;height:18px;display:block;border:0;" />
                     </td>
                     <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:900;color:#ffffff;letter-spacing:1px;text-transform:uppercase;">
-                      WATCH HIGHLIGHTS
+                      ${buttonLabel}
                     </td>
                     <td valign="middle" style="padding-left:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:900;color:${EMAIL_COLORS.goldPrimary};">
                       &rarr;
@@ -780,7 +840,9 @@ export function renderRequestCtaBar(params?: {
  * 3 linhas com ícone: e-mail, Instagram, site.
  * À direita, a frase manuscrita "Different Athletes Brighter Futures" com sublinhado dourado.
  */
-export function renderSignature(): string {
+export function renderSignature(params?: { logoUrl?: string | null }): string {
+  const logoSrc = params?.logoUrl?.trim() || EMAIL_ASSETS.logoUrl;
+
   return `
   <!-- SIGNATURE BLOCK -->
   <tr>
@@ -789,7 +851,7 @@ export function renderSignature(): string {
         <tr>
           <!-- Logo Pequena à esquerda -->
           <td width="64" valign="middle" class="mobile-hide" style="padding-right:16px;">
-            <img src="${EMAIL_ASSETS.logoUrl}" alt="GTG" width="60" height="48" style="width:60px;height:auto;display:block;border:0;" />
+            <img src="${logoSrc}" alt="GTG" width="60" height="48" style="width:60px;height:auto;display:block;border:0;" />
           </td>
 
           <!-- Divisor Dourado Vertical -->

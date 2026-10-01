@@ -615,3 +615,56 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - `src/lib/email/recruit-email-multi.test.ts`: 10 testes rigorosos cobrindo todos os cenários.
   - 18 arquivos de teste (123 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
 - **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-075 — 2026-10-01 06:30 — Correção e Refinamento do Mailer (Customização Textual, Identidade Visual Oficial e Highlights Reais)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Correção e refinamento cirúrgico dos 3 modos do Mailer (Single, Multi e Catalog):
+  1. Tornar o conteúdo textual (Greeting, Introduction, Hook / Take a Look) editável diretamente na tela do `/admin/mailer` antes do disparo, com preview reativo em tempo real e envio fiel no backend via SES (HTML e `Body.Text`).
+  2. Remover completamente a seção de modalidades (Soccer, Basketball, Tennis, Track & Field, Swimming) do template de catálogo e da versão plain text, mantendo foco exclusivo em Volleyball / institucional.
+  3. Utilizar dinamicamente a logo oficial cadastrada no Admin (`agency_visual_settings.logo_url`).
+  4. Utilizar dinamicamente o mesmo background do Hero da Home (`agency_visual_settings.hero_background_url`).
+  5. Corrigir o link de highlight ("Take a Look" e botão "WATCH HIGHLIGHTS") para apontar para o vídeo real do atleta (`athlete_videos` com `kind = 'highlight'` ou fallback `athlete_profiles.highlight_video_url`), com fallback seguro para o perfil completo caso não haja vídeo cadastrado (sem links vazios/quebrados).
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-refinement-and-customization.md`.
+- **Entrega:**
+  - `src/routes/_authenticated/admin/mailer.tsx`: Inclusão de campos editáveis para Greeting, Introduction e Hook em todos os modos; carregamento dinâmico de `agency_visual_settings` e `athlete_videos`; preview em tempo real; propagação de `customOptions` para `sendMailerServerFn`.
+  - `src/lib/email/recruit-email-catalog-template.ts`: Remoção total de referências a múltiplos esportes (Soccer, Basketball, Tennis, etc.) em HTML e texto puro, substituindo por showcase exclusivo de Volleyball.
+  - `src/lib/email/recruit-email-template.ts`: Suporte unificado a textos editoriais personalizados, `logoUrl`, `heroBackgroundUrl`, `highlightVideoUrl` em `renderRecruitEmail`, `renderMultiAthleteRecruitEmail`, `generateRecruitEmailPlainText` e `generateMultiAthletePlainText`.
+  - `src/lib/email/email-layout.ts`: `renderEmailHeader` com prioridade para `logoUrl`, `renderEmailHero` com `heroBackgroundUrl`, `renderEmailIntro` com link ativo de highlight em "Take a look" e `renderAthleteCard` com botão dinâmico ("WATCH HIGHLIGHTS" com link direto para o vídeo ou "VIEW FULL PROFILE" seguro).
+  - `src/lib/email/recruit-email.server.ts`: Obtenção dinâmica de `agency_visual_settings` e highlights prioritários na montagem dos e-mails SES reais.
+  - `src/components/send-recruit-email-dialog.tsx`: Carregamento do highlight oficial e configurações visuais no modal individual.
+  - `src/lib/email/recruit-email-multi.test.ts`: 14 testes cobrindo personalização de textos, exclusão de modalidades no catálogo, branding dinâmico e resolução de highlights.
+  - 18 arquivos de teste (127 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-076 — 2026-10-01 07:00 — Migração Completa do Provedor de E-mail: Amazon SES → Resend (Entrega Única)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Migração total, consistente e arquitetural da infraestrutura de e-mails do sistema de Amazon SES para Resend:
+  1. Instalação e configuração do SDK oficial `resend` com singleton seguro server-side `src/lib/email/resend-client.server.ts` e leitura de `RESEND_API_KEY`, `EMAIL_FROM` e `RESEND_WEBHOOK_SECRET`.
+  2. Migração do serviço central `src/lib/email/email.server.ts` para envio via Resend (`resend.emails.send()`), com suporte a agendamento via janela comercial inteligente (`sending-window`), processador de fila de agendados `processScheduledEmails()` e gravação de provider IDs na tabela `email_log`.
+  3. Migração completa do Mailer em `src/lib/email/recruit-email.server.ts` (Single Athlete, Multi-Athlete e Catalog) com suporte ao Resend Batch API (`resend.batch.send()` em blocos de até 100 mensagens) e fallback resiliente individual.
+  4. Preservação integral das regras de negócio de `email_suppressions`, descadastro público (`/unsubscribe` em 2 níveis: `temporary_6m` e `permanent`) e sinais de interesse de coaches (`coach_interest_signals`).
+  5. Criação do processador de webhooks do Resend em `src/lib/email/resend-webhook.server.ts` com validação de assinatura criptográfica Svix e captura automática de `email.bounced` e `email.complained`.
+  6. Atualização de rotas de servidor em `src/server.ts` substituindo `/api/webhooks/ses` por `/api/webhooks/resend`.
+  7. Remoção de todos os artefatos e dependências exclusivas do Amazon SES (`@aws-sdk/client-sesv2`, `ses-client.server.ts`, `ses-webhook.server.ts`, `ses-email.test.ts`, variáveis `AWS_*` e `SES_*` em `.env.example`).
+  8. Criação de suite abrangente de testes unitários `src/lib/email/resend-email.test.ts` cobrindo configuração, envios, agendamento, batch e webhooks.
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-migracao-amazon-ses-para-resend.md`.
+- **Entrega:**
+  - `src/lib/email/resend-client.server.ts`: Criado singleton Resend com tipagem e isolamento server-only.
+  - `src/lib/email/resend-webhook.server.ts`: Criado processador de webhooks com verificação Svix e persistência de supressões.
+  - `src/lib/email/email.server.ts`: Migrado para Resend com agendamento e logging.
+  - `src/lib/email/recruit-email.server.ts`: Migrado para Resend com Batch API e resiliência.
+  - `src/lib/email/stage-change.server.ts`: Atualizado para Resend.
+  - `src/server.ts`: Rota de webhook atualizada para `/api/webhooks/resend`.
+  - `package.json`: Removido `@aws-sdk/client-sesv2` e adicionado `resend`.
+  - `.env.example`: Atualizado com variáveis oficiais do Resend.
+  - `src/lib/email/resend-email.test.ts`: Testes unitários cobrindo todos os fluxos.
+  - `think/2026-10-01-migracao-amazon-ses-para-resend.md`, `CERNE.md` e `BACKLOGER.md` atualizados.
+- **Status:** [CONCLUÍDO]

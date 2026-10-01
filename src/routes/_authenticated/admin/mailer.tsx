@@ -87,6 +87,7 @@ interface RawAthleteRecord {
     high_school_graduation: string | null;
     highlight_note: string | null;
     budget: string | null;
+    highlight_video_url?: string | null;
   } | null;
 }
 
@@ -106,6 +107,7 @@ interface AthleteSummary {
   high_school_graduation?: string | null;
   highlight_note?: string | null;
   budget?: string | null;
+  highlight_video_url?: string | null;
 }
 
 interface RecipientItem {
@@ -139,6 +141,10 @@ function MailerPage() {
   const [suppressedEmails, setSuppressedEmails] = useState<Set<string>>(new Set());
   const [interestSignals, setInterestSignals] = useState<CoachInterestSignal[]>([]);
   const [historyLogs, setHistoryLogs] = useState<RecruitEmailLog[]>([]);
+  const [visualSettings, setVisualSettings] = useState<{
+    logo_url: string | null;
+    hero_background_url: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Seleções
@@ -147,6 +153,11 @@ function MailerPage() {
     new Set(searchParams.athleteId ? [searchParams.athleteId] : []),
   );
   const [selectedRecipientKeys, setSelectedRecipientKeys] = useState<Set<string>>(new Set());
+
+  // Personalização Editorial (Single, Multi & Catalog)
+  const [customGreeting, setCustomGreeting] = useState("");
+  const [customIntroduction, setCustomIntroduction] = useState("");
+  const [customHook, setCustomHook] = useState("");
 
   // Opções do Catálogo
   const [catalogHeadline, setCatalogHeadline] = useState(
@@ -173,11 +184,12 @@ function MailerPage() {
   async function loadInitialData() {
     setLoading(true);
     try {
-      const [athletesRes, uniRes, suppressedRes, historyRes, signalsRes] = await Promise.all([
-        supabase
-          .from("athletes")
-          .select(
-            `
+      const [athletesRes, uniRes, suppressedRes, historyRes, signalsRes, visualRes, videosRes] =
+        await Promise.all([
+          supabase
+            .from("athletes")
+            .select(
+              `
             id,
             slug,
             full_name,
@@ -186,17 +198,46 @@ function MailerPage() {
             nationality,
             sport:sports(name_en),
             position:positions(name_en),
-            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget)
+            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url)
           `,
-          )
-          .eq("is_public", true)
-          .is("deleted_at", null)
-          .order("full_name", { ascending: true }),
-        supabase.from("universities").select("*").order("name", { ascending: true }),
-        getSuppressedEmailsServerFn().catch(() => []),
-        getMailerHistoryServerFn().catch(() => []),
-        getActiveInterestSignalsServerFn().catch(() => []),
-      ]);
+            )
+            .eq("is_public", true)
+            .is("deleted_at", null)
+            .order("full_name", { ascending: true }),
+          supabase.from("universities").select("*").order("name", { ascending: true }),
+          getSuppressedEmailsServerFn().catch(() => []),
+          getMailerHistoryServerFn().catch(() => []),
+          getActiveInterestSignalsServerFn().catch(() => []),
+          supabase
+            .from("agency_visual_settings")
+            .select("logo_url, hero_background_url")
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("athlete_videos")
+            .select("athlete_id, youtube_url, kind, sort_order")
+            .eq("kind", "highlight")
+            .order("sort_order", { ascending: true }),
+        ]);
+
+      if (visualRes.data) {
+        setVisualSettings({
+          logo_url: visualRes.data.logo_url ?? null,
+          hero_background_url: visualRes.data.hero_background_url ?? null,
+        });
+      }
+
+      const videoMap = new Map<string, string>();
+      if (videosRes.data) {
+        for (const v of videosRes.data as Array<{
+          athlete_id: string;
+          youtube_url: string | null;
+        }>) {
+          if (v.athlete_id && v.youtube_url && !videoMap.has(v.athlete_id)) {
+            videoMap.set(v.athlete_id, v.youtube_url);
+          }
+        }
+      }
 
       if (athletesRes.error) {
         console.error("[mailer] Error loading athletes:", athletesRes.error);
@@ -219,6 +260,7 @@ function MailerPage() {
           high_school_graduation: a.profile?.high_school_graduation ?? null,
           highlight_note: a.profile?.highlight_note ?? null,
           budget: a.profile?.budget ?? null,
+          highlight_video_url: videoMap.get(a.id) || a.profile?.highlight_video_url || null,
         }));
         setAthletes(formatted);
 
@@ -404,13 +446,21 @@ function MailerPage() {
 
   // Gera HTML de Preview dinâmico
   const previewHtml = useMemo(() => {
+    const logoUrl = visualSettings?.logo_url ?? null;
+    const heroBackgroundUrl = visualSettings?.hero_background_url ?? null;
+
     if (sendMode === "catalog") {
       const { html } = renderCatalogEmail({
         coachName: "Coach Smith",
         institutionName: "University Showcase",
         customHeadline: catalogHeadline,
         customMessage: catalogMessage,
+        customGreeting: customGreeting || null,
+        customIntroduction: customIntroduction || null,
+        customHook: customHook || null,
         recipientEmail: "coach@example.edu",
+        logoUrl,
+        heroBackgroundUrl,
       });
       return html;
     }
@@ -439,6 +489,7 @@ function MailerPage() {
         athleteStatus: ath.athlete_status,
         highlightNote: ath.highlight_note,
         budget: ath.budget,
+        highlightVideoUrl: ath.highlight_video_url,
         recipientEmail: "coach@example.edu",
       }));
 
@@ -447,6 +498,11 @@ function MailerPage() {
         coachName: "Smith",
         institutionName: "University Athletics",
         recipientEmail: "coach@example.edu",
+        customGreeting: customGreeting || null,
+        customIntroduction: customIntroduction || null,
+        customHook: customHook || null,
+        logoUrl,
+        heroBackgroundUrl,
       });
       return html;
     }
@@ -472,7 +528,13 @@ function MailerPage() {
       athleteStatus: currentSingleAthlete.athlete_status,
       highlightNote: currentSingleAthlete.highlight_note,
       budget: currentSingleAthlete.budget,
+      highlightVideoUrl: currentSingleAthlete.highlight_video_url,
       recipientEmail: "coach@example.edu",
+      customGreeting: customGreeting || null,
+      customIntroduction: customIntroduction || null,
+      customHook: customHook || null,
+      logoUrl,
+      heroBackgroundUrl,
     });
     return html;
   }, [
@@ -482,6 +544,10 @@ function MailerPage() {
     athletes,
     catalogHeadline,
     catalogMessage,
+    customGreeting,
+    customIntroduction,
+    customHook,
+    visualSettings,
   ]);
 
   // Calcular contagens para o disparo
@@ -605,6 +671,13 @@ function MailerPage() {
                 : "catalog",
           athleteIds: targetAthleteIds,
           recipients: payloadRecipients,
+          customOptions: {
+            greeting: customGreeting || undefined,
+            introduction: customIntroduction || undefined,
+            hook: customHook || undefined,
+            headline: catalogHeadline || undefined,
+            message: catalogMessage || undefined,
+          },
           catalogOptions: {
             customHeadline: catalogHeadline,
             customMessage: catalogMessage,
@@ -811,6 +884,56 @@ function MailerPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Personalização Editorial Single */}
+                    <div className="pt-2 border-t border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Personalização da Mensagem (Opcional)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Altera em tempo real o preview e o e-mail real
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Saudação (Greeting)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Hi Coach, (ou Dear Coach, Hi John, etc.)"
+                            value={customGreeting}
+                            onChange={(e) => setCustomGreeting(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Chamada / Hook / Link
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Take a look at the verified match highlights & profile below."
+                            value={customHook}
+                            onChange={(e) => setCustomHook(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Introdução / Mensagem Principal
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Escreva uma introdução personalizada para os coaches ou deixe vazio para usar o texto padrão..."
+                          value={customIntroduction}
+                          onChange={(e) => setCustomIntroduction(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -874,6 +997,56 @@ function MailerPage() {
                         );
                       })}
                     </div>
+
+                    {/* Personalização Editorial Multi */}
+                    <div className="pt-2 border-t border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Personalização da Mensagem (Opcional)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Altera em tempo real o preview e o e-mail real
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Saudação (Greeting)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Hi Coach, (ou Dear Coach, Hi John, etc.)"
+                            value={customGreeting}
+                            onChange={(e) => setCustomGreeting(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Chamada / Hook / Link
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Take a look at our current roster below."
+                            value={customHook}
+                            onChange={(e) => setCustomHook(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Introdução / Mensagem Principal
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Escreva uma introdução personalizada para os coaches ou deixe vazio para usar o texto padrão..."
+                          value={customIntroduction}
+                          onChange={(e) => setCustomIntroduction(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -881,6 +1054,32 @@ function MailerPage() {
                   <div className="space-y-3">
                     <div className="text-xs font-bold uppercase tracking-wider text-foreground">
                       Conteúdo do E-mail Institucional de Apresentação
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Saudação (Greeting)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Hi Coach,"
+                          value={customGreeting}
+                          onChange={(e) => setCustomGreeting(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Chamada / Hook
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Explore our complete verified athlete roster and match films online."
+                          value={customHook}
+                          onChange={(e) => setCustomHook(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1">

@@ -53,13 +53,18 @@ export function SendRecruitEmailDialog({
   const [isSending, setIsSending] = useState(false);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"coaches" | "preview">("coaches");
+  const [highlightVideoUrl, setHighlightVideoUrl] = useState<string | null>(null);
+  const [visualSettings, setVisualSettings] = useState<{
+    logo_url: string | null;
+    hero_background_url: string | null;
+  } | null>(null);
 
-  // Carregar coaches e logs anteriores para este atleta
+  // Carregar coaches, visual settings e vídeos para este atleta
   const loadData = useCallback(async () => {
     setLoadingCoaches(true);
     setFetchError(null);
     try {
-      const [coachesRes, logsRes] = await Promise.all([
+      const [coachesRes, logsRes, visualRes, videoRes] = await Promise.all([
         supabase.from("coaches").select("*").order("name", { ascending: true }),
         supabase
           .from("recruit_email_logs")
@@ -67,6 +72,19 @@ export function SendRecruitEmailDialog({
           .eq("athlete_id", athlete.id)
           .eq("status", "sent")
           .order("sent_at", { ascending: false }),
+        supabase
+          .from("agency_visual_settings")
+          .select("logo_url, hero_background_url")
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("athlete_videos")
+          .select("youtube_url")
+          .eq("athlete_id", athlete.id)
+          .eq("kind", "highlight")
+          .order("sort_order", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       if (coachesRes.error) {
@@ -74,6 +92,17 @@ export function SendRecruitEmailDialog({
         toast.error("Failed to load coaches: " + coachesRes.error.message);
       } else {
         setCoaches((coachesRes.data ?? []) as Coach[]);
+      }
+
+      if (visualRes.data) {
+        setVisualSettings({
+          logo_url: visualRes.data.logo_url ?? null,
+          hero_background_url: visualRes.data.hero_background_url ?? null,
+        });
+      }
+
+      if (videoRes.data?.youtube_url) {
+        setHighlightVideoUrl(videoRes.data.youtube_url);
       }
 
       if (logsRes.data) {
@@ -127,7 +156,9 @@ export function SendRecruitEmailDialog({
       athleteStatus: profile?.athlete_status,
       highlightNote: profile?.highlight_note,
       budget: profile?.budget,
-      highlightVideoUrl: profile?.highlight_video_url,
+      highlightVideoUrl: highlightVideoUrl || profile?.highlight_video_url,
+      logoUrl: visualSettings?.logo_url,
+      heroBackgroundUrl: visualSettings?.hero_background_url,
     });
   }, [
     athlete.full_name,
@@ -145,6 +176,8 @@ export function SendRecruitEmailDialog({
     profile?.highlight_note,
     profile?.budget,
     profile?.highlight_video_url,
+    highlightVideoUrl,
+    visualSettings,
   ]);
 
   // Ações de seleção

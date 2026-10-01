@@ -246,4 +246,109 @@ describe("Recruiting Board Email Layout Suite (Poster 2027)", () => {
     expect(footer).toContain("/unsubscribe?email=coach%40pennstate.edu");
     expect(footer).toContain("COLLEGE RECRUITING · ACADEMIC SUCCESS · GLOBAL OPPORTUNITIES");
   });
+
+  it("supports custom editorial fields (greeting, introduction, hook) across single, multi, and catalog", () => {
+    // 1. Single with custom texts
+    const singleCustom = renderRecruitEmail({
+      ...athlete1,
+      customGreeting: "Dear Coach Miller,",
+      customIntroduction: "We are presenting a special volleyball prospect for your 2027 roster.",
+      customHook: "Watch her full match reels below.",
+    });
+    expect(singleCustom.html).toContain("Dear Coach Miller,");
+    expect(singleCustom.html).toContain(
+      "We are presenting a special volleyball prospect for your 2027 roster.",
+    );
+    expect(singleCustom.html).toContain("Watch her full match reels below.");
+    expect(singleCustom.text).toContain("Dear Coach Miller,");
+    expect(singleCustom.text).toContain(
+      "We are presenting a special volleyball prospect for your 2027 roster.",
+    );
+
+    // 2. Multi with custom texts
+    const multiCustom = renderMultiAthleteRecruitEmail({
+      athletes: [athlete1, athlete2],
+      customGreeting: "Hi John,",
+      customIntroduction:
+        "Here is our handpicked international volleyball roster for your evaluation.",
+      customHook: "Explore our lineup below.",
+    });
+    expect(multiCustom.html).toContain("Hi John,");
+    expect(multiCustom.html).toContain(
+      "Here is our handpicked international volleyball roster for your evaluation.",
+    );
+    expect(multiCustom.html).toContain("Explore our lineup below.");
+    expect(multiCustom.text).toContain("Hi John,");
+    expect(multiCustom.text).toContain(
+      "Here is our handpicked international volleyball roster for your evaluation.",
+    );
+
+    // 3. Catalog with custom texts
+    const catalogCustom = renderCatalogEmail({
+      customGreeting: "Dear Coaching Staff,",
+      customHeadline: "Exclusive International Recruits Showcase",
+      customIntroduction:
+        "Connecting high-caliber student-athletes with collegiate volleyball programs.",
+      customHook: "Review all profiles online.",
+    });
+    expect(catalogCustom.html).toContain("Dear Coaching Staff,");
+    expect(catalogCustom.html).toContain("Exclusive International Recruits Showcase");
+    expect(catalogCustom.html).toContain(
+      "Connecting high-caliber student-athletes with collegiate volleyball programs.",
+    );
+    expect(catalogCustom.html).toContain("Review all profiles online.");
+    expect(catalogCustom.text).toContain("Dear Coaching Staff,");
+    expect(catalogCustom.text).toContain("Exclusive International Recruits Showcase");
+  });
+
+  it("ensures catalog email has zero references to other sports (Soccer, Basketball, Tennis, etc.)", () => {
+    const catalog = renderCatalogEmail({
+      recipientEmail: "coach@stanford.edu",
+    });
+
+    const otherSports = ["Soccer", "Basketball", "Tennis", "Track & Field", "Swimming"];
+    for (const sport of otherSports) {
+      expect(catalog.html.toLowerCase()).not.toContain(sport.toLowerCase());
+      expect(catalog.text.toLowerCase()).not.toContain(sport.toLowerCase());
+    }
+  });
+
+  it("injects dynamic agency logo_url and hero_background_url when provided", () => {
+    const customLogo = "https://custom-agency.com/logo-v2.png";
+    const customHeroBg = "https://custom-agency.com/hero-v2.jpg";
+
+    const single = renderRecruitEmail({
+      ...athlete1,
+      logoUrl: customLogo,
+      heroBackgroundUrl: customHeroBg,
+    });
+    expect(single.html).toContain(customLogo);
+    expect(single.html).toContain(customHeroBg);
+
+    const catalog = renderCatalogEmail({
+      logoUrl: customLogo,
+      heroBackgroundUrl: customHeroBg,
+    });
+    expect(catalog.html).toContain(customLogo);
+    expect(catalog.html).toContain(customHeroBg);
+  });
+
+  it("correctly routes highlight link to video or full profile with safe fallback", () => {
+    // Com highlight cadastrado
+    const withHighlight = renderRecruitEmail({
+      ...athlete1,
+      highlightVideoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    expect(withHighlight.html).toContain("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(withHighlight.html).toContain("WATCH HIGHLIGHTS");
+
+    // Sem highlight cadastrado: botão aponta para o perfil e nunca gera link vazio
+    const withoutHighlight = renderRecruitEmail({
+      ...athlete1,
+      highlightVideoUrl: null,
+    });
+    expect(withoutHighlight.html).toContain("VIEW FULL PROFILE");
+    expect(withoutHighlight.html).toContain("/athlete/mariana-silva");
+    expect(withoutHighlight.html).not.toContain('href=""');
+  });
 });

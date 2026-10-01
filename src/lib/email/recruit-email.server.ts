@@ -1,6 +1,5 @@
-import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getAdminClient } from "@/lib/supabase/clients.server";
-import { getSesClient, getSesConfig } from "./ses-client.server";
+import { getResendClient, getResendConfig } from "./resend-client.server";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
@@ -20,6 +19,13 @@ export interface SendMailerInput {
   mode: "single_athlete" | "multi_athlete" | "catalog";
   athleteIds?: string[];
   recipients: MailerRecipient[];
+  customOptions?: {
+    greeting?: string;
+    introduction?: string;
+    hook?: string;
+    headline?: string;
+    message?: string;
+  };
   catalogOptions?: {
     customHeadline?: string;
     customMessage?: string;
@@ -234,7 +240,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
 }
 
 export async function sendMailerEmails(input: SendMailerInput): Promise<SendMailerResult> {
-  const { mode, athleteIds = [], recipients = [], catalogOptions } = input;
+  const { mode, athleteIds = [], recipients = [], customOptions, catalogOptions } = input;
 
   if (recipients.length === 0) {
     return {
@@ -247,7 +253,17 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   }
 
   const admin = getAdminClient();
-  const suppressedSet = await getSuppressedEmailSet();
+  const [suppressedSet, visualRes] = await Promise.all([
+    getSuppressedEmailSet(),
+    admin
+      .from("agency_visual_settings")
+      .select("logo_url, hero_background_url")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const logoUrl = visualRes.data?.logo_url ?? null;
+  const heroBackgroundUrl = visualRes.data?.hero_background_url ?? null;
 
   // Filtrar suprimidos
   const activeRecipients: MailerRecipient[] = [];
@@ -266,54 +282,63 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   // Registrar imediatamente logs de supressão
   if (suppressedRecipients.length > 0) {
     const now = new Date().toISOString();
-    const suppressedLogs = suppressedRecipients.flatMap((rec) => {
+    const suppressedLogs: Array<{
+      athlete_id: string | null;
+      coach_id: string | null;
+      subject: string;
+      status: "suppressed";
+      error_message: string;
+      sent_at: string;
+      email_type: "catalog_general" | "athlete_teaser_multi" | "athlete_teaser";
+      recipient_email: string;
+      recipient_name: string;
+      university_name: string | null;
+    }> = [];
+
+    for (const rec of suppressedRecipients) {
       if (mode === "catalog" || athleteIds.length === 0) {
-        return [
-          {
-            athlete_id: null,
+        suppressedLogs.push({
+          athlete_id: null,
+          coach_id: rec.coachId ?? null,
+          subject: "[Catalog] Go Team Go Scouting Showcase",
+          status: "suppressed",
+          error_message: "Recipient is in suppression list (opted out or paused)",
+          sent_at: now,
+          email_type: "catalog_general",
+          recipient_email: rec.email,
+          recipient_name: rec.name,
+          university_name: rec.universityName ?? null,
+        });
+      } else if (mode === "multi_athlete") {
+        suppressedLogs.push({
+          athlete_id: athleteIds[0] ?? null,
+          coach_id: rec.coachId ?? null,
+          subject: `[Multi-Athlete] Showcase with ${athleteIds.length} athletes`,
+          status: "suppressed",
+          error_message: "Recipient is in suppression list (opted out or paused)",
+          sent_at: now,
+          email_type: "athlete_teaser_multi",
+          recipient_email: rec.email,
+          recipient_name: rec.name,
+          university_name: rec.universityName ?? null,
+        });
+      } else {
+        for (const athId of athleteIds) {
+          suppressedLogs.push({
+            athlete_id: athId,
             coach_id: rec.coachId ?? null,
-            subject: "[Catalog] Go Team Go Scouting Showcase",
-            status: "suppressed" as const,
+            subject: "[Prospect] Teaser Email",
+            status: "suppressed",
             error_message: "Recipient is in suppression list (opted out or paused)",
             sent_at: now,
-            email_type: "catalog_general" as const,
+            email_type: "athlete_teaser",
             recipient_email: rec.email,
             recipient_name: rec.name,
             university_name: rec.universityName ?? null,
-          },
-        ];
+          });
+        }
       }
-
-      if (mode === "multi_athlete") {
-        return [
-          {
-            athlete_id: athleteIds[0] ?? null,
-            coach_id: rec.coachId ?? null,
-            subject: `[Multi-Athlete] Showcase with ${athleteIds.length} athletes`,
-            status: "suppressed" as const,
-            error_message: "Recipient is in suppression list (opted out or paused)",
-            sent_at: now,
-            email_type: "athlete_teaser_multi" as const,
-            recipient_email: rec.email,
-            recipient_name: rec.name,
-            university_name: rec.universityName ?? null,
-          },
-        ];
-      }
-
-      return athleteIds.map((athId) => ({
-        athlete_id: athId,
-        coach_id: rec.coachId ?? null,
-        subject: "[Prospect] Teaser Email",
-        status: "suppressed" as const,
-        error_message: "Recipient is in suppression list (opted out or paused)",
-        sent_at: now,
-        email_type: "athlete_teaser" as const,
-        recipient_email: rec.email,
-        recipient_name: rec.name,
-        university_name: rec.universityName ?? null,
-      }));
-    });
+    }
 
     await admin.from("recruit_email_logs").insert(suppressedLogs);
   }
@@ -328,25 +353,21 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     };
   }
 
-  // Inicializar SES
-  const sesClient = getSesClient();
-  const sesConfig = getSesConfig();
-  const from = sesConfig.fromAddress;
+  // Inicializar Resend
+  const resendClient = getResendClient();
+  const resendConfig = getResendConfig();
+  const from = resendConfig.from;
 
-  if (!sesClient || !from) {
-    console.error("[recruit-email] SES not configured or invalid credentials.");
+  if (!resendClient || !resendConfig.isConfigured) {
+    console.error("[recruit-email] Resend not configured or missing RESEND_API_KEY.");
     return {
       success: false,
       totalSent: 0,
       totalFailed: 0,
       totalSuppressed: suppressedRecipients.length,
-      message: "Failed to initialize Amazon SES client.",
+      message: "Failed to initialize Resend client. Check RESEND_API_KEY.",
     };
   }
-
-  let totalSent = 0;
-  let totalFailed = 0;
-  const errors: string[] = [];
 
   // Preparar os payloads de e-mail de acordo com o modo
   type PreparedMessage = {
@@ -365,14 +386,23 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   const messagesToSend: PreparedMessage[] = [];
 
   if (mode === "catalog") {
+    const headline = customOptions?.headline || catalogOptions?.customHeadline;
+    const message =
+      customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
+
     for (const rec of activeRecipients) {
       const { subject, html, text } = renderCatalogEmail({
         coachName: rec.name,
         institutionName: rec.universityName,
-        customHeadline: catalogOptions?.customHeadline,
-        customMessage: catalogOptions?.customMessage,
+        customHeadline: headline,
+        customMessage: message,
+        customGreeting: customOptions?.greeting,
+        customIntroduction: customOptions?.introduction,
+        customHook: customOptions?.hook,
         recipientEmail: rec.email,
         coachId: rec.coachId,
+        logoUrl,
+        heroBackgroundUrl,
       });
 
       messagesToSend.push({
@@ -389,7 +419,6 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       });
     }
   } else if (mode === "multi_athlete") {
-    // FRENTE 1: Unificar disparo multi-atleta em 1 único e-mail por coach
     const loadedAthletes: RecruitEmailData[] = [];
     for (const athId of athleteIds) {
       const emailData = await loadAthleteEmailData(athId);
@@ -404,6 +433,11 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           institutionName: rec.universityName,
           recipientEmail: rec.email,
           coachId: rec.coachId,
+          customGreeting: customOptions?.greeting,
+          customIntroduction: customOptions?.introduction,
+          customHook: customOptions?.hook,
+          logoUrl,
+          heroBackgroundUrl,
         });
 
         messagesToSend.push({
@@ -421,7 +455,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       }
     }
   } else {
-    // single_athlete: 1 e-mail para cada combinação selecionada
+    // single_athlete
     for (const athId of athleteIds) {
       const emailData = await loadAthleteEmailData(athId);
       if (!emailData) continue;
@@ -433,6 +467,11 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           coachId: rec.coachId,
           coachName: rec.name,
           institutionName: rec.universityName,
+          customGreeting: customOptions?.greeting,
+          customIntroduction: customOptions?.introduction,
+          customHook: customOptions?.hook,
+          logoUrl,
+          heroBackgroundUrl,
         });
 
         messagesToSend.push({
@@ -451,79 +490,107 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     }
   }
 
-  // Taxa de envio controlada (Rate Limiting) para o Amazon SES (default: 10/seg)
-  const maxSendRate = Number(process.env.SES_MAX_SEND_RATE) || 10;
-  const delayBetweenSendsMs = Math.max(10, Math.floor(1000 / maxSendRate));
+  let totalSent = 0;
+  let totalFailed = 0;
+  const errors: string[] = [];
 
-  for (let i = 0; i < messagesToSend.length; i++) {
-    const item = messagesToSend[i];
+  // Envio via Resend Batch API em blocos de até 100 mensagens
+  const BATCH_SIZE = 100;
+  for (let offset = 0; offset < messagesToSend.length; offset += BATCH_SIZE) {
+    const chunk = messagesToSend.slice(offset, offset + BATCH_SIZE);
     const now = new Date().toISOString();
 
+    const batchPayload = chunk.map((item) => ({
+      from,
+      to: [item.to],
+      subject: item.subject,
+      html: item.html,
+      text: item.text,
+    }));
+
     try {
-      const command = new SendEmailCommand({
-        FromEmailAddress: from,
-        Destination: {
-          ToAddresses: [item.to],
-        },
-        Content: {
-          Simple: {
-            Subject: {
-              Data: item.subject,
-              Charset: "UTF-8",
-            },
-            Body: {
-              Html: {
-                Data: item.html,
-                Charset: "UTF-8",
-              },
-              Text: {
-                Data: item.text,
-                Charset: "UTF-8",
-              },
-            },
-          },
-        },
-        ConfigurationSetName: sesConfig.configurationSet || undefined,
+      const batchResult = await resendClient.batch.send(batchPayload);
+
+      if (batchResult.error) {
+        throw new Error(batchResult.error.message || "Resend batch send error");
+      }
+
+      const responseList = batchResult.data?.data || [];
+
+      // Mapear logs individuais de envio
+      const insertLogs = chunk.map((item, idx) => {
+        const resendId = responseList[idx]?.id;
+        totalSent++;
+
+        return {
+          athlete_id: item.athleteId,
+          coach_id: item.coachId,
+          subject: item.subject,
+          status: "sent" as const,
+          error_message: null,
+          sent_at: now,
+          email_type: item.emailType,
+          recipient_email: item.recipientEmail,
+          recipient_name: item.recipientName,
+          university_name: item.universityName,
+        };
       });
 
-      await sesClient.send(command);
-      totalSent++;
+      await admin.from("recruit_email_logs").insert(insertLogs);
+    } catch (batchErr) {
+      // Fallback para envio individual se o lote inteiro falhar
+      const batchErrorMsg = batchErr instanceof Error ? batchErr.message : "Batch send failed";
+      console.warn(
+        `[recruit-email] Batch failed (${batchErrorMsg}). Retrying chunk individually...`,
+      );
 
-      await admin.from("recruit_email_logs").insert({
-        athlete_id: item.athleteId,
-        coach_id: item.coachId,
-        subject: item.subject,
-        status: "sent",
-        error_message: null,
-        sent_at: now,
-        email_type: item.emailType,
-        recipient_email: item.recipientEmail,
-        recipient_name: item.recipientName,
-        university_name: item.universityName,
-      });
-    } catch (sendErr) {
-      totalFailed++;
-      const errorMsg = sendErr instanceof Error ? sendErr.message : "Amazon SES send failed";
-      console.error(`[recruit-email] Falha ao enviar para ${item.to}:`, errorMsg);
-      errors.push(errorMsg);
+      for (const item of chunk) {
+        try {
+          const singleRes = await resendClient.emails.send({
+            from,
+            to: [item.to],
+            subject: item.subject,
+            html: item.html,
+            text: item.text,
+          });
 
-      await admin.from("recruit_email_logs").insert({
-        athlete_id: item.athleteId,
-        coach_id: item.coachId,
-        subject: item.subject,
-        status: "failed",
-        error_message: errorMsg,
-        sent_at: now,
-        email_type: item.emailType,
-        recipient_email: item.recipientEmail,
-        recipient_name: item.recipientName,
-        university_name: item.universityName,
-      });
-    }
+          if (singleRes.error) {
+            throw new Error(singleRes.error.message || "Individual send failed");
+          }
 
-    // Intervalo para respeitar o rate limit da conta AWS SES
-    if (i < messagesToSend.length - 1 && delayBetweenSendsMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delayBetweenSendsMs));
+          totalSent++;
+          await admin.from("recruit_email_logs").insert({
+            athlete_id: item.athleteId,
+            coach_id: item.coachId,
+            subject: item.subject,
+            status: "sent",
+            error_message: null,
+            sent_at: now,
+            email_type: item.emailType,
+            recipient_email: item.recipientEmail,
+            recipient_name: item.recipientName,
+            university_name: item.universityName,
+          });
+        } catch (individualErr) {
+          totalFailed++;
+          const errText = individualErr instanceof Error ? individualErr.message : "Send failed";
+          console.error(`[recruit-email] Failed to send email to ${item.to}:`, errText);
+          errors.push(errText);
+
+          await admin.from("recruit_email_logs").insert({
+            athlete_id: item.athleteId,
+            coach_id: item.coachId,
+            subject: item.subject,
+            status: "failed",
+            error_message: errText,
+            sent_at: now,
+            email_type: item.emailType,
+            recipient_email: item.recipientEmail,
+            recipient_name: item.recipientName,
+            university_name: item.universityName,
+          });
+        }
+      }
     }
   }
 

@@ -3,7 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { generateSitemapXml } from "./lib/sitemap";
-import { processSnsWebhook } from "./lib/email/ses-webhook.server";
+import { processResendWebhook } from "./lib/email/resend-webhook.server";
 import { processScheduledEmails } from "./lib/email/email.server";
 
 type ServerEntry = {
@@ -126,11 +126,16 @@ export default {
         });
       }
 
-      if (url.pathname === "/api/webhooks/ses" && request.method === "POST") {
+      if (url.pathname === "/api/webhooks/resend" && request.method === "POST") {
         const rawBody = await request.text();
-        const result = await processSnsWebhook(rawBody);
+        const headers: Record<string, string> = {};
+        request.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        const result = await processResendWebhook(rawBody, headers);
+        const status = result.type === "Unauthorized" ? 401 : 200;
         return new Response(JSON.stringify(result), {
-          status: 200,
+          status,
           headers: {
             "content-type": "application/json; charset=utf-8",
             "cache-control": "no-store",

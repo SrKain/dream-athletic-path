@@ -23,6 +23,11 @@ export interface RecruitEmailData extends EmailCardAthlete {
   coachName?: string | null;
   institutionName?: string | null;
   countryFlag?: string | null;
+  customGreeting?: string | null;
+  customIntroduction?: string | null;
+  customHook?: string | null;
+  logoUrl?: string | null;
+  heroBackgroundUrl?: string | null;
 }
 
 export interface MultiAthleteEmailData {
@@ -31,6 +36,11 @@ export interface MultiAthleteEmailData {
   institutionName?: string | null;
   recipientEmail?: string | null;
   coachId?: string | null;
+  customGreeting?: string | null;
+  customIntroduction?: string | null;
+  customHook?: string | null;
+  logoUrl?: string | null;
+  heroBackgroundUrl?: string | null;
 }
 
 /** Renderiza o bloco individual de card de atleta (compatibilidade e reuso) */
@@ -44,9 +54,10 @@ export function renderEmailFooterHtml(params: {
   coachId?: string | null;
   athleteId?: string | null;
   position?: string | null;
+  logoUrl?: string | null;
 }): string {
   return [
-    renderSignature(),
+    renderSignature({ logoUrl: params.logoUrl }),
     renderFeedbackBlock(params),
     renderBottomBar(),
     renderLegalFooter({ recipientEmail: params.recipientEmail }),
@@ -78,13 +89,29 @@ export function generateRecruitEmailPlainText(data: RecruitEmailData): string {
 
   const gpaStr = formatGpa(data.gpa);
 
+  const greetingLine = data.customGreeting?.trim()
+    ? data.customGreeting.trim()
+    : data.coachName
+      ? `Hi Coach ${data.coachName.replace(/^Coach\s+/i, "")},`
+      : "Hi Coach,";
+
+  const introText = data.customIntroduction?.trim()
+    ? data.customIntroduction.trim()
+    : `I would like to present verified international prospect ${safeName}, available for collegiate recruitment.`;
+
+  const hookText = data.customHook?.trim()
+    ? data.customHook.trim()
+    : `Take a look at ${safeName}'s match highlights and profile below.`;
+
   const lines = [
     `GO TEAM GO AGENCY — ATHLETE SCOUTING SPOTLIGHT`,
     `==============================================`,
     ``,
-    `Hi Coach,`,
+    greetingLine,
     ``,
-    `I would like to present verified international prospect ${safeName}, available for collegiate recruitment.`,
+    introText,
+    ``,
+    hookText,
     ``,
     `ATHLETE DETAILS:`,
     `- Name: ${safeName}`,
@@ -136,19 +163,26 @@ export function renderRecruitEmail(data: RecruitEmailData) {
 
   const coachGreeting = data.coachName ? data.coachName.replace(/^Coach\s+/i, "") : null;
 
-  const introParagraph = `I'd like to introduce <strong>${escapeHtml(safeName)}</strong>, an outstanding international student-athlete actively seeking the right collegiate program for ${escapeHtml(gradYear)}. Verified academic records and full-match video film are available.`;
+  const introParagraph = data.customIntroduction?.trim()
+    ? escapeHtml(data.customIntroduction.trim())
+    : `I'd like to introduce <strong>${escapeHtml(safeName)}</strong>, an outstanding international student-athlete actively seeking the right collegiate program for ${escapeHtml(gradYear)}. Verified academic records and full-match video film are available.`;
 
   const bodyContentHtml = [
-    renderEmailHeader(),
+    renderEmailHeader({ logoUrl: data.logoUrl }),
     renderEmailHero({
       yearText: gradYear,
       sportText: sport,
       titleLine2: "ATHLETE SPOTLIGHT",
       subtitleText: "OFFICIAL SCOUTING REPORT · AVAILABLE NOW",
+      heroBackgroundUrl: data.heroBackgroundUrl,
     }),
     renderEmailIntro({
       coachFirstName: coachGreeting,
+      customGreeting: data.customGreeting,
+      customIntroduction: data.customIntroduction,
       customParagraph: introParagraph,
+      customHook: data.customHook,
+      highlightUrl: data.highlightVideoUrl,
       sportText: sport,
       yearText: gradYear,
     }),
@@ -162,7 +196,7 @@ export function renderRecruitEmail(data: RecruitEmailData) {
       coachName: coachGreeting,
       institutionName: data.institutionName,
     }),
-    renderSignature(),
+    renderSignature({ logoUrl: data.logoUrl }),
     renderFeedbackBlock({
       recipientEmail: data.recipientEmail,
       coachId: data.coachId,
@@ -194,7 +228,19 @@ export function renderRecruitEmail(data: RecruitEmailData) {
  */
 export function generateMultiAthletePlainText(data: MultiAthleteEmailData): string {
   const athleteCount = data.athletes.length;
-  const coachGreeting = data.coachName ? `Coach ${data.coachName}` : "Coach";
+  const greetingLine = data.customGreeting?.trim()
+    ? data.customGreeting.trim()
+    : data.coachName
+      ? `Hi Coach ${data.coachName.replace(/^Coach\s+/i, "")},`
+      : "Hi Coach,";
+
+  const introText = data.customIntroduction?.trim()
+    ? data.customIntroduction.trim()
+    : `We have curated a dedicated selection of ${athleteCount} verified international student-athletes ready for collegiate recruitment.`;
+
+  const hookText = data.customHook?.trim()
+    ? data.customHook.trim()
+    : `Take a look at our current roster below.`;
 
   const athleteSections = data.athletes.map((ath, idx) => {
     const safeName = (ath.athleteName || "").trim();
@@ -236,9 +282,11 @@ export function generateMultiAthletePlainText(data: MultiAthleteEmailData): stri
     `GO TEAM GO AGENCY — RECRUITING BOARD`,
     `==============================================`,
     ``,
-    `Hi ${coachGreeting},`,
+    greetingLine,
     ``,
-    `We have curated a dedicated selection of ${athleteCount} verified international student-athletes ready for collegiate recruitment.`,
+    introText,
+    ``,
+    hookText,
     ``,
     `FEATURED ROSTER:`,
     `----------------------------------------------`,
@@ -264,7 +312,18 @@ export function generateMultiAthletePlainText(data: MultiAthleteEmailData): stri
  * Renderiza e-mail unificado contendo múltiplos atletas no layout "Recruiting Board" (Poster 2027).
  */
 export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
-  const { athletes, coachName, institutionName, recipientEmail, coachId } = data;
+  const {
+    athletes,
+    coachName,
+    institutionName,
+    recipientEmail,
+    coachId,
+    customGreeting,
+    customIntroduction,
+    customHook,
+    logoUrl,
+    heroBackgroundUrl,
+  } = data;
   const athleteCount = athletes.length;
 
   const coachGreeting = coachName ? coachName.replace(/^Coach\s+/i, "") : null;
@@ -299,15 +358,19 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
   const firstAthlete = athletes[0];
 
   const bodyContentHtml = [
-    renderEmailHeader(),
+    renderEmailHeader({ logoUrl }),
     renderEmailHero({
       yearText,
       sportText,
       titleLine2: "RECRUITING BOARD",
       subtitleText: "INTERNATIONAL ATHLETES AVAILABLE NOW",
+      heroBackgroundUrl,
     }),
     renderEmailIntro({
       coachFirstName: coachGreeting,
+      customGreeting,
+      customIntroduction,
+      customHook,
       sportText,
       yearText,
     }),
@@ -321,7 +384,7 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
       coachName: coachGreeting,
       institutionName,
     }),
-    renderSignature(),
+    renderSignature({ logoUrl }),
     renderFeedbackBlock({
       recipientEmail,
       coachId,

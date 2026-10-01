@@ -16,35 +16,51 @@ export interface CatalogEmailData {
   institutionName?: string | null;
   customHeadline?: string | null;
   customMessage?: string | null;
+  customGreeting?: string | null;
+  customIntroduction?: string | null;
+  customHook?: string | null;
   recipientEmail?: string | null;
   coachId?: string | null;
+  logoUrl?: string | null;
+  heroBackgroundUrl?: string | null;
 }
 
 export function generateCatalogPlainText(data: CatalogEmailData): string {
-  const coachGreeting = data.coachName ? `Coach ${data.coachName}` : "Coach";
+  const greetingLine = data.customGreeting?.trim()
+    ? data.customGreeting.trim()
+    : data.coachName
+      ? `Hi Coach ${data.coachName.replace(/^Coach\s+/i, "")},`
+      : "Hi Coach,";
+
   const portfolioUrl = EMAIL_BASE_URL;
 
+  const headline =
+    data.customHeadline?.trim() ||
+    "Discover Verified International Recruits Ready for College Volleyball";
+
+  const introText =
+    data.customIntroduction?.trim() ||
+    data.customMessage?.trim() ||
+    "At Go Team Go Agency, we represent high-performance international volleyball student-athletes actively seeking competitive collegiate programs in the US. Every prospect undergoes athletic vetting, academic credential evaluation, and match highlight verification.";
+
+  const hookText =
+    data.customHook?.trim() ||
+    "Explore our complete verified athlete roster and match films online.";
+
   const lines = [
-    `GO TEAM GO AGENCY — COLLEGIATE RECRUITING PORTFOLIO`,
+    `GO TEAM GO AGENCY — VOLLEYBALL RECRUITING PORTFOLIO`,
     `==============================================`,
     ``,
-    `Hi ${coachGreeting},`,
+    greetingLine,
     ``,
-    data.customHeadline || "Discover Verified International Recruits Ready for College Athletics",
+    headline,
     ``,
-    data.customMessage ||
-      "At Go Team Go Agency, we represent high-performance international student-athletes actively seeking competitive collegiate programs in the US. Every prospect undergoes athletic vetting, academic credential evaluation, and match highlight verification.",
+    introText,
+    ``,
+    hookText,
     ``,
     `EXPLORE FULL ATHLETE ROSTER ONLINE:`,
     `${portfolioUrl}`,
-    ``,
-    `KEY PROGRAM DISCIPLINES:`,
-    `- Volleyball (Outside Hitter, Setter, Middle Blocker, Libero / DS)`,
-    `- Soccer (Men's & Women's)`,
-    `- Basketball`,
-    `- Tennis`,
-    `- Track & Field`,
-    `- Swimming`,
     ``,
     `NEED A SPECIFIC PROFILE?`,
     `Contact Founder Fabiana Andrade directly at ${EMAIL_SIGNATURE.email} to request custom athlete matches.`,
@@ -67,51 +83,32 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
   const coachGreeting = data.coachName ? data.coachName.replace(/^Coach\s+/i, "") : null;
   const portfolioUrl = EMAIL_BASE_URL;
 
-  const subject = data.institutionName
-    ? `International Student-Athlete Roster • Go Team Go Recruiting Showcase (${data.institutionName})`
-    : `International Student-Athlete Roster • Go Team Go Recruiting Showcase`;
+  const subject = data.customHeadline?.trim()
+    ? data.customHeadline.trim()
+    : data.institutionName
+      ? `International Volleyball Roster • Go Team Go Recruiting Showcase (${data.institutionName})`
+      : `International Volleyball Roster • Go Team Go Recruiting Showcase`;
 
-  const introParagraph = data.customMessage?.trim()
-    ? escapeHtml(data.customMessage.trim())
-    : "At Go Team Go Agency, we represent top-tier international student-athletes actively seeking competitive collegiate programs in the US. Each prospect in our portfolio undergoes rigorous athletic screening, academic credential verification, and highlight reel curation.";
+  const introParagraph = (data.customIntroduction || data.customMessage)?.trim()
+    ? escapeHtml((data.customIntroduction || data.customMessage)!.trim())
+    : "At Go Team Go Agency, we represent top-tier international volleyball student-athletes actively seeking competitive collegiate programs in the US. Each prospect in our portfolio undergoes rigorous athletic screening, academic credential verification, and highlight reel curation.";
 
-  // Roster Disciplines Banner (sem atletas individuais para evitar favoritismo)
-  const rosterDisciplinesHtml = `
-  <!-- ROSTER DISCIPLINES SHOWCASE -->
+  // Direct Catalog Action Showcase (Exclusivo Volleyball / Roster Completo)
+  const catalogShowcaseHtml = `
+  <!-- DIRECT CATALOG ACTION SHOWCASE -->
   <tr>
     <td style="padding:10px 28px 24px 28px;background-color:${EMAIL_COLORS.white};">
-      <div style="background-color:${EMAIL_COLORS.cardBg};border:1px solid ${EMAIL_COLORS.cardBorder};border-radius:12px;padding:22px 24px;">
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:1.4px;text-transform:uppercase;margin-bottom:12px;">
-          ACTIVE SPORT DISCIPLINES AVAILABLE FOR IMMEDIATE SCOUTING
+      <div style="background-color:${EMAIL_COLORS.cardBg};border:1px solid ${EMAIL_COLORS.cardBorder};border-radius:12px;padding:24px;text-align:center;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+          OFFICIAL VOLLEYBALL ROSTER &amp; RECRUITING SHOWCASE
         </div>
-
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
-          <tr>
-            <td width="50%" valign="top" style="padding-right:12px;" class="mobile-stack">
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.8;color:${EMAIL_COLORS.textDark};font-weight:700;">
-                🏐 Volleyball <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">(OH, MB, Setter, Libero)</span><br>
-                ⚽ Soccer <span style="font-weight:400;color:${EMAIL_COLORS.textMuted};">(Men's &amp; Women's)</span><br>
-                🏀 Basketball
-              </div>
-            </td>
-            <td width="50%" valign="top" style="padding-left:12px;" class="mobile-stack">
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.8;color:${EMAIL_COLORS.textDark};font-weight:700;">
-                🎾 Tennis<br>
-                🏃 Track &amp; Field<br>
-                🏊 Swimming
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Direct CTA to Public Catalog -->
-        <div style="margin-top:20px;text-align:center;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:${EMAIL_COLORS.textDark};max-width:520px;margin:0 auto 18px auto;">
+          Access verified video film, academic evaluations (GPA, test scores, eligibility), and biometric measurements for our active volleyball student-athletes.
+        </div>
+        <div>
           <a href="${portfolioUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:${EMAIL_COLORS.goldPrimary};color:${EMAIL_COLORS.darkGreenPrimary};font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;text-decoration:none;padding:14px 32px;border-radius:24px;box-shadow:0 4px 14px rgba(246,158,0,0.35);">
-            EXPLORE FULL ATHLETE ROSTER &amp; HIGHLIGHTS &rarr;
+            EXPLORE FULL VOLLEYBALL ROSTER &amp; HIGHLIGHTS &rarr;
           </a>
-          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:${EMAIL_COLORS.textMuted};margin-top:8px;">
-            Immediate access to verified video highlights, biometric data, and academic credentials.
-          </div>
         </div>
       </div>
     </td>
@@ -146,22 +143,26 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
   </tr>`;
 
   const bodyContentHtml = [
-    renderEmailHeader(),
+    renderEmailHeader({ logoUrl: data.logoUrl }),
     renderEmailHero({
       yearText: "2027",
-      sportText: "COLLEGIATE",
-      titleLine2: "RECRUITING BOARD",
+      sportText: "VOLLEYBALL",
+      titleLine2: "RECRUITING SHOWCASE",
       subtitleText: "INTERNATIONAL ATHLETES AVAILABLE NOW",
+      heroBackgroundUrl: data.heroBackgroundUrl,
     }),
     renderEmailIntro({
       coachFirstName: coachGreeting,
+      customGreeting: data.customGreeting,
+      customIntroduction: data.customIntroduction,
       customParagraph: introParagraph,
-      sportText: "collegiate athletics",
+      customHook: data.customHook,
+      sportText: "volleyball",
       yearText: "2027",
     }),
-    rosterDisciplinesHtml,
+    catalogShowcaseHtml,
     requestCtaHtml,
-    renderSignature(),
+    renderSignature({ logoUrl: data.logoUrl }),
     renderFeedbackBlock({
       recipientEmail: data.recipientEmail,
       coachId: data.coachId,
@@ -172,7 +173,7 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
 
   const html = renderEmailShell({
     title: subject,
-    preheader: `Official Go Team Go Collegiate Recruiting Board — Verified international student-athletes ready for US college athletics.`,
+    preheader: `Official Go Team Go Volleyball Recruiting Board — Verified international student-athletes ready for US college athletics.`,
     bodyContentHtml,
   });
 
