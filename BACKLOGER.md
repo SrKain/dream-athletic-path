@@ -724,3 +724,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   10. Detalhamento e timeline de eventos individuais no histórico de e-mails.
 - **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-metrics-and-reporting.md`.
 - **Status:** `[PENDENTE]` (Aguardando aprovação humana explícita)
+
+## TASK-080 — 2026-10-01 19:21 — Reversão de commits após o último estado correto
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** GitHub Copilot CLI
+- **Pedido:** Retornar o repositório ao último commit informado como correto: `dc9ad3fdbaa020d6ee7a691809b243e6bee52817`.
+- **Entrega:**
+  - Revertidos os merges `4ec4269` e `d939ef2` com `git revert -m 1`, preservando o histórico.
+  - Criados os commits `40efa5b` (`Revert "Update plan"`) e `7500698` (`Revert "Traduziu app para English US"`).
+  - Verificado que o conteúdo rastreado da aplicação corresponde ao commit de referência antes das atualizações documentais.
+  - Mantido o `package-lock.json` não rastreado; nenhum push ou alteração em migrations remotas foi feito.
+- **Plano:** `think/2026-10-01-1921-reverter-commits-apos-ponto-correto.md`.
+- **Status:** [CONCLUÍDO]

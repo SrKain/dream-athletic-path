@@ -1066,3 +1066,11 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Atualizado o preset `getAthleteHeroImage` em `src/lib/image-transform.ts` para `{ width: 600, height: 800, resize: "cover", quality: 85 }`, garantindo que imagens horizontais ou de alta resolução sejam transformadas no Supabase Storage na proporção natural 3:4 antes da renderização no navegador.
   - Atualizados os testes unitários em `src/lib/image-transform.test.ts` (10/10 testes passando).
   - Validada a suite completa (18 arquivos de teste, 131 testes passando) e compilação de produção com sucesso.
+
+### [2026-10-01] Reversão ao último commit considerado correto
+
+- **Referência:** `dc9ad3fdbaa020d6ee7a691809b243e6bee52817`.
+- **Histórico:** revertidos os merges `4ec4269` e `d939ef2` usando seus primeiros pais como linha principal; commits de reversão `40efa5b` e `7500698`.
+- **Validação:** após os reverts, o conteúdo rastreado da aplicação foi comparado com o commit de referência e não havia diferenças. Esta nota e o registro no BACKLOGER são documentação posterior.
+- **Preservação:** sem push, reset, rebase ou force push. `package-lock.json` não rastreado mantido. Alterações/migrations já aplicadas no Supabase externo não são revertidas por Git.
+- **Plano:** `think/2026-10-01-1921-reverter-commits-apos-ponto-correto.md`.
