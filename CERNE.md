@@ -1083,3 +1083,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Segurança**: não foi usado o bypass `DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS`.
 - **Validação em andamento**: a instalação congelada com Bun 1.3.14 concluiu sem alterações; testes (19 arquivos, 138 testes) passaram; ESLint passou com 10 avisos preexistentes; typecheck passou quando executado isoladamente. A build Vite local encerrou com SIGTERM durante `rendering chunks` em duas tentativas síncronas; uma terceira execução está em andamento para verificar se a execução isolada conclui.
 - **Plano:** `think/2026-10-01-1946-diagnostico-correcao-build-vercel.md`.
+
+## Atualização 2026-10-02 — Alinhamento TanStack e build Vercel (TASK-082)
+
+- **Causa da falha de bundle:** as versões diretas de `@tanstack/react-router` e `@tanstack/router-plugin` estavam abaixo das versões usadas pela cadeia de `@tanstack/react-start@1.168.60`. Isso mantinha uma versão antiga de `router-core` sem a exportação `makeSerovalPlugin`.
+- **Alinhamento aprovado e aplicado:** `package.json` agora declara `@tanstack/react-router@^1.170.41` e `@tanstack/router-plugin@^1.168.42`; `bun.lock` foi regenerado com Bun 1.3.14 e resolve `router-core@1.171.34`. A exportação `makeSerovalPlugin` está presente e a instalação congelada passa.
+- **Build de produção:** `bun run build` concluiu com sucesso em 24,30 s e gerou o bundle para o preset Vercel. Permanecem avisos de bundling sobre diretivas `"use client"` de dependências, sem falha de build.
+- **Compatibilidade de tipos:** após aprovação adicional, a anotação de `error` no `ErrorComponent` de `src/routes/__root.tsx` foi ajustada de `Error` para `unknown`, refletindo corretamente o contrato do Router sem alterar o tratamento ou a interface.
+- **Qualidade:** `bun run validate` passou integralmente: ESLint sem erros (10 warnings), TypeScript, 138 testes em 19 arquivos e build de produção. Permanecem apenas avisos não bloqueantes de ESLint e do bundler sobre diretivas `"use client"` em dependências.
+- **Plano:** `think/2026-10-02-0204-alinhamento-tanstack-build-vercel.md`.

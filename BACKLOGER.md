@@ -748,3 +748,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação parcial:** `bun install --frozen-lockfile` passou com Bun 1.3.14; 138 testes passaram; ESLint passou com 10 warnings; typecheck passou isoladamente. Build local ainda está em verificação, pois duas execuções síncronas foram interrompidas por SIGTERM durante a geração dos chunks.
 - **Plano:** `think/2026-10-01-1946-diagnostico-correcao-build-vercel.md`.
 - **Status:** [PENDENTE]
+
+## TASK-082 — 2026-10-02 02:04 — Alinhamento de dependências TanStack para a build Vercel
+
+- **Solicitante:** Usuário Humano
+- **Executor:** GitHub Copilot CLI
+- **Pedido:** Continuar o diagnóstico da falha de build da Vercel após o HTTP 403 e o alerta de vulnerabilidade, validar o estado corrigido e preparar a correção para o novo erro de export `makeSerovalPlugin`.
+- **Diagnóstico:** A instalação congelada com Bun 1.3.14 passa e lint, typecheck e testes passam, mas a build encontra versões TanStack divergentes: as dependências diretas resolvem React Router `1.170.31` e Router Plugin `1.168.34`, enquanto a cadeia de React Start `1.168.60` usa Router `1.170.41`, Router Plugin `1.168.42` e Router Core `1.171.34`.
+- **Plano:** `think/2026-10-02-0204-alinhamento-tanstack-build-vercel.md`.
+- **Implementação aprovada e aplicada:** `package.json` alinhado para `@tanstack/react-router@^1.170.41` e `@tanstack/router-plugin@^1.168.42`; `bun.lock` regenerado com Bun 1.3.14, convergindo em `router-core@1.171.34`.
+- **Compatibilidade de tipo aprovada e aplicada:** anotação do parâmetro `error` do `ErrorComponent` em `src/routes/__root.tsx` alterada de `Error` para `unknown`, compatibilizando o componente com a API TanStack atual sem alterar o comportamento.
+- **Validação:** `bun install --frozen-lockfile` passou; a exportação `makeSerovalPlugin` está presente; `bun run validate` passou integralmente — ESLint sem erros (10 warnings), typecheck, 138 testes em 19 arquivos e build de produção. O build manteve avisos não bloqueantes de diretivas `"use client"` de dependências.
+- **Plano:** `think/2026-10-02-0204-alinhamento-tanstack-build-vercel.md`.
+- **Status:** [CONCLUÍDO]
