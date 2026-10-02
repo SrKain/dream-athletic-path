@@ -118,6 +118,7 @@ function Catalog() {
     highlightFeed = [],
   } = Route.useLoaderData() as PublicCatalogPayload;
   const { pick } = useI18n();
+  const showHomeHighlights = false;
   const [activeHighlightIndex, setActiveHighlightIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -299,7 +300,7 @@ function Catalog() {
         </section>
 
         {/* Highlights Stories Bar */}
-        {storyAthletes.length > 0 && (
+        {showHomeHighlights && storyAthletes.length > 0 && (
           <HomeHighlightsStoryBar
             stories={storyAthletes}
             onSelectAthlete={(story) => setActiveHighlightIndex(story.firstHighlightIndex)}
