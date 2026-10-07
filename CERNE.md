@@ -1111,3 +1111,21 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - **Suíte de Testes Automatizados**: Adicionados testes de compliance estrito de cores (falha se houver cores fora de `EMAIL_COLORS`/branco/transparente) e de integridade arquitetural (garante zero imports de `@aws-sdk` em `src/`). Total de 139 testes 100% aprovados.
 - **Plano:** `think/2026-10-07-1150-correcao-build-e-identidade-email.md`.
 
+## Atualização 2026-10-07 — Atualização e Validação do Lockfile TanStack Start (CVE-2026-102989) (TASK-085)
+
+- **Validação de Dependências e CVE-2026-102989**:
+  - `bun.lock` verificado e validado com `@tanstack/react-start@1.168.60`, `@tanstack/react-router@1.170.41`, `@tanstack/router-plugin@1.168.42`, `@tanstack/start-server-core@1.169.39`, `@tanstack/start-client-core@1.170.34`, `@tanstack/react-start-client@1.168.39`, `@tanstack/start-plugin-core@1.171.49`.
+  - `bun install --frozen-lockfile` passa com sucesso sem alterações.
+  - Ausência de locks secundários (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`).
+  - Zero imports de `@aws-sdk/*`.
+  - Sem uso de bypass inseguro (`DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS`).
+- **Verificação de Breaking Changes**:
+  - `src/routes/__root.tsx`: Scripts de HeadContent, GA4, Clarity e MetaPixelTracker íntegros.
+  - Rotas públicas (`src/routes/index.tsx`, `src/routes/athlete.$slug.tsx`) e Server Functions validadas.
+- **Qualidade & Testes**:
+  - ESLint e Prettier: 0 erros.
+  - TypeScript: 0 erros de tipagem.
+  - Vitest: 139 testes passando em 19 suítes (100% pass).
+- **Plano:** `think/2026-10-07-1410-atualizacao-tanstack-start-cve.md`.
+
+
