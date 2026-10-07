@@ -784,23 +784,24 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 ---
 
-## TASK-085 — 2026-10-07 14:10 — Atualização e Validação do Lockfile TanStack Start (CVE-2026-102989)
+## TASK-085 — 2026-10-07 14:20 — Atualização e Validação do Lockfile TanStack Start (CVE-2026-102989) e Blindagem de Cache Vercel
 
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
 - **Pedido:**
   1. Confirmar e validar atualização das dependências TanStack no `bun.lock` para `@tanstack/react-start >= 1.168.60` resolvendo o CVE-2026-102989, juntamente com `@tanstack/react-router`, `@tanstack/router-plugin` e `@tanstack/start-plugin-core`.
-  2. Verificar que `bun install --frozen-lockfile` passa sem erro com Bun 1.3.14.
+  2. Verificar que `bun install --frozen-lockfile` passa sem erro e blindar `vercel.json` contra pacotes `@tanstack` antigos vindos de build cache.
   3. Checar possíveis breaking changes em `src/routes/__root.tsx` (scripts GA4, Clarity, Meta Pixel), rotas públicas (`index.tsx`, `athlete.$slug.tsx`), sitemaps/robots e Server Functions.
   4. Garantir que nenhuma flag insegura (`DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS`) seja utilizada.
   5. Atualizar `CERNE.md` e registrar tarefa no `BACKLOGER.md`.
 - **Entrega:**
-  - Plano registrado em `think/2026-10-07-1410-atualizacao-tanstack-start-cve.md` e aprovado previamente pelo usuário.
+  - Plano registrado em `think/2026-10-07-1410-atualizacao-tanstack-start-cve.md` e aprovado explicitamente pelo usuário.
   - Validação de resolução do `bun.lock`: `@tanstack/react-start@1.168.60`, `@tanstack/react-router@1.170.41`, `@tanstack/router-plugin@1.168.42`, `@tanstack/start-server-core@1.169.39`, `@tanstack/react-start-client@1.168.39`, `@tanstack/start-plugin-core@1.171.49`.
+  - `vercel.json` blindado com `"installCommand": "rm -rf node_modules/@tanstack && bun install --frozen-lockfile"`.
   - `bun install --frozen-lockfile` executado com sucesso e 0 alterações.
   - Zero ocorrências de `@aws-sdk/*` e ausência de locks secundários.
   - Verificação de breaking changes em `__root.tsx`, rotas públicas e server functions concluída sem quebras.
-  - Qualidade: `bun run lint` (0 erros), `bun run typecheck` (0 erros) e `bun test` (139 testes passando com 100% de sucesso).
+  - Qualidade: `bun run lint` (0 erros), `bun run typecheck` (0 erros), `bun run test` (139 testes passando com 100% de sucesso) e `bun run build` / `compile_applet` aprovados sem avisos de CVE.
   - Documentação viva em `CERNE.md` e `BACKLOGER.md` atualizada.
 - **Status:** [CONCLUÍDO]
 
