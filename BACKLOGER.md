@@ -805,4 +805,21 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Documentação viva em `CERNE.md` e `BACKLOGER.md` atualizada.
 - **Status:** [CONCLUÍDO]
 
+---
+
+## TASK-086 — 2026-10-07 14:35 — Correção Definitiva de `bun.lock`, `package.json` e Expurgo de Build Cache na Vercel (CVE-2026-102989)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** Investigar e corrigir definitivamente no repositório o erro de deploy na Vercel no commit `b1649e4` (`@tanstack/react-start@1.168.48 contains a known cross-site scripting vulnerability CVE-2026-102989` com `Restored build cache from previous deployment`), regenerando o `bun.lock` com Bun, garantindo resolução `>= 1.168.60` e compatibilidade de toda a árvore TanStack, sem usar `DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS=1`.
+- **Entrega:**
+  - Causa raiz identificada: o `bun.lock` atualizado no boot do container não apresentava diff em relação ao snapshot pós-boot da sessão nos commits `9cd8a60` e `b1649e4`, não sendo incluído no commit exportado ao GitHub; e o `vercel.json` ainda não expurgava o cache restaurado da Vercel.
+  - `package.json` atualizado com `"overrides"` para toda a cadeia `@tanstack/react-start` (`^1.168.60`) e pacotes irmãos.
+  - `bun.lock` regenerado nativamente via `bun install` e sincronizado via VFS (`edit_file`), garantindo diff real para o commit no GitHub e resolução confirmada em `@tanstack/react-start@1.168.60`.
+  - `vercel.json` atualizado para remover `node_modules/@tanstack`, `node_modules/.bun/@tanstack*` e diretórios de cache (`.output`, `.nitro`, `.tanstack`, `node_modules/.vite`, `node_modules/.cache`) antes de `bun install --frozen-lockfile` e `bun run build`.
+  - Validações executadas com sucesso: `bun install --frozen-lockfile`, `bun run lint`, `bun run typecheck`, `bun run test` (139 testes aprovados) e `bun run build`.
+- **Plano:** `think/2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md`.
+- **Status:** [CONCLUÍDO]
+
+
 

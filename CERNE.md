@@ -1130,4 +1130,17 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Build de produção (`bun run build` / `compile_applet`): concluído com sucesso sem avisos de vulnerabilidade CVE.
 - **Plano:** `think/2026-10-07-1410-atualizacao-tanstack-start-cve.md`.
 
+## Atualização 2026-10-07 — Correção Definitiva de Sincronização do `bun.lock` no Repositório e Expurgo de Cache Vercel (TASK-086)
+
+- **Causa Raiz Identificada no Commit `b1649e4`**:
+  - Nos turnos anteriores (`9cd8a60` e `b1649e4`), o `bun.lock` local havia sido atualizado durante o boot do container antes do snapshot inicial da sessão e não sofreu alteração de bytes nem escrita via VFS durante o turno, fazendo com que o commit exportado para o GitHub omitisse o `bun.lock` atualizado e mantivesse a revisão antiga (`@tanstack/react-start@1.168.48`).
+  - Adicionalmente, `vercel.json` ainda estava sem o expurgo explícito dos diretórios restaurados pelo cache da Vercel (`Restored build cache from previous deployment`).
+- **Correções Definitivas Aplicadas**:
+  - `package.json`: Adicionado bloco `"overrides"` para toda a cadeia TanStack Start/Router (`@tanstack/react-start: ^1.168.60`, `@tanstack/start-server-core: ^1.169.39`, `@tanstack/start-client-core: ^1.170.34`, `@tanstack/react-start-client: ^1.168.39`, `@tanstack/react-start-server: ^1.167.46`, `@tanstack/react-start-rsc: ^0.1.59`, `@tanstack/start-plugin-core: ^1.171.49`, `@tanstack/router-utils: ^1.162.3`, `@tanstack/router-core: ^1.171.34`, `@tanstack/react-router: ^1.170.41`, `@tanstack/router-plugin: ^1.170.41` / `^1.168.42`).
+  - `bun.lock`: Regenerado nativamente com `bun install` e sincronizado no VFS com o bloco `"overrides"`, garantindo diff explícito para inclusão obrigatória no commit Git e resolução em `@tanstack/react-start@1.168.60`.
+  - `vercel.json`: Atualizado com `"installCommand": "rm -rf node_modules/@tanstack node_modules/.bun/@tanstack* && bun install --frozen-lockfile"` e `"buildCommand": "rm -rf .output .nitro .tanstack node_modules/.vite node_modules/.cache && bun run build"` para eliminar qualquer artefato de cache restaurado de deploys anteriores.
+- **Validação Completa**:
+  - `bun install --frozen-lockfile`, `bun run lint`, `bun run typecheck`, `bun run test` (139 testes aprovados) e `bun run build` executados com 100% de sucesso.
+- **Plano:** `think/2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md`.
+
 
