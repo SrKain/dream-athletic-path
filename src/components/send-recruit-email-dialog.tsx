@@ -142,6 +142,7 @@ export function SendRecruitEmailDialog({
   // Gerar dados do template WYSIWYG
   const emailTemplate = useMemo(() => {
     return renderRecruitEmail({
+      athleteId: athlete.id,
       athleteName: athlete.full_name,
       athleteSlug: athlete.slug,
       photoUrl: athlete.photo_url,
@@ -161,6 +162,7 @@ export function SendRecruitEmailDialog({
       heroBackgroundUrl: visualSettings?.hero_background_url,
     });
   }, [
+    athlete.id,
     athlete.full_name,
     athlete.slug,
     athlete.photo_url,

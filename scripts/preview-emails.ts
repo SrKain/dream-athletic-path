@@ -3,13 +3,23 @@ import path from "path";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
+  type RecruitEmailData,
 } from "../src/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "../src/lib/email/recruit-email-catalog-template";
 
 const outputDir = path.join(process.cwd(), "docs", "email-previews");
 fs.mkdirSync(outputDir, { recursive: true });
 
-const dummy1 = {
+// Apaga arquivos de preview duplicados ou legados se existirem
+const legacyFiles = ["preview-single.html", "preview-multi.html", "preview-catalog.html"];
+for (const file of legacyFiles) {
+  const filePath = path.join(outputDir, file);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+const dummy1: RecruitEmailData = {
   athleteId: "demo-1",
   athleteName: "Mariana Silva",
   athleteSlug: "mariana-silva",
@@ -27,7 +37,7 @@ const dummy1 = {
   recipientEmail: "coach@university.edu",
 };
 
-const dummy2 = {
+const dummy2: RecruitEmailData = {
   athleteId: "demo-2",
   athleteName: "Carolina Becker",
   athleteSlug: "carolina-becker",
@@ -44,7 +54,7 @@ const dummy2 = {
   recipientEmail: "coach@university.edu",
 };
 
-const dummy3 = {
+const dummy3: RecruitEmailData = {
   athleteId: "demo-3",
   athleteName: "Beatriz Santos",
   athleteSlug: "beatriz-santos",
@@ -61,7 +71,7 @@ const dummy3 = {
   recipientEmail: "coach@university.edu",
 };
 
-const dummy4 = {
+const dummy4: RecruitEmailData = {
   athleteId: "demo-4",
   athleteName: "Larissa Oliveira",
   athleteSlug: "larissa-oliveira",
@@ -78,27 +88,56 @@ const dummy4 = {
   recipientEmail: "coach@university.edu",
 };
 
+const dummyAthletes8: RecruitEmailData[] = [
+  dummy1,
+  dummy2,
+  dummy3,
+  dummy4,
+  { ...dummy1, athleteId: "demo-5", athleteName: "Gabriela Costa", athleteSlug: "gabriela-costa" },
+  { ...dummy2, athleteId: "demo-6", athleteName: "Julia Almeida", athleteSlug: "julia-almeida" },
+  { ...dummy3, athleteId: "demo-7", athleteName: "Rafaela Rocha", athleteSlug: "rafaela-rocha" },
+  { ...dummy4, athleteId: "demo-8", athleteName: "Amanda Lima", athleteSlug: "amanda-lima" },
+];
+
 console.log("Generating email previews...");
 
-// 1. Single
+// 1. Single Athlete Preview
 const single = renderRecruitEmail(dummy1);
-fs.writeFileSync(path.join(outputDir, "preview-single.html"), single.html, "utf8");
+fs.writeFileSync(path.join(outputDir, "single-athlete.html"), single.html, "utf8");
 
-// 2. Multi (4 athletes)
-const multi = renderMultiAthleteRecruitEmail({
+// 2. Multi Athlete Preview (1 Athlete)
+const multi1 = renderMultiAthleteRecruitEmail({
+  athletes: [dummy1],
+  coachName: "Smith",
+  institutionName: "Stanford Athletics",
+  recipientEmail: "coach@stanford.edu",
+});
+fs.writeFileSync(path.join(outputDir, "multi-athlete-1.html"), multi1.html, "utf8");
+
+// 3. Multi Athlete Preview (4 Athletes)
+const multi4 = renderMultiAthleteRecruitEmail({
   athletes: [dummy1, dummy2, dummy3, dummy4],
   coachName: "Smith",
   institutionName: "Stanford Athletics",
   recipientEmail: "coach@stanford.edu",
 });
-fs.writeFileSync(path.join(outputDir, "preview-multi.html"), multi.html, "utf8");
+fs.writeFileSync(path.join(outputDir, "multi-athlete-4.html"), multi4.html, "utf8");
 
-// 3. Catalog
+// 4. Multi Athlete Preview (8 Athletes)
+const multi8 = renderMultiAthleteRecruitEmail({
+  athletes: dummyAthletes8,
+  coachName: "Smith",
+  institutionName: "Stanford Athletics",
+  recipientEmail: "coach@stanford.edu",
+});
+fs.writeFileSync(path.join(outputDir, "multi-athlete-8.html"), multi8.html, "utf8");
+
+// 5. Catalog Preview
 const catalog = renderCatalogEmail({
   coachName: "Smith",
   institutionName: "Collegiate Scouting Showcase",
   recipientEmail: "coach@stanford.edu",
 });
-fs.writeFileSync(path.join(outputDir, "preview-catalog.html"), catalog.html, "utf8");
+fs.writeFileSync(path.join(outputDir, "catalog.html"), catalog.html, "utf8");
 
 console.log(`Previews saved to: ${outputDir}`);

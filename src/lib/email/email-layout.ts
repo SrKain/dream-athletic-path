@@ -253,7 +253,7 @@ export function renderEmailHero(params: {
               ${safeTitleLine2}
             </div>
             <!-- Subtítulo em caixa alta com letter-spacing largo -->
-            <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:#d2ded6;letter-spacing:2px;text-transform:uppercase;margin-top:10px;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:${EMAIL_COLORS.heroSubtitle};letter-spacing:2px;text-transform:uppercase;margin-top:10px;">
               ${safeSubtitle}
             </div>
           </td>
@@ -546,7 +546,7 @@ export function renderAthleteCard(
               </span>
               ${
                 isTransfer
-                  ? `<span style="display:inline-block;margin-left:6px;background-color:#d4e5d8;color:${EMAIL_COLORS.darkGreenPrimary};font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:0.8px;">TRANSFER</span>`
+                  ? `<span style="display:inline-block;margin-left:6px;background-color:${EMAIL_COLORS.badgeGreenBg};color:${EMAIL_COLORS.badgeGreenText};font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:0.8px;">TRANSFER</span>`
                   : ""
               }
             </td>
@@ -1000,7 +1000,7 @@ export function renderLegalFooter(params: { recipientEmail?: string | null }): s
           manage email preferences or unsubscribe
         </a>.
       </div>
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#8ba092;margin-top:6px;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${EMAIL_COLORS.copyrightText};margin-top:6px;">
         &copy; ${new Date().getFullYear()} Go Team Go Agency. All rights reserved.
       </div>
     </td>

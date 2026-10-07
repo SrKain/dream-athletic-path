@@ -62,6 +62,7 @@ O objetivo desta migração é realizar uma transição **completa, arquitetural
 ## 3. Escopo e Arquivos Afetados
 
 ### 3.1 Criação de Novos Módulos
+
 1. `src/lib/email/resend-client.server.ts`:
    - Singleton seguro do cliente `Resend` instanciado com `RESEND_API_KEY`.
    - `getResendConfig()` lendo `RESEND_API_KEY`, `EMAIL_FROM`, `RESEND_WEBHOOK_SECRET`.
@@ -75,6 +76,7 @@ O objetivo desta migração é realizar uma transição **completa, arquitetural
    - Suite completa de testes unitários cobrindo: configuração, ausência de chave, envios unitários, envio em lote (Batch API), agendamento/scheduler e processamento de webhooks.
 
 ### 3.2 Migração de Módulos Existentes
+
 1. `src/lib/email/email.server.ts`:
    - Substituição de `SendEmailCommand` da AWS pelo `resend.emails.send()`.
    - Manutenção do contrato de `sendEmail({ template, to, data, respectSendingWindow })`.
@@ -102,6 +104,7 @@ O objetivo desta migração é realizar uma transição **completa, arquitetural
    - Atualização da documentação do ecossistema e registro da tarefa concluída.
 
 ### 3.3 Remoção de Arquivos Obsoletos
+
 - `src/lib/email/ses-client.server.ts`
 - `src/lib/email/ses-webhook.server.ts`
 - `src/lib/email/ses-email.test.ts`

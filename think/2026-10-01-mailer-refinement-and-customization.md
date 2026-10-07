@@ -16,7 +16,7 @@ Avaliamos minuciosamente o fluxo de ponta a ponta do Mailer (`src/routes/_authen
 
 1. **Composição e Preview no Admin (`/admin/mailer`)**:
    - Atualmente permite alternar entre `single`, `multi` e `catalog`.
-   - No modo `catalog`, já existem campos para `catalogHeadline` e `catalogMessage`, porém os modos `single` e `multi` não expõem campos para edição de saudação (*Greeting*), introdução (*Introduction*) e chamada (*Hook / Take a Look*).
+   - No modo `catalog`, já existem campos para `catalogHeadline` e `catalogMessage`, porém os modos `single` e `multi` não expõem campos para edição de saudação (_Greeting_), introdução (_Introduction_) e chamada (_Hook / Take a Look_).
    - O `previewHtml` renderiza via `renderRecruitEmail`, `renderMultiAthleteRecruitEmail` e `renderCatalogEmail`.
 2. **Identidade Visual da Agência (`agency_visual_settings`)**:
    - A tabela `agency_visual_settings` armazena oficialmente `logo_url` e `hero_background_url`.
@@ -35,23 +35,26 @@ Avaliamos minuciosamente o fluxo de ponta a ponta do Mailer (`src/routes/_authen
 ## 2. Escopo Detalhado de Alterações
 
 ### A. Customização Textual no Admin (`/admin/mailer`)
+
 - Adicionar no painel lateral de configuração do Mailer campos simples e elegantes:
   - **Greeting / Saudação**: ex: `Hi Coach,`, `Hi Dave,`, `Dear Coach,`
   - **Introduction / Mensagem Principal**: texto do parágrafo introdutório.
-  - **Callout / Hook / Take a Look**: texto de fechamento da introdução (ex: *"Take a look at our current roster below."* ou personalizado).
+  - **Callout / Hook / Take a Look**: texto de fechamento da introdução (ex: _"Take a look at our current roster below."_ ou personalizado).
   - No modo **Catalog**: manter headline e message + greeting e hook customizáveis.
 - O `previewHtml` atualizará em tempo real conforme a digitação.
 - Os dados customizados serão enviados no payload do `sendMailerServerFn` e propagados fielmente ao HTML e à versão texto (`Body.Text`) no envio real do Amazon SES.
 - Sanitização rigorosa com `escapeHtml` para segurança contra injeção e quebra de layout.
 
 ### B. Remoção Integral da Seção de Múltiplos Esportes no Catálogo
+
 - Em `src/lib/email/recruit-email-catalog-template.ts`:
   - Remover o bloco `rosterDisciplinesHtml` (Soccer, Basketball, Tennis, Track & Field, Swimming).
-  - Substituir o espaço por um banner institucional focado em Volleyball e convite direto com botão destacado *"EXPLORE FULL VOLLEYBALL ROSTER & HIGHLIGHTS →"*.
+  - Substituir o espaço por um banner institucional focado em Volleyball e convite direto com botão destacado _"EXPLORE FULL VOLLEYBALL ROSTER & HIGHLIGHTS →"_.
   - No `generateCatalogPlainText`, remover a lista de múltiplos esportes, mantendo apenas Volleyball.
   - Atualizar os testes unitários para validar a ausência total dos termos esportivos alheios.
 
 ### C. Logo e Background Oficiais da Agência (`agency_visual_settings`)
+
 - Em `src/routes/_authenticated/admin/mailer.tsx`:
   - Carregar `agency_visual_settings` no `loadInitialData` e armazenar no estado do componente.
   - Repassar `logoUrl: visual?.logo_url` e `heroBackgroundUrl: visual?.hero_background_url` para a geração do preview.
@@ -62,6 +65,7 @@ Avaliamos minuciosamente o fluxo de ponta a ponta do Mailer (`src/routes/_authen
   - `renderEmailHero`: aceitar `heroBackgroundUrl?: string | null` e utilizá-lo no background CSS e no VML do Outlook, com fallback para o degradê esmeralda `#05301a`.
 
 ### D. Correção do Link de Highlight ("Take a Look" e Botões dos Cards)
+
 - Prioridade de highlight:
   1. `athlete_videos` com `kind = 'highlight'` (primeiro registro ordenado por `sort_order ASC, created_at DESC`).
   2. `athlete_profiles.highlight_video_url`.

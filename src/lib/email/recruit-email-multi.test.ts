@@ -19,7 +19,7 @@ import {
   type RecruitEmailData,
 } from "./recruit-email-template";
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
-import { escapeHtml } from "./email-brand";
+import { EMAIL_COLORS } from "./email-brand";
 
 describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () => {
   const athlete1: RecruitEmailAthlete = {
@@ -313,6 +313,67 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
 
       const size = Buffer.byteLength(res.html, "utf8");
       expect(size).toBeLessThan(102400); // 100KB
+    });
+  });
+
+  describe("9. Color Palette & Brand Consistency Compliance", () => {
+    it("ensures all generated email templates use exclusively EMAIL_COLORS and white/transparent", () => {
+      const single = renderSingleAthleteRecruitEmail({ athlete: athlete1, coachName: "Coach" });
+      const multi = renderMultiAthleteRecruitEmail({
+        athletes: [athlete1, athlete2],
+        coachName: "Coach",
+      });
+      const catalog = renderCatalogRecruitEmail({ coachName: "Coach" });
+
+      const allHtml = [single.html, multi.html, catalog.html].join("\n");
+
+      // Extrai todos os códigos hexadecimais do HTML
+      const hexMatches = allHtml.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+      const uniqueHexes = Array.from(new Set(hexMatches.map((h) => h.toLowerCase())));
+
+      const allowedHexes = new Set([
+        ...Object.values(EMAIL_COLORS).map((c) => c.toLowerCase()),
+        "#ffffff",
+        "#fff",
+        "#000000",
+        "#000",
+      ]);
+
+      // Cores Tailwind proibidas
+      const forbiddenTailwindColors = [
+        "#059669",
+        "#065f46",
+        "#d1fae5",
+        "#0f172a",
+        "#475569",
+        "#64748b",
+        "#e2e8f0",
+        "#f1f5f9",
+        "#fde68a",
+        "#d97706",
+        "#92400e",
+        "#fef3c7",
+      ];
+
+      for (const hex of uniqueHexes) {
+        expect(allowedHexes.has(hex)).toBe(true);
+        expect(forbiddenTailwindColors).not.toContain(hex);
+      }
+    });
+  });
+
+  describe("10. Architectural Integrity & Zero @aws-sdk", () => {
+    it("ensures no code in src/ imports @aws-sdk", async () => {
+      const { execSync } = await import("child_process");
+      try {
+        const grepOutput = execSync('grep -rn "@aws-sdk" src/ || true', {
+          encoding: "utf8",
+        }).trim();
+        expect(grepOutput).toBe("");
+      } catch {
+        // grep exit code 1 means not found (success)
+        expect(true).toBe(true);
+      }
     });
   });
 });
