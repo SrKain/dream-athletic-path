@@ -5,6 +5,48 @@
 
 export const EMAIL_BASE_URL = "https://portfolio.goteamgoagency.com";
 
+export function getBaseAppUrl(): string {
+  return EMAIL_BASE_URL;
+}
+
+export function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export const EMAIL_BRAND = {
+  name: "Go Team Go Agency",
+  colors: {
+    primary: "#059669", // Emerald 600
+    primaryDark: "#065f46", // Emerald 800
+    primaryLight: "#d1fae5", // Emerald 100
+    dark: "#0f172a", // Slate 900
+    textPrimary: "#0f172a",
+    textSecondary: "#475569",
+    textMuted: "#64748b",
+    border: "#e2e8f0",
+    borderLight: "#f1f5f9",
+    background: "#ffffff",
+    cardBackground: "#ffffff",
+    badgeBackground: "#f1f5f9",
+    gold: "#d97706",
+    goldLight: "#fef3c7",
+    goldText: "#92400e",
+  },
+  typography: {
+    fontFamily:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontDisplay:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  },
+} as const;
+
 export const EMAIL_COLORS = {
   darkGreenDeep: "#032812",
   darkGreenPrimary: "#084323",
@@ -57,10 +99,11 @@ export const EMAIL_ASSETS = {
 export const EMAIL_SIGNATURE = {
   name: "Fabiana Andrade",
   role: "Founder | Go Team Go Agency",
+  agency: "Go Team Go Agency",
   email: "fabiana@goteamgoagency.com",
   instagram: "@goteamgoagency",
   instagramUrl: "https://instagram.com/goteamgoagency",
-  website: "www.goteamgoagency.com",
+  website: "https://www.goteamgoagency.com",
   websiteUrl: "https://www.goteamgoagency.com",
 } as const;
 

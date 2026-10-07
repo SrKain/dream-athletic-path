@@ -1,7 +1,16 @@
+import {
+  renderSingleAthleteRecruitEmail,
+  renderMultiAthleteRecruitEmail,
+  renderCatalogRecruitEmail,
+  type RecruitEmailRenderOptions,
+  type RecruitEmailAthlete,
+} from "./recruit-email";
+
+export * from "./recruit-email";
+export * from "./email-brand";
+
 /**
  * Catálogo de templates de e-mail.
- * O conteúdo final será desenvolvido depois — aqui fica só a arquitetura,
- * com assunto e corpo placeholder por tipo de disparo.
  */
 export type EmailTemplate =
   | "welcome"
@@ -11,7 +20,10 @@ export type EmailTemplate =
   | "document_requested"
   | "document_approved"
   | "document_rejected"
-  | "password_reset";
+  | "password_reset"
+  | "recruit_single_athlete"
+  | "recruit_multi_athlete"
+  | "recruit_catalog";
 
 export interface RenderedEmail {
   subject: string;
@@ -179,5 +191,50 @@ export function renderEmail(template: EmailTemplate, data: Data = {}): RenderedE
           `<p><a href="${data.resetUrl ?? "#"}" style="color:#c6f24e">Definir nova senha</a></p>`,
         ),
       };
+    case "recruit_single_athlete": {
+      const athlete = data.athlete as unknown as RecruitEmailAthlete | undefined;
+      if (!athlete) {
+        return {
+          subject: "Go Team Go — Verified Athlete Prospect",
+          html: layout("Athlete Prospect", "<p>Verified athlete prospect.</p>"),
+        };
+      }
+      return renderSingleAthleteRecruitEmail({
+        coachName: String(data.coachName ?? ""),
+        coachEmail: String(data.coachEmail ?? ""),
+        athlete,
+        agencyLogoUrl: data.agencyLogoUrl ? String(data.agencyLogoUrl) : null,
+        greetingText: data.greetingText ? String(data.greetingText) : undefined,
+        introductionText: data.introductionText ? String(data.introductionText) : undefined,
+        sportName: data.sportName ? String(data.sportName) : undefined,
+      });
+    }
+    case "recruit_multi_athlete": {
+      const athletes = (data.athletes as unknown as RecruitEmailAthlete[] | undefined) || [];
+      if (!athletes.length) {
+        return {
+          subject: "Go Team Go — Verified Athlete Prospects",
+          html: layout("Athlete Prospects", "<p>Verified athlete prospects.</p>"),
+        };
+      }
+      return renderMultiAthleteRecruitEmail({
+        coachName: String(data.coachName ?? ""),
+        coachEmail: String(data.coachEmail ?? ""),
+        athletes,
+        agencyLogoUrl: data.agencyLogoUrl ? String(data.agencyLogoUrl) : null,
+        greetingText: data.greetingText ? String(data.greetingText) : undefined,
+        introductionText: data.introductionText ? String(data.introductionText) : undefined,
+        sportName: data.sportName ? String(data.sportName) : undefined,
+        gradYear: data.gradYear ? String(data.gradYear) : undefined,
+      });
+    }
+    case "recruit_catalog":
+      return renderCatalogRecruitEmail({
+        coachName: String(data.coachName ?? ""),
+        coachEmail: String(data.coachEmail ?? ""),
+        agencyLogoUrl: data.agencyLogoUrl ? String(data.agencyLogoUrl) : null,
+        greetingText: data.greetingText ? String(data.greetingText) : undefined,
+        introductionText: data.introductionText ? String(data.introductionText) : undefined,
+      });
   }
 }

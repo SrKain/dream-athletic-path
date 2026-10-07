@@ -171,10 +171,10 @@ function MailerPage() {
 
   // Opções do Catálogo
   const [catalogHeadline, setCatalogHeadline] = useState(
-    "Discover Verified International Recruits Ready for College Athletics",
+    "Go Team Go — Active US College Recruiting Portfolio & Prospects",
   );
   const [catalogMessage, setCatalogMessage] = useState(
-    "At Go Team Go Agency, we represent top-tier international student-athletes actively seeking competitive collegiate programs in the US. Each prospect in our portfolio undergoes rigorous athletic screening, academic credential verification, and highlight reel curation.",
+    "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
   );
 
   // Filtros de Destinatários
@@ -940,11 +940,11 @@ function MailerPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Saudação (Greeting)
+                            Saudação de 1 Linha (Topo)
                           </label>
                           <input
                             type="text"
-                            placeholder="Hi Coach, (ou Dear Coach, Hi John, etc.)"
+                            placeholder="Hi Coach {Name}, verified volleyball prospect:"
                             value={customGreeting}
                             onChange={(e) => setCustomGreeting(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -952,11 +952,11 @@ function MailerPage() {
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Chamada / Hook / Link
+                            Chamada / Hook
                           </label>
                           <input
                             type="text"
-                            placeholder="Take a look at the verified match highlights & profile below."
+                            placeholder="Explore verified match films & academic records below."
                             value={customHook}
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -965,11 +965,11 @@ function MailerPage() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
-                          Introdução / Mensagem Principal
+                          Texto Institucional (Bloco de Final de E-mail)
                         </label>
                         <textarea
                           rows={2}
-                          placeholder="Escreva uma introdução personalizada para os coaches ou deixe vazio para usar o texto padrão..."
+                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
                           value={customIntroduction}
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -988,7 +988,7 @@ function MailerPage() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {selectedMultiAthleteIds.size} de {athletes.length} atletas selecionadas
-                          (serão empilhadas em 1 único e-mail por coach)
+                          (1 atleta por linha em largura total)
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1053,11 +1053,11 @@ function MailerPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Saudação (Greeting)
+                            Saudação de 1 Linha (Topo)
                           </label>
                           <input
                             type="text"
-                            placeholder="Hi Coach, (ou Dear Coach, Hi John, etc.)"
+                            placeholder="Hi Coach {Name}, {N} verified prospects, Class of {ano}:"
                             value={customGreeting}
                             onChange={(e) => setCustomGreeting(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1065,11 +1065,11 @@ function MailerPage() {
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Chamada / Hook / Link
+                            Chamada / Hook
                           </label>
                           <input
                             type="text"
-                            placeholder="Take a look at our current roster below."
+                            placeholder="Explore verified match films & academic records below."
                             value={customHook}
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1078,11 +1078,11 @@ function MailerPage() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
-                          Introdução / Mensagem Principal
+                          Texto Institucional (Bloco de Final de E-mail)
                         </label>
                         <textarea
                           rows={2}
-                          placeholder="Escreva uma introdução personalizada para os coaches ou deixe vazio para usar o texto padrão..."
+                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
                           value={customIntroduction}
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1100,11 +1100,11 @@ function MailerPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
-                          Saudação (Greeting)
+                          Saudação de 1 Linha (Topo)
                         </label>
                         <input
                           type="text"
-                          placeholder="Hi Coach,"
+                          placeholder="Hi Coach {Name}, explore our full active recruiting portfolio:"
                           value={customGreeting}
                           onChange={(e) => setCustomGreeting(e.target.value)}
                           className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1137,10 +1137,10 @@ function MailerPage() {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
-                          Mensagem Institucional / Apresentação
+                          Mensagem Institucional (Bloco de Final de E-mail)
                         </label>
                         <textarea
-                          rows={3}
+                          rows={2}
                           value={catalogMessage}
                           onChange={(e) => setCatalogMessage(e.target.value)}
                           className="w-full p-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
