@@ -108,6 +108,7 @@ export interface MailerMetricsSummary {
   periodDays: number;
   resendConfigured: boolean;
   webhookSecretConfigured: boolean;
+  rpcError?: string | null;
   filtersApplied: {
     days: number;
     campaignId: string | null;
@@ -234,6 +235,7 @@ export async function getMailerMetricsSummary(
 
   const admin = getAdminClient();
   const config = getResendConfig();
+  let rpcErrorMessage: string | null = null;
 
   // 1. Tentar caminho principal: RPC SQL no PostgreSQL (migration 0022)
   if (typeof admin.rpc === "function") {
@@ -389,6 +391,7 @@ export async function getMailerMetricsSummary(
         periodDays: days,
         resendConfigured: config.isConfigured,
         webhookSecretConfigured: Boolean(config.webhookSecret),
+        rpcError: null,
         filtersApplied: {
           days,
           campaignId,
@@ -436,8 +439,9 @@ export async function getMailerMetricsSummary(
     }
 
     if (metricsRpcRes.error) {
-      console.warn(
-        "[mailer-metrics] RPC get_mailer_dashboard_metrics unavailable, using narrow projection fallback:",
+      rpcErrorMessage = metricsRpcRes.error.message;
+      console.error(
+        "[mailer-metrics] RPC get_mailer_dashboard_metrics failed, using narrow projection fallback:",
         metricsRpcRes.error.message,
       );
     }
@@ -844,6 +848,7 @@ export async function getMailerMetricsSummary(
     periodDays: days,
     resendConfigured: config.isConfigured,
     webhookSecretConfigured: Boolean(config.webhookSecret),
+    rpcError: rpcErrorMessage,
     filtersApplied: {
       days,
       campaignId,

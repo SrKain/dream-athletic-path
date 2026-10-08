@@ -362,9 +362,10 @@ export async function processResendWebhook(
 
       const eventRow: Record<string, unknown> = {
         svix_id: uniqueSvixId,
-        event_id: uniqueSvixId,
-        event_type: payload.type,
+        provider_event_id: uniqueSvixId,
         provider_email_id: providerEmailId,
+        event_type: payload.type,
+        recipient: email,
         recipient_email: email,
         subject,
         campaign_id: campaignId,

@@ -348,6 +348,22 @@ export function MailerMetricsDashboard({
         </div>
       )}
 
+      {/* RPC Error Notice */}
+      {metrics?.rpcError && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 flex items-start gap-3 text-xs">
+          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <div className="font-semibold text-destructive">
+              Metrics RPC error: {metrics.rpcError}
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              The metrics database procedure encountered an error. A fallback query is being used to
+              display available data.
+            </p>
+          </div>
+        </div>
+      )}
+
       {errorMessage ? (
         <div className="p-8 rounded-xl border border-destructive/40 bg-destructive/10 text-center space-y-3">
           <AlertTriangle className="w-6 h-6 text-destructive mx-auto" />

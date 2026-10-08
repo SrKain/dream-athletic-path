@@ -867,3 +867,33 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
     4. `recruit-email-send.test.ts`: mock genérico encadeável resolvendo `athlete_videos` e `achievements`.
   - Validações: `bun run typecheck` (0 erros), `bun run lint` (0 erros), `bun run test` (153 testes passando em 21 suítes), `compile_applet` (sucesso), servidor restabelecido respondendo `HTTP 200 OK`.
 - **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-089 — 2026-10-08 07:20 — Hotfix: Schema de email_events, recruit_email_logs e RPCs de Métricas do Mailer (Eventos de Abertura/Clique)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** Correção do schema do webhook e RPCs de métricas do Mailer que gravam/leem colunas inexistentes (`svix_id`, `recipient_email`, `subject`, `tags` em `email_events`; `university_id`, `coach_role` em `recruit_email_logs`; cast incorreto `c.id::text = l.coach_id`). Criação da migration `0023_fix_email_events_schema_and_metrics_rpc.sql` (aditiva e idempotente), script de smoke test `verify-0023.sql`, alinhamento no webhook/serviço, exibição de erro da RPC no dashboard, teste vitest de integridade de schema e script de backfill via API do Resend.
+- **Entrega:**
+  1. Migration `db/migrations/0023_fix_email_events_schema_and_metrics_rpc.sql` (aditiva e idempotente):
+     - `email_events`: adicionadas colunas `svix_id text`, `recipient_email text`, `subject text`, `tags jsonb not null default '{}'::jsonb`. Colunas `provider_event_id` e `recipient` tornadas opcionais (`drop not null`). Backfill idempotente de `recipient_email` e `svix_id`. Criado índice UNIQUE COMPLETO em `svix_id` (necessário para upsert `onConflict: "svix_id"`). Criado índice em `lower(trim(recipient_email))`.
+     - `recruit_email_logs`: adicionadas colunas `university_id uuid references public.universities(id) on delete set null` e `coach_role text`, com índice em `university_id`.
+     - RPC `get_mailer_dashboard_metrics`: recriada com `CREATE OR REPLACE`, corrigindo join de coach (`c.id = l.coach_id` UUID = UUID), fallback robusto para universidades por `university_id` ou nome, e referências corretas a `e.svix_id`, `e.recipient_email` e `e.subject`. Permissões estritas concedidas exclusivamente a `service_role`.
+     - RPC `get_mailer_filter_options`: recriada com `CREATE OR REPLACE` e permissões restritas a `service_role`.
+  2. Alinhamento de código:
+     - `resend-webhook.server.ts`: removida a coluna fictícia `event_id`, mantendo `svix_id`, `provider_event_id`, `provider_email_id`, `recipient`, `recipient_email`, `subject`, `tags`, etc.
+     - `mailer-metrics.server.ts`: fallback de projeção alinhado; em caso de falha da RPC, loga com `console.error` (e não warn) e retorna `rpcError` no payload.
+     - `mailer-metrics-dashboard.tsx`: adicionado banner de alerta visível de erro da RPC quando `metrics.rpcError` vier preenchido.
+  3. Verificação e Prevenção:
+     - `db/migrations/verify-0023.sql`: smoke test contendo INSERT/UPSERT/DELETE de evento fake e chamadas diretas das RPCs para conferência no SQL Editor do Supabase.
+     - `src/lib/email/schema-integrity.test.ts`: teste Vitest que lê as migrations `0001` até `0023` e valida que nenhuma coluna gravada pelo webhook está ausente nas migrations.
+     - `scripts/backfill-resend-events.ts`: script para recuperação de eventos de e-mails já enviados via API oficial do Resend (`resend.emails.get`).
+  4. Validações completas:
+     - `bun run typecheck` (0 erros)
+     - `bun run lint` (0 erros)
+     - `bun test` (156 testes passando em 22 arquivos, 0 falhas)
+     - `compile_applet` (build com sucesso)
+     - Dev server respondendo `HTTP 200 OK`
+  5. Governança estrita: `package.json` e `bun.lock` mantidos 100% inalterados.
+- **Status:** `[CONCLUÍDO]`

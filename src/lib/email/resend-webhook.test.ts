@@ -177,9 +177,11 @@ describe("Resend Webhook Verification & Event Processing", () => {
       expect(mockUpsertedEvents).toHaveLength(1);
 
       const saved = mockUpsertedEvents[0]!;
-      expect(saved.event_id).toBe("svix_click_1");
+      expect(saved.svix_id).toBe("svix_click_1");
+      expect(saved.provider_event_id).toBe("svix_click_1");
       expect(saved.provider_email_id).toBe("re_click_1");
       expect(saved.recipient_email).toBe("coach@stanford.edu");
+      expect(saved.recipient).toBe("coach@stanford.edu");
       expect(saved.clicked_url).toBe("https://portfolio.goteamgoagency.com/athlete/mariana-silva");
       expect(saved.clicked_at).toBe("2026-10-08T10:05:00.000Z");
       expect(saved.user_agent).toBe("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)");

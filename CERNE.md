@@ -1190,3 +1190,36 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - `compile_applet`: Compilação de produção aprovada com sucesso.
   - Dev server testado via curl em localhost:3000 retornando `HTTP/1.1 200 OK`.
 - **Plano:** `think/2026-10-08-0435-revisao-contexto-e-estabilizacao-mailer.md`.
+
+## Atualização 2026-10-08 — Hotfix: Schema de email_events, recruit_email_logs e RPCs de Métricas do Mailer (TASK-089)
+
+- **Causa Raiz e Diagnóstico**:
+  - `public.email_events` (criada na 0021 e alterada na 0022) não possuía as colunas `svix_id`, `recipient_email`, `subject`, `tags`. O webhook tentava gravar essas colunas e fazer `upsert` com `onConflict: "svix_id"`, sendo rejeitado pelo PostgREST, o que gerava HTTP 500 e impedia a gravação de eventos de abertura/clique.
+  - A RPC `get_mailer_dashboard_metrics` (0022) referenciava `l.university_id` e `l.coach_role` (inexistentes em `recruit_email_logs`), comparava `c.id::text = l.coach_id` (erro de operador `text = uuid`), e referenciava `e.svix_id`, `e.recipient_email` e `e.subject` em `email_events`.
+- **Migration `db/migrations/0023_fix_email_events_schema_and_metrics_rpc.sql`**:
+  - Adição aditiva e idempotente em `public.email_events`: `svix_id text`, `recipient_email text`, `subject text`, `tags jsonb not null default '{}'::jsonb`.
+  - Remoção de obrigatoriedade (`drop not null`) de `provider_event_id` e `recipient` para retrocompatibilidade.
+  - Backfill idempotente: `recipient_email = coalesce(recipient_email, lower(trim(recipient)))` e `svix_id = coalesce(svix_id, provider_event_id)`.
+  - Criação de índice UNIQUE completo em `svix_id` (`idx_email_events_svix_id`), viabilizando upsert com `onConflict: "svix_id"`.
+  - Índice em `lower(trim(recipient_email))` para consultas rápidas de leads.
+  - Adição em `public.recruit_email_logs`: `university_id uuid references public.universities(id) on delete set null` e `coach_role text`, com índice em `university_id`.
+  - Recriação das RPCs `get_mailer_filter_options` e `get_mailer_dashboard_metrics` com `CREATE OR REPLACE`, `security definer`, `set search_path = public`, grants restritos para `service_role` (revogados de public, anon, authenticated), correção de join `c.id = l.coach_id` e fallback seguro para universidades por id ou nome.
+- **Webhook e Tratamento de Erros (`src/lib/email/resend-webhook.server.ts` & `mailer-metrics.server.ts`)**:
+  - Removida gravação da coluna inexistente `event_id` de `eventRow`.
+  - Mantida compatibilidade com gravação de `svix_id`, `provider_event_id`, `recipient_email`, `recipient`, `subject`, `tags`, etc.
+  - Em `mailer-metrics.server.ts`, erro na RPC é registrado com `console.error` (e não warn), preenchendo `rpcError` no payload retornado.
+  - Em `src/components/mailer-metrics-dashboard.tsx`, incluído banner visível de alerta `Metrics RPC error: <mensagem>` quando a RPC falhar, sem esconder zeros silenciosos.
+- **Prevenção de Regressão e Smoke Test**:
+  - `db/migrations/verify-0023.sql`: Script SQL contendo: (1) insert e upsert de evento fake em `email_events` com todas as colunas do webhook seguido de deleção limpa; (2) chamada de `get_mailer_dashboard_metrics(30, null, null, null)`; (3) chamada de `get_mailer_filter_options()`.
+  - `src/lib/email/schema-integrity.test.ts`: Teste automatizado com Vitest que analisa o DDL de todas as migrations de `0001` a `0023` e valida que nenhuma coluna gravada pelo webhook ou serviço está ausente nas migrations.
+- **Reprocessamento de Eventos e Backfill**:
+  - **Reenvio via Painel Resend (Recomendado)**: No dashboard do Resend, acessar **Webhooks** → selecionar o endpoint → clicar nas tentativas falhadas (status 500) e acionar **Resend**. Isso entrega os eventos originais completos com URLs e User-Agents.
+  - **Script de Backfill via API (`scripts/backfill-resend-events.ts`)**: Para quando as tentativas automáticas do Resend estiverem esgotadas, o script consulta `resend.emails.get(provider_id)` para os últimos N envios e reconstrói eventos delivered/opened/clicked/bounced em `email_events`. (Nota: A API do Resend retorna `last_event`; dados de cliques por URL granular só trafegam em tempo real via webhook).
+- **Validação Completa**:
+  - `bun run typecheck`: 0 erros.
+  - `bun run lint`: 0 erros.
+  - `bun test`: 156 testes passando em 22 arquivos (0 falhas).
+  - `compile_applet`: Build concluído com sucesso.
+  - Dev server ativo e respondendo `HTTP/1.1 200 OK`.
+- **Plano:** `think/2026-10-08-0720-hotfix-email-events-schema-e-rpc-metricas.md`.
+
