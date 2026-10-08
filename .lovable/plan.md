@@ -11,11 +11,12 @@
 - o `package.json` e o `bun.lock`;
 - o `CERNE.md`, o `BACKLOGER.md`, o `README.md` e os planos do `think/`.
 
+**Causa confirmada pelo log da Vercel:** o commit `645726c` instala `@tanstack/react-start@1.168.48`, que tem a vulnerabilidade CVE-2026-102989, e a Vercel bloqueia o deploy. Isso aconteceu porque a mescla trouxe de volta o `package.json` antigo (`^1.168.26`). No `eeee6a0`, o `package.json` já está corrigido: `react-start ^1.168.60`, `react-router ^1.170.41` e `router-plugin ^1.168.42`.
+
 **Correção:**
-1. Restaurar todos os arquivos exatamente como estão em `eeee6a0`, que é o seu último commit válido. Isso inclui o `package.json` e o `bun.lock`, que já trazem o patch de segurança do TanStack.
-2. Manter apenas o `.lovable/plan.md`.
-3. Comparar o resultado com o log da Vercel que você vai mandar e corrigir algum erro residual, se houver.
-4. Validar com `bun run validate`, `bun run typecheck`, `bun run lint`, `bun run test` e `bun run build`.
+1. Restaurar todos os arquivos exatamente como estão em `eeee6a0`, inclusive o `package.json` e o `bun.lock` corrigidos. A exceção é o `.lovable/plan.md`, que é mantido.
+2. Reinstalar as dependências com `bun install` e confirmar que a versão instalada é a `react-start` 1.168.60 ou mais nova.
+3. Validar com `bun run validate`, `bun run typecheck`, `bun run lint`, `bun run test` e `bun run build`.
 
 Nada de código novo entra antes de a build estar verde.
 
@@ -96,9 +97,8 @@ Atualizar o `CERNE.md` com a arquitetura, o renderer, o composer, os cards, o ro
 Template Catalog, autenticação, schema do banco, deploy, arquitetura do Resend, estrutura de métricas e as demais áreas do Admin.
 
 ## Pendências suas
-1. **O log da build da Vercel.**
-2. **A imagem de referência do athlete card.**
-3. Confirmar o uso do Gemini, no plano gratuito, para a sugestão de texto.
+1. **A imagem de referência do athlete card.**
+2. Confirmar o uso do Gemini, no plano gratuito, para a sugestão de texto.
 
 ## Status
 Aguardando aprovação humana.
