@@ -68,23 +68,17 @@ function VisualSettingsPage() {
 
   async function uploadImage(kind: "logo" | "hero", file?: File) {
     if (!file) return;
-    const validation = validateUpload(kind === "logo" ? "branding" : "photo", file);
+    const validation = validateUpload("photo", file);
     if (!validation.valid) return toast.error("Imagem inválida ou acima do limite permitido.");
 
     if (kind === "logo") setUploadingLogo(true);
     else setUploadingHero(true);
 
-    let ext = "jpg";
-    if (file.type === "image/svg+xml") ext = "svg";
-    else if (file.type === "image/png") ext = "png";
-    else if (file.type === "image/webp") ext = "webp";
-    else if (file.type === "image/jpeg" || file.type === "image/jpg") ext = "jpg";
-    else if (file.name.includes(".")) ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-
+    const ext = file.name.split(".").pop() || "jpg";
     const path = `agency/branding/${kind}-${Date.now()}.${ext}`;
     const stored = await supabase.storage
       .from("athlete-media")
-      .upload(path, file, { upsert: true, cacheControl: "31536000" });
+      .upload(path, file, { upsert: true });
 
     if (stored.error) {
       toast.error(stored.error.message);
