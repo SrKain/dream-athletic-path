@@ -11,19 +11,24 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedPortalRouteRouteImport } from './routes/_authenticated/portal/route'
 import { Route as AthleteSlugRouteImport } from './routes/athlete.$slug'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth.accept-invite'
 import { Route as ProposalTokenRouteImport } from './routes/proposal.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminCoachesRouteImport } from './routes/_authenticated/admin/coaches'
 import { Route as AuthenticatedAdminDocumentsRouteImport } from './routes/_authenticated/admin/documents'
+import { Route as AuthenticatedAdminMailerRouteImport } from './routes/_authenticated/admin/mailer'
 import { Route as AuthenticatedAdminNotificationsRouteImport } from './routes/_authenticated/admin/notifications'
 import { Route as AuthenticatedAdminPipelineRouteImport } from './routes/_authenticated/admin/pipeline'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
+import { Route as AuthenticatedAdminUniversitiesRouteImport } from './routes/_authenticated/admin/universities'
 import { Route as AuthenticatedAdminVisualRouteImport } from './routes/_authenticated/admin/visual'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal/index'
 import { Route as AuthenticatedPortalDocumentsRouteImport } from './routes/_authenticated/portal/documents'
@@ -45,6 +50,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedbackRoute = FeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -58,6 +68,11 @@ const LoginRoute = LoginRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
@@ -91,10 +106,22 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
 } as any)
+const AuthenticatedAdminCoachesRoute =
+  AuthenticatedAdminCoachesRouteImport.update({
+    id: '/coaches',
+    path: '/coaches',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminDocumentsRoute =
   AuthenticatedAdminDocumentsRouteImport.update({
     id: '/documents',
     path: '/documents',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminMailerRoute =
+  AuthenticatedAdminMailerRouteImport.update({
+    id: '/mailer',
+    path: '/mailer',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAdminNotificationsRoute =
@@ -113,6 +140,12 @@ const AuthenticatedAdminSettingsRoute =
   AuthenticatedAdminSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminUniversitiesRoute =
+  AuthenticatedAdminUniversitiesRouteImport.update({
+    id: '/universities',
+    path: '/universities',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAdminVisualRoute =
@@ -183,18 +216,23 @@ const AuthenticatedAdminProposalsIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/portal': typeof AuthenticatedPortalRouteRouteWithChildren
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/proposal/$token': typeof ProposalTokenRouteWithChildren
+  '/admin/coaches': typeof AuthenticatedAdminCoachesRoute
   '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/admin/mailer': typeof AuthenticatedAdminMailerRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/universities': typeof AuthenticatedAdminUniversitiesRoute
   '/admin/visual': typeof AuthenticatedAdminVisualRoute
   '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/portal/media': typeof AuthenticatedPortalMediaRoute
@@ -210,16 +248,21 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/proposal/$token': typeof ProposalTokenRouteWithChildren
+  '/admin/coaches': typeof AuthenticatedAdminCoachesRoute
   '/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/admin/mailer': typeof AuthenticatedAdminMailerRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/universities': typeof AuthenticatedAdminUniversitiesRoute
   '/admin/visual': typeof AuthenticatedAdminVisualRoute
   '/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/portal/media': typeof AuthenticatedPortalMediaRoute
@@ -237,18 +280,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/portal': typeof AuthenticatedPortalRouteRouteWithChildren
   '/athlete/$slug': typeof AthleteSlugRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/proposal/$token': typeof ProposalTokenRouteWithChildren
+  '/_authenticated/admin/coaches': typeof AuthenticatedAdminCoachesRoute
   '/_authenticated/admin/documents': typeof AuthenticatedAdminDocumentsRoute
+  '/_authenticated/admin/mailer': typeof AuthenticatedAdminMailerRoute
   '/_authenticated/admin/notifications': typeof AuthenticatedAdminNotificationsRoute
   '/_authenticated/admin/pipeline': typeof AuthenticatedAdminPipelineRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/_authenticated/admin/universities': typeof AuthenticatedAdminUniversitiesRoute
   '/_authenticated/admin/visual': typeof AuthenticatedAdminVisualRoute
   '/_authenticated/portal/documents': typeof AuthenticatedPortalDocumentsRoute
   '/_authenticated/portal/media': typeof AuthenticatedPortalMediaRoute
@@ -266,18 +314,23 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/feedback'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/unsubscribe'
     | '/admin'
     | '/portal'
     | '/athlete/$slug'
     | '/auth/accept-invite'
     | '/proposal/$token'
+    | '/admin/coaches'
     | '/admin/documents'
+    | '/admin/mailer'
     | '/admin/notifications'
     | '/admin/pipeline'
     | '/admin/settings'
+    | '/admin/universities'
     | '/admin/visual'
     | '/portal/documents'
     | '/portal/media'
@@ -293,16 +346,21 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/feedback'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/unsubscribe'
     | '/athlete/$slug'
     | '/auth/accept-invite'
     | '/proposal/$token'
+    | '/admin/coaches'
     | '/admin/documents'
+    | '/admin/mailer'
     | '/admin/notifications'
     | '/admin/pipeline'
     | '/admin/settings'
+    | '/admin/universities'
     | '/admin/visual'
     | '/portal/documents'
     | '/portal/media'
@@ -319,18 +377,23 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/feedback'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/unsubscribe'
     | '/_authenticated/admin'
     | '/_authenticated/portal'
     | '/athlete/$slug'
     | '/auth/accept-invite'
     | '/proposal/$token'
+    | '/_authenticated/admin/coaches'
     | '/_authenticated/admin/documents'
+    | '/_authenticated/admin/mailer'
     | '/_authenticated/admin/notifications'
     | '/_authenticated/admin/pipeline'
     | '/_authenticated/admin/settings'
+    | '/_authenticated/admin/universities'
     | '/_authenticated/admin/visual'
     | '/_authenticated/portal/documents'
     | '/_authenticated/portal/media'
@@ -348,9 +411,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  FeedbackRoute: typeof FeedbackRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   AthleteSlugRoute: typeof AthleteSlugRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   ProposalTokenRoute: typeof ProposalTokenRouteWithChildren
@@ -372,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feedback': {
+      id: '/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof FeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
@@ -391,6 +463,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -435,11 +514,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/coaches': {
+      id: '/_authenticated/admin/coaches'
+      path: '/coaches'
+      fullPath: '/admin/coaches'
+      preLoaderRoute: typeof AuthenticatedAdminCoachesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/documents': {
       id: '/_authenticated/admin/documents'
       path: '/documents'
       fullPath: '/admin/documents'
       preLoaderRoute: typeof AuthenticatedAdminDocumentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/mailer': {
+      id: '/_authenticated/admin/mailer'
+      path: '/mailer'
+      fullPath: '/admin/mailer'
+      preLoaderRoute: typeof AuthenticatedAdminMailerRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/notifications': {
@@ -461,6 +554,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/universities': {
+      id: '/_authenticated/admin/universities'
+      path: '/universities'
+      fullPath: '/admin/universities'
+      preLoaderRoute: typeof AuthenticatedAdminUniversitiesRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/visual': {
@@ -544,10 +644,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteRouteChildren {
+  AuthenticatedAdminCoachesRoute: typeof AuthenticatedAdminCoachesRoute
   AuthenticatedAdminDocumentsRoute: typeof AuthenticatedAdminDocumentsRoute
+  AuthenticatedAdminMailerRoute: typeof AuthenticatedAdminMailerRoute
   AuthenticatedAdminNotificationsRoute: typeof AuthenticatedAdminNotificationsRoute
   AuthenticatedAdminPipelineRoute: typeof AuthenticatedAdminPipelineRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminUniversitiesRoute: typeof AuthenticatedAdminUniversitiesRoute
   AuthenticatedAdminVisualRoute: typeof AuthenticatedAdminVisualRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminAthletesIdRoute: typeof AuthenticatedAdminAthletesIdRoute
@@ -558,10 +661,13 @@ interface AuthenticatedAdminRouteRouteChildren {
 
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
+    AuthenticatedAdminCoachesRoute: AuthenticatedAdminCoachesRoute,
     AuthenticatedAdminDocumentsRoute: AuthenticatedAdminDocumentsRoute,
+    AuthenticatedAdminMailerRoute: AuthenticatedAdminMailerRoute,
     AuthenticatedAdminNotificationsRoute: AuthenticatedAdminNotificationsRoute,
     AuthenticatedAdminPipelineRoute: AuthenticatedAdminPipelineRoute,
     AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+    AuthenticatedAdminUniversitiesRoute: AuthenticatedAdminUniversitiesRoute,
     AuthenticatedAdminVisualRoute: AuthenticatedAdminVisualRoute,
     AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
     AuthenticatedAdminAthletesIdRoute: AuthenticatedAdminAthletesIdRoute,
@@ -627,9 +733,11 @@ const ProposalTokenRouteWithChildren = ProposalTokenRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  FeedbackRoute: FeedbackRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   AthleteSlugRoute: AthleteSlugRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   ProposalTokenRoute: ProposalTokenRouteWithChildren,

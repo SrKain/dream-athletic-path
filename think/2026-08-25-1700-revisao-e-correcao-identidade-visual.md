@@ -12,17 +12,17 @@
 Após uma auditoria minuciosa do código e da renderização após as últimas alterações, identificamos os seguintes pontos que causaram quebra estética/tipográfica ou comportamental no design:
 
 1. **Problema do Fallback da Fonte "Tan St. Canard" (Bebas Neue All-Caps)**:
-   - A fonte *Tan St. Canard* não é nativa da web e, ao usar *Bebas Neue* como fallback direto no `@layer base h1, h2, h3, h4, h5, h6`, todos os títulos da aplicação foram forçados para **LETRAS MAIÚSCULAS CONDENSADAS (ALL-CAPS)**.
-   - Textos mistos e frases como *"Discover Our Available Athletes for 2027"*, *"Let's find your next athlete."*, nomes de atletas e seções acadêmicas perderam a caixa baixa e ficaram distorcidos.
-   - **Correção**: Configurar o stack de fontes display com *Oswald* e *Barlow Semi Condensed* / *Space Grotesk* (que possuem suporte completo a caixa alta e baixa, estética esportiva de alto impacto) mantendo a referência a *Tan St. Canard*, e remover a regra forçada de all-caps nos headings.
+   - A fonte _Tan St. Canard_ não é nativa da web e, ao usar _Bebas Neue_ como fallback direto no `@layer base h1, h2, h3, h4, h5, h6`, todos os títulos da aplicação foram forçados para **LETRAS MAIÚSCULAS CONDENSADAS (ALL-CAPS)**.
+   - Textos mistos e frases como _"Discover Our Available Athletes for 2027"_, _"Let's find your next athlete."_, nomes de atletas e seções acadêmicas perderam a caixa baixa e ficaram distorcidos.
+   - **Correção**: Configurar o stack de fontes display com _Oswald_ e _Barlow Semi Condensed_ / _Space Grotesk_ (que possuem suporte completo a caixa alta e baixa, estética esportiva de alto impacto) mantendo a referência a _Tan St. Canard_, e remover a regra forçada de all-caps nos headings.
 
 2. **Sobrecarga de Peso Global (`font-weight: 600` e `700`)**:
    - Foi aplicada a regra `body { font-weight: 600; }` e `button, input, select, textarea { font-weight: 700; }` no `@layer base`. Isso deixou **todo** o texto da interface (inclusive descrições longas, placeholders de inputs, tabelas e parágrafos) em negrito excessivo, prejudicando a legibilidade e a hierarquia visual.
-   - **Correção**: Ajustar a tipografia do corpo com *Quicksand* permitindo a escala natural de pesos (500 para textos regulares/parágrafos garantindo alta legibilidade e 600/700 para labels, botões, destaques e badges).
+   - **Correção**: Ajustar a tipografia do corpo com _Quicksand_ permitindo a escala natural de pesos (500 para textos regulares/parágrafos garantindo alta legibilidade e 600/700 para labels, botões, destaques e badges).
 
 3. **Posicionamento de `@import url(...)` no CSS e Integração no `<head>`**:
    - O `@import` do Google Fonts no `src/styles.css` estava posicionado após declarações do Tailwind, o que pode gerar inconsistências de carregamento em alguns navegadores.
-   - **Correção**: Incluir o carregamento direto das fontes (*Quicksand*, *Oswald*, *Barlow Condensed*, *Space Grotesk*) de forma otimizada via `<link rel="preconnect">` e `<link rel="stylesheet">` no `<head>` em `src/routes/__root.tsx` e no topo absoluto de `src/styles.css`.
+   - **Correção**: Incluir o carregamento direto das fontes (_Quicksand_, _Oswald_, _Barlow Condensed_, _Space Grotesk_) de forma otimizada via `<link rel="preconnect">` e `<link rel="stylesheet">` no `<head>` em `src/routes/__root.tsx` e no topo absoluto de `src/styles.css`.
 
 4. **Compatibilidade dos Tokens Tailwind CSS v4 (`@theme inline`)**:
    - As variáveis `--font-display` e `--font-sans` não estavam explicitamente mapeadas dentro do bloco `@theme inline`, fazendo com que as classes utilitárias `font-display` e `font-sans` pudessem ter comportamento inconsistente.

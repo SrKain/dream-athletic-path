@@ -7,6 +7,7 @@ import { ConfigurationNotice } from "@/components/configuration-notice";
 import { GlobalHighlightsViewer } from "@/components/global-highlights-viewer";
 import { HomeHighlightsStoryBar } from "@/components/home-highlights-story-bar";
 import { PoweredByIasinSignature } from "@/components/powered-by-iasin-signature";
+import { PublicHeader } from "@/components/public-header";
 import { CatalogSkeleton } from "@/components/skeletons/catalog-skeleton";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 import { useI18n } from "@/i18n/i18n-provider";
@@ -20,6 +21,8 @@ import {
   getAthleteStatus,
 } from "@/lib/catalog";
 import { buildContactEmailUrl } from "@/lib/contact";
+import { getCatalogHeroBackgroundImage } from "@/lib/image-transform";
+import { AgencyLogo } from "@/components/agency-logo";
 import { catalogHeroImage, getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { formatHeightImperial } from "@/lib/units";
@@ -115,6 +118,7 @@ function Catalog() {
     highlightFeed = [],
   } = Route.useLoaderData() as PublicCatalogPayload;
   const { pick } = useI18n();
+  const showHomeHighlights = false;
   const [activeHighlightIndex, setActiveHighlightIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -238,16 +242,13 @@ function Catalog() {
   );
 
   const heroTitle =
-    visual?.hero_title_en ||
-    visual?.hero_title_pt ||
-    "Athletes ready to play, study, and compete in the USA.";
+    visual?.hero_title_en || "Athletes ready to play, study, and compete in the USA.";
 
   const heroSubtitle =
     visual?.hero_subtitle_en ||
-    visual?.hero_subtitle_pt ||
     "Explore athlete profiles by position, watch game film, and discover top international recruits with verified academic and athletic credentials.";
 
-  const catalogHeading = visual?.catalog_heading_en || visual?.catalog_heading_pt || "Our Athletes";
+  const catalogHeading = visual?.catalog_heading_en || "Our Athletes";
   const heroImageSrc = visual?.hero_background_url || catalogHeroImage;
 
   if (!configured || !isSupabaseConfigured) return <ConfigurationNotice />;
@@ -256,29 +257,13 @@ function Catalog() {
     <main className="min-h-screen overflow-hidden bg-background text-foreground flex flex-col justify-between">
       <div>
         {/* Header */}
-        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
-          <div className="container-edge flex h-16 items-center justify-between md:h-20">
-            <Link to="/" className="flex items-center gap-3">
-              {visual?.logo_url ? (
-                <img
-                  src={visual.logo_url}
-                  alt="Go Team Go Agency logo"
-                  className="h-8 md:h-10 w-auto object-contain"
-                />
-              ) : (
-                <span className="font-display text-xl md:text-2xl font-bold tracking-tight text-foreground">
-                  Go Team Go
-                </span>
-              )}
-            </Link>
-          </div>
-        </header>
+        <PublicHeader visual={visual} />
 
         {/* Hero Section */}
         <section className="relative overflow-hidden border-b border-border/70 min-h-[380px] md:min-h-[460px] flex items-center">
           <div className="absolute inset-0 z-0">
             <img
-              src={heroImageSrc}
+              src={getCatalogHeroBackgroundImage(heroImageSrc)}
               alt=""
               className="h-full w-full object-cover object-center"
               aria-hidden="true"
@@ -315,7 +300,7 @@ function Catalog() {
         </section>
 
         {/* Highlights Stories Bar */}
-        {storyAthletes.length > 0 && (
+        {showHomeHighlights && storyAthletes.length > 0 && (
           <HomeHighlightsStoryBar
             stories={storyAthletes}
             onSelectAthlete={(story) => setActiveHighlightIndex(story.firstHighlightIndex)}
@@ -582,15 +567,7 @@ function Catalog() {
       <footer className="mt-16 border-t border-border/70 bg-background/60 py-10">
         <div className="container-edge flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            {visual?.logo_url ? (
-              <img
-                src={visual.logo_url}
-                alt="Go Team Go Agency logo"
-                className="h-7 w-auto object-contain"
-              />
-            ) : (
-              <span className="font-display text-lg font-bold tracking-tight">Go Team Go</span>
-            )}
+            <AgencyLogo logoUrl={visual?.logo_url} variant="footer" />
             <span className="text-xs text-muted-foreground">
               · Connecting elite athletes with college programs across the USA.
             </span>

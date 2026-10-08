@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 
+import { getAthleteStoryAvatar } from "@/lib/image-transform";
 import { getAthleteDisplayImage } from "@/lib/mock-athlete-images";
 import type { HighlightStoryAthlete } from "@/types/db";
 
@@ -112,7 +113,7 @@ export function HomeHighlightsStoryBar({ stories, onSelectAthlete }: HomeHighlig
                   <div className="p-[2px] rounded-full bg-background">
                     <div className="relative h-16 w-16 sm:h-18 sm:w-18 md:h-20 md:w-20 rounded-full overflow-hidden bg-zinc-900 flex items-center justify-center shadow-inner">
                       <img
-                        src={photoSrc}
+                        src={getAthleteStoryAvatar(photoSrc)}
                         alt={story.athleteName}
                         className="h-full w-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
                         loading="lazy"

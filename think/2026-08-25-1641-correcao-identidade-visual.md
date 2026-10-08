@@ -12,6 +12,7 @@
 O usuário solicitou o alinhamento visual completo do catálogo público (`/` - Home) e da página pública de perfil do atleta (`/athlete/$slug`) com a identidade visual e branding oficial da **Go Team Go**, substituindo todas as cores divergentes e tipografias legadas por tokens centralizados e padronizados.
 
 ### Diretrizes de Cores Oficiais
+
 - **Primária 1 (Destaque/Ação):** `#f69e00` (Laranja Go Team Go) — para botões de ação, CTAs, links ativos, badges de destaque e anéis de foco.
 - **Primária 2 (Base/Sobriedade):** `#032812` (Verde Escuro Nobre) — para textos escuros, fundos sóbrios, hero backgrounds e containers escuros.
 - **Apoio (Vermelho):** `#ff1616` — uso pontual/moderado (alertas, tags de urgência, indicadores específicos).
@@ -19,11 +20,12 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
 - **Apoio (Verde):** `#084323` — uso pontual/moderado (variações de badges/status de sucesso, cartões secundários).
 
 ### Diretrizes de Tipografia Oficial
+
 - **Títulos e Headings (h1, h2, h3, nomes de destaque, badges):** Fonte **Tan St. Canard** (display condensada/bold com estilo esportivo e de impacto).
-  - *Documentação de Licença:* A fonte Tan St. Canard foi desenhada pela TanType (Novia Jonatan). É disponibilizada para uso pessoal/não-comercial gratuitamente e requer licença comercial para uso em marcas/produtos da TanType ou plataformas como Creative Market.
-  - *Estratégia de Integração:* Declarada na pilha de `@theme` e `--font-display` com suporte a `@font-face` local e fontes de reserva/fallback atléticas de alto impacto (`'Tan St. Canard', 'Bebas Neue', 'Teko', 'Impact', sans-serif`).
+  - _Documentação de Licença:_ A fonte Tan St. Canard foi desenhada pela TanType (Novia Jonatan). É disponibilizada para uso pessoal/não-comercial gratuitamente e requer licença comercial para uso em marcas/produtos da TanType ou plataformas como Creative Market.
+  - _Estratégia de Integração:_ Declarada na pilha de `@theme` e `--font-display` com suporte a `@font-face` local e fontes de reserva/fallback atléticas de alto impacto (`'Tan St. Canard', 'Bebas Neue', 'Teko', 'Impact', sans-serif`).
 - **Textos Gerais (Corpo, parágrafos, labels, botões, fichas):** **Quicksand** (peso 600/700 - Bold).
-  - *Carregamento:* Importada via Google Fonts no `src/styles.css` e `src/routes/__root.tsx` (`family=Quicksand:wght@500;600;700`).
+  - _Carregamento:_ Importada via Google Fonts no `src/styles.css` e `src/routes/__root.tsx` (`family=Quicksand:wght@500;600;700`).
 
 ---
 
@@ -52,6 +54,7 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
 ## 3. Plano de Implementação Detalhado
 
 ### Fase 1: Atualização do Design System em `src/styles.css`
+
 1. **Google Fonts & Tipografia:**
    - Inserir importação oficial de `Quicksand:wght@500;600;700` e display fallbacks (`Bebas Neue:wght@400;700`).
    - Declarar `--font-display: "Tan St. Canard", "Bebas Neue", "Teko", "Impact", -apple-system, sans-serif;`.
@@ -66,6 +69,7 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
    - Atualizar `.liquid-button` com o gradiente e sombra laranja oficiais da Go Team Go (`from-[#f69e00] to-[#e08f00]` com hover e brilho elegantes).
 
 ### Fase 2: Refatoração Visual do Catálogo (`src/routes/index.tsx`)
+
 1. **Hero & Topo:**
    - Fundo do Hero atualizado para `#032812` com overlays gradientes suaves para `#032812`.
    - Títulos em tipografia `font-display` (Tan St. Canard).
@@ -80,6 +84,7 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
    - Botão "Talk to Go Team Go" estilizado com a classe `.liquid-button` em laranja oficial.
 
 ### Fase 3: Refatoração Visual do Perfil do Atleta (`src/routes/athlete.$slug.tsx`)
+
 1. **Hero Editorial (Quiet Luxury):**
    - Background em `#032812` com máscaras e gradientes perfeitamente calibrados.
    - Nome do atleta em tipografia Tan St. Canard (`font-display`).
@@ -98,6 +103,7 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
    - Card Next Prospect com hover em `#f69e00`.
 
 ### Fase 4: Componentes Globais e Acessibilidade (WCAG AA)
+
 1. `ReadingProgressBar`: gradiente elegante do verde base `#032812` ao laranja ação `#f69e00`.
 2. `WhatsappFab`: cor de fundo oficial `#f69e00` com texto e ícone contrastantes em `#032812` ou `#ffffff` (validado com relação de contraste > 4.5:1).
 3. Verificação de contraste em todos os textos e fundos:
@@ -106,6 +112,7 @@ O usuário solicitou o alinhamento visual completo do catálogo público (`/` - 
 4. Sem alterações na lógica funcional de componentes (apenas estilo e tipografia).
 
 ### Fase 5: Validação e Documentação
+
 1. Execução de validação sintática e de compilação via `compile_applet`.
 2. Registro formal da tarefa no `BACKLOGER.md` (TASK-048).
 3. Atualização da documentação viva do sistema em `CERNE.md`.

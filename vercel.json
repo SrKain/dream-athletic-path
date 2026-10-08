@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "bun run build",
-  "installCommand": "bun install",
+  "buildCommand": "rm -rf .output .nitro .tanstack node_modules/.vite node_modules/.cache && bun run build",
+  "installCommand": "rm -rf node_modules/@tanstack node_modules/.bun/@tanstack* && bun install --frozen-lockfile",
   "framework": null,
   "outputDirectory": ".output"
 }

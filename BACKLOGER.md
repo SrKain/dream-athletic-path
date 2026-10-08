@@ -11,6 +11,8 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 |      ID      |    Data / Hora    |  Solicitante   | Agente Executor | Descrição da Solicitação                                                                                                                                                                                                                                                                                                                                                                                                               |    Status     | Detalhes / Resultado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | :----------: | :---------------: | :------------: | :-------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-----------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TASK-016** | 2026-10-02 02:56  | Usuário Humano | GitHub Copilot  | Atualização do contexto da sessão no README antes do início do próximo ciclo de trabalho, reforçando stack, governança e estado atual do projeto.                                                                                                                                                                                                                                                                                      | `[CONCLUÍDO]` | README atualizado com o contexto atual da sessão, alinhado ao repositório e às regras obrigatórias de IA.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **TASK-017** | 2026-10-02 03:10  | Usuário Humano | GitHub Copilot  | Planejamento para ocultar a sessão de Highlights da home do portfólio, sem deletar o trecho, preservando a possibilidade de reativação futura.                                                                                                                                                                                                                                                                                         | `[CONCLUÍDO]` | Implementado com flag `showHomeHighlights = false` em `src/routes/index.tsx`, mantendo o componente e os dados intactos e ocultando a barra da home sem remover o trecho do código.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **TASK-001** | 2026-08-05 12:03  | Usuário Humano | Antigravity AI  | Alinhamento inicial de escopo e leitura completa da arquitetura do projeto.                                                                                                                                                                                                                                                                                                                                                            | `[CONCLUÍDO]` | Análise detalhada realizada no README.md, SETUP.md e estrutura de arquivos.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **TASK-002** | 2026-08-05 12:51  | Usuário Humano | Antigravity AI  | Instalação de dependências e diagnóstico de compilação/tipagem TypeScript.                                                                                                                                                                                                                                                                                                                                                             | `[CONCLUÍDO]` | Dependências instaladas (`npm install`), `npm run typecheck` executado com sucesso e zero erros.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **TASK-003** | 2026-08-05 12:58  | Usuário Humano | Antigravity AI  | Criar processo de governança de IAs, documentação viva `CERNE.md`, diário de bordos `BACKLOGER.md`, regras no `README.md` (planejamento prévio, aprovação humana, mobile-first, leitura obrigatória) e `AGENTS.md`.                                                                                                                                                                                                                    | `[CONCLUÍDO]` | Arquivos `CERNE.md` e `BACKLOGER.md` criados; `README.md` e `AGENTS.md` atualizados com diretrizes estritas.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -111,10 +113,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Integração em `listPublicAthletes` (`src/lib/athletes.functions.ts`) com agregação de vídeos highlight e likes.
   - Server function `likeHighlightVideo` com proteção de likes e contagem precisa.
   - Integração na Home (`src/routes/index.tsx`).
+
 ## TASK-014 — 2026-08-25 — Ajustes de Espaçamento/Contraste em Highlights e Correção da Badge Transfer
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
-- **Pedido:** 
+- **Pedido:**
   1. Aumentar padding-top da seção de Highlights no catálogo (sem mexer no Hero) e revisar contraste tipográfico (WCAG AA).
   2. Corrigir a condicional da badge "TRANSFER" no card de atleta na Home para exibir apenas nos status Freshman, Sophomore, Junior ou Senior (não exibir para Graduate Transfer).
 - **Entrega:**
@@ -123,6 +127,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — linter e build validados com sucesso.
 
 ## TASK-042 — 2026-08-28 — Revisão Completa de SEO Técnico e GEO (Generative Engine Optimization)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Revisão completa de SEO técnico e GEO (Generative Engine Optimization) para o catálogo público e perfis de atletas no domínio canônico `https://portfolio.goteamgoagency.com`. Implementar metatags dinâmicas, dados estruturados JSON-LD, sitemap.xml dinâmico, robots.txt com permissão para bots de IA, breadcrumbs e acessibilidade de imagens. Manter rotas privadas (`/admin`, `/portal`, `/proposal/`) em noindex.
@@ -135,6 +140,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — Linter, tipagem TypeScript e compilação de produção (`compile_applet`) verificados com 100% de sucesso.
 
 ## TASK-043 — 2026-08-31 — Leitura, Assimilação de Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, diretrizes de interface UI&UX.md e histórico de planos em think/ antes de iniciar qualquer nova demanda.
@@ -144,6 +150,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-051 — 2026-08-31 — Correção de Posicionamento Global da Agência (Recrutas Internacionais)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Corrigir posicionamento de público-alvo no catálogo público: a agência recruta atletas do mundo inteiro para ligas universitárias dos EUA, não apenas do Brasil. Eliminar vieses hardcoded de "Brazilian athletes/recruits" na copy pública, metadados, schema e fallbacks. Auditar filtros e ordenação para garantir neutralidade.
@@ -158,6 +165,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — 74/74 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
 ## TASK-052 — 2026-09-02 — Leitura do README, Assimilação da Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e histórico de diretrizes em think/ antes do início dos trabalhos.
@@ -168,6 +176,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-053 — 2026-09-02 — Implementação do Protocolo IndexNow (Bing / ChatGPT Indexing)
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Notificar Bing e ChatGPT Indexing via protocolo IndexNow (`1675dcaaacd2469b9461671a29b307e0`) toda vez que uma página pública for criada ou atualizada. Criar arquivo estático de verificação, função `submitToIndexNow`, disparos nos pontos de mutação (salvar/publicar atleta, editar atleta publicado, alterar configs visuais da home) e script de bulk inicial `scripts/indexnow-bulk.ts`.
@@ -184,6 +193,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO] — 80/80 testes unitários passando, ESLint limpo e compilação de produção verificada com 100% de sucesso.
 
 ## TASK-054 — 2026-09-02 — Leitura do README, Assimilação do Contexto e Alinhamento de Governança
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o Readme antes de começarmos" — Leitura completa e assimilação do README.md, documentação viva CERNE.md, diário de bordo BACKLOGER.md, guia de design system UI&UX.md e diretrizes em think/ antes do início da nova demanda.
@@ -194,6 +204,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-055 — 2026-09-02 11:07 — Leitura do README, Governança e Alinhamento de Protocolo
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** "Leia o read me" — Leitura e assimilação completa do README.md e alinhamento com os protocolos mandatórios de governança do projeto.
@@ -204,6 +215,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** [CONCLUÍDO]
 
 ## TASK-056 — 2026-09-02 11:19 — Padronização dos CTAs de Contato para E-mail Contextual
+
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Antigravity / Gemini Agent
 - **Pedido:** Padronizar todos os pontos de contato da agência para direcionar para e-mail (`mailto:`) com assuntos e corpos contextuais (Hero, Catálogo, Perfil do Atleta, Highlights e Footers), mantendo como única exceção o botão flutuante do WhatsApp (`WhatsappFab`) 100% inalterado.
@@ -216,6 +228,672 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   - Reinicialização e verificação do dev server com resposta HTTP 200.
 - **Status:** [CONCLUÍDO]
 
+## TASK-057 — 2026-09-02 18:04 — Leitura do README, Governança e Alinhamento de Protocolo
 
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "Leia o Readme" — Leitura completa e assimilação do README.md e cumprimento dos protocolos de governança de IA.
+- **Entrega:**
+  - Leitura integral e assimilação do `README.md` (arquitetura do MVP, regras de infraestrutura do Supabase externo, papéis de Agência, Atleta e Coach, catálogo estilo streaming, e regras de segurança e pipeline).
+  - Alinhamento aos 5 mandamentos de governança de IA (`README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/`): leitura obrigatória executada, elaboração de plano prévio em `think/` antes de apresentar, aprovação humana prévia e explícita antes de qualquer alteração de código, atualização viva no `CERNE.md` e respeito total ao design system mobile-first.
+  - Agente alinhado e pronto para a próxima instrução ou demanda do usuário.
+- **Status:** [CONCLUÍDO]
 
+## TASK-058 — 2026-09-02 18:06 — Feature "Recruit Email" para Coaches Universitários
 
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Implementar a feature "Recruit Email": cadastro de coaches (tabela, importador de planilha CSV/XLSX com validação e resumo prévio, CRUD manual), integração com Resend (batch send), template de e-mail teaser de alto padrão visual (foto, stats, hook line, CTA único para perfil público, sem vídeos/ficha completa), UI no Admin do atleta (modal com seleção, busca, preview WYSIWYG e botão de disparo com contagem), tabela `recruit_email_logs`. Remetente configurado como `contact@goteamgoagency.com`.
+- **Entrega:**
+  - Planejamento prévio estruturado em `think/2026-09-02-1815-feature-recruit-email-coaches.md` e aprovado pelo usuário humano.
+  - Migration SQL `0016_coaches_and_recruit_emails.sql` com as tabelas `coaches` e `recruit_email_logs`, políticas RLS para `agency_admin` e coluna `highlight_note` em `athlete_profiles`.
+  - Atualização dos tipos TypeScript em `src/types/db.ts` com as interfaces `Coach` e `RecruitEmailLog`.
+  - Criação do template de e-mail Dark/Emerald Premium em `src/lib/email/recruit-email-template.ts` com layout mobile-first em HTML/CSS inline, subject persuasivo, dados biométricos/acadêmicos formatados e CTA proeminente para o perfil público.
+  - Módulo de backend `src/lib/email/recruit-email.server.ts` com envio em lotes de até 100 e-mails via `resend.batch.send` e gravação de logs de auditoria (`recruit_email_logs`).
+  - Server function segura `sendRecruitEmailServerFn` em `src/lib/email/recruit-email.functions.ts` protegida por `requireAgency`.
+  - Página de gestão de coaches em `/admin/coaches` (`src/routes/_authenticated/admin/coaches.tsx`) com listagem, busca instantânea, criação/edição/exclusão manual, e importador completo de planilhas CSV/XLSX com drag-and-drop, mapeamento inteligente de colunas, remoção de duplicados, contadores de validação e prévia tabular.
+  - Inclusão do link "Coaches" no sidebar da agência em `src/components/app-shell.tsx`.
+  - Criação do componente modal `SendRecruitEmailDialog` em `src/components/send-recruit-email-dialog.tsx` com visualizador WYSIWYG do e-mail, filtro e busca de coaches, contagem dinâmica e diálogo de confirmação pré-disparo.
+  - Integração do botão "Send to Coaches" na barra superior do perfil do atleta em `src/routes/_authenticated/admin/athletes/$id.tsx` e inclusão do campo editável "Recruit Email Hook Line" no formulário de perfil.
+  - Linter e compilação de produção validados com 100% de sucesso.
+- **Status:** [CONCLUÍDO]
+
+## TASK-059 — 2026-09-03 11:40 — Correção e Blindagem da Página de Coaches e Modal "Send to Coaches"
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** "não to conseguindo fazer nada ao selecionar o 'send to coaches' a tela abre sinalizando um erro" e "antes de seguir investigue também a página coaches que também está com o mesmo problema" — Diagnosticar e corrigir o erro nas duas telas (`/admin/coaches` e modal `SendRecruitEmailDialog`), sanando o erro de chamada indevida de função em constantes CSS de botão (`TypeError: buttonClass is not a function`), alinhando props de `Panel` e `EmptyState`, e tratando estado vazio e preview com segurança.
+- **Planejamento:** Registrado e aprofundado em `think/2026-09-03-1140-diagnostico-correcao-send-recruit-email.md` e aprovado previamente pelo usuário.
+- **Entrega:**
+  - Corrigidas todas as chamadas indevidas `buttonClass("secondary")` e `buttonClass("primary")` para as constantes exportadas `secondaryButtonClass` e `buttonClass` em `src/routes/_authenticated/admin/coaches.tsx` e `src/components/send-recruit-email-dialog.tsx`.
+  - Corrigido o uso de `<Panel title="Coaches Directory">` em `coaches.tsx` fornecendo a prop obrigatória `title`.
+  - Corrigido o uso de `<EmptyState>` em `coaches.tsx` passando o conteúdo como children em conformidade com o componente base.
+  - Implementado Empty State amigável no modal `SendRecruitEmailDialog` quando o banco de dados ainda não possui coaches cadastrados, com CTA direto para a tela de importação e cadastro (`/admin/coaches`).
+  - Adicionado link "Manage Coaches" com ícone `ExternalLink` no topo do modal.
+  - Adicionado tratamento de erro resiliente com banner e botão "Retry" caso a consulta ao Supabase falhe.
+  - Iframe de prévia de e-mail protegido contra restrições de sandbox de navegadores em ambientes aninhados (`sandbox="allow-popups allow-popups-to-escape-sandbox"`).
+  - Blindagem de valores nulos/indefinidos em `src/lib/email/recruit-email-template.ts` evitando exceções caso dados de atleta estejam incompletos.
+  - Testes automatizados (14 arquivos, 89 testes) passando com 100% de sucesso.
+  - Linter (`eslint`) e compilação de produção (`compile_applet`) aprovados com zero erros.
+- **Status:** [CONCLUÍDO]
+
+## TASK-060 — 2026-09-03 12:30 — Redução Drástica de Custo de Egress (Storage + PostgREST) no Supabase em Acessos Públicos
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Reduzir o egress gerado por Storage (66,1%) e PostgREST (33,8%) nas rotas públicas (catálogo e perfil de atleta) após pico real de ~1000 coaches, sem alterar o comportamento visível para o usuário:
+  1. Definir Cache-Control de longo prazo (`public, max-age=31536000, immutable`) em buckets públicos no upload e script para objetos existentes com estratégia de cache busting.
+  2. Implementar transformação de imagens via endpoint `/storage/v1/render/image/public/...` para servir resoluções adequadas ao contexto (card ~400px, avatar ~120px, hero ~700px) reduzindo tamanho de ~1.2 MB para ~36 KB por imagem.
+  3. Caching em camada CDN/Edge (Vercel Edge / TanStack Start) com `s-maxage` e `stale-while-revalidate` nas rotas públicas (`/`, `/athlete/$slug`) mantendo área admin protegida sem cache.
+  4. Revisão e otimização dos payloads de queries PostgREST (`listPublicAthletes`, `getPublicAthlete`), eliminando `select('*')`, enxugando colunas e estruturando paginação eficiente.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-03-1230-reducao-custo-egress-supabase.md`.
+- **Entrega:**
+  - Utilitário central de otimização de imagens `src/lib/image-transform.ts` integrado com presets otimizados para Cards (`600x750`, q80), Heroes (`800x1000`, q85), Avatares de Stories (`160x160`, q80), Logos (`300x100`) e Backgrounds (`1920x800`).
+  - Suíte de testes unitários para o pipeline de imagens em `src/lib/image-transform.test.ts` (9 testes, 100% de cobertura e sucesso).
+  - Configuração de `cacheControl: "31536000"` (1 ano) em todas as rotas de upload do painel administrativo (`admin/athletes/$id.tsx`, `admin/visual.tsx`, `admin/settings.tsx`, `admin/proposals/$id.tsx`), acoplado a cache-busting natural via UUID no nome de arquivo.
+  - Migration `db/migrations/0017_storage_cache_control_and_update_policy.sql` e script retroativo `scripts/update-storage-cache-control.ts` acionado via `npm run storage:cache-control` para atualização de objetos existentes.
+  - Middleware de cache CDN/Edge em `src/server.ts` aplicando `s-maxage` e `stale-while-revalidate` para `/` e `/athlete/:slug`, blindando rotas autenticadas e admin com `private, no-store`.
+  - Refatoração completa das queries públicas em `src/lib/athletes.functions.ts` eliminando todo `select('*')` em benefício de projeções mínimas (`PUBLIC_ATHLETE_SELECT`, `PUBLIC_PROFILE_SELECT`, `PUBLIC_MEDIA_SELECT`, `PUBLIC_ACHIEVEMENTS_SELECT`, `PUBLIC_VIDEOS_SELECT`, `AGENCY_VISUAL_PUBLIC_SELECT`) e filtragem direcionada de likes por IDs de vídeo visíveis.
+  - Conexão e substituição das URLs de imagem em todos os componentes visuais públicos (`athlete-video-card-media.tsx`, `home-highlights-story-bar.tsx`, `global-highlights-viewer.tsx`, `index.tsx`, `athlete.$slug.tsx`).
+  - Validação técnica rigorosa: 98 testes Vitest aprovados, typecheck TypeScript (`tsc --noEmit`) com 0 erros, linter ESLint com 0 erros e compilação de produção (`compile_applet`) bem-sucedida.
+- **Status:** [CONCLUÍDO]
+
+## TASK-061 — 2026-09-03 16:42 — Integração do Meta Pixel (Facebook Pixel) no Portfólio
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Injetar o Meta Pixel (Facebook Pixel) com Pixel ID `1115203944400884` dentro da tag `<head>` no template raiz de forma que carregue em todas as rotas e efetue o disparo contínuo de `PageView` em transições client-side (SPA), sem duplicar scripts e sem impactar outros elementos visuais ou comportamentos.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-03-1335-integracao-meta-pixel.md`.
+- **Entrega:**
+  - Script oficial do Meta Pixel e fallback `<noscript>` inseridos no `<head>` de `RootShell` em `src/routes/__root.tsx`.
+  - Componente auxiliar `MetaPixelTracker` adicionado a `src/routes/__root.tsx` utilizando `useRouterState` para disparar `fbq('track', 'PageView')` em cada transição client-side de rota subsequente, prevenindo duplicidade no carregamento inicial via `useRef`.
+  - Verificação de duplicidade concluída (nenhum pixel anterior encontrado no repositório).
+  - Validação completa com testes automatizados, verificação de tipos e compilação.
+- **Status:** [CONCLUÍDO]
+
+## TASK-062 — 2026-09-09 13:00 — Migração do Mailer para Aba Dedicada + Cadastro Estruturado de Universidades
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Antigravity / Gemini Agent
+- **Pedido:** Migrar a funcionalidade de mailer de recrutamento do perfil individual do atleta para uma aba dedicada no menu administrativo (`/admin/mailer`), evoluir o cadastro de coaches para uma entidade estruturada de universidades (`universities` com sub-registros de coaches e histórico, liga, budget, toefl e hbcu), suportar 3 modos de envio (multi-atleta, atleta específico e catálogo genérico da agência), e implementar suppression list com link obrigatório de descadastro (unsubscribe).
+- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1300-migracao-mailer-aba-dedicada-universidades.md`.
+- **Entrega:**
+  - **Evolução do Banco de Dados**:
+    - Criada migration `db/migrations/0018_universities_and_mailer.sql` com as tabelas `universities` (com sub-registros JSONB para `coaches` e `history`, além de `budget_level`, `toefl_level`, `is_hbcu`, `league`, `state`), `email_suppressions` (com índice único lower-case em `email` e RLS para descadastro anônimo) e evolução de `recruit_email_logs` (novos campos e status `'suppressed'`).
+  - **Módulo de Universidades (`/admin/universities`)**:
+    - Interface completa com métricas de universidades e coaches, filtros por estado (50 estados + DC), liga, orçamento, TOEFL e HBCU.
+    - Modal de criação/edição com múltiplos coaches inline e histórico de acontecimentos.
+    - Importador em lote (`.xlsx` e `.csv`) com validação, agrupamento de coaches por universidade e download de planilha modelo.
+  - **Módulo Central de Mailer (`/admin/mailer`)**:
+    - Três modos de operação: Atleta Específico (com deep-link do perfil), Multi-Atleta (em lote) e Catálogo Institucional.
+    - Seletor avançado de destinatários com contagem dinâmica, exclusão visual de contatos na lista de supressão e filtros combinados.
+    - Pré-visualização WYSIWYG em tempo real com iframe seguro (`srcDoc`).
+    - Envio seguro com confirmação de volume e registro em log.
+    - Aba de histórico com auditoria detalhada de envios.
+  - **Supressão e Descadastro (CAN-SPAM)**:
+    - Rota pública `/unsubscribe` com formulário amigável e motivos de descadastro.
+    - Link de unsubscribe injetado automaticamente nos rodapés dos templates de e-mail de recrutamento e catálogo geral.
+    - Validação no backend em `sendMailerEmails` ignorando contatos suprimidos.
+  - **Navegação Integrada**:
+    - `src/components/app-shell.tsx` atualizado com links de menu para Universidades e Mailer.
+    - `src/routes/_authenticated/admin/athletes/$id.tsx` atualizado, substituindo o modal legado por botão de ação direta para o Mailer dedicado com pre-seleção do atleta.
+  - **Validação e Qualidade**:
+    - 98 testes Vitest aprovados (100% de sucesso).
+    - ESLint limpo (0 erros).
+    - Compilação de produção (`compile_applet`) concluída com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-063 — 2026-09-09 15:30 — Hotfix RLS Migration 018 + Redesign de E-mail + Filtros Avançados + Otimização de Importação em Massa
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Quatro melhorias e correções no módulo de Universidades e Mailer:
+  1. Hotfix de migration (0019) corrigindo RLS policies de `universities` e `email_suppressions` para usar `public.is_agency_admin()`.
+  2. Redesign dos templates de e-mail (`recruit-email-template.ts` e `recruit-email-catalog-template.ts`) para a identidade visual oficial da agência (#f8faf5, #ffffff, #032812, #4b6353, #084323, #f69e00, #e3e9dc).
+  3. Filtros avançados de destinatários no Mailer (`filterBudget`, `filterToefl`, `filterRegion` via `REGION_BY_STATE`) combinando em AND.
+  4. Otimização da importação em massa de universidades em `admin/universities.tsx` com busca única prévia via Map e batching paralelo com `Promise.all`.
+- **Planejamento:** Registrado e detalhado em `think/2026-09-09-1530-hotfix-rls-redesign-email-filtros-importacao.md`.
+- **Entrega:**
+  - **Parte 1 (Hotfix RLS)**:
+    - Criada a migration `db/migrations/0019_fix_universities_rls_role_reference.sql` redefinindo todas as políticas de `universities` e `email_suppressions` para utilizar a função canônica do projeto `public.is_agency_admin()`.
+    - Atualizada também a migration `0018_universities_and_mailer.sql` para garantir que novas execuções limpas do zero não falhem.
+    - Zero referências a `profiles.role` em todo o diretório de migrations.
+  - **Parte 2 (Redesign E-mails)**:
+    - `src/lib/email/recruit-email-template.ts` e `src/lib/email/recruit-email-catalog-template.ts` 100% alinhados à paleta oficial Go Team Go (fundo `#f8faf5`, card `#ffffff`, textos `#032812`/`#4b6353`, destaques `#084323`, CTAs em `#f69e00` com texto `#032812`, bordas `#e3e9dc`, rodapé institucional `#f0f4ec`).
+    - Eliminadas totalmente as cores do tema Dark legado (`#0b0b0c`, `#059669`, `#18181b`, `#141416`, etc.).
+  - **Parte 3 (Filtros Avançados no Mailer)**:
+    - `src/lib/universities-constants.ts` atualizado com o mapa `REGION_BY_STATE` contemplando todos os 50 estados americanos + DC divididos em 4 regiões oficiais do US Census Bureau (`Northeast`, `Midwest`, `South`, `West`).
+    - `src/routes/_authenticated/admin/mailer.tsx` atualizado com seletor de Região (US Region), Orçamento Anual (Budget) e Exigência de Inglês (TOEFL/Duolingo) combinados com lógica estrita `AND` junto aos filtros existentes (Estado, Liga, HBCU).
+  - **Validação e Qualidade**:
+    - 98 testes Vitest aprovados (100% de sucesso).
+    - ESLint limpo (0 erros).
+    - Compilação de produção (`compile_applet`) concluída com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-064 — 2026-09-09 16:15 — Correção e Estabilização das Rotas Administrativas (Universidades e Mailer)
+
+- **Solicitante:** Kauan / Usuário Humano ("O site agora quebrou")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Diagnosticar e resolver a quebra de compilação/tipagem ocorrida nas páginas do admin após as atualizações do Mailer e Universidades.
+- **Causa Raiz Identificada:**
+  1. Uso incorreto da prop `requiredRole` em vez de `role` no componente `<ProtectedPage>`.
+  2. Uso de `<AppShell>` sem os props obrigatórios `role` e `title`.
+  3. Uso do componente `<Panel className="...">` e `<EmptyState>` com assinaturas de props incompatíveis com a definição do design system em `src/components/admin-ui.tsx`.
+  4. Inserção de logs com `athlete_id: null` para e-mails de catálogo causando erro de tipagem no Supabase client.
+- **Entrega:**
+  - Corrigidos todos os wrappers de autenticação para `<ProtectedPage role="agency_admin">` e `<AppShell role="agency_admin" title="...">` em `mailer.tsx` e `universities.tsx`.
+  - Substituídos os componentes de painel por `<div className="glass-panel ...">` e o estado vazio formatado adequadamente.
+  - Atualizada a inserção de logs em `src/lib/email/recruit-email.server.ts` com tipagem limpa sem `any`.
+  - ESLint e compilação de produção (`compile_applet`) executados e 100% aprovados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-065 — 2026-09-09 15:50 — Auditoria de Diagnóstico e Estabilização do CSS
+
+- **Solicitante:** Kauan / Usuário Humano ("Verifique o css da aplicação e pq ele quebrou, depois gere um plano e siga o readme")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Verificar o CSS da aplicação, diagnosticar todas as razões pelas quais ele quebrou e gerar plano detalhado antes de qualquer alteração, respeitando a governança do README.md.
+- **Diagnóstico das Causas:**
+  1. Conflito de ordem de `@import` externo (Google Fonts) com o parser do LightningCSS.
+  2. Fallback da fonte display para Bebas Neue forçando headings em All-Caps + excesso de negrito global no body.
+  3. Diretiva `@source "../src"` com `source(none)` no Tailwind v4.
+  4. Pseudo-classes `.liquid-button:hover` fora de `@utility`.
+  5. Resquícios de paletas legadas anteriores à padronização oficial da Go Team Go.
+- **Planejamento:** Registrado no arquivo `think/2026-09-09-1550-diagnostico-css-e-plano-de-estabilizacao.md`.
+- **Entrega:**
+  - `src/styles.css`: Simplificação das diretivas de importação no Tailwind v4 (`@import "tailwindcss";` e `@import "tw-animate-css";`), eliminando conflitos de especificidade e problemas com `@source`.
+  - `@utility liquid-button`: Aninhamento dos seletores `&:hover` e `&:active` dentro da utilidade Tailwind v4.
+  - Sincronização dos tokens e fontes esportivas entre `styles.css` e `src/routes/__root.tsx`.
+  - 15 arquivos de teste Vitest (98 testes) executados e aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-066 — 2026-09-15 20:05 — Correção do Select de Agency Visual Settings, Logging de Erros e Migração 0019
+
+- **Solicitante:** Kauan / Usuário Humano ("A Home pública e o perfil individual do atleta perderam a logo da agência, o fundo do hero e o favicon...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Corrigir a constante `AGENCY_VISUAL_PUBLIC_SELECT` removendo colunas inexistentes (`hero_title_pt`, `hero_subtitle_pt`, `catalog_heading_pt`) dropadas na migração 0013.
+  2. Auditar `src/types/db.ts` (`AgencyVisualSettings`) e remover campos `_pt` obsoletos.
+  3. Adicionar checagem e log de erro nas 3 chamadas que consultam `agency_visual_settings` (`getAgencyVisual`, `listPublicAthletes`, `getPublicAthlete`).
+  4. Realizar varredura por outros selects com colunas `_pt` residuais ou dropadas.
+  5. Criar `db/migrations/0019_fix_universities_rls_role_reference.sql` com as RLS policies atualizadas para `public.is_agency_admin()`.
+  6. Validar com Vitest e ESLint, e atualizar `CERNE.md` e `BACKLOGER.md`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-15-2005-correcao-select-agency-visual-settings.md`.
+- **Entrega:**
+  - `src/lib/athletes.functions.ts`: Projeção `AGENCY_VISUAL_PUBLIC_SELECT` atualizada exclusivamente com colunas ativas. Adicionado logging detalhado com `console.error` para `agency_visual_settings` nas três funções de consumo.
+  - `src/types/db.ts`: Interface `AgencyVisualSettings` saneada.
+  - `src/routes/index.tsx`: Remoção de acessos residuais aos fallbacks `_pt`.
+  - `src/lib/athletes.functions.test.ts`: Adicionados testes unitários verificando a projeção de `AGENCY_VISUAL_PUBLIC_SELECT`.
+  - `db/migrations/0019_fix_universities_rls_role_reference.sql`: Migração criada com as policies de RLS para `universities` e `email_suppressions` usando `public.is_agency_admin()`.
+  - 15 arquivos de testes Vitest (100 testes) executados e 100% aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-067 — 2026-09-16 05:20 — Migração Completa de Resend para Amazon SES
+
+- **Solicitante:** Kauan / Usuário Humano ("Substituir totalmente o Resend por Amazon SES como provedor de e-mail do projeto, nos dois pontos de uso existentes: src/lib/email/email.server.ts e src/lib/email/recruit-email.server.ts...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Remover dependência `resend` e instalar `@aws-sdk/client-sesv2`.
+  2. Substituir `RESEND_API_KEY` por `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` e `SES_CONFIGURATION_SET`. Manter `EMAIL_FROM`.
+  3. Migrar `src/lib/email/email.server.ts` (e-mails transacionais de etapas com agendamento na janela de envio).
+  4. Migrar `src/lib/email/recruit-email.server.ts` (mailer para coaches) substituindo o batch por loop com rate limiting (`SES_MAX_SEND_RATE`, default 10/s) e persistência de auditoria individual.
+  5. Adicionar processamento do webhook SNS de Bounce e Complaint atualizando `email_suppressions` com auto-confirmação de assinatura (`SubscriptionConfirmation`).
+  6. Expor rotas de webhook e cron no servidor (`src/server.ts`).
+  7. Atualizar documentações (`think/`, `CERNE.md`, `BACKLOGER.md`).
+- **Planejamento:** Registrado no arquivo `think/2026-09-16-0520-migracao-resend-para-amazon-ses.md`.
+- **Entrega:**
+  - `package.json`: Removido pacote `resend`, adicionado `@aws-sdk/client-sesv2`.
+  - `.env.example`: Atualizado com variáveis `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_CONFIGURATION_SET`, `SES_MAX_SEND_RATE` e `EMAIL_FROM`.
+  - `src/lib/email/ses-client.server.ts`: Cliente singleton SES v2 com lazy initialization e helper `getSesConfig()`.
+  - `src/lib/email/email.server.ts`: Migrado para `SendEmailCommand` com envio imediato e agendamento de janela de envio (`email_log`), além de `processScheduledEmails()`.
+  - `src/lib/email/email.functions.ts`: Criada `processScheduledEmailsServerFn` protegida por `requireAgency`.
+  - `src/lib/email/recruit-email.server.ts`: Migrado para disparo sequencial com rate limiting (`delayBetweenSendsMs`), `ConfigurationSetName` e logs detalhados em `recruit_email_logs`.
+  - `src/lib/email/ses-webhook.server.ts`: Módulo de recepção SNS com confirmação de assinatura segura e supressão automática de `Bounce` e `Complaint`.
+  - `src/server.ts`: Adicionadas rotas `/api/webhooks/ses` (POST) e `/api/cron/process-scheduled-emails` (GET/POST).
+  - `src/lib/email/ses-email.test.ts`: 6 novos testes unitários cobrindo configuração, Webhooks SNS, confirmação de assinatura e supressão por bounce/queixa.
+  - 16 arquivos de teste Vitest (106 testes) executados e 100% aprovados.
+  - Linter ESLint e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-068 — 2026-09-16 14:20 — Correção da Query de Atletas e Tratamento de Erro no Mailer Administrativo
+
+- **Solicitante:** Kauan / Usuário Humano ("BUG: no painel /admin/mailer, não é possível selecionar nenhum atleta... CAUSA RAIZ: em src/routes/_authenticated/admin/mailer.tsx...")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Trocar `.eq("status", "approved")` por `.eq("is_public", true)` e `.is("deleted_at", null)` na query de `athletes` em `loadInitialData()` de `mailer.tsx`.
+  2. Adicionar checagem de erro em todos os resultados do `Promise.all` dentro de `loadInitialData()` (`athletesRes`, `uniRes`) com log e toast de erro.
+  3. Realizar varredura no projeto por outras queries com `.eq("status", ...)` contra `athletes`.
+  4. Validar com Vitest e ESLint, atualizando `CERNE.md` e `BACKLOGER.md`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-16-1420-correcao-query-atletas-mailer.md`.
+- **Entrega:**
+  - `src/routes/_authenticated/admin/mailer.tsx`: Atualizada a consulta para `athletes` com `.eq("is_public", true).is("deleted_at", null)`.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Adicionada checagem explícita de `athletesRes.error` e `uniRes.error` com logs detalhados e toasts de erro descritivos.
+  - Varredura em todo o repositório confirmando ausência de qualquer outra query com coluna inexistente em `athletes`.
+  - 16 arquivos de teste Vitest (106 testes) executados e 100% aprovados.
+  - Linter ESLint (0 erros) e compilação de produção (`compile_applet`) 100% verificados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-069 — 2026-09-17 11:05 — Leitura Obrigatória e Assimilação de Contexto do README e Governança
+
+- **Solicitante:** Kauan / Usuário Humano ("leia o readme antes de começarmos")
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Leitura integral do `README.md`, das documentações do projeto (`CERNE.md`, `BACKLOGER.md`, `think/README.md`) e absorção das regras de governança de IA antes de iniciar qualquer trabalho.
+- **Entrega:**
+  - Leitura completa do `README.md` realizada com foco em arquitetura, perfis de acesso (Agência, Atleta, Coach), regras obrigatórias de Supabase externo, pipeline, integridade de dados e processo de desenvolvimento.
+  - Leitura e alinhamento com os protocolos de governança de IA definidos em `AGENTS.md`, `README.md`, `CERNE.md`, `BACKLOGER.md` e `think/`.
+  - Confirmação de que nenhum código será alterado sem planejamento prévio registrado em `think/` e aprovação explícita do usuário.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-070 — 2026-09-17 11:10 — Feature Mailer: Unificação Multi-Atleta, Filtros Avançados, Sinais de Interesse e Descadastro 2 Níveis
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:**
+  1. Unificar disparo multi-atleta em 1 único e-mail por destinatário contendo os cartões de todas as atletas selecionadas empilhados.
+  2. Adicionar filtros de destinatários no Mailer (HBCU, Budget Level e TOEFL Level) combinados via AND com os existentes.
+  3. Sistema de sinal de interesse (link de desinteresse no rodapé, rota pública `/feedback` com 4 opções fixas, validade de 6 meses) + Badges de colisão no Mailer + Descadastro em 2 níveis (Pausa 6m vs Permanente).
+- **Planejamento:** Registrado no arquivo `think/2026-09-17-1110-mailer-multi-athlete-filtros-sinal-interesse-unsubscribe.md`.
+- **Entrega:**
+  - `db/migrations/0020_interest_signals_and_suppression_levels.sql`: Criada tabela `coach_interest_signals` e adicionadas colunas `suppression_type` e `expires_at` em `email_suppressions`.
+  - `src/types/db.ts`: Tipos `SuppressionType`, `InterestSignalReason`, `CoachInterestSignal` e atualizações em `EmailSuppression`.
+  - `src/lib/email/recruit-email-template.ts`: Criada `renderMultiAthleteRecruitEmail` (cards empilhados) e `renderEmailFooterHtml` com link dinâmico de feedback contextualizado e unsubscribe.
+  - `src/lib/email/recruit-email.server.ts`: Agrupamento e envio de e-mail unificado para múltiplos atletas, filtro de supressão respeitando `expires_at` e persistência de sinais.
+  - `src/lib/email/recruit-email.functions.ts`: Funções de servidor `submitInterestSignalServerFn`, `getActiveInterestSignalsServerFn` e `unsubscribeServerFn`.
+  - `src/routes/feedback.tsx`: Nova rota pública mobile-first para coaches sinalizarem desinteresse com 4 motivos fixos e expiração de 6 meses.
+  - `src/routes/unsubscribe.tsx`: Atualizada tela de unsubscribe oferecendo pausa temporária de 6 meses ou descadastro permanente.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Filtros adicionados (HBCU, Budget, TOEFL), badges visuais de alertas/sinais de interesse ativos nos coaches, e modal de prévia unificada.
+  - `src/lib/email/recruit-email-multi.test.ts`: Testes unitários para envio multi-atleta e rodapé de preferências.
+  - 17 arquivos de teste (109 testes unitários) 100% aprovados, ESLint com 0 erros e compilação de produção validada.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-073 — 2026-09-28 14:45 — Correção: Logo do Header Público e Padronização do Componente de Marca
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Diagnóstico e resolução da logo quebrada/minúscula em produção (portfolio.goteamgoagency.com):
+  1. Diagnóstico com evidências reais no banco e via `curl -sI`.
+  2. Criação do componente único `AgencyLogo` (`src/components/agency-logo.tsx`) com fallback em cascata de 3 níveis: transformada -> original crua -> texto tipográfico "Go Team Go".
+  3. Dimensões explícitas e seguras (`max-w-[200px]`, `object-contain`, `decoding="async"`, `alt="Go Team Go Agency"`).
+  4. Ajuste em `getAgencyLogoImage` com `width: 400`, `resize: "contain"`, `quality: 85`.
+  5. Normalização de MIME type / extensões no upload do admin (`admin/visual.tsx`).
+  6. Substituição de `<img>` fragmentados no `PublicHeader`, footer da Home (`src/routes/index.tsx`) e footer do perfil (`src/routes/athlete.$slug.tsx`).
+  7. Testes unitários para `AgencyLogo` e `image-transform.ts`.
+- **Planejamento:** Registrado no arquivo `think/2026-09-28-1445-correcao-logo-header-publico-fallback.md`.
+- **Entrega:**
+  - `src/components/agency-logo.tsx`: Componente de logo consolidado com suporte a variantes `header`/`footer` e recuperação resiliente via `onError`.
+  - `src/components/public-header.tsx`: Atualizado para utilizar `<AgencyLogo />`.
+  - `src/routes/index.tsx`: Rodapé atualizado para utilizar `<AgencyLogo />`.
+  - `src/routes/athlete.$slug.tsx`: Rodapé atualizado para utilizar `<AgencyLogo />`.
+  - `src/lib/image-transform.ts`: Atualizado `getAgencyLogoImage` com `width: 400` e `resize: "contain"`, melhorada detecção em `isSvgUrl`.
+  - `src/routes/_authenticated/admin/visual.tsx`: Normalização de extensão por `file.type` MIME no upload de branding.
+  - `src/components/agency-logo.test.tsx`: Testes unitários para renderização, classes de variantes, SVG e fallback.
+  - `src/lib/image-transform.test.ts`: Testes atualizados para a nova assinatura de preset de logo.
+  - `src/lib/email/recruit-email-multi.test.ts`: Normalizado import para `vitest`.
+  - 18 arquivos de teste (116 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+- **Solicitante:** Kauan / Usuário Humano (via Error Boundary Report)
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Corrigir erro de execução `ReferenceError: getAgencyLogoImage is not defined` no componente `<Catalog>` em `src/routes/index.tsx`.
+- **Causa Raiz:** A função `getAgencyLogoImage` era utilizada no footer de `src/routes/index.tsx`, porém sua importação a partir de `@/lib/image-transform` não havia sido incluída no arquivo.
+- **Entrega:**
+  - `src/routes/index.tsx`: Adicionada a importação explícita de `getAgencyLogoImage` de `@/lib/image-transform`.
+  - 17 arquivos de teste (111 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção verificada com sucesso.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-071 — 2026-09-18 07:22 — Correção Consolidada: UI Pattern + Brand Assets (Entrega Única)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Pacote consolidado com 4 correções em bloco único:
+  1. Refatorar `src/routes/feedback.tsx` com tokens oficiais de UI (`--background`, `--primary`, `--gold`, `.glass-panel`, `.liquid-button`, `.eyebrow`, fontes Space Grotesk/Inter).
+  2. Refatorar `src/routes/unsubscribe.tsx` com os mesmos tokens de UI mantendo lógica de descadastro em 2 níveis intacta.
+  3. Resolver exibição da logo no cabeçalho (bypass do Supabase Image Transformation para SVGs, suporte a SVG em uploads e centralização do header público).
+  4. Substituir favicon padrão pelo logotipo oficial da Go Team Go (`favicon.svg` e `favicon.ico`) e suporte a favicon dinâmico.
+- **Planejamento:** Registrado no arquivo `think/2026-09-18-0722-ui-pattern-brand-assets-consolidados.md`.
+- **Entrega:**
+  - `src/routes/feedback.tsx`: Refatorado para o Design System oficial com estética Quiet Luxury, `PublicHeader`, input focus emerald, badges e `.liquid-button`.
+  - `src/routes/unsubscribe.tsx`: Refatorado com tokens oficiais, cards de preferência interativos e contraste aprimorado.
+  - `src/lib/image-transform.ts`: Implementado bypass de transformação do Supabase (`render/image`) para URLs SVG.
+  - `src/lib/uploads.ts`: Adicionado tipo de upload `branding` com suporte a `image/svg+xml`.
+  - `src/routes/_authenticated/admin/visual.tsx`: Atualizada validação e input para permitir upload de SVGs na identidade visual.
+  - `src/components/public-header.tsx`: Criado componente unificado para Home, Perfil, Feedback e Unsubscribe.
+  - `src/routes/index.tsx` & `src/routes/athlete.$slug.tsx`: Integrados com `PublicHeader`.
+  - `public/favicon.svg` & `public/favicon.ico`: Criados os assets vetorial e binário oficiais com monograma e brasão Go Team Go.
+  - `src/routes/__root.tsx`: Atualizado para vincular `favicon.svg`, `favicon.ico` e suporte dinâmico a `logo_url`.
+  - `src/lib/image-transform.test.ts` & `src/lib/uploads.test.ts`: Testes unitários para SVG e branding upload.
+  - 17 arquivos de teste (111 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-074 — 2026-10-01 05:50 — Redesign dos 3 E-mails do Mailer: Layout "Recruiting Board" (Poster 2027) — Entrega Única
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Redesign completo e unificado dos 3 e-mails do Mailer (multi-atleta, unitário e portfólio completo) para o novo layout editorial "Recruiting Board" (referência visual do poster "2027 VOLLEYBALL RECRUITING BOARD"):
+  1. Criação do módulo arquitetural `src/lib/email/email-brand.ts` (cores oficiais, tokens, constantes de assinatura de Fabiana Andrade, URLs absolutas de assets e mapeamento ISO alpha-2 para alpha-3).
+  2. Criação do motor modular `src/lib/email/email-layout.ts` com 13 blocos reutilizáveis compatíveis com tabelas HTML (Gmail, Outlook VML, Apple Mail, Webmail): `escapeHtml`, `renderEmailShell` (680px, light only), `renderEmailHeader`, `renderEmailHero`, `renderEmailIntro` (2 colunas com 4 benefícios), `renderFeaturedHeader`, `renderAthleteCard` (01..N, Alpha-3, foto 1.22:1, etiqueta de posição, nome bold, 5 linhas com ícones, botão pill "WATCH HIGHLIGHTS →", badge TRANSFER discreta e omissão de budget vazio), `renderAthleteGrid` (4 colunas com centralização inteligente), `renderRequestCtaBar`, `renderSignature`, `renderFeedbackBlock` ("Not the right fit? Tell us why →"), `renderBottomBar` (2/3 verde + 1/3 dourado) e `renderLegalFooter` (`/unsubscribe`).
+  3. Refatoração de `src/lib/email/recruit-email-template.ts`: `renderRecruitEmail` (unitário com card 50% centralizado e Hero "ATHLETE SPOTLIGHT") e `renderMultiAthleteRecruitEmail` (multi com grid 4-colunas e ano dinâmico).
+  4. Refatoração de `src/lib/email/recruit-email-catalog-template.ts`: `renderCatalogEmail` utilizando o mesmo shell e identidade de poster, destacando as modalidades esportivas ativas e CTAs diretos sem listar atletas individuais (para evitar favorecimento, conforme decisão do usuário).
+  5. Geração de assets PNG/JPG oficiais de alta resolução em `public/email/`: `logo-gtg.png`, `hero-email.jpg` (volleyball court P&B com degradê verde esmeralda integrado), manuscritos `handwritten-more-than-a-game.png` e `handwritten-different-athletes.png`, 14 ícones vetoriais em `public/email/icons/` e 11 bandeiras em `public/email/flags/`.
+  6. Entregabilidade SES: Adição de versão texto puro (`Body.Text`) no envio de `recruit-email.server.ts` e `email.server.ts`.
+  7. Ajuste nos modais de prévia do admin (`send-recruit-email-dialog.tsx` e `mailer.tsx`).
+  8. Testes automatizados expandidos em `recruit-email-multi.test.ts` cobrindo 1, 2, 4, 5 e 8 atletas, campos ausentes, escape de segurança contra XSS, links obrigatórios, ausência de SVGs/emojis/base64 e peso < 100KB.
+- **Planejamento:** Registrado e aprovado em `think/2026-10-01-email-layout-recruiting-board.md`.
+- **Entrega:**
+  - `src/lib/email/email-brand.ts`: Criado com tokens, cores, URLs de assets e mapeamento `ALPHA2_TO_ALPHA3`.
+  - `src/lib/email/email-layout.ts`: Criado com todos os 13 blocos reutilizáveis do design system do e-mail.
+  - `src/lib/email/recruit-email-template.ts`: Refatorado com `renderRecruitEmail` e `renderMultiAthleteRecruitEmail`.
+  - `src/lib/email/recruit-email-catalog-template.ts`: Refatorado com `renderCatalogEmail`.
+  - `src/lib/email/recruit-email.server.ts`: Atualizado com carregamento de highlights de `athlete_videos` e conquistas, e envio SES com `Body.Text`.
+  - `src/lib/email/email.server.ts`: Atualizado com versão `Body.Text` no envio SES geral.
+  - `src/components/send-recruit-email-dialog.tsx`: Atualizado com inputs enriquecidos para o preview.
+  - `src/routes/_authenticated/admin/mailer.tsx`: Atualizado com `budget` e preview consistente.
+  - `public/email/...`: Assets gerados e commitados.
+  - `scripts/preview-emails.ts`: Script gerador de previews estáticos em `docs/email-previews/`.
+  - `src/lib/email/recruit-email-multi.test.ts`: 10 testes rigorosos cobrindo todos os cenários.
+  - 18 arquivos de teste (123 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-075 — 2026-10-01 06:30 — Correção e Refinamento do Mailer (Customização Textual, Identidade Visual Oficial e Highlights Reais)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Correção e refinamento cirúrgico dos 3 modos do Mailer (Single, Multi e Catalog):
+  1. Tornar o conteúdo textual (Greeting, Introduction, Hook / Take a Look) editável diretamente na tela do `/admin/mailer` antes do disparo, com preview reativo em tempo real e envio fiel no backend via SES (HTML e `Body.Text`).
+  2. Remover completamente a seção de modalidades (Soccer, Basketball, Tennis, Track & Field, Swimming) do template de catálogo e da versão plain text, mantendo foco exclusivo em Volleyball / institucional.
+  3. Utilizar dinamicamente a logo oficial cadastrada no Admin (`agency_visual_settings.logo_url`).
+  4. Utilizar dinamicamente o mesmo background do Hero da Home (`agency_visual_settings.hero_background_url`).
+  5. Corrigir o link de highlight ("Take a Look" e botão "WATCH HIGHLIGHTS") para apontar para o vídeo real do atleta (`athlete_videos` com `kind = 'highlight'` ou fallback `athlete_profiles.highlight_video_url`), com fallback seguro para o perfil completo caso não haja vídeo cadastrado (sem links vazios/quebrados).
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-refinement-and-customization.md`.
+- **Entrega:**
+  - `src/routes/_authenticated/admin/mailer.tsx`: Inclusão de campos editáveis para Greeting, Introduction e Hook em todos os modos; carregamento dinâmico de `agency_visual_settings` e `athlete_videos`; preview em tempo real; propagação de `customOptions` para `sendMailerServerFn`.
+  - `src/lib/email/recruit-email-catalog-template.ts`: Remoção total de referências a múltiplos esportes (Soccer, Basketball, Tennis, etc.) em HTML e texto puro, substituindo por showcase exclusivo de Volleyball.
+  - `src/lib/email/recruit-email-template.ts`: Suporte unificado a textos editoriais personalizados, `logoUrl`, `heroBackgroundUrl`, `highlightVideoUrl` em `renderRecruitEmail`, `renderMultiAthleteRecruitEmail`, `generateRecruitEmailPlainText` e `generateMultiAthletePlainText`.
+  - `src/lib/email/email-layout.ts`: `renderEmailHeader` com prioridade para `logoUrl`, `renderEmailHero` com `heroBackgroundUrl`, `renderEmailIntro` com link ativo de highlight em "Take a look" e `renderAthleteCard` com botão dinâmico ("WATCH HIGHLIGHTS" com link direto para o vídeo ou "VIEW FULL PROFILE" seguro).
+  - `src/lib/email/recruit-email.server.ts`: Obtenção dinâmica de `agency_visual_settings` e highlights prioritários na montagem dos e-mails SES reais.
+  - `src/components/send-recruit-email-dialog.tsx`: Carregamento do highlight oficial e configurações visuais no modal individual.
+  - `src/lib/email/recruit-email-multi.test.ts`: 14 testes cobrindo personalização de textos, exclusão de modalidades no catálogo, branding dinâmico e resolução de highlights.
+  - 18 arquivos de teste (127 testes unitários) 100% aprovados, ESLint sem erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-076 — 2026-10-01 07:00 — Migração Completa do Provedor de E-mail: Amazon SES → Resend (Entrega Única)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Migração total, consistente e arquitetural da infraestrutura de e-mails do sistema de Amazon SES para Resend:
+  1. Instalação e configuração do SDK oficial `resend` com singleton seguro server-side `src/lib/email/resend-client.server.ts` e leitura de `RESEND_API_KEY`, `EMAIL_FROM` e `RESEND_WEBHOOK_SECRET`.
+  2. Migração do serviço central `src/lib/email/email.server.ts` para envio via Resend (`resend.emails.send()`), com suporte a agendamento via janela comercial inteligente (`sending-window`), processador de fila de agendados `processScheduledEmails()` e gravação de provider IDs na tabela `email_log`.
+  3. Migração completa do Mailer em `src/lib/email/recruit-email.server.ts` (Single Athlete, Multi-Athlete e Catalog) com suporte ao Resend Batch API (`resend.batch.send()` em blocos de até 100 mensagens) e fallback resiliente individual.
+  4. Preservação integral das regras de negócio de `email_suppressions`, descadastro público (`/unsubscribe` em 2 níveis: `temporary_6m` e `permanent`) e sinais de interesse de coaches (`coach_interest_signals`).
+  5. Criação do processador de webhooks do Resend em `src/lib/email/resend-webhook.server.ts` com validação de assinatura criptográfica Svix e captura automática de `email.bounced` e `email.complained`.
+  6. Atualização de rotas de servidor em `src/server.ts` substituindo `/api/webhooks/ses` por `/api/webhooks/resend`.
+  7. Remoção de todos os artefatos e dependências exclusivas do Amazon SES (`@aws-sdk/client-sesv2`, `ses-client.server.ts`, `ses-webhook.server.ts`, `ses-email.test.ts`, variáveis `AWS_*` e `SES_*` em `.env.example`).
+  8. Criação de suite abrangente de testes unitários `src/lib/email/resend-email.test.ts` cobrindo configuração, envios, agendamento, batch e webhooks.
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-migracao-amazon-ses-para-resend.md`.
+- **Entrega:**
+  - `src/lib/email/resend-client.server.ts`: Criado singleton Resend com tipagem e isolamento server-only.
+  - `src/lib/email/resend-webhook.server.ts`: Criado processador de webhooks com verificação Svix e persistência de supressões.
+  - `src/lib/email/email.server.ts`: Migrado para Resend com agendamento e logging.
+  - `src/lib/email/recruit-email.server.ts`: Migrado para Resend com Batch API e resiliência.
+  - `src/lib/email/stage-change.server.ts`: Atualizado para Resend.
+  - `src/server.ts`: Rota de webhook atualizada para `/api/webhooks/resend`.
+  - `package.json`: Removido `@aws-sdk/client-sesv2` e adicionado `resend`.
+  - `.env.example`: Atualizado com variáveis oficiais do Resend.
+  - `src/lib/email/resend-email.test.ts`: Testes unitários cobrindo todos os fluxos.
+  - `think/2026-10-01-migracao-amazon-ses-para-resend.md`, `CERNE.md` e `BACKLOGER.md` atualizados.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-077 — 2026-10-01 07:38 — Leitura Mandatória do README, Contexto e Governança de IA
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Leitura completa do README.md, CERNE.md, BACKLOGER.md, UI&UX.md, diretrizes em think/ e alinhamento do contexto técnico e de governança antes de iniciar novas tarefas.
+- **Resultado:**
+  - Leitura integral realizada de `README.md`, `CERNE.md`, `BACKLOGER.md`, `think/README.md` e dos planos recentes em `think/` (incluindo migração Resend, Mailer e Recruiting Board).
+  - Protocolo de governança de IA (`AGENTS.md`) assimilado:
+    1. Leitura obrigatória de documentação antes de qualquer ação.
+    2. Planejamento prévio obrigatório salvo em `think/` antes de apresentar propostas.
+    3. Nenhuma alteração de código sem aprovação humana prévia e explícita.
+    4. Atualização obrigatória e imediata de `CERNE.md` após edições.
+    5. Registro de todas as demandas em `BACKLOGER.md`.
+    6. Design System e Mobile-First rigorosamente alinhados com `UI&UX.md`.
+  - Verificação de integridade do ambiente: Linter sem erros e compilação de produção aprovada com sucesso via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-078 — 2026-10-01 07:57 — Diagnóstico e Correção da Máscara Verde no Mailer e Zoom do Hero do Atleta
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Identificação das causas raízes e correção cirúrgica de dois bugs visuais:
+  1. Mailer: ausência de máscara verde sobre a imagem de background do Hero de e-mails (`src/lib/email/email-layout.ts`).
+  2. Portfólio: zoom excessivo/crop distorcido no retrato do Hero na página pública do atleta (`/athlete/$slug`).
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-correcao-mascara-verde-mailer-e-zoom-hero-atleta.md` e aprovado pelo usuário.
+- **Resultado:**
+  - `src/lib/email/email-layout.ts`: `renderEmailHero` atualizado com múltiplos backgrounds CSS (`linear-gradient` verde institucional + `url('${heroBg}')`) e camada interna com fallback `background: linear-gradient(...)` e `background-color: rgba(3, 40, 18, 0.86)` e VML preservado para Outlook.
+  - `src/routes/athlete.$slug.tsx`: Container do retrato no hero atualizado para proporção `aspect-[3/4]`, mantendo alinhamento fotográfico natural idêntico à Home.
+  - `src/lib/image-transform.ts`: Preset `getAthleteHeroImage` calibrado para `{ width: 600, height: 800, resize: "cover", quality: 85 }`.
+  - `src/lib/image-transform.test.ts`: Testes unitários atualizados.
+  - Validação completa: 18/18 arquivos de teste e 131/131 testes passando no Vitest, ESLint com zero erros e compilação de produção validada via `compile_applet`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-079 — 2026-10-01 08:10 — Sistema Completo de Métricas e Relatórios do Mailer (Resend Metrics API & Webhooks)
+
+- **Solicitante:** Kauan / Usuário Humano
+- **Executor:** Antigravity AI / Gemini Coding Agent
+- **Pedido:** Implementação de uma aba dedicada de Métricas (**Metrics**) no Mailer com relatórios analíticos completos integrando Resend Email Metrics API e ingestão de Webhooks:
+  1. Nova navegação: **Create Send | History | Metrics** no Mailer (`/admin/mailer`).
+  2. Integração com a Resend Email Metrics API (`resend.emails.metrics`) com suporte a filtros de data (7d, 30d, 90d, custom) e taxas calculadas.
+  3. Extensão do webhook `/api/webhooks/resend` e criação da tabela `email_events` com ingestão idempotente para rastrear `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`.
+  4. Persistência de `provider_id` (Resend Email ID) em `recruit_email_logs`.
+  5. Dashboard de Métricas com KPIs primários (Sent, Delivered, Opened, Clicked, Delivery Rate, Open Rate, Click Rate) e secundários (Bounced, Complaints, Suppressed, Failed).
+  6. Gráfico de série temporal (Performance Over Time) via Recharts / ChartContainer.
+  7. Visualização de Funil de Conversão de E-mails (Sent → Delivered → Opened → Clicked).
+  8. Relatório de Desempenho por Campanha/Modo (Single Athlete, Multi-Athlete, Catalog).
+  9. Diagnóstico de Problemas de Entrega (Bounces, Delays, Complaints).
+  10. Detalhamento e timeline de eventos individuais no histórico de e-mails.
+- **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-metrics-and-reporting.md`.
+- **Status:** `[CONCLUÍDO]` (Entregue e aprimorado integralmente na TASK-087)
+
+## TASK-080 — 2026-10-01 19:21 — Reversão de commits após o último estado correto
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** GitHub Copilot CLI
+- **Pedido:** Retornar o repositório ao último commit informado como correto: `dc9ad3fdbaa020d6ee7a691809b243e6bee52817`.
+- **Entrega:**
+  - Revertidos os merges `4ec4269` e `d939ef2` com `git revert -m 1`, preservando o histórico.
+  - Criados os commits `40efa5b` (`Revert "Update plan"`) e `7500698` (`Revert "Traduziu app para English US"`).
+  - Verificado que o conteúdo rastreado da aplicação corresponde ao commit de referência antes das atualizações documentais.
+  - Mantido o `package-lock.json` não rastreado; nenhum push ou alteração em migrations remotas foi feito.
+- **Plano:** `think/2026-10-01-1921-reverter-commits-apos-ponto-correto.md`.
+- **Status:** [CONCLUÍDO]
+
+## TASK-081 — 2026-10-01 19:46 — Correção da instalação/build Vercel após reversão
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** GitHub Copilot CLI
+- **Pedido:** Investigar a falha de build na Vercel após a reversão, registrar um plano e corrigir o problema com aprovação humana.
+- **Diagnóstico confirmado pelo log:** A etapa `bun install` recebia HTTP 403 ao buscar `@tanstack/react-start@1.168.48` e `@tanstack/start-server-core@1.169.30`; a Vercel identificou `@tanstack/react-start@1.168.48` como vulnerável. A falha ocorria antes de `vite build`.
+- **Correções aplicadas:** atualização de `@tanstack/react-start` para `^1.168.60`, regeneração de `bun.lock` (React Start `1.168.60`, server core `1.169.39`), remoção do `package-lock.json` divergente, declaração de Bun `1.3.14`, requisito de Node `>=22.12.0` e correção do script `validate` para usar Bun.
+- **Validação parcial:** `bun install --frozen-lockfile` passou com Bun 1.3.14; 138 testes passaram; ESLint passou com 10 warnings; typecheck passou isoladamente. Build local ainda está em verificação, pois duas execuções síncronas foram interrompidas por SIGTERM durante a geração dos chunks.
+- **Plano:** `think/2026-10-01-1946-diagnostico-correcao-build-vercel.md`.
+- **Status:** [PENDENTE]
+
+## TASK-083 — 2026-10-07 10:45 — Redesenho dos E-mails do Mailer (Leitura em 5 Segundos — Estrutura Inicial)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** Redesenhar e-mails do Mailer (Single, Multi e Catalog) para leitura rápida em 5 segundos: Header enxuto (só a logomarca da agência), saudação de 1 linha no topo, fichas de atletas em primeiro plano com specs padronizadas (`POSIÇÃO · ALTURA · CLASS OF {ano} · GPA · PAÍS`), badge `TRANSFER` condicional, 4 botões de ação rápida por atleta (`WATCH FILM`, `I'M INTERESTED` com mailto pré-preenchido, `FULL PROFILE`, `NOT A FIT`), CTA "REQUEST MORE ATHLETES", e bloco institucional compacto posicionado no rodapé (Hero + Intro condensados ao final). No modo Multi, atletas dispostas em 1 por linha (largura total); no modo Catalog, botões de ação no topo e bloco institucional por último.
+- **Resultado / Ajustes Posteriores:**
+  - A ordem dos blocos e a lógica dos 4 botões e specs foram estruturadas em `recruit-email.ts`, porém no commit `c9b4d19` o arquivo foi criado com paleta Tailwind paralela (`EMAIL_BRAND`) e desacoplado do `email-layout.ts`, além de ter divergido o lockfile `bun.lock` gerando quebra na Vercel (CVE-2026-102989). A total consolidação visual, de identidade da marca e de build foi corrigida e concluída na TASK-084.
+- **Plano:** `think/2026-10-07-1037-email-atletas-primeiro.md`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-084 — 2026-10-07 11:50 — Correção de Build TanStack (CVE-2026-102989) e Restauração da Identidade Visual Oficial dos E-mails
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:**
+  1. **Parte A (Build Vercel & Lockfile):** Corrigir vulnerabilidade TanStack Start bloqueada pela Vercel, restaurando integridade do `bun.lock` para `@tanstack/react-start >= 1.168.60`, `@tanstack/react-router >= 1.170.41`, `@tanstack/router-plugin >= 1.168.42`, eliminando qualquer resquício de `@aws-sdk/*`, garantindo ausência de locks conflitantes (`package-lock.json`), sem uso de bypass insecure e adicionando regra de governança de lockfile no `AGENTS.md` e `CERNE.md`.
+  2. **Parte B (Identidade Visual Oficial dos E-mails):** Eliminar paleta paralela (`EMAIL_BRAND`) e consolidar motor de e-mail em cima de `email-layout.ts` e `EMAIL_COLORS` oficial (`darkGreenDeep`, `darkGreenPrimary`, `goldPrimary`, `cardBg`, etc.), preservando arquitetura 680px com suporte a Outlook/VML. Aplicar identidade visual nos novos componentes (cards, 4 botões de 44px, badge TRANSFER dourada, specs line, bloco institucional compacto com padrões verificados, CTA bar dourada, assinatura oficial Fabiana Andrade, feedback block, bottom bar verde/dourada e legal footer). Limpar e regenerar previews em `docs/email-previews/`. Adicionar testes automatizados de compliance de cores e ausência de `@aws-sdk`.
+- **Entrega:**
+  - Plano detalhado salvo em `think/2026-10-07-1150-correcao-build-e-identidade-email.md` e aprovado previamente pelo usuário.
+  - `bun.lock` validado com Bun 1.3.14 (`bun install --frozen-lockfile` passa com sucesso, versões TanStack seguras confirmadas).
+  - `src/lib/email/email-brand.ts` limpo (removido `EMAIL_BRAND`, removidas duplicações de `escapeHtml`/`getBaseAppUrl`, `EMAIL_COLORS` completo e canônico).
+  - `src/lib/email/recruit-email.ts` totalmente integrado ao layout oficial, usando tokens `EMAIL_COLORS`, 4 botões de ação (WATCH FILM, I'M INTERESTED, FULL PROFILE, NOT A FIT) com touch area >= 44px, badge TRANSFER dourada, specs padronizadas, bloco institucional compacto ao final e shell compatível.
+  - `src/components/send-recruit-email-dialog.tsx` atualizado repassando `athleteId` por atleta.
+  - `docs/email-previews/` limpo e regenerado (`single-athlete.html`, `multi-athlete-1.html`, `multi-athlete-4.html`, `multi-athlete-8.html`, `catalog.html`), eliminados previews duplicados (`preview-*.html`).
+  - Suíte de testes em `src/lib/email/recruit-email-multi.test.ts` expandida com testes automatizados de compliance de paleta de cores (falha se houver cores fora de `EMAIL_COLORS`/branco/transparente) e de integridade arquitetural (zero imports de `@aws-sdk` em `src/`).
+  - 139 testes unitários aprovados em 19 suítes de teste (100% pass).
+  - `AGENTS.md` e `CERNE.md` atualizados com regras de governança e documentação viva.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-085 — 2026-10-07 14:20 — Atualização e Validação do Lockfile TanStack Start (CVE-2026-102989) e Blindagem de Cache Vercel
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:**
+  1. Confirmar e validar atualização das dependências TanStack no `bun.lock` para `@tanstack/react-start >= 1.168.60` resolvendo o CVE-2026-102989, juntamente com `@tanstack/react-router`, `@tanstack/router-plugin` e `@tanstack/start-plugin-core`.
+  2. Verificar que `bun install --frozen-lockfile` passa sem erro e blindar `vercel.json` contra pacotes `@tanstack` antigos vindos de build cache.
+  3. Checar possíveis breaking changes em `src/routes/__root.tsx` (scripts GA4, Clarity, Meta Pixel), rotas públicas (`index.tsx`, `athlete.$slug.tsx`), sitemaps/robots e Server Functions.
+  4. Garantir que nenhuma flag insegura (`DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS`) seja utilizada.
+  5. Atualizar `CERNE.md` e registrar tarefa no `BACKLOGER.md`.
+- **Entrega:**
+  - Plano registrado em `think/2026-10-07-1410-atualizacao-tanstack-start-cve.md` e aprovado explicitamente pelo usuário.
+  - Validação de resolução do `bun.lock`: `@tanstack/react-start@1.168.60`, `@tanstack/react-router@1.170.41`, `@tanstack/router-plugin@1.168.42`, `@tanstack/start-server-core@1.169.39`, `@tanstack/react-start-client@1.168.39`, `@tanstack/start-plugin-core@1.171.49`.
+  - `vercel.json` blindado com `"installCommand": "rm -rf node_modules/@tanstack && bun install --frozen-lockfile"`.
+  - `bun install --frozen-lockfile` executado com sucesso e 0 alterações.
+  - Zero ocorrências de `@aws-sdk/*` e ausência de locks secundários.
+  - Verificação de breaking changes em `__root.tsx`, rotas públicas e server functions concluída sem quebras.
+  - Qualidade: `bun run lint` (0 erros), `bun run typecheck` (0 erros), `bun run test` (139 testes passando com 100% de sucesso) e `bun run build` / `compile_applet` aprovados sem avisos de CVE.
+  - Documentação viva em `CERNE.md` e `BACKLOGER.md` atualizada.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-086 — 2026-10-07 14:35 — Correção Definitiva de `bun.lock`, `package.json` e Expurgo de Build Cache na Vercel (CVE-2026-102989)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** Investigar e corrigir definitivamente no repositório o erro de deploy na Vercel no commit `b1649e4` (`@tanstack/react-start@1.168.48 contains a known cross-site scripting vulnerability CVE-2026-102989` com `Restored build cache from previous deployment`), regenerando o `bun.lock` com Bun, garantindo resolução `>= 1.168.60` e compatibilidade de toda a árvore TanStack, sem usar `DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS=1`.
+- **Entrega:**
+  - Causa raiz identificada: o `bun.lock` atualizado no boot do container não apresentava diff em relação ao snapshot pós-boot da sessão nos commits `9cd8a60` e `b1649e4`, não sendo incluído no commit exportado ao GitHub; e o `vercel.json` ainda não expurgava o cache restaurado da Vercel.
+  - `package.json` atualizado com `"overrides"` para toda a cadeia `@tanstack/react-start` (`^1.168.60`) e pacotes irmãos.
+  - `bun.lock` regenerado nativamente via `bun install` e sincronizado via VFS (`edit_file`), garantindo diff real para o commit no GitHub e resolução confirmada em `@tanstack/react-start@1.168.60`.
+  - `vercel.json` atualizado para remover `node_modules/@tanstack`, `node_modules/.bun/@tanstack*` e diretórios de cache (`.output`, `.nitro`, `.tanstack`, `node_modules/.vite`, `node_modules/.cache`) antes de `bun install --frozen-lockfile` e `bun run build`.
+  - Validações executadas com sucesso: `bun install --frozen-lockfile`, `bun run lint`, `bun run typecheck`, `bun run test` (139 testes aprovados) e `bun run build`.
+- **Plano:** `think/2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md`.
+- **Status:** [CONCLUÍDO]
+
+---
+
+## TASK-087 — 2026-10-08 04:04 — Métricas de Abertura e Clique do Mailer: Captura Confiável, Atribuição Correta e Relatórios Acionáveis
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:**
+  1. Corrigir os 9 problemas confirmados no código do Mailer e Webhook do Resend:
+     - `resend-webhook.server.ts`: checar `error` no `upsert` de `email_events`, logar e responder HTTP 5xx (`500`) em falha de banco para que o Resend reenvie.
+     - `verifyResendWebhookSignature`: falhar fechado (`401` + log) em produção (`VERCEL_ENV=production`) quando `RESEND_WEBHOOK_SECRET` não estiver configurado; permissivo apenas em dev/test.
+     - Persistir `tags` e sanitizar `click` gravando apenas `link`, `timestamp` e `userAgent` (nunca `ipAddress`, além de remover `ipAddress` existentes no backfill da migration 0022).
+     - Tratar `email.failed`, `email.suppressed`, `email.delivery_delayed` e gravar eventos futuros desconhecidos sem quebrar.
+     - `mailer-metrics.server.ts`: calcular `delivered` usando eventos `email.delivered` distintos por `provider_email_id` (e não logs `status='sent'`).
+     - Atribuir eventos exclusivamente por `provider_email_id` / `campaign_id` (removendo o `OR recipient_email` que misturava campanhas).
+     - Eliminar `.limit(200)` em `email_events` e `.select("*")` em `recruit_email_logs`, substituindo por agregação em SQL via RPCs protegidas para `service_role` (`get_mailer_filter_options` e `get_mailer_dashboard_metrics`).
+     - Calcular taxas com contagem única limitada a `100%` e exibir contagens brutas como dado secundário.
+     - Em `recruit-email.server.ts` (`sendMailerEmails` e `sendRecruitEmailToCoaches`), criar campanha em `mailer_campaigns`, enviar `tags` sanitizadas em `batch.send` e `emails.send`, persistir `campaign_id` e todos os `athlete_ids` no modo multi-atleta e checar `error` nos inserts de `recruit_email_logs`.
+  2. Qualidade de métricas: filtrar cliques de scanners/bots (<= 10s após entrega/envio, user-agent de scanner e burst de >= 3 links distintos em <= 5s via window function na RPC) e sinalizar aberturas de proxies (`GoogleImageProxy`, `ggpht.com`, `YahooMailProxy`) sem classificar o UA padrão do Safari macOS como proxy.
+  3. Reestruturar `src/components/mailer-metrics-dashboard.tsx` com filtros globais (Período, Campanha, Atleta, Divisão oficial `LEAGUES`), 6 cards KPI, tabela de **Engaged Coaches / Hot Leads** com **Export CSV**, **Athlete Interest**, **Campaigns Breakdown** e **Live Webhook Feed**.
+- **Entrega:**
+  - Plano revisado salvo em `think/2026-10-08-mailer-open-click-metrics-overhaul.md` com todos os 7 ajustes aprovados pelo usuário.
+  - Migration `db/migrations/0022_mailer_campaigns_and_metrics_rpc.sql` criada (aditiva, idempotente, com backfill e remoção de `ipAddress`, e RPCs `get_mailer_filter_options` e `get_mailer_dashboard_metrics` exclusivas para `service_role`).
+  - Criado `src/lib/email/mailer-metrics-quality.ts` com constantes nomeadas e funções puras de detecção de bots/scanners, proxies, sanitização de tags e instrumentação UTM.
+  - Atualizados `src/lib/email/resend-webhook.server.ts`, `src/server.ts`, `src/lib/email/recruit-email.ts`, `src/lib/email/recruit-email-template.ts`, `src/lib/email/recruit-email-catalog-template.ts`, `src/lib/email/recruit-email.server.ts`, `src/lib/email/mailer-metrics.server.ts`, `src/components/mailer-metrics-dashboard.tsx` e `src/types/db.ts`.
+  - Suítes de testes unitários criadas/atualizadas em `src/lib/email/mailer-metrics.test.ts`, `src/lib/email/resend-webhook.test.ts` e `src/lib/email/recruit-email-send.test.ts`.
+  - `package.json` e `bun.lock` mantidos 100% intactos.
+- **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-088 — 2026-10-08 04:34 — Revisão Completa de Contexto, Governança, Arquitetura e Diagnóstico de Saúde
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** "Reveja seu contexto" — Leitura mandatória e assimilação completa dos documentos de governança (`README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/`), verificação de integridade do ambiente e diagnóstico do estado atual do código.
+- **Diagnóstico / Entrega:**
+  - Leitura integral realizada de `README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/` (especialmente `2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md` e `2026-10-08-mailer-open-click-metrics-overhaul.md`).
+  - Governança respeitada: stack baseada em TanStack Start + Vite + TypeScript, Bun exclusivo como package manager, Supabase externo, Resend oficial, regras estritas de UI/UX mobile-first.
+  - Causa raiz do erro da aplicação que estava quebrada: `src/lib/email/resend-webhook.server.ts` importava `@/lib/supabase/admin` inexistente; como `src/server.ts` o importa diretamente, o servidor sofria crash 500 no carregamento SSR de qualquer rota.
+  - Correção executada após aprovação humana:
+    1. `resend-webhook.server.ts`: import corrigido para `@/lib/supabase/clients.server`; normalizado parâmetro `headers` para suportar kebab-case e camelCase; compatibilidade retroativa restabelecida com export `ResendWebhookEventPayload` e campos no resultado.
+    2. `mailer-metrics-dashboard.tsx`: envolvido `<Flame />` em `<span title="...">` resolvendo TS2322.
+    3. `resend-webhook.test.ts` e `resend-email.test.ts`: removido mock global conflitante de `resend-client.server`, corrigidas cadeias mockadas de `email_events`/`recruit_email_logs` e asserções de webhook.
+    4. `recruit-email-send.test.ts`: mock genérico encadeável resolvendo `athlete_videos` e `achievements`.
+  - Validações: `bun run typecheck` (0 erros), `bun run lint` (0 erros), `bun run test` (153 testes passando em 21 suítes), `compile_applet` (sucesso), servidor restabelecido respondendo `HTTP 200 OK`.
+- **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-089 — 2026-10-08 07:20 — Hotfix: Schema de email_events, recruit_email_logs e RPCs de Métricas do Mailer (Eventos de Abertura/Clique)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** Correção do schema do webhook e RPCs de métricas do Mailer que gravam/leem colunas inexistentes (`svix_id`, `recipient_email`, `subject`, `tags` em `email_events`; `university_id`, `coach_role` em `recruit_email_logs`; cast incorreto `c.id::text = l.coach_id`). Criação da migration `0023_fix_email_events_schema_and_metrics_rpc.sql` (aditiva e idempotente), script de smoke test `verify-0023.sql`, alinhamento no webhook/serviço, exibição de erro da RPC no dashboard, teste vitest de integridade de schema e script de backfill via API do Resend.
+- **Entrega:**
+  1. Migration `db/migrations/0023_fix_email_events_schema_and_metrics_rpc.sql` (aditiva e idempotente):
+     - `email_events`: adicionadas colunas `svix_id text`, `recipient_email text`, `subject text`, `tags jsonb not null default '{}'::jsonb`. Colunas `provider_event_id` e `recipient` tornadas opcionais (`drop not null`). Backfill idempotente de `recipient_email` e `svix_id`. Criado índice UNIQUE COMPLETO em `svix_id` (necessário para upsert `onConflict: "svix_id"`). Criado índice em `lower(trim(recipient_email))`.
+     - `recruit_email_logs`: adicionadas colunas `university_id uuid references public.universities(id) on delete set null` e `coach_role text`, com índice em `university_id`.
+     - RPC `get_mailer_dashboard_metrics`: recriada com `CREATE OR REPLACE`, corrigindo join de coach (`c.id = l.coach_id` UUID = UUID), fallback robusto para universidades por `university_id` ou nome, e referências corretas a `e.svix_id`, `e.recipient_email` e `e.subject`. Permissões estritas concedidas exclusivamente a `service_role`.
+     - RPC `get_mailer_filter_options`: recriada com `CREATE OR REPLACE` e permissões restritas a `service_role`.
+  2. Alinhamento de código:
+     - `resend-webhook.server.ts`: removida a coluna fictícia `event_id`, mantendo `svix_id`, `provider_event_id`, `provider_email_id`, `recipient`, `recipient_email`, `subject`, `tags`, etc.
+     - `mailer-metrics.server.ts`: fallback de projeção alinhado; em caso de falha da RPC, loga com `console.error` (e não warn) e retorna `rpcError` no payload.
+     - `mailer-metrics-dashboard.tsx`: adicionado banner de alerta visível de erro da RPC quando `metrics.rpcError` vier preenchido.
+  3. Verificação e Prevenção:
+     - `db/migrations/verify-0023.sql`: smoke test contendo INSERT/UPSERT/DELETE de evento fake e chamadas diretas das RPCs para conferência no SQL Editor do Supabase.
+     - `src/lib/email/schema-integrity.test.ts`: teste Vitest que lê as migrations `0001` até `0023` e valida que nenhuma coluna gravada pelo webhook está ausente nas migrations.
+     - `scripts/backfill-resend-events.ts`: script para recuperação de eventos de e-mails já enviados via API oficial do Resend (`resend.emails.get`).
+  4. Validações completas:
+     - `bun run typecheck` (0 erros)
+     - `bun run lint` (0 erros)
+     - `bun test` (156 testes passando em 22 arquivos, 0 falhas)
+     - `compile_applet` (build com sucesso)
+     - Dev server respondendo `HTTP 200 OK`
+  5. Governança estrita: `package.json` e `bun.lock` mantidos 100% inalterados.
+- **Status:** `[CONCLUÍDO]`

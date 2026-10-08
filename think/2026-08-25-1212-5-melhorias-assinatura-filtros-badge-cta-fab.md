@@ -61,6 +61,7 @@ O solicitante solicitou a implementação de 5 itens cruciais para a experiênci
 ## 3. Detalhamento Técnico da Implementação
 
 ### 3.1. Assinatura Reutilizável com Traço Animado (`PoweredByIasinSignature`)
+
 - Criar `src/components/powered-by-iasin-signature.tsx`.
 - Utilizar `useRef` + `IntersectionObserver` para disparar o traço uma vez ao entrar em tela.
 - Permitir replay do traço no `onMouseEnter`.
@@ -68,6 +69,7 @@ O solicitante solicitou a implementação de 5 itens cruciais para a experiênci
 - `@media (prefers-reduced-motion: reduce)` para desabilitar animações.
 
 ### 3.2. Filtros Expansíveis na Home
+
 - Estado: `const [isSearchFocused, setIsSearchFocused] = useState(false);`
 - Flag de visibilidade: `const showFilters = isSearchFocused || Boolean(search.trim()) || hasActiveFilters;`
 - Container com transição suave CSS:
@@ -75,30 +77,36 @@ O solicitante solicitou a implementação de 5 itens cruciais para a experiênci
   com container interno `overflow-hidden`.
 
 ### 3.3. Badge "FRESHMAN" no Card da Home
+
 - `const rawStatus = getAthleteStatus(athlete);`
 - `const showFreshmanBadge = Boolean(rawStatus && rawStatus.trim().toLowerCase() !== "junior");`
 - Exibir badge estilizada sobre a mídia do card:
   ```tsx
-  {showFreshmanBadge && (
-    <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
-      <span className="inline-flex items-center rounded bg-emerald-950/85 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase shadow-xs border border-emerald-500/30 backdrop-blur-xs">
-        Freshman
-      </span>
-    </div>
-  )}
+  {
+    showFreshmanBadge && (
+      <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
+        <span className="inline-flex items-center rounded bg-emerald-950/85 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-300 uppercase shadow-xs border border-emerald-500/30 backdrop-blur-xs">
+          Freshman
+        </span>
+      </div>
+    );
+  }
   ```
 
 ### 3.4. CTA Final na Home
+
 - Bloco posicionado logo após a seção do catálogo e antes do `<footer>`.
 - Link do botão WhatsApp utilizando `RECRUIT_WHATSAPP_NUMBER` e mensagem apropriada em inglês.
 
 ### 3.5. `WhatsappFab` Inteligente com Detecção de Rodapé
+
 - Observer observando `document.querySelector("footer")`.
 - Transição com classes Tailwind `transition-all duration-300 ease-out`, garantindo total acessibilidade.
 
 ---
 
 ## 4. Plano de Validação
+
 1. Execução de testes unitários com Vitest (`npm run test`).
 2. Validação com ESLint (`npm run lint`).
 3. Compilação de produção (`compile_applet`).
