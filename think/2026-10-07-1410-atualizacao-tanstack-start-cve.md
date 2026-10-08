@@ -11,9 +11,11 @@
 ## 1. Contexto & Diagnóstico da Causa Raiz
 
 ### 1.1 Sintoma
+
 O deploy na Vercel (commit `9cd8a60`, branch `main`) falhou porque o build detectou `@tanstack/react-start@1.168.48`, que possui a vulnerabilidade XSS conhecida (**CVE-2026-102989**), exigindo a versão `1.168.60` ou superior.
 
 ### 1.2 Diagnóstico da Causa Raiz (Verificado no Repositório)
+
 - `package.json` declara:
   - `"@tanstack/react-start": "^1.168.60"`
   - `"@tanstack/react-router": "^1.170.41"`
@@ -81,4 +83,3 @@ O deploy na Vercel (commit `9cd8a60`, branch `main`) falhou porque o build detec
 ## 6. Status da Aprovação Humana
 
 - **Status:** `[AGUARDANDO APROVAÇÃO HUMANA EXPLÍCITA]`
-

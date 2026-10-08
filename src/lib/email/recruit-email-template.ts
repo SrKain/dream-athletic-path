@@ -27,6 +27,7 @@ export interface RecruitEmailData extends EmailCardAthlete {
   customHook?: string | null;
   logoUrl?: string | null;
   heroBackgroundUrl?: string | null;
+  campaignId?: string | null;
 }
 
 export interface MultiAthleteEmailData {
@@ -40,6 +41,7 @@ export interface MultiAthleteEmailData {
   customHook?: string | null;
   logoUrl?: string | null;
   heroBackgroundUrl?: string | null;
+  campaignId?: string | null;
 }
 
 function mapEmailDataToAthlete(data: RecruitEmailData): RecruitEmailAthlete {
@@ -131,6 +133,7 @@ export function renderRecruitEmail(data: RecruitEmailData) {
     agencyLogoUrl: data.logoUrl || undefined,
     sportName: data.sportName || "Volleyball",
     appUrl: EMAIL_BASE_URL,
+    campaignId: data.campaignId,
   });
 
   const text = generateRecruitEmailPlainText(data);
@@ -178,6 +181,7 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
     sportName: firstAthlete?.sportName || "Volleyball",
     gradYear: firstAthlete?.graduationYear || firstAthlete?.highSchoolGraduation || undefined,
     appUrl: EMAIL_BASE_URL,
+    campaignId: data.campaignId,
   });
 
   const text = generateMultiAthletePlainText(data);

@@ -1143,4 +1143,50 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - `bun install --frozen-lockfile`, `bun run lint`, `bun run typecheck`, `bun run test` (139 testes aprovados) e `bun run build` executados com 100% de sucesso.
 - **Plano:** `think/2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md`.
 
+## Atualização 2026-10-08 — Métricas de Abertura e Clique do Mailer: Captura Confiável, Atribuição Correta e Relatórios Acionáveis (TASK-087)
 
+- **Migration `db/migrations/0022_mailer_campaigns_and_metrics_rpc.sql`**:
+  - Nova tabela `public.mailer_campaigns` (`id`, `created_at`, `created_by`, `mode`, `subject`, `athlete_ids uuid[]`, `recipients_count`, `filters jsonb`) com RLS e política `mailer_campaigns_agency_all` (`public.is_agency_admin()`).
+  - Adição idempotente de `campaign_id uuid` e `athlete_ids uuid[]` em `public.recruit_email_logs` (com índice GIN em `athlete_ids` e B-Tree em `campaign_id` e `provider_id`).
+  - Adição idempotente de colunas tipadas em `public.email_events`: `clicked_url text`, `clicked_at timestamptz`, `user_agent text`, `tags jsonb`, `is_probable_automated boolean not null default false`, com índices dedicados.
+  - Backfill idempotente de `email_events` extraindo `clicked_url` de `payload->'click'->>'link'` (fallback `payload->>'clicked_link'`), `clicked_at` de `payload->'click'->>'timestamp'` (fallback `occurred_at`), `user_agent` de `payload->'click'->>'userAgent'` e removendo `ipAddress` de registros legados (`payload = payload #- '{click,ipAddress}'`).
+  - Duas RPCs PostgreSQL (`public.get_mailer_filter_options()` e `public.get_mailer_dashboard_metrics(p_days, p_campaign_id, p_athlete_id, p_division)`) com `security definer`, `set search_path = public`, `REVOKE EXECUTE FROM public, anon, authenticated` e `GRANT EXECUTE TO service_role`, realizando toda a agregação no banco sem `.select("*")` ou `.limit(200)`.
+- **Qualidade de Métricas, Detecção de Scanners e Instrumentação UTM (`src/lib/email/mailer-metrics-quality.ts`)**:
+  - Constantes nomeadas e testadas: `FAST_CLICK_THRESHOLD_SECONDS = 10`, `BURST_CLICK_DISTINCT_LINKS_THRESHOLD = 3`, `BURST_CLICK_WINDOW_SECONDS = 5`, `AUTOMATED_SCANNER_USER_AGENT_PATTERNS` e `PRIVACY_PROXY_USER_AGENT_PATTERNS` (contendo apenas `GoogleImageProxy`, `ggpht.com` e `YahooMailProxy`, sem classificar o User-Agent padrão do Safari macOS como proxy).
+  - Funções puras para sanitização de tags Resend (`sanitizeResendTagValue`, `buildResendMailerTags`), extração de tags (`extractTagsFromWebhookData`), instrumentação de links do nosso domínio com `utm_source=gtg_mailer`, `utm_medium=email`, `utm_campaign=<campaign_id>`, `utm_content=<botao>_<slug>` (`appendMailerUtmParams`), detecção stateless de cliques automatizados (`isStatelessAutomatedClick`) e detecção de burst em janela (`detectBurstClickEventIds`).
+- **Hardening do Webhook Resend (`src/lib/email/resend-webhook.server.ts` & `src/server.ts`)**:
+  - `verifyResendWebhookSignature` falha fechado (`401 Unauthorized` + `console.error`) quando `VERCEL_ENV=production` e `RESEND_WEBHOOK_SECRET` está ausente; permissivo apenas em dev/test.
+  - Checagem explícita de `error` no `upsert` de `email_events`, retornando HTTP `500` em falha de banco para que o Resend reenvie o evento.
+  - Persistência de `tags` e sanitização de `click` gravando exclusivamente `{ link, timestamp, userAgent }` (nunca `ipAddress`).
+  - Suporte completo a `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed`, `email.delivery_delayed` e gravação resiliente de eventos futuros desconhecidos.
+- **Rastreamento de Campanha e Multi-Atleta no Envio (`src/lib/email/recruit-email.server.ts` & `recruit-email.ts`)**:
+  - `sendMailerEmails` e a função legada `sendRecruitEmailToCoaches` geram `campaign_id`, registram a campanha em `mailer_campaigns`, enviam `tags` sanitizadas em `resend.batch.send` e no fallback `resend.emails.send`, gravam todos os atletas em `athlete_ids` no modo multi-atleta e verificam `error` em todos os inserts de `recruit_email_logs`.
+- **Agregação de Métricas e Dashboard Acionável (`src/lib/email/mailer-metrics.server.ts` & `src/components/mailer-metrics-dashboard.tsx`)**:
+  - `delivered` calculado a partir de eventos distintos `email.delivered` por `provider_email_id`.
+  - Atribuição estrita por `provider_email_id` / `campaign_id` (eliminado o `OR recipient_email` que misturava campanhas).
+  - Taxas baseadas em contagens únicas limitadas a `100%` (`openRate`, `clickRate`, `clickToOpenRate`, `deliveryRate`, `bounceRate`), exibindo totais brutos e cliques de bots filtrados como subtexto secundário.
+  - Filtros globais por período (`7D`, `30D`, `90D`, `All`), Campanha, Atleta e Divisão oficial (`LEAGUES`: `NJCAA D1`, `NJCAA D2`, `NCAA D1`, `NCAA D2`, `NAIA`).
+  - Relatórios acionáveis: **Engaged Coaches / Hot Leads** com busca e **Export CSV**, **Athlete Interest** (cliques em `Watch Film`, `Full Profile` e sinais `Not a Fit`), **Campaigns Breakdown** com drill-down e **Live Webhook Feed** com badges de classificação (_Human Click_, _Proxy Open_, _Scanner Filtered_).
+- **Plano:** `think/2026-10-08-mailer-open-click-metrics-overhaul.md`.
+
+## Atualização 2026-10-08 — Estabilização do Webhook, Mocks e Tipos do Mailer (TASK-088)
+
+- **Correção de Import Crítico no Webhook (`src/lib/email/resend-webhook.server.ts`)**:
+  - Corrigido import de `getAdminClient` de `@/lib/supabase/admin` (módulo inexistente) para `@/lib/supabase/clients.server`.
+  - Esta correção eliminou o erro 500 em runtime e restaurou o funcionamento de `src/server.ts` e de todas as rotas SSR (HTTP 200 restabelecido).
+  - Normalizado o parâmetro `headers` de `verifyResendWebhookSignature` para aceitar chaves em kebab-case (`svix-id`, `svix-timestamp`, `svix-signature`) e camelCase, com tipagem aberta para index signatures.
+  - Exportado alias `ResendWebhookEventPayload` para retrocompatibilidade de tipos e enriquecido `ProcessResendWebhookResult` com campos de compatibilidade `eventType`, `success` e `processedEmails`.
+  - Adicionados aliases `event_id` e `tags` em `eventRow` para persistência consistente no log de eventos.
+- **Tipagem Lucide no Dashboard de Métricas (`src/components/mailer-metrics-dashboard.tsx`)**:
+  - Envolvido o ícone `<Flame />` em elemento `<span title="...">` para conformidade com a tipagem estrita do componente Lucide (eliminando erro TS2322).
+- **Alinhamento das Suítes de Teste Unitário**:
+  - `src/lib/email/resend-webhook.test.ts`: Removido o mock global invasivo de `resend-client.server`, passando a controlar variáveis de ambiente no ciclo do teste; corrigida cadeia mockada de `recruit_email_logs` e `email_events` e asserções de `dbError`/`errorMessage`.
+  - `src/lib/email/resend-email.test.ts`: Asserções e assinaturas do webhook atualizadas para compatibilidade com o retorno atual.
+  - `src/lib/email/recruit-email-send.test.ts`: Mock genérico de queries encadeadas com `.eq().in().order().limit().maybeSingle()` e suporte a promise thenable para evitar falhas de execução.
+- **Validação Completa**:
+  - `bun run typecheck`: 0 erros de TypeScript.
+  - `bun run lint`: 0 erros de ESLint (Prettier e `@typescript-eslint/no-explicit-any` 100% resolvidos).
+  - `bun run test`: 153 testes passando (21 suítes de teste com 100% de sucesso).
+  - `compile_applet`: Compilação de produção aprovada com sucesso.
+  - Dev server testado via curl em localhost:3000 retornando `HTTP/1.1 200 OK`.
+- **Plano:** `think/2026-10-08-0435-revisao-contexto-e-estabilizacao-mailer.md`.

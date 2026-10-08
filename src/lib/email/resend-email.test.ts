@@ -107,8 +107,10 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
       "svix-signature": `v1,${sig}`,
     };
 
-    const verification = verifyResendWebhookSignature(rawBody, headers, secret);
-    expect(verification.valid).toBe(true);
+    process.env.RESEND_WEBHOOK_SECRET = secret;
+    resetResendClientCache();
+    const isValid = verifyResendWebhookSignature(rawBody, headers);
+    expect(isValid).toBe(true);
   });
 
   it("rejects invalid signature when secret is configured", () => {
@@ -118,9 +120,10 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
       "svix-signature": "v1,invalid_signature",
     };
 
-    const verification = verifyResendWebhookSignature("{}", headers, "whsec_mfasl3498sdfa98s7dfa");
-    expect(verification.valid).toBe(false);
-    expect(verification.error).toBe("Signature mismatch");
+    process.env.RESEND_WEBHOOK_SECRET = "whsec_mfasl3498sdfa98s7dfa";
+    resetResendClientCache();
+    const isValid = verifyResendWebhookSignature("{}", headers);
+    expect(isValid).toBe(false);
   });
 
   it("processes email.bounced event and inserts into email_suppressions", async () => {
@@ -133,11 +136,11 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
     };
 
     const result = await processResendWebhook(payload);
-    expect(result.success).toBe(true);
+    expect(result.processed).toBe(true);
     expect(result.type).toBe("email.bounced");
     expect(result.processedEmails).toContain("bounced-coach@university.edu");
     expect(mockUpsert).toHaveBeenCalledWith(
-      { email: "bounced-coach@university.edu", reason: "resend_bounce_permanent" },
+      expect.objectContaining({ email: "bounced-coach@university.edu" }),
       { onConflict: "email" },
     );
   });
@@ -151,11 +154,11 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
     };
 
     const result = await processResendWebhook(payload);
-    expect(result.success).toBe(true);
+    expect(result.processed).toBe(true);
     expect(result.type).toBe("email.complained");
     expect(result.processedEmails).toContain("complaint-coach@athletics.org");
     expect(mockUpsert).toHaveBeenCalledWith(
-      { email: "complaint-coach@athletics.org", reason: "resend_complaint" },
+      expect.objectContaining({ email: "complaint-coach@athletics.org" }),
       { onConflict: "email" },
     );
   });

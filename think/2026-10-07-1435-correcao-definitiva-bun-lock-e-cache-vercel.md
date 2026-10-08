@@ -11,11 +11,14 @@
 ## 1. Contexto e Diagnóstico Definitivo da Causa Raiz
 
 ### 1.1. O Problema no Deploy do Commit `b1649e4`
+
 Mesmo com `package.json` declarando `"@tanstack/react-start": "^1.168.60"`, o deploy da Vercel no commit `b1649e4` continuou falhando com:
+
 - `Restored build cache from previous deployment`
 - `@tanstack/react-start@1.168.48 contains a known cross-site scripting vulnerability (CVE-2026-102989). Update to 1.168.60 or later and redeploy.`
 
 ### 1.2. Por que `b1649e4` ainda continha `1.168.48` na Vercel (Dupla Causa Raiz)
+
 1. **Sincronização VFS / Snapshot do `bun.lock` para o GitHub**:
    - No commit `c9b4d19` no GitHub, o `bun.lock` foi comitado com `@tanstack/react-start@1.168.48` (inconsistente com o `package.json`).
    - Quando o container do ambiente inicializa a partir do repositório, o boot executa `bun install` no disco local **antes** do início do turno do agente, atualizando o `bun.lock` local para `1.168.60` antes do snapshot base da sessão.

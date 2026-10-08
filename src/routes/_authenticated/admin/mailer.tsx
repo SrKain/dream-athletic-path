@@ -681,6 +681,14 @@ function MailerPage() {
                 : "catalog",
           athleteIds: targetAthleteIds,
           recipients: payloadRecipients,
+          filters: {
+            state: filterState,
+            league: filterLeague,
+            hbcu: filterHbcu,
+            budget: filterBudget,
+            toefl: filterToefl,
+            hideSignaled: filterHideSignaled,
+          },
           customOptions: {
             greeting: customGreeting || undefined,
             introduction: customIntroduction || undefined,
@@ -1574,7 +1582,7 @@ function MailerPage() {
             </div>
           ) : (
             /* ABA MÉTRICAS ANALÍTICAS */
-            <MailerMetricsDashboard onRefreshHistory={loadInitialData} />
+            <MailerMetricsDashboard athletes={athletes} onRefreshHistory={loadInitialData} />
           )}
         </div>
 

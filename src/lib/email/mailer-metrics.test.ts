@@ -1,259 +1,378 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
-  resolveDateRange,
-  fetchResendEmailMetrics,
-  getMailerMetricsReport,
-  getEmailEventTimeline,
-} from "./mailer-metrics.server";
-import { resetResendClientCache } from "./resend-client.server";
+  AUTOMATED_SCANNER_USER_AGENT_PATTERNS,
+  BURST_CLICK_DISTINCT_LINKS_THRESHOLD,
+  BURST_CLICK_WINDOW_SECONDS,
+  FAST_CLICK_THRESHOLD_SECONDS,
+  PRIVACY_PROXY_USER_AGENT_PATTERNS,
+  appendMailerUtmParams,
+  buildResendMailerTags,
+  computeCappedRate,
+  detectBurstClickEventIds,
+  extractTagsFromWebhookData,
+  isPrivacyProxyUserAgent,
+  isScannerUserAgent,
+  isStatelessAutomatedClick,
+  parseAttributionFromClickedUrl,
+  sanitizeResendTagValue,
+} from "./mailer-metrics-quality";
+import { getMailerMetricsSummary } from "./mailer-metrics.server";
 
-// Mock Supabase admin client
-const mockRecruitLogs = [
-  {
-    id: "log-1",
-    athlete_id: "ath-1",
-    coach_id: "c-1",
-    subject: "Player Prospect: Carolina Becker",
-    status: "sent",
-    error_message: null,
-    sent_at: "2026-09-25T14:30:00.000Z",
-    email_type: "athlete_teaser",
-    recipient_email: "coach.smith@stanford.edu",
-    recipient_name: "Coach Smith",
-    university_name: "Stanford University",
-    provider_id: "resend_email_123",
-  },
-  {
-    id: "log-2",
-    athlete_id: "ath-2",
-    coach_id: "c-2",
-    subject: "Dream Athletic Path - 2027 Roster",
-    status: "sent",
-    error_message: null,
-    sent_at: "2026-09-26T15:00:00.000Z",
-    email_type: "athlete_teaser_multi",
-    recipient_email: "coach.jones@ucla.edu",
-    recipient_name: "Coach Jones",
-    university_name: "UCLA",
-    provider_id: "resend_email_456",
-  },
-  {
-    id: "log-3",
-    athlete_id: null,
-    coach_id: "c-3",
-    subject: "International Soccer Prospects 2027",
-    status: "failed",
-    error_message: "Invalid domain address",
-    sent_at: "2026-09-27T10:00:00.000Z",
-    email_type: "catalog_general",
-    recipient_email: "invalid@bad-domain.xyz",
-    recipient_name: "Unknown Coach",
-    university_name: null,
-    provider_id: null,
-  },
-];
-
-const mockEmailEvents = [
-  {
-    id: "evt-1",
-    provider: "resend",
-    provider_event_id: "svix_evt_1",
-    provider_email_id: "resend_email_123",
-    event_type: "email.delivered",
-    recipient: "coach.smith@stanford.edu",
-    occurred_at: "2026-09-25T14:30:05.000Z",
-    payload: { from: "onboarding@resend.dev", subject: "Player Prospect" },
-    created_at: "2026-09-25T14:30:06.000Z",
-  },
-  {
-    id: "evt-2",
-    provider: "resend",
-    provider_event_id: "svix_evt_2",
-    provider_email_id: "resend_email_123",
-    event_type: "email.opened",
-    recipient: "coach.smith@stanford.edu",
-    occurred_at: "2026-09-25T14:45:00.000Z",
-    payload: { from: "onboarding@resend.dev" },
-    created_at: "2026-09-25T14:45:01.000Z",
-  },
-  {
-    id: "evt-3",
-    provider: "resend",
-    provider_event_id: "svix_evt_3",
-    provider_email_id: "resend_email_123",
-    event_type: "email.clicked",
-    recipient: "coach.smith@stanford.edu",
-    occurred_at: "2026-09-25T14:48:00.000Z",
-    payload: {
-      from: "onboarding@resend.dev",
-      click: { link: "https://dreamathleticpath.com/athlete/carolina-becker" },
-    },
-    created_at: "2026-09-25T14:48:01.000Z",
-  },
-  {
-    id: "evt-4",
-    provider: "resend",
-    provider_event_id: "svix_evt_4",
-    provider_email_id: "resend_email_789",
-    event_type: "email.bounced",
-    recipient: "bounce@test.com",
-    occurred_at: "2026-09-27T11:00:00.000Z",
-    payload: { bounce_type: "permanent" },
-    created_at: "2026-09-27T11:00:01.000Z",
-  },
-];
+const mockLogsData: Array<Record<string, unknown>> = [];
+const mockEventsData: Array<Record<string, unknown>> = [];
+let mockRpcResponse: { data: unknown; error: { message: string } | null } = {
+  data: null,
+  error: { message: "RPC not mocked" },
+};
 
 vi.mock("@/lib/supabase/clients.server", () => ({
   getAdminClient: () => ({
+    rpc: vi.fn((fnName: string) => {
+      if (fnName === "get_mailer_filter_options") {
+        return Promise.resolve({
+          data: { campaigns: [], athletes: [] },
+          error: null,
+        });
+      }
+      return Promise.resolve(mockRpcResponse);
+    }),
     from: (table: string) => {
-      if (table === "recruit_email_logs") {
-        return {
-          select: () => ({
-            gte: () => ({
-              lte: () => Promise.resolve({ data: mockRecruitLogs, error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === "email_events") {
-        return {
-          select: () => ({
-            gte: () => ({
-              lte: () => ({
-                order: () => ({
-                  limit: () => Promise.resolve({ data: mockEmailEvents, error: null }),
-                }),
-              }),
-            }),
-            or: () => ({
-              order: () => Promise.resolve({ data: mockEmailEvents.slice(0, 3), error: null }),
-            }),
-            eq: () => ({
-              order: () => Promise.resolve({ data: mockEmailEvents.slice(0, 3), error: null }),
-            }),
-            ilike: () => ({
-              order: () => Promise.resolve({ data: mockEmailEvents.slice(0, 3), error: null }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: () => Promise.resolve({ data: [], error: null }),
+      const source = table === "recruit_email_logs" ? mockLogsData : mockEventsData;
+      const chain: Record<string, unknown> = {};
+      let filtered = [...source];
+
+      chain.select = () => chain;
+      chain.gte = () => chain;
+      chain.eq = (col: string, val: unknown) => {
+        filtered = filtered.filter((r) => r[col] === val);
+        return chain;
       };
+      chain.order = () => Promise.resolve({ data: filtered, error: null });
+      chain.limit = () => Promise.resolve({ data: filtered, error: null });
+      return chain;
     },
   }),
 }));
 
-describe("Mailer Metrics & Reporting System", () => {
-  const originalEnv = process.env;
+vi.mock("./resend-client.server", () => ({
+  getResendConfig: () => ({
+    apiKey: "re_test_key",
+    from: "Go Team Go <contact@goteamgoagency.com>",
+    webhookSecret: "whsec_test",
+    isConfigured: true,
+  }),
+}));
 
+describe("Mailer Metrics Quality, Attribution & Aggregation", () => {
   beforeEach(() => {
-    process.env = { ...originalEnv };
-    resetResendClientCache();
-    vi.clearAllMocks();
+    mockLogsData.length = 0;
+    mockEventsData.length = 0;
+    mockRpcResponse = {
+      data: null,
+      error: { message: "Fallback to narrow query" },
+    };
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-    resetResendClientCache();
-  });
-
-  describe("resolveDateRange", () => {
-    it("correctly resolves 7d, 30d, and 90d periods", () => {
-      const r7 = resolveDateRange({ range: "7d" });
-      expect(r7.granularity).toBe("daily");
-      expect(new Date(r7.endDate).getTime()).toBeGreaterThan(new Date(r7.startDate).getTime());
-
-      const r30 = resolveDateRange({ range: "30d" });
-      expect(r30.granularity).toBe("daily");
-
-      const r90 = resolveDateRange({ range: "90d" });
-      expect(r90.granularity).toBe("daily");
+  describe("1. Named Quality Constants & Bot/Scanner Heuristics", () => {
+    it("exports exact threshold constants required for scanner and burst detection", () => {
+      expect(FAST_CLICK_THRESHOLD_SECONDS).toBe(10);
+      expect(BURST_CLICK_DISTINCT_LINKS_THRESHOLD).toBe(3);
+      expect(BURST_CLICK_WINDOW_SECONDS).toBe(5);
+      expect(AUTOMATED_SCANNER_USER_AGENT_PATTERNS.length).toBeGreaterThan(5);
+      expect(PRIVACY_PROXY_USER_AGENT_PATTERNS.length).toBe(3);
     });
 
-    it("correctly calculates custom date ranges with daily or hourly granularity", () => {
-      const start = "2026-09-01T00:00:00.000Z";
-      const end = "2026-09-02T00:00:00.000Z";
-      const rCustomHourly = resolveDateRange({
-        range: "custom",
-        startDate: start,
-        endDate: end,
+    it("flags clicks <= 10s after delivered/sent as stateless automated clicks", () => {
+      const deliveredAt = "2026-10-08T12:00:00.000Z";
+      const clickAt4s = "2026-10-08T12:00:04.000Z";
+      const clickAt10s = "2026-10-08T12:00:10.000Z";
+      const clickAt15s = "2026-10-08T12:00:15.000Z";
+
+      expect(
+        isStatelessAutomatedClick({
+          clickedAt: clickAt4s,
+          deliveredOrSentAt: deliveredAt,
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        }),
+      ).toBe(true);
+
+      expect(
+        isStatelessAutomatedClick({
+          clickedAt: clickAt10s,
+          deliveredOrSentAt: deliveredAt,
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        }),
+      ).toBe(true);
+
+      expect(
+        isStatelessAutomatedClick({
+          clickedAt: clickAt15s,
+          deliveredOrSentAt: deliveredAt,
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        }),
+      ).toBe(false);
+    });
+
+    it("flags known security scanner and headless user agents", () => {
+      expect(isScannerUserAgent("Barracuda Sentinel Link Scanner/1.2")).toBe(true);
+      expect(isScannerUserAgent("Mozilla/5.0 Proofpoint URL Defense")).toBe(true);
+      expect(isScannerUserAgent("Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/122.0")).toBe(true);
+      expect(isScannerUserAgent("python-requests/2.31.0")).toBe(true);
+      expect(
+        isScannerUserAgent(
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        ),
+      ).toBe(false);
+    });
+
+    it("detects privacy image proxies without falsely flagging standard macOS Safari User-Agent", () => {
+      // Google e Yahoo proxies são marcados
+      expect(
+        isPrivacyProxyUserAgent(
+          "Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)",
+        ),
+      ).toBe(true);
+      expect(isPrivacyProxyUserAgent("YahooMailProxy; https://help.yahoo.com")).toBe(true);
+
+      // Safari macOS padrão NÃO deve ser marcado como proxy (regra explícita aprovada)
+      expect(
+        isPrivacyProxyUserAgent(
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
+        ),
+      ).toBe(false);
+    });
+
+    it("detects burst clicks (>= 3 distinct links within <= 5s on the same provider_email_id)", () => {
+      const burstSamples = [
+        {
+          id: "c1",
+          providerEmailId: "msg-1",
+          clickedUrl: "https://portfolio.goteamgoagency.com/athlete/mariana-silva",
+          clickedAt: "2026-10-08T12:01:00.000Z",
+        },
+        {
+          id: "c2",
+          providerEmailId: "msg-1",
+          clickedUrl: "https://www.youtube.com/watch?v=123",
+          clickedAt: "2026-10-08T12:01:02.000Z",
+        },
+        {
+          id: "c3",
+          providerEmailId: "msg-1",
+          clickedUrl: "https://portfolio.goteamgoagency.com/feedback?athleteId=ath-1",
+          clickedAt: "2026-10-08T12:01:04.000Z",
+        },
+        // Clique humano isolado em outro e-mail
+        {
+          id: "c4",
+          providerEmailId: "msg-2",
+          clickedUrl: "https://portfolio.goteamgoagency.com/athlete/mariana-silva",
+          clickedAt: "2026-10-08T12:05:00.000Z",
+        },
+      ];
+
+      const flagged = detectBurstClickEventIds(burstSamples);
+      expect(flagged.has("c1")).toBe(true);
+      expect(flagged.has("c2")).toBe(true);
+      expect(flagged.has("c3")).toBe(true);
+      expect(flagged.has("c4")).toBe(false);
+    });
+  });
+
+  describe("2. Resend Tag Sanitization & UTM Link Instrumentation", () => {
+    it("sanitizes Resend tag values to ASCII alphanumeric, underscore and hyphen only", () => {
+      expect(sanitizeResendTagValue("athlete_teaser")).toBe("athlete_teaser");
+      expect(sanitizeResendTagValue("camp-123:test/value!@#")).toBe("camp-123_test_value_");
+      const tags = buildResendMailerTags({
+        campaignId: "550e8400-e29b-41d4-a716-446655440000",
+        emailType: "athlete_teaser",
+        athleteId: "110e8400-e29b-41d4-a716-446655440001",
       });
-      expect(rCustomHourly.granularity).toBe("hourly");
-      expect(rCustomHourly.startDate).toBe(new Date(start).toISOString());
-
-      const rCustomDaily = resolveDateRange({
-        range: "custom",
-        startDate: "2026-08-01T00:00:00.000Z",
-        endDate: "2026-08-20T00:00:00.000Z",
-      });
-      expect(rCustomDaily.granularity).toBe("daily");
+      expect(tags).toEqual([
+        { name: "email_type", value: "athlete_teaser" },
+        { name: "campaign_id", value: "550e8400-e29b-41d4-a716-446655440000" },
+        { name: "athlete_id", value: "110e8400-e29b-41d4-a716-446655440001" },
+      ]);
     });
-  });
 
-  describe("fetchResendEmailMetrics", () => {
-    it("returns error if Resend API key is not configured", async () => {
-      delete process.env.RESEND_API_KEY;
-      resetResendClientCache();
-
-      const res = await fetchResendEmailMetrics({
-        startDate: "2026-09-01T00:00:00.000Z",
-        endDate: "2026-09-30T00:00:00.000Z",
-        granularity: "daily",
+    it("extracts webhook tags from both Array<{name, value}> and Record<string, string>", () => {
+      expect(
+        extractTagsFromWebhookData([
+          { name: "campaign_id", value: "camp-1" },
+          { name: "email_type", value: "catalog_general" },
+        ]),
+      ).toEqual({
+        campaign_id: "camp-1",
+        email_type: "catalog_general",
       });
 
-      expect(res.data).toBeNull();
-      expect(res.error).toBeDefined();
+      expect(
+        extractTagsFromWebhookData({
+          campaign_id: "camp-2",
+          athlete_id: "ath-9",
+        }),
+      ).toEqual({
+        campaign_id: "camp-2",
+        athlete_id: "ath-9",
+      });
+    });
+
+    it("adds UTM parameters only to our domain links and preserves YouTube, feedback, and unsubscribe URLs", () => {
+      const profileWithUtm = appendMailerUtmParams(
+        "https://portfolio.goteamgoagency.com/athlete/mariana-silva",
+        {
+          campaignId: "camp-123",
+          content: "full_profile_mariana-silva",
+        },
+      );
+      expect(profileWithUtm).toContain("utm_source=gtg_mailer");
+      expect(profileWithUtm).toContain("utm_medium=email");
+      expect(profileWithUtm).toContain("utm_campaign=camp-123");
+      expect(profileWithUtm).toContain("utm_content=full_profile_mariana-silva");
+
+      // YouTube externo permanece intacto
+      const ytUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+      expect(
+        appendMailerUtmParams(ytUrl, {
+          campaignId: "camp-123",
+          content: "watch_film_mariana-silva",
+        }),
+      ).toBe(ytUrl);
+
+      // Links de feedback e unsubscribe permanecem intactos
+      const feedbackUrl =
+        "https://portfolio.goteamgoagency.com/feedback?sentiment=not_fit&athleteId=ath-1";
+      expect(
+        appendMailerUtmParams(feedbackUrl, {
+          campaignId: "camp-123",
+          content: "not_fit",
+        }),
+      ).toBe(feedbackUrl);
+
+      const parsed = parseAttributionFromClickedUrl(profileWithUtm);
+      expect(parsed.athleteSlug).toBe("mariana-silva");
+      expect(parsed.campaignId).toBe("camp-123");
+      expect(parsed.buttonType).toBe("full_profile");
     });
   });
 
-  describe("getMailerMetricsReport", () => {
-    it("falls back to local database aggregation when Resend API is unconfigured", async () => {
-      delete process.env.RESEND_API_KEY;
-      resetResendClientCache();
-
-      const report = await getMailerMetricsReport({ range: "30d" });
-
-      expect(report.dataSource).toBe("unavailable");
-      expect(report.totals.sent).toBe(3);
-      expect(report.totals.delivered).toBe(2);
-      expect(report.totals.failed).toBe(1);
-      expect(report.totals.delivery_rate).toBe(66.7);
-      expect(report.campaigns.length).toBe(3);
-      expect(report.deliveryProblems.length).toBeGreaterThan(0);
+  describe("3. Strict Campaign Attribution & Unique Capped Rates (<= 100%)", () => {
+    it("caps all percentage rates at 100% even when multiple opens/clicks occur per email", () => {
+      expect(computeCappedRate(5, 1)).toBe(100);
+      expect(computeCappedRate(1, 2)).toBe(50);
+      expect(computeCappedRate(0, 10)).toBe(0);
     });
 
-    it("produces correct campaign performance breakdown across modes", async () => {
-      const report = await getMailerMetricsReport({ range: "30d" });
+    it("attributes events strictly by provider_email_id (never mixing campaigns via recipient_email)", async () => {
+      const now = new Date().toISOString();
+      const campA = "550e8400-e29b-41d4-a716-446655440001";
 
-      const single = report.campaigns.find((c) => c.mode === "single_athlete");
-      expect(single).toBeDefined();
-      expect(single?.sent).toBe(1);
-      expect(single?.delivered).toBe(1);
+      // Log pertence à Campanha A (provider_id = re_camp_a)
+      mockLogsData.push({
+        id: "log-1",
+        campaign_id: campA,
+        athlete_id: "110e8400-e29b-41d4-a716-446655440000",
+        status: "sent",
+        email_type: "athlete_teaser",
+        sent_at: "2026-10-08T10:00:00.000Z",
+        recipient_email: "coach@stanford.edu",
+        recipient_name: "Coach Smith",
+        university_name: "Stanford",
+        provider_id: "re_camp_a",
+        subject: "Prospect A",
+      });
 
-      const multi = report.campaigns.find((c) => c.mode === "multi_athlete");
-      expect(multi).toBeDefined();
-      expect(multi?.sent).toBe(1);
+      mockEventsData.push(
+        // Entregue na Campanha A
+        {
+          id: "ev-1",
+          event_type: "email.delivered",
+          provider_email_id: "re_camp_a",
+          recipient_email: "coach@stanford.edu",
+          subject: "Prospect A",
+          occurred_at: "2026-10-08T10:00:02.000Z",
+          payload: {},
+        },
+        // 3 aberturas repetidas do mesmo e-mail na Campanha A (deve contar 1 única abertura, openRate = 100%, bruto = 3)
+        {
+          id: "ev-2",
+          event_type: "email.opened",
+          provider_email_id: "re_camp_a",
+          recipient_email: "coach@stanford.edu",
+          subject: "Prospect A",
+          occurred_at: "2026-10-08T10:05:00.000Z",
+          user_agent: "GoogleImageProxy",
+          payload: {},
+        },
+        {
+          id: "ev-3",
+          event_type: "email.opened",
+          provider_email_id: "re_camp_a",
+          recipient_email: "coach@stanford.edu",
+          subject: "Prospect A",
+          occurred_at: "2026-10-08T10:06:00.000Z",
+          payload: {},
+        },
+        // Clique de scanner (3s após entrega -> <= 10s, automatizado)
+        {
+          id: "ev-scanner",
+          event_type: "email.clicked",
+          provider_email_id: "re_camp_a",
+          recipient_email: "coach@stanford.edu",
+          subject: "Prospect A",
+          occurred_at: "2026-10-08T10:00:05.000Z",
+          clicked_at: "2026-10-08T10:00:05.000Z",
+          clicked_url: "https://portfolio.goteamgoagency.com/athlete/mariana-silva",
+          payload: {},
+        },
+        // Clique humano (10 minutos após entrega)
+        {
+          id: "ev-human",
+          event_type: "email.clicked",
+          provider_email_id: "re_camp_a",
+          recipient_email: "coach@stanford.edu",
+          subject: "Prospect A",
+          occurred_at: "2026-10-08T10:10:00.000Z",
+          clicked_at: "2026-10-08T10:10:00.000Z",
+          clicked_url: "https://portfolio.goteamgoagency.com/athlete/mariana-silva",
+          payload: {},
+        },
+        // Evento de OUTRA campanha (re_camp_b) para o MESMO coach@stanford.edu -> NÃO deve ser atribuído à Campanha A!
+        {
+          id: "ev-other-campaign",
+          event_type: "email.clicked",
+          provider_email_id: "re_camp_b",
+          recipient_email: "coach@stanford.edu",
+          subject: "Other Campaign",
+          occurred_at: now,
+          clicked_at: now,
+          clicked_url: "https://portfolio.goteamgoagency.com/athlete/other-athlete",
+          payload: {},
+        },
+      );
 
-      const catalog = report.campaigns.find((c) => c.mode === "catalog");
-      expect(catalog).toBeDefined();
-      expect(catalog?.sent).toBe(1);
-    });
-  });
+      const summary = await getMailerMetricsSummary({
+        days: 30,
+        campaignId: campA,
+      });
 
-  describe("getEmailEventTimeline", () => {
-    it("returns empty array when neither provider id nor email is given", async () => {
-      const timeline = await getEmailEventTimeline(null, null);
-      expect(timeline).toEqual([]);
-    });
+      expect(summary.totals.sent).toBe(1);
+      expect(summary.totals.delivered).toBe(1);
+      // Aberturas únicas = 1 (mesmo com 2 eventos de open), bruto = 2, proxy = 1
+      expect(summary.totals.opened).toBe(1);
+      expect(summary.totals.totalOpens).toBe(2);
+      expect(summary.totals.proxyOpens).toBe(1);
+      expect(summary.totals.openRate).toBe(100);
 
-    it("queries and formats timeline events for a given providerEmailId", async () => {
-      const timeline = await getEmailEventTimeline("resend_email_123", "coach.smith@stanford.edu");
-      expect(timeline.length).toBe(3);
-      expect(timeline[0].eventType).toBe("delivered");
-      expect(timeline[1].eventType).toBe("opened");
-      expect(timeline[2].eventType).toBe("clicked");
-      expect(timeline[2].clickedLink).toContain("carolina-becker");
+      // Cliques humanos únicos = 1, automatizados filtrados = 1, e o clique da outra campanha (re_camp_b) foi ignorado
+      expect(summary.totals.clicked).toBe(1);
+      expect(summary.totals.automatedClicks).toBe(1);
+      expect(summary.totals.totalClicks).toBe(2);
+      expect(summary.totals.clickRate).toBe(100);
+      expect(summary.totals.clickToOpenRate).toBe(100);
+      expect(summary.engagedCoaches).toHaveLength(1);
+      expect(summary.engagedCoaches[0]?.coach_email).toBe("coach@stanford.edu");
+      expect(summary.engagedCoaches[0]?.unique_human_clicks).toBe(1);
     });
   });
 });

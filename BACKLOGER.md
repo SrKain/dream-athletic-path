@@ -725,7 +725,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   9. Diagnóstico de Problemas de Entrega (Bounces, Delays, Complaints).
   10. Detalhamento e timeline de eventos individuais no histórico de e-mails.
 - **Planejamento:** Registrado no arquivo `think/2026-10-01-mailer-metrics-and-reporting.md`.
-- **Status:** `[PENDENTE]` (Aguardando aprovação humana explícita)
+- **Status:** `[CONCLUÍDO]` (Entregue e aprimorado integralmente na TASK-087)
 
 ## TASK-080 — 2026-10-01 19:21 — Reversão de commits após o último estado correto
 
@@ -821,5 +821,49 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Plano:** `think/2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md`.
 - **Status:** [CONCLUÍDO]
 
+---
 
+## TASK-087 — 2026-10-08 04:04 — Métricas de Abertura e Clique do Mailer: Captura Confiável, Atribuição Correta e Relatórios Acionáveis
 
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:**
+  1. Corrigir os 9 problemas confirmados no código do Mailer e Webhook do Resend:
+     - `resend-webhook.server.ts`: checar `error` no `upsert` de `email_events`, logar e responder HTTP 5xx (`500`) em falha de banco para que o Resend reenvie.
+     - `verifyResendWebhookSignature`: falhar fechado (`401` + log) em produção (`VERCEL_ENV=production`) quando `RESEND_WEBHOOK_SECRET` não estiver configurado; permissivo apenas em dev/test.
+     - Persistir `tags` e sanitizar `click` gravando apenas `link`, `timestamp` e `userAgent` (nunca `ipAddress`, além de remover `ipAddress` existentes no backfill da migration 0022).
+     - Tratar `email.failed`, `email.suppressed`, `email.delivery_delayed` e gravar eventos futuros desconhecidos sem quebrar.
+     - `mailer-metrics.server.ts`: calcular `delivered` usando eventos `email.delivered` distintos por `provider_email_id` (e não logs `status='sent'`).
+     - Atribuir eventos exclusivamente por `provider_email_id` / `campaign_id` (removendo o `OR recipient_email` que misturava campanhas).
+     - Eliminar `.limit(200)` em `email_events` e `.select("*")` em `recruit_email_logs`, substituindo por agregação em SQL via RPCs protegidas para `service_role` (`get_mailer_filter_options` e `get_mailer_dashboard_metrics`).
+     - Calcular taxas com contagem única limitada a `100%` e exibir contagens brutas como dado secundário.
+     - Em `recruit-email.server.ts` (`sendMailerEmails` e `sendRecruitEmailToCoaches`), criar campanha em `mailer_campaigns`, enviar `tags` sanitizadas em `batch.send` e `emails.send`, persistir `campaign_id` e todos os `athlete_ids` no modo multi-atleta e checar `error` nos inserts de `recruit_email_logs`.
+  2. Qualidade de métricas: filtrar cliques de scanners/bots (<= 10s após entrega/envio, user-agent de scanner e burst de >= 3 links distintos em <= 5s via window function na RPC) e sinalizar aberturas de proxies (`GoogleImageProxy`, `ggpht.com`, `YahooMailProxy`) sem classificar o UA padrão do Safari macOS como proxy.
+  3. Reestruturar `src/components/mailer-metrics-dashboard.tsx` com filtros globais (Período, Campanha, Atleta, Divisão oficial `LEAGUES`), 6 cards KPI, tabela de **Engaged Coaches / Hot Leads** com **Export CSV**, **Athlete Interest**, **Campaigns Breakdown** e **Live Webhook Feed**.
+- **Entrega:**
+  - Plano revisado salvo em `think/2026-10-08-mailer-open-click-metrics-overhaul.md` com todos os 7 ajustes aprovados pelo usuário.
+  - Migration `db/migrations/0022_mailer_campaigns_and_metrics_rpc.sql` criada (aditiva, idempotente, com backfill e remoção de `ipAddress`, e RPCs `get_mailer_filter_options` e `get_mailer_dashboard_metrics` exclusivas para `service_role`).
+  - Criado `src/lib/email/mailer-metrics-quality.ts` com constantes nomeadas e funções puras de detecção de bots/scanners, proxies, sanitização de tags e instrumentação UTM.
+  - Atualizados `src/lib/email/resend-webhook.server.ts`, `src/server.ts`, `src/lib/email/recruit-email.ts`, `src/lib/email/recruit-email-template.ts`, `src/lib/email/recruit-email-catalog-template.ts`, `src/lib/email/recruit-email.server.ts`, `src/lib/email/mailer-metrics.server.ts`, `src/components/mailer-metrics-dashboard.tsx` e `src/types/db.ts`.
+  - Suítes de testes unitários criadas/atualizadas em `src/lib/email/mailer-metrics.test.ts`, `src/lib/email/resend-webhook.test.ts` e `src/lib/email/recruit-email-send.test.ts`.
+  - `package.json` e `bun.lock` mantidos 100% intactos.
+- **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-088 — 2026-10-08 04:34 — Revisão Completa de Contexto, Governança, Arquitetura e Diagnóstico de Saúde
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:** "Reveja seu contexto" — Leitura mandatória e assimilação completa dos documentos de governança (`README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/`), verificação de integridade do ambiente e diagnóstico do estado atual do código.
+- **Diagnóstico / Entrega:**
+  - Leitura integral realizada de `README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md`, planos em `think/` (especialmente `2026-10-07-1435-correcao-definitiva-bun-lock-e-cache-vercel.md` e `2026-10-08-mailer-open-click-metrics-overhaul.md`).
+  - Governança respeitada: stack baseada em TanStack Start + Vite + TypeScript, Bun exclusivo como package manager, Supabase externo, Resend oficial, regras estritas de UI/UX mobile-first.
+  - Causa raiz do erro da aplicação que estava quebrada: `src/lib/email/resend-webhook.server.ts` importava `@/lib/supabase/admin` inexistente; como `src/server.ts` o importa diretamente, o servidor sofria crash 500 no carregamento SSR de qualquer rota.
+  - Correção executada após aprovação humana:
+    1. `resend-webhook.server.ts`: import corrigido para `@/lib/supabase/clients.server`; normalizado parâmetro `headers` para suportar kebab-case e camelCase; compatibilidade retroativa restabelecida com export `ResendWebhookEventPayload` e campos no resultado.
+    2. `mailer-metrics-dashboard.tsx`: envolvido `<Flame />` em `<span title="...">` resolvendo TS2322.
+    3. `resend-webhook.test.ts` e `resend-email.test.ts`: removido mock global conflitante de `resend-client.server`, corrigidas cadeias mockadas de `email_events`/`recruit_email_logs` e asserções de webhook.
+    4. `recruit-email-send.test.ts`: mock genérico encadeável resolvendo `athlete_videos` e `achievements`.
+  - Validações: `bun run typecheck` (0 erros), `bun run lint` (0 erros), `bun run test` (153 testes passando em 21 suítes), `compile_applet` (sucesso), servidor restabelecido respondendo `HTTP 200 OK`.
+- **Status:** `[CONCLUÍDO]`

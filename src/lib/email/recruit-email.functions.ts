@@ -72,8 +72,15 @@ export const getMailerHistoryServerFn = createServerFn({ method: "GET" })
 export const getMailerMetricsServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator(
-    (data?: { range?: "7d" | "30d" | "90d" | "custom"; startDate?: string; endDate?: string }) =>
-      data,
+    (data?: {
+      days?: number;
+      range?: "7d" | "30d" | "90d" | "all" | "custom";
+      campaignId?: string;
+      athleteId?: string;
+      division?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => data,
   )
   .handler(async ({ data }) => {
     const { getMailerMetricsReport } = await import("./mailer-metrics.server");

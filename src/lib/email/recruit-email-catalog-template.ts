@@ -13,6 +13,7 @@ export interface CatalogEmailData {
   coachId?: string | null;
   logoUrl?: string | null;
   heroBackgroundUrl?: string | null;
+  campaignId?: string | null;
 }
 
 export function generateCatalogPlainText(data: CatalogEmailData): string {
@@ -59,6 +60,7 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
     introductionText: intro,
     agencyLogoUrl: data.logoUrl || undefined,
     appUrl: EMAIL_BASE_URL,
+    campaignId: data.campaignId,
   });
 
   const subject = data.customHeadline?.trim() ? data.customHeadline.trim() : result.subject;

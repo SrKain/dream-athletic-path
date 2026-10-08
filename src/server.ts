@@ -133,7 +133,14 @@ export default {
           headers[key] = value;
         });
         const result = await processResendWebhook(rawBody, headers);
-        const status = result.type === "Unauthorized" ? 401 : 200;
+        const status =
+          result.type === "Unauthorized"
+            ? 401
+            : result.type === "InvalidJson"
+              ? 400
+              : result.dbError
+                ? 500
+                : 200;
         return new Response(JSON.stringify(result), {
           status,
           headers: {

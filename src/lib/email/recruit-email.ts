@@ -1,5 +1,6 @@
 import { cmToFeetAndInches, formatGpa } from "@/lib/units";
 import { EMAIL_ASSETS, EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./email-brand";
+import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import {
   escapeHtml,
   renderBottomBar,
@@ -42,6 +43,7 @@ export interface RecruitEmailRenderOptions {
   athlete?: RecruitEmailAthlete;
   appUrl?: string;
   unsubscribeToken?: string;
+  campaignId?: string | null;
 }
 
 /**
@@ -153,14 +155,26 @@ export function renderAthleteCard(
     coachName?: string;
     coachEmail?: string;
     feedbackToken?: string;
+    campaignId?: string | null;
   } = {},
 ): string {
   const baseUrl = options.appUrl || EMAIL_BASE_URL;
-  const profileUrl = athlete.profileUrl || `${baseUrl}/athlete/${encodeURIComponent(athlete.slug)}`;
-  const videoUrl =
+  const rawProfileUrl =
+    athlete.profileUrl || `${baseUrl}/athlete/${encodeURIComponent(athlete.slug)}`;
+  const profileUrl = appendMailerUtmParams(rawProfileUrl, {
+    appUrl: baseUrl,
+    campaignId: options.campaignId,
+    content: `full_profile_${athlete.slug}`,
+  });
+  const rawVideoUrl =
     athlete.highlightVideoUrl && athlete.highlightVideoUrl.trim()
       ? athlete.highlightVideoUrl.trim()
-      : profileUrl;
+      : rawProfileUrl;
+  const videoUrl = appendMailerUtmParams(rawVideoUrl, {
+    appUrl: baseUrl,
+    campaignId: options.campaignId,
+    content: `watch_film_${athlete.slug}`,
+  });
   const interestedMailto = buildInterestedMailtoUrl(athlete, options.coachName);
   const notAFitUrl = buildNotAFitUrl(athlete.id, options);
 
@@ -369,6 +383,7 @@ export function renderSingleAthleteRecruitEmail(options: RecruitEmailRenderOptio
     coachName,
     coachEmail: options.coachEmail,
     feedbackToken: options.feedbackToken,
+    campaignId: options.campaignId,
   });
 
   const bodyContentHtml = `
@@ -469,6 +484,7 @@ export function renderMultiAthleteRecruitEmail(options: RecruitEmailRenderOption
         coachName,
         coachEmail: options.coachEmail,
         feedbackToken: options.feedbackToken,
+        campaignId: options.campaignId,
       }),
     )
     .join("");
@@ -553,6 +569,11 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
     ? options.greetingText
     : `Hi ${coachGreeting}, explore our full active ${sport} recruiting portfolio:`;
 
+  const portfolioCatalogUrl = appendMailerUtmParams(baseUrl, {
+    appUrl: baseUrl,
+    campaignId: options.campaignId,
+    content: "view_portfolio_catalog",
+  });
   const requestByPositionMailto = `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent("[Go Team Go] Position Roster Inquiry")}&body=${encodeURIComponent(`Hi ${EMAIL_SIGNATURE.name},\n\nI am looking for prospects in the following positions for our program:\n- Position(s):\n- Class Year:\n\nBest regards,\n${coachGreeting}`)}`;
 
   const quickActionsHtml = `
@@ -565,7 +586,7 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td>
-                <a href="${escapeHtml(baseUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 20px; background-color: ${EMAIL_COLORS.goldPrimary}; color: ${EMAIL_COLORS.darkGreenPrimary}; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-right: 8px; margin-bottom: 6px; box-sizing: border-box;">
+                <a href="${escapeHtml(portfolioCatalogUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 20px; background-color: ${EMAIL_COLORS.goldPrimary}; color: ${EMAIL_COLORS.darkGreenPrimary}; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-right: 8px; margin-bottom: 6px; box-sizing: border-box;">
                   VIEW FULL PORTFOLIO →
                 </a>
                 <a href="${escapeHtml(requestByPositionMailto)}" class="btn-action" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 18px; background-color: ${EMAIL_COLORS.darkGreenPrimary}; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-bottom: 6px; box-sizing: border-box;">

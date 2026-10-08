@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
 import {
@@ -6,6 +7,7 @@ import {
   type RecruitEmailData,
 } from "./recruit-email-template";
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
+import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 
 export interface MailerRecipient {
@@ -19,6 +21,8 @@ export interface SendMailerInput {
   mode: "single_athlete" | "multi_athlete" | "catalog";
   athleteIds?: string[];
   recipients: MailerRecipient[];
+  createdBy?: string | null;
+  filters?: Record<string, unknown>;
   customOptions?: {
     greeting?: string;
     introduction?: string;
@@ -34,6 +38,7 @@ export interface SendMailerInput {
 
 export interface SendMailerResult {
   success: boolean;
+  campaignId?: string;
   totalSent: number;
   totalFailed: number;
   totalSuppressed: number;
@@ -49,6 +54,46 @@ export interface CoachInterestSignalInput {
   athleteName?: string | null;
   position?: string | null;
   notes?: string | null;
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function filterValidUuids(ids: string[]): string[] {
+  return ids.map((id) => id.trim()).filter((id) => UUID_REGEX.test(id));
+}
+
+/**
+ * Insere linhas em `recruit_email_logs` verificando `error` explicitamente.
+ * Caso o banco ainda não possua as colunas novas da migration 0022 (`campaign_id`, `athlete_ids`),
+ * realiza fallback gracioso sem as duas colunas para nunca perder o `provider_id`.
+ */
+async function insertRecruitEmailLogsSafe(
+  admin: ReturnType<typeof getAdminClient>,
+  rows: Array<Record<string, unknown>>,
+): Promise<void> {
+  if (!rows || rows.length === 0) return;
+
+  const res = await admin.from("recruit_email_logs").insert(rows);
+  if (!res?.error) return;
+
+  console.error("[recruit-email] Error inserting into recruit_email_logs:", res.error.message);
+
+  // Se falhou por coluna inexistente (migration 0022 pendente no ambiente), tenta salvar sem campaign_id/athlete_ids
+  if (res.error.message.includes("campaign_id") || res.error.message.includes("athlete_ids")) {
+    const fallbackRows = rows.map((row) => {
+      const copy = { ...row };
+      delete copy.campaign_id;
+      delete copy.athlete_ids;
+      return copy;
+    });
+    const retryRes = await admin.from("recruit_email_logs").insert(fallbackRows);
+    if (retryRes?.error) {
+      console.error(
+        "[recruit-email] Fallback insert into recruit_email_logs also failed:",
+        retryRes.error.message,
+      );
+    }
+  }
 }
 
 // Obter Set de e-mails suprimidos (em caixa baixa) considerando expiração
@@ -150,7 +195,9 @@ export async function getActiveCoachInterestSignals(): Promise<CoachInterestSign
 
   const { data, error } = await admin
     .from("coach_interest_signals")
-    .select("*")
+    .select(
+      "id, coach_id, coach_email, reason, athlete_id, athlete_name, position, notes, created_at, expires_at",
+    )
     .gt("expires_at", now)
     .order("created_at", { ascending: false });
 
@@ -178,7 +225,13 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
   }
 
   const [profileRes, sportRes, posRes, countryRes, videoRes, achievementRes] = await Promise.all([
-    admin.from("athlete_profiles").select("*").eq("athlete_id", athleteId).maybeSingle(),
+    admin
+      .from("athlete_profiles")
+      .select(
+        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url",
+      )
+      .eq("athlete_id", athleteId)
+      .maybeSingle(),
     athlete.sport_id
       ? admin.from("sports").select("name_en").eq("id", athlete.sport_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -240,7 +293,15 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
 }
 
 export async function sendMailerEmails(input: SendMailerInput): Promise<SendMailerResult> {
-  const { mode, athleteIds = [], recipients = [], customOptions, catalogOptions } = input;
+  const {
+    mode,
+    athleteIds = [],
+    recipients = [],
+    createdBy = null,
+    filters = {},
+    customOptions,
+    catalogOptions,
+  } = input;
 
   if (recipients.length === 0) {
     return {
@@ -251,6 +312,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       message: "No recipients selected.",
     };
   }
+
+  const campaignId = crypto.randomUUID();
+  const validUuidAthleteIds = filterValidUuids(athleteIds);
 
   const admin = getAdminClient();
   const [suppressedSet, visualRes] = await Promise.all([
@@ -279,26 +343,17 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     }
   }
 
-  // Registrar imediatamente logs de supressão
+  // Registrar imediatamente logs de supressão (checando erro)
   if (suppressedRecipients.length > 0) {
     const now = new Date().toISOString();
-    const suppressedLogs: Array<{
-      athlete_id: string | null;
-      coach_id: string | null;
-      subject: string;
-      status: "suppressed";
-      error_message: string;
-      sent_at: string;
-      email_type: "catalog_general" | "athlete_teaser_multi" | "athlete_teaser";
-      recipient_email: string;
-      recipient_name: string;
-      university_name: string | null;
-    }> = [];
+    const suppressedLogs: Array<Record<string, unknown>> = [];
 
     for (const rec of suppressedRecipients) {
       if (mode === "catalog" || athleteIds.length === 0) {
         suppressedLogs.push({
+          campaign_id: campaignId,
           athlete_id: null,
+          athlete_ids: [],
           coach_id: rec.coachId ?? null,
           subject: "[Catalog] Go Team Go Scouting Showcase",
           status: "suppressed",
@@ -311,7 +366,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         });
       } else if (mode === "multi_athlete") {
         suppressedLogs.push({
+          campaign_id: campaignId,
           athlete_id: athleteIds[0] ?? null,
+          athlete_ids: validUuidAthleteIds,
           coach_id: rec.coachId ?? null,
           subject: `[Multi-Athlete] Showcase with ${athleteIds.length} athletes`,
           status: "suppressed",
@@ -325,7 +382,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       } else {
         for (const athId of athleteIds) {
           suppressedLogs.push({
+            campaign_id: campaignId,
             athlete_id: athId,
+            athlete_ids: UUID_REGEX.test(athId) ? [athId] : [],
             coach_id: rec.coachId ?? null,
             subject: "[Prospect] Teaser Email",
             status: "suppressed",
@@ -340,12 +399,13 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       }
     }
 
-    await admin.from("recruit_email_logs").insert(suppressedLogs);
+    await insertRecruitEmailLogsSafe(admin, suppressedLogs);
   }
 
   if (activeRecipients.length === 0) {
     return {
       success: false,
+      campaignId,
       totalSent: 0,
       totalFailed: 0,
       totalSuppressed: suppressedRecipients.length,
@@ -362,6 +422,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     console.error("[recruit-email] Resend not configured or missing RESEND_API_KEY.");
     return {
       success: false,
+      campaignId,
       totalSent: 0,
       totalFailed: 0,
       totalSuppressed: suppressedRecipients.length,
@@ -376,11 +437,13 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     html: string;
     text: string;
     athleteId: string | null;
+    athleteIds: string[];
     coachId: string | null;
     recipientEmail: string;
     recipientName: string;
     universityName: string | null;
     emailType: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
+    tags: ResendTag[];
   };
 
   const messagesToSend: PreparedMessage[] = [];
@@ -403,6 +466,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         coachId: rec.coachId,
         logoUrl,
         heroBackgroundUrl,
+        campaignId,
       });
 
       messagesToSend.push({
@@ -411,11 +475,16 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         html,
         text,
         athleteId: null,
+        athleteIds: [],
         coachId: rec.coachId ?? null,
         recipientEmail: rec.email,
         recipientName: rec.name,
         universityName: rec.universityName ?? null,
         emailType: "catalog_general",
+        tags: buildResendMailerTags({
+          campaignId,
+          emailType: "catalog_general",
+        }),
       });
     }
   } else if (mode === "multi_athlete") {
@@ -424,6 +493,10 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       const emailData = await loadAthleteEmailData(athId);
       if (emailData) loadedAthletes.push(emailData);
     }
+
+    const loadedAthleteIds = filterValidUuids(
+      loadedAthletes.map((a) => a.athleteId).filter((id): id is string => Boolean(id)),
+    );
 
     if (loadedAthletes.length > 0) {
       for (const rec of activeRecipients) {
@@ -438,6 +511,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           customHook: customOptions?.hook,
           logoUrl,
           heroBackgroundUrl,
+          campaignId,
         });
 
         messagesToSend.push({
@@ -446,11 +520,16 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           html,
           text,
           athleteId: loadedAthletes[0]?.athleteId ?? null,
+          athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
           coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
           recipientName: rec.name,
           universityName: rec.universityName ?? null,
           emailType: "athlete_teaser_multi",
+          tags: buildResendMailerTags({
+            campaignId,
+            emailType: "athlete_teaser_multi",
+          }),
         });
       }
     }
@@ -472,6 +551,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           customHook: customOptions?.hook,
           logoUrl,
           heroBackgroundUrl,
+          campaignId,
         });
 
         messagesToSend.push({
@@ -480,14 +560,46 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           html,
           text,
           athleteId: athId,
+          athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
           coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
           recipientName: rec.name,
           universityName: rec.universityName ?? null,
           emailType: "athlete_teaser",
+          tags: buildResendMailerTags({
+            campaignId,
+            emailType: "athlete_teaser",
+            athleteId: athId,
+          }),
         });
       }
     }
+  }
+
+  // Registrar a campanha em `mailer_campaigns` antes do disparo
+  const campaignSubject =
+    messagesToSend[0]?.subject ||
+    (mode === "catalog"
+      ? "Go Team Go — Active US College Recruiting Portfolio"
+      : mode === "multi_athlete"
+        ? `Multi-Athlete Showcase (${athleteIds.length} athletes)`
+        : "Prospect Spotlight");
+
+  const campaignInsertRes = await admin.from("mailer_campaigns").insert({
+    id: campaignId,
+    created_by: createdBy,
+    mode,
+    subject: campaignSubject,
+    athlete_ids: validUuidAthleteIds,
+    recipients_count: activeRecipients.length,
+    filters: filters ?? {},
+  });
+
+  if (campaignInsertRes?.error) {
+    console.error(
+      "[recruit-email] Error inserting mailer_campaigns:",
+      campaignInsertRes.error.message,
+    );
   }
 
   let totalSent = 0;
@@ -506,6 +618,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       subject: item.subject,
       html: item.html,
       text: item.text,
+      tags: item.tags,
     }));
 
     try {
@@ -517,13 +630,15 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
       const responseList = batchResult.data?.data || [];
 
-      // Mapear logs individuais de envio
+      // Mapear logs individuais de envio com campaign_id e athlete_ids completos
       const insertLogs = chunk.map((item, idx) => {
         const resendId = responseList[idx]?.id;
         totalSent++;
 
         return {
+          campaign_id: campaignId,
           athlete_id: item.athleteId,
+          athlete_ids: item.athleteIds,
           coach_id: item.coachId,
           subject: item.subject,
           status: "sent" as const,
@@ -537,7 +652,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         };
       });
 
-      await admin.from("recruit_email_logs").insert(insertLogs);
+      await insertRecruitEmailLogsSafe(admin, insertLogs);
     } catch (batchErr) {
       // Fallback para envio individual se o lote inteiro falhar
       const batchErrorMsg = batchErr instanceof Error ? batchErr.message : "Batch send failed";
@@ -553,6 +668,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             subject: item.subject,
             html: item.html,
             text: item.text,
+            tags: item.tags,
           });
 
           if (singleRes.error) {
@@ -560,37 +676,45 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           }
 
           totalSent++;
-          await admin.from("recruit_email_logs").insert({
-            athlete_id: item.athleteId,
-            coach_id: item.coachId,
-            subject: item.subject,
-            status: "sent",
-            error_message: null,
-            sent_at: now,
-            email_type: item.emailType,
-            recipient_email: item.recipientEmail,
-            recipient_name: item.recipientName,
-            university_name: item.universityName,
-            provider_id: singleRes.data?.id ?? null,
-          });
+          await insertRecruitEmailLogsSafe(admin, [
+            {
+              campaign_id: campaignId,
+              athlete_id: item.athleteId,
+              athlete_ids: item.athleteIds,
+              coach_id: item.coachId,
+              subject: item.subject,
+              status: "sent",
+              error_message: null,
+              sent_at: now,
+              email_type: item.emailType,
+              recipient_email: item.recipientEmail,
+              recipient_name: item.recipientName,
+              university_name: item.universityName,
+              provider_id: singleRes.data?.id ?? null,
+            },
+          ]);
         } catch (individualErr) {
           totalFailed++;
           const errText = individualErr instanceof Error ? individualErr.message : "Send failed";
           console.error(`[recruit-email] Failed to send email to ${item.to}:`, errText);
           errors.push(errText);
 
-          await admin.from("recruit_email_logs").insert({
-            athlete_id: item.athleteId,
-            coach_id: item.coachId,
-            subject: item.subject,
-            status: "failed",
-            error_message: errText,
-            sent_at: now,
-            email_type: item.emailType,
-            recipient_email: item.recipientEmail,
-            recipient_name: item.recipientName,
-            university_name: item.universityName,
-          });
+          await insertRecruitEmailLogsSafe(admin, [
+            {
+              campaign_id: campaignId,
+              athlete_id: item.athleteId,
+              athlete_ids: item.athleteIds,
+              coach_id: item.coachId,
+              subject: item.subject,
+              status: "failed",
+              error_message: errText,
+              sent_at: now,
+              email_type: item.emailType,
+              recipient_email: item.recipientEmail,
+              recipient_name: item.recipientName,
+              university_name: item.universityName,
+            },
+          ]);
         }
       }
     }
@@ -598,6 +722,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
   return {
     success: totalSent > 0,
+    campaignId,
     totalSent,
     totalFailed,
     totalSuppressed: suppressedRecipients.length,
@@ -605,22 +730,32 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   };
 }
 
-// Retrocompatibilidade para o método anterior caso algum código ainda chame
+// Função legada (singular) utilizada pelo modal SendRecruitEmailDialog na página do atleta:
+// delega integralmente para sendMailerEmails, criando campanha, enviando tags, gravando campaign_id/athlete_ids e checando erros.
 export async function sendRecruitEmailToCoaches(input: {
   athleteId: string;
   coachIds: string[];
+  createdBy?: string | null;
 }): Promise<{
   success: boolean;
+  campaignId?: string;
   totalSent: number;
   totalFailed: number;
   message?: string;
   errors?: string[];
 }> {
   const admin = getAdminClient();
-  const { data: coaches } = await admin
+  const { data: coaches, error: coachesErr } = await admin
     .from("coaches")
     .select("id, name, email, institution")
     .in("id", input.coachIds);
+
+  if (coachesErr) {
+    console.error(
+      "[recruit-email] Error loading coaches in sendRecruitEmailToCoaches:",
+      coachesErr.message,
+    );
+  }
 
   const recipients: MailerRecipient[] = (coaches || []).map((c) => ({
     coachId: c.id,
@@ -633,10 +768,13 @@ export async function sendRecruitEmailToCoaches(input: {
     mode: "single_athlete",
     athleteIds: [input.athleteId],
     recipients,
+    createdBy: input.createdBy ?? null,
+    filters: { source: "athlete_profile_dialog", coachCount: recipients.length },
   });
 
   return {
     success: res.success,
+    campaignId: res.campaignId,
     totalSent: res.totalSent,
     totalFailed: res.totalFailed,
     message: res.message,

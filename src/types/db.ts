@@ -462,15 +462,32 @@ export interface CoachInterestSignal {
   expires_at: string;
 }
 
+export type MailerCampaignMode = "single_athlete" | "multi_athlete" | "catalog";
+
+export interface MailerCampaign {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  mode: MailerCampaignMode;
+  subject: string;
+  athlete_ids: string[];
+  recipients_count: number;
+  filters: Record<string, unknown>;
+}
+
 export interface RecruitEmailLog {
   id: string;
+  campaign_id?: string | null;
   athlete_id: string | null;
+  athlete_ids?: string[];
   coach_id: string | null;
+  university_id?: string | null;
+  coach_role?: string | null;
   subject: string;
   status: "sent" | "failed" | "suppressed";
   error_message: string | null;
   sent_at: string;
-  email_type?: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
+  email_type?: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general" | "catalog";
   recipient_email?: string | null;
   recipient_name?: string | null;
   university_name?: string | null;
@@ -492,11 +509,20 @@ export type EmailEventType =
 
 export interface EmailEvent {
   id: string;
-  provider: string;
-  provider_event_id: string;
-  provider_email_id: string;
+  svix_id?: string | null;
+  provider?: string;
+  provider_event_id?: string;
+  provider_email_id: string | null;
   event_type: EmailEventType;
-  recipient: string;
+  recipient?: string;
+  recipient_email?: string;
+  subject?: string | null;
+  campaign_id?: string | null;
+  athlete_id?: string | null;
+  clicked_url?: string | null;
+  clicked_at?: string | null;
+  user_agent?: string | null;
+  is_probable_automated?: boolean;
   occurred_at: string;
   payload: Record<string, unknown>;
   created_at: string;
