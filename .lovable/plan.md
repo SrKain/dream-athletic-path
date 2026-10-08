@@ -1,41 +1,104 @@
-# Finalizar o painel de métricas do Mailer (Resend)
+# Correção da build + Reestruturação do Mailer (Individual e Multi-Athlete)
 
-## Contexto
-O README e o `think/` foram lidos. A base do painel existe no histórico (commit `dc9ad3f`): `mailer-metrics-dashboard.tsx` com gráfico de área, `mailer-metrics.server.ts`, testes e a migração `0021_email_events_and_mailer_metrics.sql`. **Esses arquivos não estão na versão atual do projeto aqui.** As dependências deles também não estão: a tabela `recruit_email_logs`, `resend-client.server.ts`, as migrações 0016 a 0020 e a própria aba Mailer. Isso indica que o seu repositório local está à frente deste.
+## Parte 1: correção da build (prioridade)
 
-**Primeiro passo obrigatório:** envie (push) a versão local mais recente para o GitHub, para que eu trabalhe sobre o código real. Sem isso, a implementação recriaria arquivos que você já tem.
+**O que aconteceu:** o envio automático "Update plan" (commit `7fc4994`) mesclou o seu último commit `eeee6a0` com uma versão antiga do projeto e manteve o lado antigo. Com isso, mais de 100 arquivos foram apagados ou revertidos, entre eles:
+- a aba Mailer e a tela de coaches;
+- o envio de recrutamento, o webhook do Resend e as métricas;
+- unsubscribe e feedback;
+- as migrações 0016 a 0023;
+- os assets de e-mail;
+- o `package.json` e o `bun.lock`;
+- o `CERNE.md`, o `BACKLOGER.md`, o `README.md` e os planos do `think/`.
 
-## Objetivo
-Painel na aba Mailer com dados reais do Resend, recebidos em tempo real (webhooks):
-1. **Volume por dia:** enviados, entregues, abertos, clicados, devolvidos (bounce) e reclamações, em um gráfico de área com filtro de 7, 30 ou 90 dias.
-2. **Taxas:** cartões com entrega %, abertura %, clique %, bounce % e reclamação %, com a variação em relação ao período anterior.
+**Correção:**
+1. Restaurar todos os arquivos exatamente como estão em `eeee6a0`, que é o seu último commit válido. Isso inclui o `package.json` e o `bun.lock`, que já trazem o patch de segurança do TanStack.
+2. Manter apenas o `.lovable/plan.md`.
+3. Comparar o resultado com o log da Vercel que você vai mandar e corrigir algum erro residual, se houver.
+4. Validar com `bun run validate`, `bun run typecheck`, `bun run lint`, `bun run test` e `bun run build`.
 
-## O que o Resend disponibiliza
-Eventos por webhook: `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained` e `email.failed`. Cada evento traz o id do e-mail, o destinatário, a data e, nos cliques, o link clicado. O Resend não oferece uma API pública de métricas agregadas. A chamada `client.emails.metrics` usada no rascunho será verificada contra a documentação oficial e removida se não existir. Os números serão calculados a partir dos eventos guardados.
+Nada de código novo entra antes de a build estar verde.
 
-## Etapas
-1. **Recebimento de eventos:** rota pública `/api/public/resend/webhook` que verifica a assinatura (Svix, `RESEND_WEBHOOK_SECRET`) antes de gravar. A inserção é idempotente em `email_events`, pela chave `provider_event_id`.
-2. **Banco:** revisar e aplicar a migração `0021`, adicionando os `GRANT`s que faltam. Criar a função SQL `mailer_daily_metrics(start, end)`, que agrega os eventos por dia e por tipo.
-3. **Server function `getMailerMetrics`** (somente agência): devolve a série diária e as taxas do período atual e do anterior. As aberturas e os cliques são contados por e-mail único.
-4. **Painel** (`mailer-metrics-dashboard.tsx`, recharts, mobile-first conforme `UI&UX.md`):
-   - seletor de período;
-   - 5 cartões de taxa com variação;
-   - gráfico de volume diário com legenda clicável;
-   - estados de carregando, vazio (com instrução para configurar o webhook) e erro.
-5. **Configuração no Resend (você):** cadastrar em Resend → Webhooks a URL `https://<seu-domínio>/api/public/resend/webhook` com os eventos `email.*`. Depois, salvar o *signing secret* como `RESEND_WEBHOOK_SECRET` na Vercel.
-6. **Documentação:** salvar este plano em `think/2026-10-01-1530-finalizacao-painel-metricas-mailer.md` e atualizar `CERNE.md`, `BACKLOGER.md` e `docs/SETUP.md`.
+## Parte 2: Mailer como e-mail pessoal
 
-## Detalhes técnicos
-- As aberturas exigem o rastreamento de aberturas ativado no Resend. O Apple Mail infla esse número, e o painel mostrará um aviso discreto sobre isso.
-- `email_log.provider_id` liga cada evento ao envio original.
-- Testes Vitest cobrirão a assinatura, a idempotência e o cálculo das taxas, inclusive quando não houver envios no período.
+### Análise do código atual (em `eeee6a0`)
+| Item | Onde está |
+|---|---|
+| Tela Mailer + composer + preview (iframe `srcDoc`) | `src/routes/_authenticated/admin/mailer.tsx` |
+| Diálogo de envio individual | `src/components/send-recruit-email-dialog.tsx` |
+| Templates Individual e Multi | `recruit-email-template.ts` → `renderSingleAthleteRecruitEmail` / `renderMultiAthleteRecruitEmail` em `recruit-email.ts` |
+| Template Catalog | `recruit-email-catalog-template.ts` → `renderCatalogRecruitEmail` (**não será tocado**) |
+| Peças HTML (header, hero, card, assinatura, feedback, barra, legal) | `email-layout.ts` e `recruit-email.ts` |
+| Assinatura da Fabiana | `renderSignature` + `EMAIL_SIGNATURE` (`email-brand.ts`) |
+| Unsubscribe | `renderLegalFooter` → rota `/unsubscribe` + `unsubscribeEmailAddress` (supressão) |
+| Not the right fit | `buildNotAFitUrl` / `renderFeedbackBlock` → rota `/feedback` + `recordCoachInterestSignal` |
+| Catálogo | `EMAIL_BASE_URL = https://portfolio.goteamgoagency.com` com UTM via `appendMailerUtmParams` |
+| Envio, campanhas e tracking | `recruit-email.server.ts` (`sendMailerEmails`, `mailer_campaigns`, `recruit_email_logs`), webhook do Resend e métricas |
+| IA | **Nenhum provedor configurado no projeto** |
 
-## Riscos
-- Os dados só existem a partir da ativação do webhook, porque o Resend não reenvia eventos antigos.
-- O plano será ajustado se o código local divergir do que está descrito aqui.
+O preview já usa o mesmo renderer do envio. Esse comportamento será mantido.
 
-## Validação
-Enviar um evento de teste pelo Resend, conferir o registro no banco e ver o gráfico e as taxas no Mailer. Rodar `bun run validate`.
+### Novo modelo de composição
+```text
+type EmailBlock =
+  | { type: "text"; content: string }
+  | { type: "athlete"; athleteId: string }
+```
+Os campos `customGreeting`, `customIntroduction` e `customHook` são substituídos por `blocks: EmailBlock[]` nos modos Individual e Multi. O modo Catalog continua com os campos atuais.
+
+### Novo renderer: `src/lib/email/personal-email-renderer.ts`
+- Função pura e determinística: `renderPersonalEmail({ blocks, athletesById, recipient, campaignId })` → `{ subject, preheader, html, text }`.
+- **Texto do usuário:** sempre escapado com `escapeHtml`. Parágrafos são separados por linha em branco e quebras simples viram `<br>`. Nenhum HTML do usuário é interpretado.
+- **Card:** HTML confiável, em tabelas com estilos inline, montado a partir dos dados reais já usados hoje (`mapEmailDataToAthlete`). Os links do card mantêm o UTM e o tracking atuais.
+- **Atleta inexistente ou removida:** o bloco é ignorado com segurança e gera um aviso no composer. Referências inválidas nunca quebram o HTML.
+- **Rodapé obrigatório,** sempre anexado pelo renderer e fora do controle do usuário:
+  - a assinatura atual da Fabiana (`renderSignature`);
+  - as ações `Unsubscribe` (URL real de `/unsubscribe`), `Not the right fit` (URL real de `/feedback`, via `buildNotAFitUrl`) e `Go to catalog` (`EMAIL_BASE_URL` com UTM).
+- **Sem** header, hero, banner, fundo geral, bloco institucional, "Verified Standards" ou CTA genérico. A estrutura é um container branco simples, com 600px de largura máxima, mobile-first, compatível com Gmail, Outlook e Apple Mail, e sem JavaScript.
+- O assunto continua sendo gerado como hoje, a partir dos dados das atletas.
+
+`renderRecruitEmail` e `renderMultiAthleteRecruitEmail` passam a delegar ao novo renderer. `renderCatalogRecruitEmail` e as peças que ele usa ficam sem alteração. Antes de mexer em qualquer função compartilhada, listo todos os consumidores dela.
+
+### Athlete card fiel à referência
+A imagem de referência será o *source of truth* visual. **Preciso que você envie essa imagem.** O card será implementado em `renderPersonalAthleteCard`, separado do card atual, que continua disponível para o catálogo e para quem mais o use.
+
+### Composer (UI)
+- Lista de blocos simples, sem editor rich text: cada bloco de texto é um `textarea` com altura automática.
+- Botão **+ Add Athlete Card** em cada ponto de inserção (entre blocos, no início e no fim):
+  - **Individual:** insere o card da atleta selecionada;
+  - **Multi:** abre um popover com as atletas selecionadas para escolher qual inserir.
+- O bloco de card aparece no editor com miniatura, nome e posição, além dos botões subir, descer e remover. A reordenação usa as setas, sem nova dependência de drag and drop.
+- Um modelo inicial editável vem pronto ("Hi Coach,", card, "Let me know what you think."), que o usuário pode alterar ou apagar.
+- No modo Multi, o aviso "atleta selecionada sem card no e-mail" é apenas informativo e não impede o envio.
+- O preview em iframe é atualizado pelo mesmo renderer, com alternância entre desktop e mobile.
+- O layout continua responsivo e alinhado ao `UI&UX.md`.
+
+### Sugestão de texto com IA (opcional)
+- Botão **Suggest email**. A sugestão aparece em um painel separado com as ações **Insert**, **Replace text**, **Try again** e **Dismiss**. Nunca sobrescreve o texto sem confirmação.
+- **Provedor:** Google Gemini, no plano gratuito (`gemini-2.5-flash`), com a chave `GEMINI_API_KEY` guardada só no servidor (Vercel). Motivo: o app roda na Vercel e não há provedor de IA no projeto hoje. Sem a chave, o botão fica desativado com uma explicação.
+- O contexto enviado traz nome, posição, altura, ano de formatura, país e status de cada atleta selecionada. O prompt pede um texto curto, humano, sem jargão de marketing, em inglês dos EUA. A IA devolve apenas os textos; os cards continuam sob controle do usuário.
+- Erro ou timeout da IA mostra um aviso, e o envio nunca é bloqueado.
+
+### Persistência
+**Sem migração.** Os blocos são gravados em `mailer_campaigns.filters.blocks`, coluna jsonb que já existe, para manter o histórico. Tracking, logs, métricas, webhook e supressão continuam como estão.
+
+### Testes (Vitest)
+- **Individual:** texto simples; card no início, no meio e no fim; texto antes e depois do card; rodapé obrigatório; URLs dos 3 botões; atleta inexistente; referência inválida.
+- **Multi:** 2 e 3 cards; ordem dos cards; texto entre cards; remoção; atleta removida; rodapé.
+- **Segurança:** `<script>`, `<img onerror>`, aspas, `&`, `javascript:` e links digitados pelo usuário saem escapados e não alteram o rodapé nem o tracking.
+- **Regressão do Catalog:** snapshot do HTML de `renderCatalogEmail`, gerado antes da mudança, deve continuar idêntico.
+- O renderer é determinístico: a mesma entrada gera o mesmo HTML.
+
+### Documentação
+Atualizar o `CERNE.md` com a arquitetura, o renderer, o composer, os cards, o rodapé, o preview e a IA. Registrar a solicitação no `BACKLOGER.md` e salvar este plano em `think/2026-10-08-1810-reestruturacao-mailer-individual-multi.md`.
+
+## Fora de escopo
+Template Catalog, autenticação, schema do banco, deploy, arquitetura do Resend, estrutura de métricas e as demais áreas do Admin.
+
+## Pendências suas
+1. **O log da build da Vercel.**
+2. **A imagem de referência do athlete card.**
+3. Confirmar o uso do Gemini, no plano gratuito, para a sugestão de texto.
 
 ## Status
 Aguardando aprovação humana.
