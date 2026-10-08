@@ -9,6 +9,11 @@ import {
 } from "./recruit-email";
 import { EMAIL_BASE_URL, EMAIL_SIGNATURE } from "./email-brand";
 import {
+  buildDefaultEmailBlocks,
+  renderPersonalEmail,
+  type EmailBlock,
+} from "./personal-email-renderer";
+import {
   renderSignature,
   renderFeedbackBlock,
   renderBottomBar,
@@ -28,6 +33,8 @@ export interface RecruitEmailData extends EmailCardAthlete {
   logoUrl?: string | null;
   heroBackgroundUrl?: string | null;
   campaignId?: string | null;
+  /** Corpo composto manualmente (texto + cards). Ausente = blocos padrão. */
+  blocks?: EmailBlock[] | null;
 }
 
 export interface MultiAthleteEmailData {
@@ -42,6 +49,8 @@ export interface MultiAthleteEmailData {
   logoUrl?: string | null;
   heroBackgroundUrl?: string | null;
   campaignId?: string | null;
+  /** Corpo composto manualmente (texto + cards). Ausente = blocos padrão. */
+  blocks?: EmailBlock[] | null;
 }
 
 function mapEmailDataToAthlete(data: RecruitEmailData): RecruitEmailAthlete {
@@ -136,12 +145,24 @@ export function renderRecruitEmail(data: RecruitEmailData) {
     campaignId: data.campaignId,
   });
 
-  const text = generateRecruitEmailPlainText(data);
+  // Formato pessoal: texto do usuário + card(s) + assinatura + ações obrigatórias.
+  const personal = renderPersonalEmail({
+    blocks: data.blocks?.length ? data.blocks : buildDefaultEmailBlocks([athlete.id]),
+    athletes: [athlete],
+    subject: result.subject,
+    preheader: result.preheader,
+    coachName: data.coachName || undefined,
+    coachEmail: data.recipientEmail,
+    coachId: data.coachId,
+    campaignId: data.campaignId,
+    appUrl: EMAIL_BASE_URL,
+    logoUrl: data.logoUrl,
+  });
 
   return {
     subject: result.subject,
-    html: result.html,
-    text,
+    html: personal.html,
+    text: personal.text,
     profileUrl,
   };
 }
@@ -184,11 +205,22 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
     campaignId: data.campaignId,
   });
 
-  const text = generateMultiAthletePlainText(data);
+  const personal = renderPersonalEmail({
+    blocks: data.blocks?.length ? data.blocks : buildDefaultEmailBlocks(athletes.map((a) => a.id)),
+    athletes,
+    subject: result.subject,
+    preheader: result.preheader,
+    coachName: data.coachName || undefined,
+    coachEmail: data.recipientEmail,
+    coachId: data.coachId,
+    campaignId: data.campaignId,
+    appUrl: EMAIL_BASE_URL,
+    logoUrl: data.logoUrl,
+  });
 
   return {
     subject: result.subject,
-    html: result.html,
-    text,
+    html: personal.html,
+    text: personal.text,
   };
 }
