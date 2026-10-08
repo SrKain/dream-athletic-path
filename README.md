@@ -1,5 +1,11 @@
 # Sport Scout Hub
 
+## Contexto Atual da Sessão (2026-10-02)
+
+Este repositório continua em evolução como a plataforma SaaS para agências de intercâmbio esportivo, com foco em gestão de atletas, pipeline de recrutamento, propostas digitais, conteúdo público e fluxo de comunicação com coaches e universidades. A arquitetura atual mantém o projeto centrado em TanStack Start + Vite + TypeScript, com Bun como package manager obrigatório, Supabase como backend de dados/autenticação e Resend/Vercel para comunicação e deploy.
+
+Antes de qualquer ação, o agente deve preservar o contexto documental do projeto: ler `README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md` e todos os planos em `think/`; qualquer alteração de código exige plano gravado em `think/` e aprovação explícita do usuário. O design segue a direção mobile-first, premium e acessível declarada no guia de UI/UX, e o projeto continua estruturado para evolução contínua sem abrir mão de qualidade, segurança e governança.
+
 # MVP — Plataforma de Gestão para Agência de Intercâmbio Esportivo
 
 > [!IMPORTANT]

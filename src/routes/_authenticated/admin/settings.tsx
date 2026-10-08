@@ -119,7 +119,7 @@ function SettingsPage() {
       const path = `${editingStage.id}/${crypto.randomUUID()}.${extension}`;
       const uploaded = await supabase.storage
         .from(STAGE_CELEBRATION_BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type });
+        .upload(path, file, { upsert: false, contentType: file.type, cacheControl: "31536000" });
       if (uploaded.error) {
         toast.error(uploaded.error.message);
         continue;

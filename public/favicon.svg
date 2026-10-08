@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="gtg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f69e00" />
+      <stop offset="100%" stop-color="#ffb326" />
+    </linearGradient>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#043217" />
+      <stop offset="100%" stop-color="#021c0c" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Shield/Rounded Container -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bg-grad)" stroke="#f69e00" stroke-width="16" stroke-opacity="0.4" />
+
+  <!-- Dynamic Athletic Energy Rays -->
+  <path d="M120 180 L220 140 L180 230 Z" fill="#f69e00" opacity="0.15" />
+  <path d="M392 332 L292 372 L332 282 Z" fill="#f69e00" opacity="0.15" />
+
+  <!-- Central Dynamic "GTG" Emblem -->
+  <g transform="translate(256, 256)" text-anchor="middle" dominant-baseline="central">
+    <!-- Outer Accent Ring Segment -->
+    <circle cx="0" cy="0" r="160" fill="none" stroke="url(#gtg-grad)" stroke-width="12" stroke-dasharray="240 40 180 40" />
+
+    <!-- Stylized "GTG" Bold Typography -->
+    <text y="-8" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Space Grotesk', sans-serif" font-size="140" font-weight="900" fill="url(#gtg-grad)" letter-spacing="-6">
+      GTG
+    </text>
+
+    <!-- Subtitle / Star Indicator -->
+    <text y="90" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="800" fill="#ffffff" letter-spacing="8" opacity="0.9">
+      GO TEAM GO
+    </text>
+  </g>
+</svg>

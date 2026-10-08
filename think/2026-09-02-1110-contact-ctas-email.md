@@ -27,30 +27,33 @@ A estratégia de contato foi revista: **todos os pontos de contato da agência d
 
 Após varredura completa no código-fonte, foram identificados os seguintes pontos de contato:
 
-| Localização | Elemento / Componente | Comportamento Atual | Comportamento Proposto |
-| :--- | :--- | :--- | :--- |
-| **Página Inicial — Hero** (`src/routes/index.tsx`) | Seção Hero | Não possui botão de contato atualmente | Adicionar CTA **"Talk to our team"** abrindo e-mail contextual com subject: `I'm interested in working with Go Team Go` e body inicial de apresentação. |
-| **Página Inicial — Catálogo / Seção Final** (`src/routes/index.tsx`) | Seção "Looking for talent?" / Botão "Talk to Go Team Go" | Link WhatsApp (`https://wa.me/5511999239490?text=...`) | Migrar para CTA de recrutamento com e-mail, subject: `Athlete recruitment inquiry` e body informando que o contato iniciou pelo catálogo. |
-| **Página Inicial — Footer** (`src/routes/index.tsx`) | Rodapé público | Apenas logo, texto de copyright e assinatura | Adicionar link/CTA **"Get in touch"** abrindo e-mail com subject: `Contact through website`. |
-| **Perfil do Atleta — Hero** (`src/routes/athlete.$slug.tsx`) | Botão "Recruit Athlete" | Link WhatsApp via `buildRecruitWhatsappUrl(athlete.full_name)` | Migrar para e-mail contextual do atleta: subject: `Interest in [Nome do Atleta]`, body com nome, URL do perfil e contexto de recrutamento. Ícone `Mail`. |
-| **Perfil do Atleta — Nav Sticky** (`src/routes/athlete.$slug.tsx`) | Botão "Recruit" na barra de navegação rápida | Scroll âncora para `#recruit-cta` | Manter navegação fluida para a seção de recrutamento `#recruit-cta`, com ícone `Mail`. |
-| **Perfil do Atleta — Seção Final** (`src/routes/athlete.$slug.tsx`) | Seção "Direct Scout Access" / Botão "Recruit [FirstName] on WhatsApp" | Link WhatsApp via `buildRecruitWhatsappUrl` e texto mencionando WhatsApp | Migrar para e-mail: botão "Recruit [FirstName] via Email", subject: `Interest in [Nome do Atleta]`, body detalhado e texto da seção ajustado para contato via e-mail. |
-| **Perfil do Atleta — Footer** (`src/routes/athlete.$slug.tsx`) | Rodapé do perfil | Apenas logo, copyright e assinatura | Adicionar link/CTA **"Get in touch"** com subject: `Contact through website`. |
-| **Global Highlights Viewer** (`src/components/global-highlights-viewer.tsx`) | Botão lateral "Recruit" no player de reels | Link WhatsApp via `buildRecruitWhatsappUrl(currentItem.athleteName)` | Migrar para e-mail contextual: subject: `Interest in [currentItem.athleteName]`, body com menção ao highlight e perfil. Ícone `Mail`. |
-| **Botão Flutuante** (`src/components/whatsapp-fab.tsx`) | FAB fixo no canto inferior direito | WhatsApp (`https://wa.me/...`) | **PRESERVADO INTACTO (EXCEÇÃO MANDATÓRIA)**. Nenhuma alteração visual ou funcional. |
+| Localização                                                                  | Elemento / Componente                                                 | Comportamento Atual                                                      | Comportamento Proposto                                                                                                                                                |
+| :--------------------------------------------------------------------------- | :-------------------------------------------------------------------- | :----------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Página Inicial — Hero** (`src/routes/index.tsx`)                           | Seção Hero                                                            | Não possui botão de contato atualmente                                   | Adicionar CTA **"Talk to our team"** abrindo e-mail contextual com subject: `I'm interested in working with Go Team Go` e body inicial de apresentação.               |
+| **Página Inicial — Catálogo / Seção Final** (`src/routes/index.tsx`)         | Seção "Looking for talent?" / Botão "Talk to Go Team Go"              | Link WhatsApp (`https://wa.me/5511999239490?text=...`)                   | Migrar para CTA de recrutamento com e-mail, subject: `Athlete recruitment inquiry` e body informando que o contato iniciou pelo catálogo.                             |
+| **Página Inicial — Footer** (`src/routes/index.tsx`)                         | Rodapé público                                                        | Apenas logo, texto de copyright e assinatura                             | Adicionar link/CTA **"Get in touch"** abrindo e-mail com subject: `Contact through website`.                                                                          |
+| **Perfil do Atleta — Hero** (`src/routes/athlete.$slug.tsx`)                 | Botão "Recruit Athlete"                                               | Link WhatsApp via `buildRecruitWhatsappUrl(athlete.full_name)`           | Migrar para e-mail contextual do atleta: subject: `Interest in [Nome do Atleta]`, body com nome, URL do perfil e contexto de recrutamento. Ícone `Mail`.              |
+| **Perfil do Atleta — Nav Sticky** (`src/routes/athlete.$slug.tsx`)           | Botão "Recruit" na barra de navegação rápida                          | Scroll âncora para `#recruit-cta`                                        | Manter navegação fluida para a seção de recrutamento `#recruit-cta`, com ícone `Mail`.                                                                                |
+| **Perfil do Atleta — Seção Final** (`src/routes/athlete.$slug.tsx`)          | Seção "Direct Scout Access" / Botão "Recruit [FirstName] on WhatsApp" | Link WhatsApp via `buildRecruitWhatsappUrl` e texto mencionando WhatsApp | Migrar para e-mail: botão "Recruit [FirstName] via Email", subject: `Interest in [Nome do Atleta]`, body detalhado e texto da seção ajustado para contato via e-mail. |
+| **Perfil do Atleta — Footer** (`src/routes/athlete.$slug.tsx`)               | Rodapé do perfil                                                      | Apenas logo, copyright e assinatura                                      | Adicionar link/CTA **"Get in touch"** com subject: `Contact through website`.                                                                                         |
+| **Global Highlights Viewer** (`src/components/global-highlights-viewer.tsx`) | Botão lateral "Recruit" no player de reels                            | Link WhatsApp via `buildRecruitWhatsappUrl(currentItem.athleteName)`     | Migrar para e-mail contextual: subject: `Interest in [currentItem.athleteName]`, body com menção ao highlight e perfil. Ícone `Mail`.                                 |
+| **Botão Flutuante** (`src/components/whatsapp-fab.tsx`)                      | FAB fixo no canto inferior direito                                    | WhatsApp (`https://wa.me/...`)                                           | **PRESERVADO INTACTO (EXCEÇÃO MANDATÓRIA)**. Nenhuma alteração visual ou funcional.                                                                                   |
 
 ---
 
 ## 4. Destinatário Oficial da Agência
 
 ### Análise de Configurações Existentes:
+
 1. **Banco / Supabase (`agencies`, `agency_visual_settings`):** Não possuem colunas de e-mail de contato público.
 2. **Variáveis de Ambiente (`.env.example`):** Possui `EMAIL_FROM` (usado pelo Resend para disparos de sistema, fallback `"Go Team Go <onboarding@resend.dev>"`).
 3. **Domínio Oficial da Aplicação:** `goteamgoagency.com` / `portfolio.goteamgoagency.com` (presente em `sitemap.ts`, `indexnow.ts`, meta tags e schemas).
 4. **Arquivo Centralizador:** `src/lib/contact.ts` já centraliza a configuração do canal de contato (`RECRUIT_WHATSAPP_NUMBER`).
 
 ### Estratégia Proposta para o Destinatário:
+
 Centralizar a configuração do e-mail oficial em `src/lib/contact.ts`:
+
 - Constante: `AGENCY_CONTACT_EMAIL`
 - Suporte a override por variável de ambiente pública `import.meta.env.VITE_AGENCY_CONTACT_EMAIL`
 - Fallback padrão oficial: `contact@goteamgoagency.com` (ou `kauan.iasin02@gmail.com` caso o usuário prefira o e-mail cadastrado na conta).
@@ -61,12 +64,12 @@ Centralizar a configuração do e-mail oficial em `src/lib/contact.ts`:
 ## 5. Arquitetura da Solução
 
 ### 5.1. Centralização em `src/lib/contact.ts`
+
 Criar tipos e helpers reutilizáveis em `src/lib/contact.ts`:
 
 ```typescript
 export const AGENCY_CONTACT_EMAIL =
-  (import.meta.env.VITE_AGENCY_CONTACT_EMAIL as string | undefined) ||
-  "contact@goteamgoagency.com";
+  (import.meta.env.VITE_AGENCY_CONTACT_EMAIL as string | undefined) || "contact@goteamgoagency.com";
 
 export type ContactEmailContext =
   | { type: "hero" }
@@ -87,6 +90,7 @@ export function buildContactEmailUrl(context: ContactEmailContext): string;
 ```
 
 ### 5.2. Especificação dos Assuntos e Corpos:
+
 1. **Hero (`type: "hero"`):**
    - **Subject:** `I'm interested in working with Go Team Go`
    - **Body:** `Hello Go Team Go Team,\n\nI am contacting you through your website and would like to learn more about your recruitment agency and how we can work together.\n\nBest regards,`
@@ -104,6 +108,7 @@ export function buildContactEmailUrl(context: ContactEmailContext): string;
    - **Body:** `Hello Go Team Go Team,\n\nI am contacting you through your website regarding...`
 
 ### 5.3. Segurança e Robustez Técnica do `mailto:`:
+
 - Codificação estrita via `encodeURIComponent` de todos os parâmetros.
 - Tratamento adequado de quebras de linha (`\r\n` / `\n`).
 - Preservação de caracteres acentuados nos nomes de atletas (ex: "João Silva", "Beatriz Gonçalves").
@@ -114,6 +119,7 @@ export function buildContactEmailUrl(context: ContactEmailContext): string;
 ## 6. Arquivos que Serão Modificados e Arquivos que NÃO Serão Modificados
 
 ### Arquivos a Modificar:
+
 1. `src/lib/contact.ts` — Adicionar `AGENCY_CONTACT_EMAIL`, `buildMailtoUrl`, `buildContactEmailUrl` e manter `RECRUIT_WHATSAPP_NUMBER` / `buildRecruitWhatsappUrl`.
 2. `src/routes/index.tsx` —
    - Adicionar CTA "Talk to our team" no Hero.
@@ -129,6 +135,7 @@ export function buildContactEmailUrl(context: ContactEmailContext): string;
 6. `src/lib/catalog.test.ts` — Correção pontual da tipagem TypeScript na linha 104 (`name_en: "Outside Hitter"` em vez de `null`), garantindo `bun run typecheck` 100% limpo.
 
 ### Arquivos que NÃO Serão Modificados:
+
 1. `src/components/whatsapp-fab.tsx` — **ESTRITAMENTE PRESERVADO**. Continua funcionando exatamente como hoje.
 2. `src/styles.css` / Configuração de Tailwind — Nenhuma alteração visual ou de tema.
 3. `src/server.ts`, `src/lib/supabase/*`, `src/types/db.ts` — Estrutura de backend e banco inalteradas.
@@ -156,11 +163,11 @@ export function buildContactEmailUrl(context: ContactEmailContext): string;
 
 ## 8. Riscos e Mitigações
 
-| Risco | Impacto | Mitigação |
-| :--- | :--- | :--- |
-| Caracteres especiais em nomes de atletas quebrarem a URL `mailto:` | Médio | Uso rigoroso de `encodeURIComponent` com testes unitários cobrindo acentuação e caracteres especiais. |
-| Quebra de layout no Hero ou Footer ao adicionar novos botões | Baixo | Reutilização estrita de classes do design system (`liquid-button`, `text-xs text-muted-foreground hover:text-foreground`) respeitando `UI&UX.md` e mobile-first. |
-| Usuário não ter cliente de e-mail padrão configurado no SO | Baixo | Comportamento padrão da web para links `mailto:`; o botão flutuante de WhatsApp continua presente como canal direto alternativo. |
+| Risco                                                              | Impacto | Mitigação                                                                                                                                                        |
+| :----------------------------------------------------------------- | :------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caracteres especiais em nomes de atletas quebrarem a URL `mailto:` | Médio   | Uso rigoroso de `encodeURIComponent` com testes unitários cobrindo acentuação e caracteres especiais.                                                            |
+| Quebra de layout no Hero ou Footer ao adicionar novos botões       | Baixo   | Reutilização estrita de classes do design system (`liquid-button`, `text-xs text-muted-foreground hover:text-foreground`) respeitando `UI&UX.md` e mobile-first. |
+| Usuário não ter cliente de e-mail padrão configurado no SO         | Baixo   | Comportamento padrão da web para links `mailto:`; o botão flutuante de WhatsApp continua presente como canal direto alternativo.                                 |
 
 ---
 
