@@ -125,6 +125,48 @@ export function generateRecruitEmailPlainText(data: RecruitEmailData): string {
 /**
  * Renderiza e-mail individual de um único atleta ("ATHLETE SPOTLIGHT" - Redesenho Leitura em 5 Segundos).
  */
+function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
+  const coachName = (data.coachName || "Coach").replace(/^Coach\s+/i, "").trim() || "Coach";
+  const coachGreeting = coachName ? `Coach ${coachName}` : "Coach";
+  const sportName =
+    "sportName" in data && data.sportName
+      ? data.sportName
+      : "athletes" in data && data.athletes[0]?.sportName
+        ? data.athletes[0].sportName
+        : "Volleyball";
+  const gradYear =
+    ("graduationYear" in data && data.graduationYear) ||
+    ("highSchoolGraduation" in data && data.highSchoolGraduation) ||
+    ("athletes" in data && data.athletes[0]?.graduationYear) ||
+    ("athletes" in data && data.athletes[0]?.highSchoolGraduation) ||
+    undefined;
+
+  if (athleteIds.length <= 1) {
+    return `Hi ${coachGreeting}, verified ${sportName} prospect${gradYear ? `, Class of ${gradYear}` : ""}:`;
+  }
+
+  return `Hi ${coachGreeting}, ${athleteIds.length} verified ${sportName} prospects${gradYear ? `, Class of ${gradYear}` : ""}:`;
+}
+
+function resolveLegacyBodyBlocks(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
+  if (data.blocks?.length) return data.blocks;
+
+  const blocks = buildDefaultEmailBlocks(athleteIds);
+  const greeting = (data.customGreeting || buildLegacyGreetingText(data, athleteIds) || "").trim();
+  const hook = (data.customHook || "").trim();
+  const intro = (data.customIntroduction || "").trim();
+
+  if (greeting) blocks[0] = { type: "text", content: greeting };
+
+  if (hook || intro) {
+    const insertAt = Math.max(1, blocks.length - 1);
+    if (hook) blocks.splice(insertAt, 0, { type: "text", content: hook });
+    if (intro) blocks.splice(blocks.length - 1, 0, { type: "text", content: intro });
+  }
+
+  return blocks;
+}
+
 export function renderRecruitEmail(data: RecruitEmailData) {
   const athlete = mapEmailDataToAthlete(data);
   const safeSlug = (data.athleteSlug || "").trim();
@@ -147,7 +189,7 @@ export function renderRecruitEmail(data: RecruitEmailData) {
 
   // Formato pessoal: texto do usuário + card(s) + assinatura + ações obrigatórias.
   const personal = renderPersonalEmail({
-    blocks: data.blocks?.length ? data.blocks : buildDefaultEmailBlocks([athlete.id]),
+    blocks: resolveLegacyBodyBlocks(data, [athlete.id]),
     athletes: [athlete],
     subject: result.subject,
     preheader: result.preheader,
@@ -206,7 +248,7 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
   });
 
   const personal = renderPersonalEmail({
-    blocks: data.blocks?.length ? data.blocks : buildDefaultEmailBlocks(athletes.map((a) => a.id)),
+    blocks: resolveLegacyBodyBlocks(data, athletes.map((a) => a.id)),
     athletes,
     subject: result.subject,
     preheader: result.preheader,

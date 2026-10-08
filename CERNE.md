@@ -157,6 +157,14 @@ bun run validate
 
 - [`src/lib/email/stage-change.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/stage-change.server.ts): Server Function `notifyStageAdvancementServerFn` que orquestra o envio de e-mails celebrativos quando atleta avança de etapa. Carrega mensagem customizada de `pipeline_stages.celebration_message_en`, substitui placeholders, monta dados do e-mail e dispara com respeito à janela de envio. Retorna informações de agendamento quando aplicável.
 
+### 5.2 Arquitetura do Mailer de Recrutamento (Atualização 2026-10-08)
+
+- [`src/lib/email/personal-email-renderer.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/personal-email-renderer.ts): **Fonte de verdade do modelo de e-mail pessoal**. Centraliza a estrutura canônica em `EmailBlock[]`, com sanitização, blocos padrão e renderização HTML final para o payload de preview e envio.
+- [`src/lib/email/recruit-email-template.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/recruit-email-template.ts): **Adaptador de compatibilidade**. Converte campos legados (`customGreeting`, `customIntroduction`, `customHook`) em blocos do modelo novo sem quebrar envios antigos nem o fluxo de catálogo.
+- [`src/lib/email/recruit-email.server.ts`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/lib/email/recruit-email.server.ts): **Orquestração do envio**. A API de envio aceita payloads em bloco, mantém compatibilidade com dados legados e preserva o fluxo de envio em lote para Single / Multi / Catalog sem duplicação de arquitetura.
+- [`src/routes/_authenticated/admin/mailer.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/mailer.tsx): **UI do composer do Mailer**. O estado de composição foi conectado ao renderer canônico, com preview em tempo real, seleção de atletas e payload final em `blocks` para o backend.
+- **Regra de arquitetura**: o modelo em blocos é o único canal de produção; compatibilidade legado continua funcionando como camada de entrada, mas não como fonte única de verdade.
+
 ## Atualização 2026-08-25 — Seção Highlights na Home do Catálogo Público
 
 - **Migration `0015_highlight_likes.sql`**: cria a tabela `athlete_video_likes` com colunas `id`, `video_id`, `athlete_id`, `user_fingerprint`, `created_at` e restrição UNIQUE (`video_id`, `user_fingerprint`), com permissões e RLS para inserção pública e leitura anônima/pública.

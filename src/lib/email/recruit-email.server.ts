@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
+import { type EmailBlock } from "./personal-email-renderer";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
@@ -23,12 +24,14 @@ export interface SendMailerInput {
   recipients: MailerRecipient[];
   createdBy?: string | null;
   filters?: Record<string, unknown>;
+  blocks?: EmailBlock[];
   customOptions?: {
     greeting?: string;
     introduction?: string;
     hook?: string;
     headline?: string;
     message?: string;
+    blocks?: EmailBlock[];
   };
   catalogOptions?: {
     customHeadline?: string;
@@ -299,9 +302,12 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     recipients = [],
     createdBy = null,
     filters = {},
+    blocks,
     customOptions,
     catalogOptions,
   } = input;
+
+  const emailBlocks = blocks?.length ? blocks : customOptions?.blocks?.length ? customOptions.blocks : [];
 
   if (recipients.length === 0) {
     return {
@@ -509,6 +515,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           customGreeting: customOptions?.greeting,
           customIntroduction: customOptions?.introduction,
           customHook: customOptions?.hook,
+          blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
           logoUrl,
           heroBackgroundUrl,
           campaignId,
@@ -549,6 +556,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           customGreeting: customOptions?.greeting,
           customIntroduction: customOptions?.introduction,
           customHook: customOptions?.hook,
+          blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
           logoUrl,
           heroBackgroundUrl,
           campaignId,

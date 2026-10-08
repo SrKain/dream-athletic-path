@@ -65,6 +65,18 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 ---
 
+## TASK-054 — 2026-10-08 — Finalização da arquitetura do Mailer com composer em blocos
+
+- **Solicitante:** Usuário Humano
+- **Executor:** GitHub Copilot
+- **Pedido:** Continuar a implementação da nova arquitetura do Mailer sem criar uma arquitetura paralela. Conectar a UI do composer ao renderer existente, depois ao backend, validar preview e envio, manter compatibilidade com dados legados e preservar o fluxo de catálogo intacto.
+- **Entrega:**
+  - Conexão do composer em `src/routes/_authenticated/admin/mailer.tsx` ao renderizador canônico `src/lib/email/personal-email-renderer.ts`.
+  - Compatibilidade em `src/lib/email/recruit-email-template.ts` para campos legados (`customGreeting`, `customIntroduction`, `customHook`).
+  - Ajuste no backend em `src/lib/email/recruit-email.server.ts` para aceitar payload in `blocks` e manter o envio funcional.
+  - Validação real via suite `src/lib/email/recruit-email-multi.test.ts` e typecheck TypeScript.
+- **Status:** [CONCLUÍDO] — 15/15 testes do render do Mailer e `npx tsc --noEmit --pretty false` passaram sem erros.
+
 ## Fila de Tarefas Pendentes `[PENDENTE]`
 
 - **TASK-041**: Implementação do subdomínio `reels.goteamgoagency.com` com feed global de reels/stories verticais de todos os atletas cadastrados na agência.

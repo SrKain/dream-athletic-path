@@ -47,6 +47,11 @@ import {
   type RecruitEmailData,
 } from "@/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "@/lib/email/recruit-email-catalog-template";
+import {
+  buildDefaultEmailBlocks,
+  sanitizeEmailBlocks,
+  type EmailBlock,
+} from "@/lib/email/personal-email-renderer";
 import type {
   University,
   UniversityCoach,
@@ -168,6 +173,7 @@ function MailerPage() {
   const [customGreeting, setCustomGreeting] = useState("");
   const [customIntroduction, setCustomIntroduction] = useState("");
   const [customHook, setCustomHook] = useState("");
+  const [composerBlocks, setComposerBlocks] = useState<EmailBlock[]>([]);
 
   // Opções do Catálogo
   const [catalogHeadline, setCatalogHeadline] = useState(
@@ -454,6 +460,75 @@ function MailerPage() {
     return athletes.filter((a) => selectedMultiAthleteIds.has(a.id));
   }, [athletes, selectedMultiAthleteIds]);
 
+  const activeComposerAthleteIds = useMemo(() => {
+    if (sendMode === "catalog") return [];
+    if (sendMode === "single") return currentSingleAthlete ? [currentSingleAthlete.id] : [];
+    return selectedMultiAthletesList.map((athlete) => athlete.id);
+  }, [currentSingleAthlete, selectedMultiAthletesList, sendMode]);
+
+  useEffect(() => {
+    if (sendMode === "catalog") return;
+    if (activeComposerAthleteIds.length === 0) {
+      setComposerBlocks([]);
+      return;
+    }
+
+    setComposerBlocks((prev) => {
+      if (prev.length > 0) return prev;
+      return buildDefaultEmailBlocks(activeComposerAthleteIds);
+    });
+  }, [activeComposerAthleteIds, sendMode]);
+
+  function addComposerTextBlock() {
+    setComposerBlocks((prev) => [
+      ...prev,
+      {
+        type: "text",
+        content:
+          "I’d love to share more about this athlete and the fit for your recruiting needs.",
+      },
+    ]);
+  }
+
+  function insertComposerAthleteBlock(athleteId: string) {
+    setComposerBlocks((prev) => [
+      ...prev,
+      {
+        type: "athlete",
+        athleteId,
+      },
+    ]);
+  }
+
+  function updateComposerTextBlock(index: number, value: string) {
+    setComposerBlocks((prev) =>
+      prev.map((block, blockIndex) =>
+        blockIndex === index && block.type === "text" ? { ...block, content: value } : block,
+      ),
+    );
+  }
+
+  function moveComposerBlock(index: number, direction: -1 | 1) {
+    setComposerBlocks((prev) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+      return copy;
+    });
+  }
+
+  function removeComposerBlock(index: number) {
+    setComposerBlocks((prev) => prev.filter((_, blockIndex) => blockIndex !== index));
+  }
+
+  const composerPreviewBlocks = useMemo(() => {
+    if (sendMode === "catalog") return [];
+    return sanitizeEmailBlocks(
+      composerBlocks.length > 0 ? composerBlocks : buildDefaultEmailBlocks(activeComposerAthleteIds),
+    );
+  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
+
   // Gera HTML de Preview dinâmico
   const previewHtml = useMemo(() => {
     const logoUrl = visualSettings?.logo_url ?? null;
@@ -511,6 +586,7 @@ function MailerPage() {
         customGreeting: customGreeting || null,
         customIntroduction: customIntroduction || null,
         customHook: customHook || null,
+        blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
         logoUrl,
         heroBackgroundUrl,
       });
@@ -543,6 +619,7 @@ function MailerPage() {
       customGreeting: customGreeting || null,
       customIntroduction: customIntroduction || null,
       customHook: customHook || null,
+      blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
       logoUrl,
       heroBackgroundUrl,
     });
@@ -557,6 +634,7 @@ function MailerPage() {
     customGreeting,
     customIntroduction,
     customHook,
+    composerPreviewBlocks,
     visualSettings,
   ]);
 
@@ -689,12 +767,14 @@ function MailerPage() {
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
           },
+          blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerBlocks.length ? composerBlocks : buildDefaultEmailBlocks(targetAthleteIds)),
           customOptions: {
             greeting: customGreeting || undefined,
             introduction: customIntroduction || undefined,
             hook: customHook || undefined,
             headline: catalogHeadline || undefined,
             message: catalogMessage || undefined,
+            blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerBlocks.length ? composerBlocks : buildDefaultEmailBlocks(targetAthleteIds)),
           },
           catalogOptions: {
             customHeadline: catalogHeadline,
