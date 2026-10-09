@@ -39,6 +39,8 @@ export interface EmailCardAthlete {
   achievementTitle?: string | null;
   budget?: string | null;
   highlightVideoUrl?: string | null;
+  courseOfInterest?: string | null;
+  collegeStartDate?: string | null;
 }
 
 /**

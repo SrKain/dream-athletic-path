@@ -26,6 +26,9 @@ export interface RecruitEmailAthlete {
   highlightVideoUrl?: string | null;
   highlightNote?: string | null;
   profileUrl?: string | null;
+  courseOfInterest?: string | null;
+  collegeStartDate?: string | null;
+  index?: number;
 }
 
 export interface RecruitEmailRenderOptions {

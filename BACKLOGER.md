@@ -909,3 +909,17 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
      - Dev server respondendo `HTTP 200 OK`
   5. Governança estrita: `package.json` e `bun.lock` mantidos 100% inalterados.
 - **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-090 — 2026-10-09 06:10 — Revisão do Fluxo de Textos do Mailer e Reforma Estrutural do E-mail e Quadro das Atletas
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Engineer)
+- **Pedido:**
+  1. Revisar e corrigir o fluxo do criador de e-mails no Mailer (`/admin/mailer`), onde os textos preenchidos pelo usuário não aparecem corretamente no preview nem no e-mail final enviado.
+  2. Reestruturar a ordem final do e-mail para: **Saudação → Corpo do E-mail → Quadro(s) das Atletas → Fechamento do E-mail → Rodapé existente com a assinatura da Fabiana**.
+  3. Reformar o quadro das atletas conforme modelo anexo do usuário e incluir os **3 botões de ação 100% em inglês**: **Recrutar agora (`RECRUIT NOW`)**, **Ver perfil completo (`VIEW FULL PROFILE`)** e **Not a fit (`NOT A FIT`)**, executando tudo em uma única entrega após aprovação do plano.
+- **Planejamento:** Registrado em `think/2026-10-09-0610-revisao-fluxo-mailer-e-reforma-quadro-atletas.md`.
+- **Status:** `[PENDENTE]` — Aguardando anexo do modelo do quadro das atletas e aprovação explícita do usuário humano.
+
