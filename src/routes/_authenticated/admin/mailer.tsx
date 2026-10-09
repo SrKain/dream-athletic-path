@@ -40,6 +40,7 @@ import {
   getEmailEventTimelineServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
+import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
 import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
 import {
   renderRecruitEmail,
@@ -100,6 +101,7 @@ interface RawAthleteRecord {
     current_school?: string | null;
     course_of_interest?: string | null;
     college_start_date?: string | null;
+    seeking_opportunities?: string | null;
     stats?: Record<string, unknown> | null;
     team_contribution_en?: string | null;
   } | null;
@@ -125,6 +127,7 @@ interface AthleteSummary {
   current_school?: string | null;
   course_of_interest?: string | null;
   college_start_date?: string | null;
+  seeking_opportunities?: string | null;
   stats?: Record<string, unknown> | null;
   team_contribution_en?: string | null;
   videos?: Array<{ url: string; title?: string | null; kind?: string | null }>;
@@ -208,6 +211,8 @@ function MailerPage() {
   // Modal de Confirmação & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isCheckingFit, setIsCheckingFit] = useState(false);
+  const [fitConflicts, setFitConflicts] = useState<CoachFitConflict[]>([]);
 
   // Carregar dados iniciais
   async function loadInitialData() {
@@ -227,7 +232,7 @@ function MailerPage() {
             nationality,
             sport:sports(name_en),
             position:positions(name_en),
-            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, stats, team_contribution_en)
+            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, team_contribution_en)
           `,
             )
             .eq("is_public", true)
@@ -301,6 +306,7 @@ function MailerPage() {
           current_school: a.profile?.current_school ?? null,
           course_of_interest: a.profile?.course_of_interest ?? null,
           college_start_date: a.profile?.college_start_date ?? null,
+          seeking_opportunities: a.profile?.seeking_opportunities ?? null,
           stats: a.profile?.stats ?? null,
           team_contribution_en: a.profile?.team_contribution_en ?? null,
           videos: videoMap.get(a.id) ?? [],
@@ -705,6 +711,7 @@ function MailerPage() {
         currentSchool: ath.current_school,
         courseOfInterest: ath.course_of_interest,
         collegeStartDate: ath.college_start_date,
+        seekingOpportunities: ath.seeking_opportunities,
         stats: ath.stats,
         teamContribution: ath.team_contribution_en,
         videos: ath.videos,
@@ -748,6 +755,7 @@ function MailerPage() {
       currentSchool: currentSingleAthlete.current_school,
       courseOfInterest: currentSingleAthlete.course_of_interest,
       collegeStartDate: currentSingleAthlete.college_start_date,
+      seekingOpportunities: currentSingleAthlete.seeking_opportunities,
       stats: currentSingleAthlete.stats,
       teamContribution: currentSingleAthlete.team_contribution_en,
       videos: currentSingleAthlete.videos,
@@ -849,6 +857,44 @@ function MailerPage() {
   }
 
   // Ação de Disparo
+  async function openSendConfirmation() {
+    if (activeSelectedRecipients.length === 0) {
+      toast.error("Nenhum destinatário ativo selecionado.");
+      return;
+    }
+    let ids: string[] = [];
+    if (sendMode === "single") {
+      if (!selectedAthleteId) { toast.error("Selecione um atleta."); return; }
+      ids = [selectedAthleteId];
+    } else if (sendMode === "multi") {
+      if (selectedMultiAthleteIds.size === 0) { toast.error("Selecione ao menos um atleta."); return; }
+      ids = composerAthleteIds.filter((id) => selectedMultiAthleteIds.has(id));
+      for (const id of selectedMultiAthleteIds) if (!ids.includes(id)) ids.push(id);
+    }
+
+    setIsCheckingFit(true);
+    try {
+      if (sendMode === "catalog") {
+        setFitConflicts([]);
+      } else {
+        const freshSignals = await getActiveInterestSignalsServerFn();
+        setInterestSignals(freshSignals as CoachInterestSignal[]);
+        const selectedAthletes = ids.map((id) => athletes.find((athlete) => athlete.id === id)).filter((athlete): athlete is AthleteSummary => Boolean(athlete));
+        setFitConflicts(findCoachFitConflicts(
+          activeSelectedRecipients,
+          selectedAthletes.map((athlete) => ({ id: athlete.id, name: athlete.full_name, position: athlete.position_name })),
+          freshSignals as CoachInterestSignal[],
+        ));
+      }
+      setConfirmModalOpen(true);
+    } catch (error) {
+      console.error("[mailer] Could not refresh coach fit preferences:", error);
+      toast.error("Não foi possível atualizar as preferências dos coaches. Nenhum email foi enviado; tente novamente.");
+    } finally {
+      setIsCheckingFit(false);
+    }
+  }
+
   async function handleSendMailer() {
     if (activeSelectedRecipients.length === 0) {
       toast.error("Nenhum destinatário ativo selecionado.");
@@ -1568,11 +1614,11 @@ function MailerPage() {
                           activeSelectedRecipients.length === 0 ||
                           (sendMode === "multi" && selectedMultiAthleteIds.size === 0)
                         }
-                        onClick={() => setConfirmModalOpen(true)}
+                        onClick={() => void openSendConfirmation()}
                         className="w-full py-2.5 px-4 rounded-lg bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                       >
-                        <Send className="w-4 h-4" />
-                        Disparar Mailer ({totalCalculatedDispatches})
+                        {isCheckingFit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {isCheckingFit ? "Verificando preferências…" : `Disparar Mailer (${totalCalculatedDispatches})`}
                       </button>
                     </div>
                   </div>
@@ -1896,6 +1942,24 @@ function MailerPage() {
                 </div>
               </div>
 
+              {fitConflicts.length > 0 && (
+                <section className="max-h-64 space-y-3 overflow-y-auto rounded-xl border border-amber-500/40 bg-amber-500/5 p-3" aria-label="Coach fit conflicts">
+                  <div>
+                    <h4 className="font-bold text-amber-800 dark:text-amber-300">
+                      {new Set(fitConflicts.map((item) => item.recipient.key)).size} coach(es) com conflitos de fit
+                    </h4>
+                    <p className="mt-1 text-xs text-muted-foreground">Confira as preferências antes de decidir. Nenhum destinatário será removido automaticamente.</p>
+                  </div>
+                  {fitConflicts.map((item, index) => (
+                    <div key={`${item.recipient.key}-${item.reason}-${index}`} className="rounded-lg border border-border bg-card p-2.5">
+                      <p className="font-semibold text-foreground">{item.recipient.name} · {item.recipient.universityName}</p>
+                      <p className={item.reviewOnly ? "text-amber-700 dark:text-amber-300" : "text-destructive"}>{item.reviewOnly ? "Revisar preferência" : "Conflito detectado"}: {item.detail}</p>
+                      <p className="text-muted-foreground">Atleta(s): {item.athletes.join(", ")}</p>
+                    </div>
+                  ))}
+                </section>
+              )}
+
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Cada e-mail incluirá automaticamente o rodapé com link de feedback de interesse e
                 descadastro (unsubscribe) em conformidade.
@@ -1905,7 +1969,7 @@ function MailerPage() {
                 <button
                   type="button"
                   disabled={isSending}
-                  onClick={() => setConfirmModalOpen(false)}
+                  onClick={() => { setConfirmModalOpen(false); setFitConflicts([]); }}
                   className={secondaryButtonClass}
                 >
                   Cancelar
@@ -1922,7 +1986,7 @@ function MailerPage() {
                       Disparando...
                     </>
                   ) : (
-                    "Confirmar e Enviar"
+                    fitConflicts.length > 0 ? "Enviar mesmo assim" : "Confirmar e Enviar"
                   )}
                 </button>
               </div>

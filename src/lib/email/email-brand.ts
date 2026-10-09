@@ -72,7 +72,7 @@ export const EMAIL_SIGNATURE = {
   email: "contact@goteamgoagency.com",
   recruitmentEmail: "fabiana@goteamgoagency.com",
   instagram: "@goteamgoagency",
-  instagramUrl: "https://instagram.com/goteamgoagency",
+  instagramUrl: "https://www.instagram.com/goteamgoagency/",
   website: "https://www.goteamgoagency.com",
   websiteUrl: "https://www.goteamgoagency.com",
 } as const;

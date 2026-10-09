@@ -28,6 +28,7 @@ export interface RecruitEmailAthlete {
   profileUrl?: string | null;
   courseOfInterest?: string | null;
   collegeStartDate?: string | null;
+  seekingOpportunities?: string | null;
   currentSchool?: string | null;
   stats?: Record<string, unknown> | null;
   teamContribution?: string | null;
@@ -679,6 +680,7 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     "",
     `PROSPECT: ${athlete.name}`,
     `SPECS: ${buildAthleteSpecsLine(athlete)}`,
+    athlete.seekingOpportunities ? `AVAILABLE: ${athlete.seekingOpportunities}` : null,
     athlete.highlightNote ? `NOTE: ${athlete.highlightNote}` : null,
     "",
     `WATCH FILM: ${videoUrl}`,
@@ -693,6 +695,8 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     `${EMAIL_SIGNATURE.name}`,
     `${EMAIL_SIGNATURE.role}`,
     `${EMAIL_SIGNATURE.email} | ${EMAIL_SIGNATURE.website}`,
+    `Instagram: ${EMAIL_SIGNATURE.instagramUrl}`,
+    `WhatsApp: +55 (11) 99923-9490 (https://wa.me/5511999239490)`,
     "",
     `Unsubscribe: ${baseUrl}/unsubscribe?email=${encodeURIComponent(options.coachEmail || "")}`,
   ].filter((item): item is string => item !== null);
@@ -715,6 +719,7 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
     return [
       `${i + 1}. ${ath.name}`,
       `   Specs: ${buildAthleteSpecsLine(ath)}`,
+      ath.seekingOpportunities ? `   Available: ${ath.seekingOpportunities}` : null,
       `   Film: ${videoUrl}`,
       `   Profile: ${profileUrl}`,
     ].join("\n");
@@ -737,6 +742,8 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
     `${EMAIL_SIGNATURE.name}`,
     `${EMAIL_SIGNATURE.role}`,
     `${EMAIL_SIGNATURE.email} | ${EMAIL_SIGNATURE.website}`,
+    `Instagram: ${EMAIL_SIGNATURE.instagramUrl}`,
+    `WhatsApp: +55 (11) 99923-9490 (https://wa.me/5511999239490)`,
     "",
     `Unsubscribe: ${baseUrl}/unsubscribe?email=${encodeURIComponent(options.coachEmail || "")}`,
   ];

@@ -254,6 +254,7 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
       [
         `— ${athlete.name}`,
         athlete.positionEn,
+        athlete.seekingOpportunities ? `Available: ${athlete.seekingOpportunities}` : null,
         `VIEW FULL PROFILE: ${actionUrls.profile}`,
         `RECRUIT NOW: ${actionUrls.recruit}`,
         `NOT A FIT: ${actionUrls.notFit}`,
@@ -289,6 +290,9 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
   const text = [
     ...textParts,
     "Best regards,\nFabiana Andrade\nFounder | Go Team Go Agency",
+    `contact@goteamgoagency.com | ${EMAIL_BASE_URL}`,
+    "Instagram: https://www.instagram.com/goteamgoagency/",
+    "WhatsApp: +55 (11) 99923-9490 (https://wa.me/5511999239490)",
     `Unsubscribe: ${links.unsubscribe}`,
     `Not the right fit: ${links.notFit}`,
     `Go to catalog: ${links.catalog}`,

@@ -969,3 +969,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação:** `git diff --check` sem erros. Typecheck/build não executados porque Bun e `node_modules` não estão disponíveis neste ambiente.
 - **Status:** `[CONCLUÍDO]`.
 
+---
+
+## TASK-094 — 2026-10-09 17:18 — Mailer: disponibilidade, gestão de coaches, conflitos e assinatura
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Codex
+- **Pedido:** (1) Exibir no card `Available` usando o campo administrativo `Seeking Opportunities For`; (2) dedicar tela de coaches a cadastro/vínculo com universidade, atualização de dados e preferências; (3) alertar antes do envio quando sinais ativos de coaches conflitem com as atletas/posições selecionadas; (4) tornar Instagram da assinatura clicável e adicionar WhatsApp clicável `+55 11 999239490`.
+- **Diagnóstico:** Existe `/admin/coaches`, porém trabalha com tabela legada independente. O Mailer usa `universities.coaches`. O card usa hoje `college_start_date`, enquanto o perfil administra `seeking_opportunities`. O Mailer já carrega sinais ativos mas só apresenta badges.
+- **Plano:** `think/2026-10-09-1718-mailer-availability-coach-management-fit-warning-signature.md`.
+- **Implementação:** Os cards usam `seeking_opportunities` como `Available` (preview, envio real e textos puros); `/admin/coaches` passou a gerir os coaches embutidos na universidade, seus contatos e preferências, associar legados sem apagar a origem e atualizar/remover vínculos; Mailer e envio do perfil agora exibem confirmação de fit antes de qualquer envio; assinatura traz Instagram e WhatsApp clicáveis em HTML e texto puro.
+- **Validação:** `git diff --check` concluído sem erros de whitespace. Build/typecheck/lint não executáveis neste ambiente: Bun não está instalado e `node_modules` não existe. Nenhum pacote foi instalado nem arquivos `package.json`, `bun.lock` ou `vercel.json` alterados.
+- **Status:** `[IMPLEMENTADO — VALIDAÇÃO DE BUILD PENDENTE DE AMBIENTE BUN]`.
+

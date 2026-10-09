@@ -19,9 +19,10 @@ import { toast } from "sonner";
 
 import { buttonClass, secondaryButtonClass, inputClass } from "@/components/admin-ui";
 import { renderRecruitEmail } from "@/lib/email/recruit-email-template";
-import { sendRecruitEmailServerFn } from "@/lib/email/recruit-email.functions";
+import { getActiveInterestSignalsServerFn, sendRecruitEmailServerFn } from "@/lib/email/recruit-email.functions";
+import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
 import { supabase } from "@/lib/supabase/client";
-import type { Athlete, AthleteProfile, Coach } from "@/types/db";
+import type { Athlete, AthleteProfile, Coach, University } from "@/types/db";
 
 interface SendRecruitEmailDialogProps {
   athlete: Athlete;
@@ -52,6 +53,8 @@ export function SendRecruitEmailDialog({
   const [previousSentMap, setPreviousSentMap] = useState<Map<string, string>>(new Map());
   const [isSending, setIsSending] = useState(false);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [checkingFit, setCheckingFit] = useState(false);
+  const [fitConflicts, setFitConflicts] = useState<CoachFitConflict[]>([]);
   const [activeTab, setActiveTab] = useState<"coaches" | "preview">("coaches");
   const [highlightVideoUrl, setHighlightVideoUrl] = useState<string | null>(null);
   const [visualSettings, setVisualSettings] = useState<{
@@ -65,7 +68,7 @@ export function SendRecruitEmailDialog({
     setFetchError(null);
     try {
       const [coachesRes, logsRes, visualRes, videoRes] = await Promise.all([
-        supabase.from("coaches").select("*").order("name", { ascending: true }),
+        supabase.from("universities").select("id,name,coaches").order("name", { ascending: true }),
         supabase
           .from("recruit_email_logs")
           .select("coach_id, sent_at, status")
@@ -91,7 +94,14 @@ export function SendRecruitEmailDialog({
         setFetchError(coachesRes.error.message);
         toast.error("Failed to load coaches: " + coachesRes.error.message);
       } else {
-        setCoaches((coachesRes.data ?? []) as Coach[]);
+        const entries = (coachesRes.data ?? []) as unknown as Array<Pick<University, "id" | "name" | "coaches">>;
+        setCoaches(entries.flatMap((university) => (university.coaches ?? []).map((coach) => ({
+          id: coach.id,
+          name: `${coach.first_name} ${coach.last_name}`.trim() || "Coach",
+          email: coach.email,
+          institution: university.name,
+          created_at: "",
+        }))) as Coach[]);
       }
 
       if (visualRes.data) {
@@ -158,6 +168,7 @@ export function SendRecruitEmailDialog({
       highlightNote: profile?.highlight_note,
       budget: profile?.budget,
       highlightVideoUrl: highlightVideoUrl || profile?.highlight_video_url,
+      seekingOpportunities: profile?.seeking_opportunities,
       logoUrl: visualSettings?.logo_url,
       heroBackgroundUrl: visualSettings?.hero_background_url,
     });
@@ -178,6 +189,7 @@ export function SendRecruitEmailDialog({
     profile?.highlight_note,
     profile?.budget,
     profile?.highlight_video_url,
+    profile?.seeking_opportunities,
     highlightVideoUrl,
     visualSettings,
   ]);
@@ -207,6 +219,36 @@ export function SendRecruitEmailDialog({
 
   function handleDeselectAll() {
     setSelectedIds(new Set());
+  }
+
+  async function openSendConfirmation() {
+    if (selectedIds.size === 0) {
+      toast.error("Please select at least one coach.");
+      return;
+    }
+    setCheckingFit(true);
+    try {
+      const freshSignals = await getActiveInterestSignalsServerFn();
+      const selectedCoaches = coaches.filter((coach) => selectedIds.has(coach.id));
+      setFitConflicts(findCoachFitConflicts(
+        selectedCoaches.map((coach) => ({
+          key: `${coach.institution}:${coach.id}`,
+          coachId: coach.id,
+          name: coach.name,
+          email: coach.email,
+          universityName: coach.institution ?? "University",
+          signals: [],
+        })),
+        [{ id: athlete.id, name: athlete.full_name, position: positionName ?? null }],
+        freshSignals,
+      ));
+      setConfirmSendOpen(true);
+    } catch (error) {
+      console.error("[recruit-email] Could not refresh coach fit preferences:", error);
+      toast.error("Could not refresh coach preferences. No email was sent; please try again.");
+    } finally {
+      setCheckingFit(false);
+    }
   }
 
   async function handleExecuteSend() {
@@ -543,14 +585,14 @@ export function SendRecruitEmailDialog({
 
             <button
               type="button"
-              disabled={isSending || selectedCount === 0}
-              onClick={() => setConfirmSendOpen(true)}
+              disabled={isSending || checkingFit || selectedCount === 0}
+              onClick={() => void openSendConfirmation()}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none transition-all"
             >
-              {isSending ? (
+              {isSending || checkingFit ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending batch...
+                  {isSending ? "Sending batch..." : "Checking preferences..."}
                 </>
               ) : (
                 <>
@@ -576,11 +618,18 @@ export function SendRecruitEmailDialog({
               <strong className="text-white">{athlete.full_name}</strong> to{" "}
               <strong className="text-emerald-400">{selectedCount} collegiate coaches</strong>.
             </p>
+            {fitConflicts.length > 0 && (
+              <section className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs" aria-label="Coach fit conflicts">
+                <p className="font-semibold text-amber-700 dark:text-amber-300">{new Set(fitConflicts.map((item) => item.recipient.key)).size} coach(es) with fit conflicts or preferences to review</p>
+                {fitConflicts.map((item, index) => <div key={`${item.recipient.key}-${index}`} className="rounded-md border border-border bg-card p-2 text-foreground"><strong>{item.recipient.name} · {item.recipient.universityName}</strong><p>{item.reviewOnly ? "Review" : "Conflict"}: {item.detail}</p><p className="text-muted-foreground">Athlete: {item.athletes.join(", ")}</p></div>)}
+                <p className="text-muted-foreground">Recipients will not be removed automatically.</p>
+              </section>
+            )}
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={isSending}
-                onClick={() => setConfirmSendOpen(false)}
+                onClick={() => { setConfirmSendOpen(false); setFitConflicts([]); }}
                 className={secondaryButtonClass}
               >
                 Cancel
@@ -592,7 +641,7 @@ export function SendRecruitEmailDialog({
                 className={buttonClass}
               >
                 {isSending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-                Confirm and Send
+                {fitConflicts.length > 0 ? "Send anyway" : "Confirm and Send"}
               </button>
             </div>
           </div>

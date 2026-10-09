@@ -41,6 +41,7 @@ export interface EmailCardAthlete {
   highlightVideoUrl?: string | null;
   courseOfInterest?: string | null;
   collegeStartDate?: string | null;
+  seekingOpportunities?: string | null;
   currentSchool?: string | null;
   stats?: Record<string, unknown> | null;
   teamContribution?: string | null;
@@ -844,7 +845,7 @@ export function renderRequestCtaBar(params?: {
  * G) ASSINATURA:
  * Logo à esquerda; linha vertical dourada fina;
  * Bloco com Fabiana Andrade, Founder | Go Team Go Agency,
- * 3 linhas com ícone: e-mail, Instagram, site.
+ * Linhas clicáveis de contato: e-mail, Instagram, site e WhatsApp.
  * À direita, a frase manuscrita "Different Athletes Brighter Futures" com sublinhado dourado.
  */
 export function renderSignature(params?: { logoUrl?: string | null }): string {
@@ -902,6 +903,12 @@ export function renderSignature(params?: { logoUrl?: string | null }): string {
                   <a href="${EMAIL_SIGNATURE.websiteUrl}" target="_blank" rel="noopener noreferrer" style="color:${EMAIL_COLORS.darkGreenPrimary};text-decoration:none;font-weight:700;">
                     ${EMAIL_SIGNATURE.website}
                   </a>
+                </td>
+              </tr>
+              <tr>
+                <td width="16" valign="middle" style="padding-top:3px;font-size:12px;line-height:12px;">&#9742;</td>
+                <td valign="middle" style="padding-left:6px;padding-top:3px;font-size:11px;">
+                  <a href="https://wa.me/5511999239490" target="_blank" rel="noopener noreferrer" style="color:${EMAIL_COLORS.darkGreenPrimary};text-decoration:none;font-weight:700;">+55 (11) 99923-9490</a>
                 </td>
               </tr>
             </table>

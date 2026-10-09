@@ -75,6 +75,7 @@ function mapEmailDataToAthlete(data: RecruitEmailData): RecruitEmailAthlete {
     highlightNote: data.highlightNote,
     courseOfInterest: data.courseOfInterest,
     collegeStartDate: data.collegeStartDate,
+    seekingOpportunities: data.seekingOpportunities,
     currentSchool: data.currentSchool,
     stats: data.stats,
     teamContribution: data.teamContribution,

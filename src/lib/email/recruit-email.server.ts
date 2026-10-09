@@ -370,7 +370,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     admin
       .from("athlete_profiles")
       .select(
-        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, stats, team_contribution_en",
+        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, team_contribution_en",
       )
       .eq("athlete_id", athleteId)
       .maybeSingle(),
@@ -439,6 +439,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     currentSchool: profile?.current_school,
     courseOfInterest: profile?.course_of_interest,
     collegeStartDate: profile?.college_start_date,
+    seekingOpportunities: profile?.seeking_opportunities,
     stats: profile?.stats,
     teamContribution: profile?.team_contribution_en,
     videos,
@@ -913,24 +914,30 @@ export async function sendRecruitEmailToCoaches(input: {
   errors?: string[];
 }> {
   const admin = getAdminClient();
-  const { data: coaches, error: coachesErr } = await admin
-    .from("coaches")
-    .select("id, name, email, institution")
-    .in("id", input.coachIds);
+  const { data: universities, error: coachesErr } = await admin
+    .from("universities")
+    .select("id, name, coaches");
 
   if (coachesErr) {
-    console.error(
-      "[recruit-email] Error loading coaches in sendRecruitEmailToCoaches:",
-      coachesErr.message,
-    );
+    console.error("[recruit-email] Error loading university coaches in legacy send:", coachesErr.message);
   }
 
-  const recipients: MailerRecipient[] = (coaches || []).map((c) => ({
-    coachId: c.id,
-    name: c.name,
-    email: c.email,
-    universityName: c.institution || undefined,
-  }));
+  const selectedIds = new Set(input.coachIds);
+  const universityCoachRows = (universities ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    coaches: Array<{ id: string; first_name: string; last_name: string; email: string }> | null;
+  }>;
+  const recipients: MailerRecipient[] = universityCoachRows.flatMap((university) =>
+    (Array.isArray(university.coaches) ? university.coaches : [])
+      .filter((coach) => selectedIds.has(coach.id))
+      .map((coach) => ({
+        coachId: coach.id,
+        name: `${coach.first_name} ${coach.last_name}`.trim() || "Coach",
+        email: coach.email,
+        universityName: university.name,
+      })),
+  );
 
   const res = await sendMailerEmails({
     mode: "single_athlete",

@@ -186,7 +186,7 @@ function renderQuickFacts(athlete: RecruitEmailAthlete): string {
     rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Current School", value: school });
   const status = clean(athlete.athleteStatus);
   if (status) rows.push({ icon: EMAIL_ASSETS.icons.arrowGold, label: "Status", value: status });
-  const available = clean(athlete.collegeStartDate);
+  const available = clean(athlete.seekingOpportunities);
   if (available) rows.push({ icon: EMAIL_ASSETS.icons.film, label: "Available", value: available });
   const major = clean(athlete.courseOfInterest);
   if (major) rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
@@ -224,7 +224,7 @@ function renderChips(athlete: RecruitEmailAthlete): string {
       `<span style="display:inline-block;padding:6px 10px;margin:0 6px 6px 0;background-color:${C.badgeGoldBg};border-radius:4px;font-family:${FONT};font-size:12px;font-weight:700;color:${C.darkGreenPrimary};">TRANSFER</span>`,
     );
   }
-  const available = clean(athlete.collegeStartDate);
+  const available = clean(athlete.seekingOpportunities);
   if (available) {
     chips.push(
       `<span style="display:inline-block;padding:6px 10px;margin:0 6px 6px 0;border:1px solid ${C.lineDivider};border-radius:4px;font-family:${FONT};font-size:12px;color:${C.textMuted};">AVAILABLE: <strong style="color:${C.darkGreenPrimary};">${escapeHtml(available.toUpperCase())}</strong></span>`,

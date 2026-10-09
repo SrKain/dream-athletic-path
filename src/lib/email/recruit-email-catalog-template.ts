@@ -38,6 +38,8 @@ export function generateCatalogPlainText(data: CatalogEmailData): string {
     `${EMAIL_SIGNATURE.name}`,
     `${EMAIL_SIGNATURE.role} - ${EMAIL_SIGNATURE.agency}`,
     `${EMAIL_SIGNATURE.email} | ${EMAIL_SIGNATURE.website}`,
+    `Instagram: ${EMAIL_SIGNATURE.instagramUrl}`,
+    `WhatsApp: +55 (11) 99923-9490 (https://wa.me/5511999239490)`,
     "",
     `Unsubscribe: ${portfolioUrl}/unsubscribe?email=${encodeURIComponent(data.recipientEmail || "")}`,
   ];
