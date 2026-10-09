@@ -41,6 +41,10 @@ export interface EmailCardAthlete {
   highlightVideoUrl?: string | null;
   courseOfInterest?: string | null;
   collegeStartDate?: string | null;
+  currentSchool?: string | null;
+  stats?: Record<string, unknown> | null;
+  teamContribution?: string | null;
+  videos?: Array<{ url: string; title?: string | null; kind?: string | null }> | null;
 }
 
 /**

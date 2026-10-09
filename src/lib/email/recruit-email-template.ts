@@ -74,6 +74,10 @@ function mapEmailDataToAthlete(data: RecruitEmailData): RecruitEmailAthlete {
     highlightNote: data.highlightNote,
     courseOfInterest: data.courseOfInterest,
     collegeStartDate: data.collegeStartDate,
+    currentSchool: data.currentSchool,
+    stats: data.stats,
+    teamContribution: data.teamContribution,
+    videos: data.videos,
   };
 }
 
