@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
-import { type EmailBlock } from "./personal-email-renderer";
+import { buildFixedEmailBlocks, type EmailBlock, type FixedEmailComposition } from "./personal-email-renderer";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
@@ -25,6 +25,7 @@ export interface SendMailerInput {
   createdBy?: string | null;
   filters?: Record<string, unknown>;
   blocks?: EmailBlock[];
+  composition?: FixedEmailComposition;
   customOptions?: {
     greeting?: string;
     introduction?: string;
@@ -231,7 +232,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     admin
       .from("athlete_profiles")
       .select(
-        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url",
+        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, stats, team_contribution_en",
       )
       .eq("athlete_id", athleteId)
       .maybeSingle(),
@@ -250,12 +251,11 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
       : Promise.resolve({ data: null }),
     admin
       .from("athlete_videos")
-      .select("youtube_url")
+      .select("youtube_url, title, kind")
       .eq("athlete_id", athleteId)
-      .eq("kind", "highlight")
+      .in("kind", ["highlight", "feature"])
       .order("sort_order", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .limit(2),
     admin
       .from("achievements")
       .select("title_en")
@@ -271,7 +271,13 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
   const positionName = posRes.data?.name_en ?? null;
   const countryFlag = countryRes.data?.flag_emoji ?? null;
   const nationalityName = countryRes.data?.name_en ?? athlete.nationality ?? null;
-  const highlightVideoUrl = videoRes.data?.youtube_url ?? profile?.highlight_video_url ?? null;
+  const videos = (videoRes.data ?? []).map((video) => ({
+    url: video.youtube_url,
+    title: video.title,
+    kind: video.kind,
+  }));
+  const highlightVideoUrl =
+    videos.find((video) => video.kind === "highlight")?.url ?? profile?.highlight_video_url ?? null;
   const achievementTitle = achievementRes.data?.title_en ?? null;
 
   return {
@@ -292,6 +298,12 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
     achievementTitle,
     budget: profile?.budget,
     highlightVideoUrl,
+    currentSchool: profile?.current_school,
+    courseOfInterest: profile?.course_of_interest,
+    collegeStartDate: profile?.college_start_date,
+    stats: profile?.stats,
+    teamContribution: profile?.team_contribution_en,
+    videos,
   };
 }
 
@@ -303,11 +315,19 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     createdBy = null,
     filters = {},
     blocks,
+    composition,
     customOptions,
     catalogOptions,
   } = input;
 
-  const emailBlocks = blocks?.length ? blocks : customOptions?.blocks?.length ? customOptions.blocks : [];
+  const emailBlocks =
+    mode !== "catalog" && composition
+      ? buildFixedEmailBlocks(composition, athleteIds)
+      : blocks?.length
+        ? blocks
+        : customOptions?.blocks?.length
+          ? customOptions.blocks
+          : [];
 
   if (recipients.length === 0) {
     return {

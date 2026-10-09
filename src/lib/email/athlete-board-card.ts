@@ -62,14 +62,22 @@ export interface BoardSeasonStats {
   items: BoardStatItem[];
 }
 
-const STAT_META_KEYS = new Set(["season", "team", "school", "label", "note", "notes", "title"]);
+const STAT_META_KEYS = new Set([
+  "season",
+  "seasons",
+  "team",
+  "school",
+  "label",
+  "note",
+  "notes",
+  "title",
+  "class",
+]);
 
-/** Extrai estatísticas exibíveis do JSON livre `athlete_profiles.stats`. */
-export function extractSeasonStats(
-  stats: Record<string, unknown> | null | undefined,
+function extractSeasonStatsEntry(
+  stats: Record<string, unknown>,
   fallbackTeam?: string | null,
 ): BoardSeasonStats | null {
-  if (!stats || typeof stats !== "object" || Array.isArray(stats)) return null;
   const items: BoardStatItem[] = [];
   for (const [key, raw] of Object.entries(stats)) {
     if (STAT_META_KEYS.has(key.trim().toLowerCase())) continue;
@@ -80,13 +88,39 @@ export function extractSeasonStats(
     if (items.length >= 5) break;
   }
   const note = clean(stats.note ?? stats.notes);
-  if (items.length === 0 && !note) return null;
+  if (items.length === 0 && !note && !clean(stats.season ?? stats.title ?? stats.label ?? stats.class) && !clean(stats.team ?? stats.school)) return null;
   return {
-    title: clean(stats.season ?? stats.title ?? stats.label),
+    title: clean(stats.season ?? stats.title ?? stats.label ?? stats.class),
     team: clean(stats.team ?? stats.school) || clean(fallbackTeam),
     note,
     items,
   };
+}
+
+/** Extrai estatísticas exibíveis do JSON livre `athlete_profiles.stats`. */
+export function extractSeasonStats(
+  stats: Record<string, unknown> | null | undefined,
+  fallbackTeam?: string | null,
+): BoardSeasonStats | null {
+  if (!stats || typeof stats !== "object" || Array.isArray(stats)) return null;
+  return extractSeasonStatsEntry(stats, fallbackTeam);
+}
+
+/** Supports either the legacy single-season stats object or a seasons array. */
+export function extractSeasonStatsList(
+  stats: Record<string, unknown> | null | undefined,
+  fallbackTeam?: string | null,
+): BoardSeasonStats[] {
+  if (!stats || typeof stats !== "object" || Array.isArray(stats)) return [];
+  if (Array.isArray(stats.seasons)) {
+    return stats.seasons
+      .filter((season): season is Record<string, unknown> => !!season && typeof season === "object" && !Array.isArray(season))
+      .map((season) => extractSeasonStatsEntry(season, fallbackTeam))
+      .filter((season): season is BoardSeasonStats => season !== null)
+      .slice(0, 2);
+  }
+  const legacy = extractSeasonStatsEntry(stats, fallbackTeam);
+  return legacy ? [legacy] : [];
 }
 
 /** Motivos de encaixe: texto da agência (team_contribution) ou derivados dos dados. */
@@ -206,28 +240,29 @@ function renderChips(athlete: RecruitEmailAthlete): string {
 }
 
 function renderSeasonStats(athlete: RecruitEmailAthlete): string {
-  const season = extractSeasonStats(athlete.stats, athlete.currentSchool);
-  if (!season) return "";
-  const header =
-    season.title || season.team
+  const seasons = extractSeasonStatsList(athlete.stats, athlete.currentSchool);
+  if (seasons.length === 0) return "";
+  const cells = seasons.map((season, index) => {
+    const header = season.title || season.team
       ? `<div style="background-color:${C.badgeGoldBg};border-radius:4px;padding:8px 12px;margin-bottom:10px;font-family:${FONT};font-size:13px;color:${C.textDark};">${season.title ? `<strong>${escapeHtml(season.title.toUpperCase())}</strong>` : ""}${season.title && season.team ? "<br>" : ""}${season.team ? escapeHtml(season.team) : ""}</div>`
       : "";
-  const cells = season.items
-    .map(
-      (it, i) => `
-      <td align="center" valign="top" style="padding:4px 6px;${i ? `border-left:1px solid ${C.lineDivider};` : ""}">
-        <div style="font-family:${FONT};font-size:22px;font-weight:700;color:${C.darkGreenPrimary};line-height:1.1;">${escapeHtml(it.value)}</div>
-        <div style="font-family:${FONT};font-size:10px;letter-spacing:0.5px;color:${C.textMuted};text-transform:uppercase;padding-top:4px;">${escapeHtml(it.label)}</div>
-      </td>`,
-    )
-    .join("");
-  const statsRow = cells
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table>`
-    : "";
-  const note = season.note
-    ? `<div style="font-family:${FONT};font-size:13px;color:${C.textDark};padding-top:${cells ? "8px" : "0"};">${escapeHtml(season.note)}</div>`
-    : "";
-  return sectionWrap("Season Stats", `${header}${statsRow}${note}`);
+    const statCells = season.items.map((item, itemIndex) => `
+      <td align="center" valign="top" style="padding:4px 6px;${itemIndex ? `border-left:1px solid ${C.lineDivider};` : ""}">
+        <div style="font-family:${FONT};font-size:22px;font-weight:700;color:${C.darkGreenPrimary};line-height:1.1;">${escapeHtml(item.value)}</div>
+        <div style="font-family:${FONT};font-size:10px;letter-spacing:0.5px;color:${C.textMuted};text-transform:uppercase;padding-top:4px;">${escapeHtml(item.label)}</div>
+      </td>`).join("");
+    const statsRow = statCells
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${statCells}</tr></table>`
+      : "";
+    const note = season.note
+      ? `<div style="font-family:${FONT};font-size:13px;color:${C.textDark};padding-top:${statCells ? "8px" : "0"};">${escapeHtml(season.note)}</div>`
+      : "";
+    return `<td class="mobile-stack" width="${seasons.length > 1 ? "50%" : "100%"}" valign="top" style="padding:${index ? "0 0 0 8px" : "0 8px 0 0"};">${header}${statsRow}${note}</td>`;
+  }).join("");
+  return sectionWrap(
+    "Season Stats",
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table>`,
+  );
 }
 
 function renderVideos(athlete: RecruitEmailAthlete, options: BoardCardOptions): string {
@@ -312,8 +347,8 @@ function renderActions(urls: { recruit: string; profile: string; notFit: string 
   return `
   <tr><td style="padding:14px 0 0 0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      ${btn(urls.recruit, BOARD_CARD_ACTION_LABELS.recruit, C.darkGreenPrimary, "#ffffff", C.darkGreenPrimary, false)}
-      ${btn(urls.profile, BOARD_CARD_ACTION_LABELS.profile, C.boardYellow, C.darkGreenPrimary, C.boardYellow)}
+      ${btn(urls.profile, BOARD_CARD_ACTION_LABELS.profile, C.darkGreenPrimary, "#ffffff", C.darkGreenPrimary)}
+      ${btn(urls.recruit, BOARD_CARD_ACTION_LABELS.recruit, C.boardYellow, C.darkGreenPrimary, C.boardYellow, false)}
       ${btn(urls.notFit, BOARD_CARD_ACTION_LABELS.notFit, "#ffffff", C.textMuted, C.lineDivider)}
     </tr></table>
   </td></tr>`;

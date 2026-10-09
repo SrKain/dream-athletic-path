@@ -1231,3 +1231,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Dev server ativo e respondendo `HTTP/1.1 200 OK`.
 - **Plano:** `think/2026-10-08-0720-hotfix-email-events-schema-e-rpc-metricas.md`.
 
+## Atualização 2026-10-09 — Composição fixa e card visual do Mailer (TASK-091)
+
+- **Composição do Mailer Individual e Multi:** saudação, corpo inicial, lista ordenável de cards, fechamento e assinatura/rodapé automático, sempre nessa ordem.
+- **Sincronização editor → preview → envio:** o compositor gera os blocos a partir das três regiões de texto e da ordem de atletas; preview e servidor usam o mesmo helper `buildFixedEmailBlocks`. O servidor limita os cards aos IDs enviados/selecionados e escapa conteúdo de texto no renderer.
+- **Cards:** o `renderPersonalEmail` agora usa `renderAthleteBoardCard`, que segue a referência visual: faixa dourada, foto, Quick Facts, estatísticas de temporada, vídeos e motivos de encaixe quando há dados. O CTA `VIEW FULL PROFILE` é primário; `RECRUIT NOW` e `NOT A FIT` permanecem em inglês. Texto puro também inclui links das ações.
+- **Dados usados no card:** consultas do Mailer e do envio carregam escola, curso, período de disponibilidade, estatísticas, contribuição da equipe e até dois vídeos highlight/feature. O renderer aceita estatística histórica em objeto simples e lista de temporadas.
+- **Vercel/dependências:** `package.json`, `bun.lock` e `vercel.json` não foram modificados. Typecheck/build não puderam ser executados neste ambiente: Bun e `node_modules` não estão disponíveis. `git diff --check` não apontou erros.
+- **Plano:** `think/2026-10-09-1105-corrigir-composicao-mailer-e-cards.md`.
+

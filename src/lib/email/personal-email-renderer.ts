@@ -13,7 +13,8 @@
 import { EMAIL_BASE_URL, EMAIL_COLORS } from "./email-brand";
 import { escapeHtml, renderSignature } from "./email-layout";
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
-import { renderAthleteCard, type RecruitEmailAthlete } from "./recruit-email";
+import { buildBoardCardUrls, renderAthleteBoardCard } from "./athlete-board-card";
+import type { RecruitEmailAthlete } from "./recruit-email";
 
 export type EmailBlock =
   | { type: "text"; content: string }
@@ -30,6 +31,13 @@ export interface PersonalEmailInput {
   campaignId?: string | null;
   appUrl?: string;
   logoUrl?: string | null;
+}
+
+export interface FixedEmailComposition {
+  greeting: string;
+  introduction: string;
+  athleteOrder: string[];
+  closing: string;
 }
 
 export interface PersonalEmailOutput {
@@ -78,6 +86,34 @@ export function buildDefaultEmailBlocks(athleteIds: string[]): EmailBlock[] {
   for (const id of athleteIds) blocks.push({ type: "athlete", athleteId: id });
   blocks.push({ type: "text", content: "Let me know what you think." });
   return blocks;
+}
+
+/** Keeps the editable text regions fixed and only allows athlete cards to reorder. */
+export function buildFixedEmailBlocks(
+  composition: FixedEmailComposition,
+  allowedAthleteIds: string[],
+): EmailBlock[] {
+  const allowedIds = [...new Set(allowedAthleteIds.filter((id) => typeof id === "string"))].slice(
+    0,
+    MAX_BLOCKS - 3,
+  );
+  const allowed = new Set(allowedIds);
+  const requestedOrder = Array.isArray(composition?.athleteOrder)
+    ? composition.athleteOrder.filter((id): id is string => typeof id === "string")
+    : [];
+  const ordered = requestedOrder.filter((id, index, ids) =>
+    allowed.has(id) && ids.indexOf(id) === index,
+  );
+  for (const id of allowedIds) {
+    if (!ordered.includes(id)) ordered.push(id);
+  }
+
+  return sanitizeEmailBlocks([
+    { type: "text", content: typeof composition?.greeting === "string" ? composition.greeting : "" },
+    { type: "text", content: typeof composition?.introduction === "string" ? composition.introduction : "" },
+    ...ordered.map((athleteId) => ({ type: "athlete" as const, athleteId })),
+    { type: "text", content: typeof composition?.closing === "string" ? composition.closing : "" },
+  ]);
 }
 
 /** Texto do usuário → parágrafos HTML seguros (linha em branco = novo parágrafo). */
@@ -204,16 +240,29 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
       continue;
     }
     rendered.push(athlete.id);
-    const cardHtml = renderAthleteCard(athlete, {
+    const cardHtml = renderAthleteBoardCard(athlete, {
       appUrl,
       coachName,
       coachEmail: input.coachEmail || undefined,
       campaignId: input.campaignId,
     });
     rows.push(`<tr><td style="padding:6px 24px 18px 24px;">${cardHtml}</td></tr>`);
-    const profileUrl = athlete.profileUrl || `${appUrl}/athlete/${encodeURIComponent(athlete.slug)}`;
+    const actionUrls = buildBoardCardUrls(athlete, {
+      appUrl,
+      coachName,
+      coachEmail: input.coachEmail || undefined,
+      campaignId: input.campaignId,
+    });
     textParts.push(
-      [`— ${athlete.name}`, athlete.positionEn, profileUrl].filter(Boolean).join("\n"),
+      [
+        `— ${athlete.name}`,
+        athlete.positionEn,
+        `VIEW FULL PROFILE: ${actionUrls.profile}`,
+        `RECRUIT NOW: ${actionUrls.recruit}`,
+        `NOT A FIT: ${actionUrls.notFit}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     );
   }
 

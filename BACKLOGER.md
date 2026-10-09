@@ -921,5 +921,21 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   2. Reestruturar a ordem final do e-mail para: **Saudação → Corpo do E-mail → Quadro(s) das Atletas → Fechamento do E-mail → Rodapé existente com a assinatura da Fabiana**.
   3. Reformar o quadro das atletas conforme modelo anexo do usuário e incluir os **3 botões de ação 100% em inglês**: **Recrutar agora (`RECRUIT NOW`)**, **Ver perfil completo (`VIEW FULL PROFILE`)** e **Not a fit (`NOT A FIT`)**, executando tudo em uma única entrega após aprovação do plano.
 - **Planejamento:** Registrado em `think/2026-10-09-0610-revisao-fluxo-mailer-e-reforma-quadro-atletas.md`.
-- **Status:** `[PENDENTE]` — Aguardando anexo do modelo do quadro das atletas e aprovação explícita do usuário humano.
+- **Status:** `[SUPERADA POR TASK-091]` — O usuário definiu a composição final e aprovou o plano atualizado registrado na tarefa seguinte.
+
+---
+
+## TASK-091 — 2026-10-09 11:05 — Composição fixa do Mailer e atualização dos cards de atletas
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Codex
+- **Pedido:** Corrigir o Mailer para que textos editados apareçam no preview e sejam enviados. A composição deve ser Saudação editável → Corpo inicial editável → Cards de atletas reordenáveis, mas sempre nesta região → Fechamento editável → Assinatura existente. Atualizar o card conforme anexo e oferecer `VIEW FULL PROFILE` em destaque, `RECRUIT NOW` e `NOT A FIT` em inglês.
+- **Plano:** `think/2026-10-09-1105-corrigir-composicao-mailer-e-cards.md`.
+- **Entrega:**
+  1. Mailer Individual/Multi reorganizado em saudação, corpo inicial, cards ordenáveis, fechamento e assinatura/rodapé.
+  2. Preview e envio usam os mesmos blocos canônicos; payload validado e restringe os cards às atletas selecionadas.
+  3. Card do anexo conectado ao envio, com CTA `VIEW FULL PROFILE` destacado e `RECRUIT NOW` / `NOT A FIT` em inglês; dados de perfil, estatísticas e até dois vídeos enviados ao renderer.
+  4. Atualizados `CERNE.md` e o plano aprovado.
+- **Validação:** `git diff --check` sem erros. Não foi possível rodar typecheck/build porque Bun e `node_modules` não estão disponíveis no ambiente. `package.json`, `bun.lock` e `vercel.json` permaneceram intocados.
+- **Status:** `[CONCLUÍDO]` — Implementação finalizada; validação de build pendente de ambiente com Bun >= 1.3.14 e dependências instaladas.
 

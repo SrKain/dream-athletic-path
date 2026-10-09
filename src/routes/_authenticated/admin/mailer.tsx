@@ -48,9 +48,8 @@ import {
 } from "@/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "@/lib/email/recruit-email-catalog-template";
 import {
-  buildDefaultEmailBlocks,
+  buildFixedEmailBlocks,
   sanitizeEmailBlocks,
-  type EmailBlock,
 } from "@/lib/email/personal-email-renderer";
 import type {
   University,
@@ -98,6 +97,11 @@ interface RawAthleteRecord {
     highlight_note: string | null;
     budget: string | null;
     highlight_video_url?: string | null;
+    current_school?: string | null;
+    course_of_interest?: string | null;
+    college_start_date?: string | null;
+    stats?: Record<string, unknown> | null;
+    team_contribution_en?: string | null;
   } | null;
 }
 
@@ -118,6 +122,12 @@ interface AthleteSummary {
   highlight_note?: string | null;
   budget?: string | null;
   highlight_video_url?: string | null;
+  current_school?: string | null;
+  course_of_interest?: string | null;
+  college_start_date?: string | null;
+  stats?: Record<string, unknown> | null;
+  team_contribution_en?: string | null;
+  videos?: Array<{ url: string; title?: string | null; kind?: string | null }>;
 }
 
 interface RecipientItem {
@@ -173,7 +183,10 @@ function MailerPage() {
   const [customGreeting, setCustomGreeting] = useState("");
   const [customIntroduction, setCustomIntroduction] = useState("");
   const [customHook, setCustomHook] = useState("");
-  const [composerBlocks, setComposerBlocks] = useState<EmailBlock[]>([]);
+  const [mailerGreeting, setMailerGreeting] = useState<string | null>(null);
+  const [mailerIntroduction, setMailerIntroduction] = useState<string | null>(null);
+  const [mailerClosing, setMailerClosing] = useState<string | null>(null);
+  const [composerAthleteIds, setComposerAthleteIds] = useState<string[]>([]);
 
   // Opções do Catálogo
   const [catalogHeadline, setCatalogHeadline] = useState(
@@ -214,7 +227,7 @@ function MailerPage() {
             nationality,
             sport:sports(name_en),
             position:positions(name_en),
-            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url)
+            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, stats, team_contribution_en)
           `,
             )
             .eq("is_public", true)
@@ -231,8 +244,8 @@ function MailerPage() {
             .maybeSingle(),
           supabase
             .from("athlete_videos")
-            .select("athlete_id, youtube_url, kind, sort_order")
-            .eq("kind", "highlight")
+            .select("athlete_id, youtube_url, title, kind, sort_order")
+            .in("kind", ["highlight", "feature"])
             .order("sort_order", { ascending: true }),
         ]);
 
@@ -243,14 +256,19 @@ function MailerPage() {
         });
       }
 
-      const videoMap = new Map<string, string>();
+      const videoMap = new Map<string, Array<{ url: string; title?: string | null; kind?: string | null }>>();
       if (videosRes.data) {
         for (const v of videosRes.data as Array<{
           athlete_id: string;
           youtube_url: string | null;
+          title: string | null;
+          kind: string;
         }>) {
-          if (v.athlete_id && v.youtube_url && !videoMap.has(v.athlete_id)) {
-            videoMap.set(v.athlete_id, v.youtube_url);
+          if (!v.athlete_id || !v.youtube_url) continue;
+          const videos = videoMap.get(v.athlete_id) ?? [];
+          if (videos.length < 2) {
+            videos.push({ url: v.youtube_url, title: v.title, kind: v.kind });
+            videoMap.set(v.athlete_id, videos);
           }
         }
       }
@@ -276,7 +294,16 @@ function MailerPage() {
           high_school_graduation: a.profile?.high_school_graduation ?? null,
           highlight_note: a.profile?.highlight_note ?? null,
           budget: a.profile?.budget ?? null,
-          highlight_video_url: videoMap.get(a.id) || a.profile?.highlight_video_url || null,
+          highlight_video_url:
+            videoMap.get(a.id)?.find((video) => video.kind === "highlight")?.url ??
+            a.profile?.highlight_video_url ??
+            null,
+          current_school: a.profile?.current_school ?? null,
+          course_of_interest: a.profile?.course_of_interest ?? null,
+          college_start_date: a.profile?.college_start_date ?? null,
+          stats: a.profile?.stats ?? null,
+          team_contribution_en: a.profile?.team_contribution_en ?? null,
+          videos: videoMap.get(a.id) ?? [],
         }));
         setAthletes(formatted);
 
@@ -468,66 +495,167 @@ function MailerPage() {
 
   useEffect(() => {
     if (sendMode === "catalog") return;
-    if (activeComposerAthleteIds.length === 0) {
-      setComposerBlocks([]);
-      return;
-    }
-
-    setComposerBlocks((prev) => {
-      if (prev.length > 0) return prev;
-      return buildDefaultEmailBlocks(activeComposerAthleteIds);
+    setComposerAthleteIds((previous) => {
+      const selected = new Set(activeComposerAthleteIds);
+      const retained = previous.filter((id) => selected.has(id));
+      for (const id of activeComposerAthleteIds) {
+        if (!retained.includes(id)) retained.push(id);
+      }
+      return retained;
     });
   }, [activeComposerAthleteIds, sendMode]);
 
-  function addComposerTextBlock() {
-    setComposerBlocks((prev) => [
-      ...prev,
-      {
-        type: "text",
-        content:
-          "I’d love to share more about this athlete and the fit for your recruiting needs.",
-      },
-    ]);
-  }
+  const effectiveMailerComposition = useMemo(
+    () => ({
+      greeting: mailerGreeting ?? "Hi Coach,",
+      introduction:
+        mailerIntroduction ??
+        (sendMode === "multi"
+          ? "I hope you're doing well. I selected a few athletes who could be a great fit for your program."
+          : "I hope you're doing well. I found an athlete who could be a great fit for your program."),
+      athleteOrder: composerAthleteIds,
+      closing: mailerClosing ?? "Let me know what you think.",
+    }),
+    [composerAthleteIds, mailerClosing, mailerGreeting, mailerIntroduction, sendMode],
+  );
 
-  function insertComposerAthleteBlock(athleteId: string) {
-    setComposerBlocks((prev) => [
-      ...prev,
-      {
-        type: "athlete",
-        athleteId,
-      },
-    ]);
-  }
-
-  function updateComposerTextBlock(index: number, value: string) {
-    setComposerBlocks((prev) =>
-      prev.map((block, blockIndex) =>
-        blockIndex === index && block.type === "text" ? { ...block, content: value } : block,
-      ),
-    );
-  }
-
-  function moveComposerBlock(index: number, direction: -1 | 1) {
-    setComposerBlocks((prev) => {
+  function moveComposerAthlete(index: number, direction: -1 | 1) {
+    setComposerAthleteIds((previous) => {
       const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const copy = [...prev];
-      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
-      return copy;
+      if (nextIndex < 0 || nextIndex >= previous.length) return previous;
+      const next = [...previous];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
     });
   }
 
-  function removeComposerBlock(index: number) {
-    setComposerBlocks((prev) => prev.filter((_, blockIndex) => blockIndex !== index));
-  }
+  const renderMailerCompositionEditor = () => (
+    <div className="pt-3 border-t border-border space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+          Estrutura do e-mail
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          O preview acompanha o conteúdo que será enviado
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-foreground" htmlFor="mailer-greeting">
+          Saudação
+        </label>
+        <input
+          id="mailer-greeting"
+          type="text"
+          value={mailerGreeting ?? "Hi Coach,"}
+          onChange={(event) => setMailerGreeting(event.target.value)}
+          className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-foreground" htmlFor="mailer-introduction">
+          Corpo inicial
+        </label>
+        <textarea
+          id="mailer-introduction"
+          rows={3}
+          value={
+            mailerIntroduction ??
+            (sendMode === "multi"
+              ? "I hope you're doing well. I selected a few athletes who could be a great fit for your program."
+              : "I hope you're doing well. I found an athlete who could be a great fit for your program.")
+          }
+          onChange={(event) => setMailerIntroduction(event.target.value)}
+          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-foreground">Cards das atletas</div>
+          <div className="text-[11px] text-muted-foreground">Use as setas para mudar a sequência</div>
+        </div>
+        {orderedComposerAthletes.length > 0 ? (
+          <ol className="space-y-1.5">
+            {orderedComposerAthletes.map((athlete, index) => (
+              <li
+                key={athlete.id}
+                className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2"
+              >
+                <span className="w-6 text-center text-xs font-bold text-muted-foreground">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                {athlete.photo_url ? (
+                  <img
+                    src={athlete.photo_url}
+                    alt=""
+                    className="h-8 w-8 rounded-md object-cover"
+                  />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+                  {athlete.full_name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => moveComposerAthlete(index, -1)}
+                  disabled={index === 0}
+                  aria-label={`Mover ${athlete.full_name} para cima`}
+                  className="rounded border border-border px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveComposerAthlete(index, 1)}
+                  disabled={index === orderedComposerAthletes.length - 1}
+                  aria-label={`Mover ${athlete.full_name} para baixo`}
+                  className="rounded border border-border px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  ↓
+                </button>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+            Selecione ao menos uma atleta para incluir os cards.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-foreground" htmlFor="mailer-closing">
+          Fechamento do e-mail
+        </label>
+        <textarea
+          id="mailer-closing"
+          rows={2}
+          value={mailerClosing ?? "Let me know what you think."}
+          onChange={(event) => setMailerClosing(event.target.value)}
+          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        A assinatura da Fabiana e o rodapé são adicionados automaticamente após o fechamento.
+      </p>
+    </div>
+  );
 
   const composerPreviewBlocks = useMemo(() => {
     if (sendMode === "catalog") return [];
-    return sanitizeEmailBlocks(
-      composerBlocks.length > 0 ? composerBlocks : buildDefaultEmailBlocks(activeComposerAthleteIds),
+    return buildFixedEmailBlocks(effectiveMailerComposition, activeComposerAthleteIds);
+  }, [activeComposerAthleteIds, effectiveMailerComposition, sendMode]);
+
+  const orderedComposerAthletes = useMemo(() => {
+    const byId = new Map<string, AthleteSummary>(
+      athletes.map((athlete) => [athlete.id, athlete] as const),
     );
-  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
+    return composerAthleteIds
+      .filter((id) => activeComposerAthleteIds.includes(id))
+      .map((id) => byId.get(id))
+      .filter((athlete): athlete is AthleteSummary => Boolean(athlete));
+  }, [activeComposerAthleteIds, athletes, composerAthleteIds]);
 
   // Gera HTML de Preview dinâmico
   const previewHtml = useMemo(() => {
@@ -551,8 +679,7 @@ function MailerPage() {
     }
 
     if (sendMode === "multi") {
-      const targets =
-        selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
+      const targets = orderedComposerAthletes;
 
       if (targets.length === 0) {
         return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>";
@@ -575,6 +702,12 @@ function MailerPage() {
         highlightNote: ath.highlight_note,
         budget: ath.budget,
         highlightVideoUrl: ath.highlight_video_url,
+        currentSchool: ath.current_school,
+        courseOfInterest: ath.course_of_interest,
+        collegeStartDate: ath.college_start_date,
+        stats: ath.stats,
+        teamContribution: ath.team_contribution_en,
+        videos: ath.videos,
         recipientEmail: "coach@example.edu",
       }));
 
@@ -583,9 +716,6 @@ function MailerPage() {
         coachName: "Smith",
         institutionName: "University Athletics",
         recipientEmail: "coach@example.edu",
-        customGreeting: customGreeting || null,
-        customIntroduction: customIntroduction || null,
-        customHook: customHook || null,
         blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
         logoUrl,
         heroBackgroundUrl,
@@ -615,10 +745,13 @@ function MailerPage() {
       highlightNote: currentSingleAthlete.highlight_note,
       budget: currentSingleAthlete.budget,
       highlightVideoUrl: currentSingleAthlete.highlight_video_url,
+      currentSchool: currentSingleAthlete.current_school,
+      courseOfInterest: currentSingleAthlete.course_of_interest,
+      collegeStartDate: currentSingleAthlete.college_start_date,
+      stats: currentSingleAthlete.stats,
+      teamContribution: currentSingleAthlete.team_contribution_en,
+      videos: currentSingleAthlete.videos,
       recipientEmail: "coach@example.edu",
-      customGreeting: customGreeting || null,
-      customIntroduction: customIntroduction || null,
-      customHook: customHook || null,
       blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
       logoUrl,
       heroBackgroundUrl,
@@ -631,10 +764,8 @@ function MailerPage() {
     athletes,
     catalogHeadline,
     catalogMessage,
-    customGreeting,
-    customIntroduction,
-    customHook,
     composerPreviewBlocks,
+    orderedComposerAthletes,
     visualSettings,
   ]);
 
@@ -736,7 +867,10 @@ function MailerPage() {
         toast.error("Selecione ao menos um atleta.");
         return;
       }
-      targetAthleteIds = Array.from(selectedMultiAthleteIds);
+      targetAthleteIds = composerAthleteIds.filter((id) => selectedMultiAthleteIds.has(id));
+      for (const id of selectedMultiAthleteIds) {
+        if (!targetAthleteIds.includes(id)) targetAthleteIds.push(id);
+      }
     }
 
     setIsSending(true);
@@ -767,14 +901,18 @@ function MailerPage() {
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
           },
-          blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerBlocks.length ? composerBlocks : buildDefaultEmailBlocks(targetAthleteIds)),
+          blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerPreviewBlocks),
+          composition:
+            sendMode === "catalog"
+              ? undefined
+              : { ...effectiveMailerComposition, athleteOrder: targetAthleteIds },
           customOptions: {
             greeting: customGreeting || undefined,
             introduction: customIntroduction || undefined,
             hook: customHook || undefined,
             headline: catalogHeadline || undefined,
             message: catalogMessage || undefined,
-            blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerBlocks.length ? composerBlocks : buildDefaultEmailBlocks(targetAthleteIds)),
+            blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerPreviewBlocks),
           },
           catalogOptions: {
             customHeadline: catalogHeadline,
@@ -1015,55 +1153,7 @@ function MailerPage() {
                       )}
                     </div>
 
-                    {/* Personalização Editorial Single */}
-                    <div className="pt-2 border-t border-border space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-                          Personalização da Mensagem (Opcional)
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Altera em tempo real o preview e o e-mail real
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">
-                            Saudação de 1 Linha (Topo)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Hi Coach {Name}, verified volleyball prospect:"
-                            value={customGreeting}
-                            onChange={(e) => setCustomGreeting(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">
-                            Chamada / Hook
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Explore verified match films & academic records below."
-                            value={customHook}
-                            onChange={(e) => setCustomHook(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-foreground">
-                          Texto Institucional (Bloco de Final de E-mail)
-                        </label>
-                        <textarea
-                          rows={2}
-                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
-                          value={customIntroduction}
-                          onChange={(e) => setCustomIntroduction(e.target.value)}
-                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
-                      </div>
-                    </div>
+                    {renderMailerCompositionEditor()}
                   </div>
                 )}
 
@@ -1128,55 +1218,7 @@ function MailerPage() {
                       })}
                     </div>
 
-                    {/* Personalização Editorial Multi */}
-                    <div className="pt-2 border-t border-border space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-                          Personalização da Mensagem (Opcional)
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Altera em tempo real o preview e o e-mail real
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">
-                            Saudação de 1 Linha (Topo)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Hi Coach {Name}, {N} verified prospects, Class of {ano}:"
-                            value={customGreeting}
-                            onChange={(e) => setCustomGreeting(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">
-                            Chamada / Hook
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Explore verified match films & academic records below."
-                            value={customHook}
-                            onChange={(e) => setCustomHook(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-foreground">
-                          Texto Institucional (Bloco de Final de E-mail)
-                        </label>
-                        <textarea
-                          rows={2}
-                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
-                          value={customIntroduction}
-                          onChange={(e) => setCustomIntroduction(e.target.value)}
-                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
-                      </div>
-                    </div>
+                    {renderMailerCompositionEditor()}
                   </div>
                 )}
 

@@ -10,6 +10,7 @@ import {
 import { EMAIL_BASE_URL, EMAIL_SIGNATURE } from "./email-brand";
 import {
   buildDefaultEmailBlocks,
+  buildFixedEmailBlocks,
   renderPersonalEmail,
   type EmailBlock,
 } from "./personal-email-renderer";
@@ -157,20 +158,23 @@ function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData,
 function resolveLegacyBodyBlocks(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
   if (data.blocks?.length) return data.blocks;
 
-  const blocks = buildDefaultEmailBlocks(athleteIds);
+  const defaults = buildDefaultEmailBlocks(athleteIds);
   const greeting = (data.customGreeting || buildLegacyGreetingText(data, athleteIds) || "").trim();
   const hook = (data.customHook || "").trim();
   const intro = (data.customIntroduction || "").trim();
+  const defaultIntro = athleteIds.length > 1
+    ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
+    : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
 
-  if (greeting) blocks[0] = { type: "text", content: greeting };
-
-  if (hook || intro) {
-    const insertAt = Math.max(1, blocks.length - 1);
-    if (hook) blocks.splice(insertAt, 0, { type: "text", content: hook });
-    if (intro) blocks.splice(blocks.length - 1, 0, { type: "text", content: intro });
-  }
-
-  return blocks;
+  return buildFixedEmailBlocks(
+    {
+      greeting: greeting || (defaults[0]?.type === "text" ? defaults[0].content.split("\n\n")[0] : "Hi Coach,"),
+      introduction: intro || defaultIntro,
+      athleteOrder: athleteIds,
+      closing: hook || "Let me know what you think.",
+    },
+    athleteIds,
+  );
 }
 
 export function renderRecruitEmail(data: RecruitEmailData) {
