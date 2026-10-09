@@ -919,24 +919,18 @@ export function renderSignature(params?: { logoUrl?: string | null }): string {
 
 /**
  * H) BLOCO "NÃO É FIT":
- * Botão com contorno verde-escuro apontando para a rota /feedback.
+ * Botão com contorno discreto para responder à agência sobre o fit da atleta.
  */
 export function renderFeedbackBlock(params: {
   recipientEmail?: string | null;
   coachId?: string | null;
   athleteId?: string | null;
+  athleteName?: string | null;
   position?: string | null;
 }): string {
-  const queryParams = new URLSearchParams();
-  if (params.recipientEmail) queryParams.set("email", params.recipientEmail);
-  if (params.coachId) queryParams.set("coachId", params.coachId);
-  if (params.athleteId) queryParams.set("athleteId", params.athleteId);
-  if (params.position) queryParams.set("position", params.position);
-
-  const queryStr = queryParams.toString();
-  const feedbackUrl = queryStr
-    ? `https://portfolio.goteamgoagency.com/feedback?${queryStr}`
-    : `https://portfolio.goteamgoagency.com/feedback`;
+  const athleteName = params.athleteName?.replace(/[\r\n]+/g, " ").trim() || "Athlete";
+  const subject = `Not a fit: ${athleteName}`;
+  const replyUrl = `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent(subject)}`;
 
   return `
   <!-- FEEDBACK BLOCK -->
@@ -945,8 +939,8 @@ export function renderFeedbackBlock(params: {
       <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center">
         <tr>
           <td align="center" style="border:1.5px solid ${EMAIL_COLORS.darkGreenPrimary};border-radius:24px;padding:8px 20px;">
-            <a href="${feedbackUrl}" target="_blank" rel="noopener noreferrer" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:0.8px;text-transform:uppercase;text-decoration:none;display:inline-block;">
-              Not the right fit? Tell us why &rarr;
+            <a href="${escapeHtml(replyUrl)}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:0.8px;text-transform:uppercase;text-decoration:none;display:inline-block;">
+              Not the right fit? Reply to this email &rarr;
             </a>
           </td>
         </tr>

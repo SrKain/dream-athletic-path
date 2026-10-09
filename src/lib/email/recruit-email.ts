@@ -137,17 +137,15 @@ export function buildInterestedMailtoUrl(athlete: RecruitEmailAthlete, coachName
 }
 
 /**
- * Gera a URL para o botão discreto "NOT A FIT" com o athleteId específico
+ * Gera o email de resposta do botão "NOT A FIT" com assunto contextualizado pela atleta.
  */
 export function buildNotAFitUrl(
-  athleteId: string,
-  options: { appUrl?: string; coachEmail?: string; feedbackToken?: string },
+  _athleteId: string,
+  options: { appUrl?: string; coachEmail?: string; feedbackToken?: string; athleteName?: string },
 ): string {
-  const baseUrl = options.appUrl || EMAIL_BASE_URL;
-  const coach = options.coachEmail ? encodeURIComponent(options.coachEmail) : "";
-  const token = options.feedbackToken ? encodeURIComponent(options.feedbackToken) : "";
-  const aId = encodeURIComponent(athleteId);
-  return `${baseUrl}/feedback?sentiment=not_fit&athleteId=${aId}&coach=${coach}&token=${token}`;
+  const athleteName = options.athleteName?.replace(/[\r\n]+/g, " ").trim() || "Athlete";
+  const subject = `Not a fit: ${athleteName}`;
+  return `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent(subject)}`;
 }
 
 /**
@@ -183,7 +181,7 @@ export function renderAthleteCard(
     content: `watch_film_${athlete.slug}`,
   });
   const interestedMailto = buildInterestedMailtoUrl(athlete, options.coachName);
-  const notAFitUrl = buildNotAFitUrl(athlete.id, options);
+  const notAFitUrl = buildNotAFitUrl(athlete.id, { ...options, athleteName: athlete.name });
 
   const specs = buildAthleteSpecsLine(athlete);
   const showTransferBadge = isTransferEligible(athlete.athleteStatus);
@@ -435,6 +433,7 @@ export function renderSingleAthleteRecruitEmail(options: RecruitEmailRenderOptio
     ${renderFeedbackBlock({
       recipientEmail: options.coachEmail,
       athleteId: athlete.id,
+      athleteName: athlete.name,
       position: athlete.positionEn,
     })}
 
@@ -538,6 +537,7 @@ export function renderMultiAthleteRecruitEmail(options: RecruitEmailRenderOption
     ${renderFeedbackBlock({
       recipientEmail: options.coachEmail,
       athleteId: athletes[0]?.id,
+      athleteName: athletes[0]?.name,
     })}
 
     <!-- Bottom Bar (2/3 Green + 1/3 Gold) -->
@@ -671,6 +671,7 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     appUrl: baseUrl,
     coachEmail: options.coachEmail,
     feedbackToken: options.feedbackToken,
+    athleteName: athlete.name,
   });
 
   const lines = [

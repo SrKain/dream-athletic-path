@@ -110,14 +110,16 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(mailto).toContain("Coach%20Smith");
     });
 
-    it("builds discrete 'NOT A FIT' url with specific athleteId", () => {
+    it("builds a 'NOT A FIT' reply email with the athlete in the subject and no body", () => {
       const notFitUrl = buildNotAFitUrl("ath-1", {
         appUrl: "https://portfolio.goteamgoagency.com",
         coachEmail: "coach@stanford.edu",
+        athleteName: "Mariana Silva",
       });
-      expect(notFitUrl).toContain("/feedback?sentiment=not_fit");
-      expect(notFitUrl).toContain("athleteId=ath-1");
-      expect(notFitUrl).toContain("coach=coach%40stanford.edu");
+      expect(notFitUrl).toBe(
+        "mailto:contact@goteamgoagency.com?subject=Not%20a%20fit%3A%20Mariana%20Silva",
+      );
+      expect(notFitUrl).not.toContain("body=");
     });
 
     it("renders athlete card with photo, name, specs, TRANSFER badge and 4 buttons", () => {

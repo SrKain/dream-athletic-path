@@ -951,3 +951,21 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação:** `git diff --check` sem erros. Typecheck/build indisponíveis neste ambiente porque Bun e `node_modules` não estão presentes. `package.json`, `bun.lock` e `vercel.json` intocados.
 - **Status:** `[CONCLUÍDO]`.
 
+---
+
+## TASK-093 — 2026-10-09 15:39 — Not a fit por resposta e preferências manuais de coaches
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Codex
+- **Pedido:** Preservar a tela `/feedback`; mudar os botões `NOT A FIT` dos emails para abrir email endereçado à agência com assunto contextualizado pela atleta e corpo vazio; permitir escolher coaches pela tela de Universidades e cadastrar manualmente preferências de fit já suportadas e preferências de comunicação (pausa ou bloqueio).
+- **Plano:** `think/2026-10-09-1539-preferencias-manuais-coaches-e-not-a-fit-email.md`.
+- **Entrega:**
+  1. Todos os CTAs `NOT A FIT` relevantes passaram a abrir email para `contact@goteamgoagency.com`, com assunto `Not a fit: [athlete name]` e corpo vazio; o Mailer também define `Reply-To` para esse endereço.
+  2. `/feedback` permaneceu inalterada e o unsubscribe continua separado.
+  3. Adicionado painel de preferências por coach salvo na edição da Universidade: os quatro sinais existentes, contexto opcional, validade/histórico e encerramento de sinal.
+  4. Adicionadas pausa de comunicações por 6 meses e supressão permanente, com opção de reativar somente bloqueios manuais e proteção contra sobrescrita de descadastros/bounces/reclamações.
+  5. Novas operações administrativas protegidas por `requireAgency`; nenhuma migration, alteração em `bun.lock` ou arquivo de build/deploy foi necessária.
+- **Documentação:** CERNE atualizado; plano anotado com entrega.
+- **Validação:** `git diff --check` sem erros. Typecheck/build não executados porque Bun e `node_modules` não estão disponíveis neste ambiente.
+- **Status:** `[CONCLUÍDO]`.
+

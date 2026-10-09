@@ -10,6 +10,7 @@ import {
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
+import { EMAIL_SIGNATURE } from "./email-brand";
 
 export interface MailerRecipient {
   coachId?: string;
@@ -58,6 +59,10 @@ export interface CoachInterestSignalInput {
   athleteName?: string | null;
   position?: string | null;
   notes?: string | null;
+}
+
+export interface AdminCoachPreferenceInput extends CoachInterestSignalInput {
+  suppressionType?: SuppressionType;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -211,6 +216,139 @@ export async function getActiveCoachInterestSignals(): Promise<CoachInterestSign
   }
 
   return data as CoachInterestSignal[];
+}
+
+export async function getCoachPreferenceRecords(coachEmail: string, coachId?: string) {
+  const cleanEmail = (coachEmail || "").toLowerCase().trim();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    return { signals: [], suppression: null };
+  }
+
+  const admin = getAdminClient();
+  const [signalsRes, suppressionRes] = await Promise.all([
+    admin
+      .from("coach_interest_signals")
+      .select(
+        "id, coach_id, coach_email, reason, athlete_id, athlete_name, position, notes, created_at, expires_at",
+      )
+      .eq("coach_email", cleanEmail)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("email_suppressions")
+      .select("id, email, reason, suppression_type, expires_at, created_at")
+      .eq("email", cleanEmail)
+      .maybeSingle(),
+  ]);
+
+  if (signalsRes.error) {
+    console.error("[recruit-email] Error fetching coach preference signals:", signalsRes.error.message);
+  }
+  if (suppressionRes.error) {
+    console.error("[recruit-email] Error fetching coach suppression:", suppressionRes.error.message);
+  }
+
+  const matchingSignals = ((signalsRes.data ?? []) as CoachInterestSignal[]).filter(
+    (signal) => !signal.coach_id || !coachId || signal.coach_id === coachId,
+  );
+
+  return {
+    signals: matchingSignals,
+    suppression: suppressionRes.data ?? null,
+  };
+}
+
+export async function setCoachSuppression(
+  email: string,
+  suppressionType: SuppressionType,
+): Promise<{ success: boolean; message?: string }> {
+  if (suppressionType !== "temporary_6m" && suppressionType !== "permanent") {
+    return { success: false, message: "Invalid communication preference." };
+  }
+  const cleanEmail = (email || "").toLowerCase().trim();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    return { success: false, message: "Invalid email address format." };
+  }
+  const admin = getAdminClient();
+  const { data: existing, error } = await admin
+    .from("email_suppressions")
+    .select("reason, suppression_type, expires_at")
+    .eq("email", cleanEmail)
+    .maybeSingle();
+  if (error) {
+    console.error("[recruit-email] Error checking existing coach suppression:", error.message);
+    return { success: false, message: "Could not check existing email restrictions." };
+  }
+  if (existing?.reason === "ses_bounce_permanent" || existing?.reason === "ses_complaint") {
+    return {
+      success: false,
+      message: "Este endereço tem bloqueio permanente por bounce ou reclamação e não pode ser alterado aqui.",
+    };
+  }
+  const existingSuppressionActive = Boolean(
+    existing && (!existing.expires_at || new Date(existing.expires_at) > new Date()),
+  );
+  if (existingSuppressionActive && existing?.reason !== "admin_manual_preference") {
+    return {
+      success: false,
+      message: "Este email já tem uma preferência de bloqueio registrada por outra origem; ela foi preservada.",
+    };
+  }
+  if (
+    existing?.suppression_type === "permanent" &&
+    suppressionType === "temporary_6m" &&
+    (!existing.expires_at || new Date(existing.expires_at) > new Date())
+  ) {
+    return {
+      success: false,
+      message: "Este email já tem bloqueio permanente. A preferência temporária não pode reduzir esse bloqueio.",
+    };
+  }
+  return unsubscribeEmailAddress(email, "admin_manual_preference", suppressionType);
+}
+
+export async function closeCoachPreferenceSignal(
+  id: string,
+  coachEmail: string,
+  coachId: string,
+): Promise<{ success: boolean; message?: string }> {
+  const cleanEmail = (coachEmail || "").toLowerCase().trim();
+  if (!id || !coachId || !cleanEmail || !cleanEmail.includes("@")) {
+    return { success: false, message: "Invalid coach preference reference." };
+  }
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from("coach_interest_signals")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("coach_email", cleanEmail)
+    .eq("coach_id", coachId)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) {
+    console.error("[recruit-email] Error closing coach preference:", error?.message);
+    return { success: false, message: "Não foi possível encerrar esta preferência." };
+  }
+  return { success: true };
+}
+
+export async function removeManualCoachSuppression(
+  email: string,
+): Promise<{ success: boolean; message?: string }> {
+  const cleanEmail = (email || "").toLowerCase().trim();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    return { success: false, message: "Invalid email address format." };
+  }
+  const admin = getAdminClient();
+  const { error } = await admin
+    .from("email_suppressions")
+    .delete()
+    .eq("email", cleanEmail)
+    .eq("reason", "admin_manual_preference");
+  if (error) {
+    console.error("[recruit-email] Error removing manual coach suppression:", error.message);
+    return { success: false, message: "Não foi possível reativar as comunicações." };
+  }
+  return { success: true };
 }
 
 // Carregar dados de um atleta formatados para o template
@@ -646,6 +784,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       subject: item.subject,
       html: item.html,
       text: item.text,
+      replyTo: EMAIL_SIGNATURE.email,
       tags: item.tags,
     }));
 
@@ -696,6 +835,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             subject: item.subject,
             html: item.html,
             text: item.text,
+            replyTo: EMAIL_SIGNATURE.email,
             tags: item.tags,
           });
 

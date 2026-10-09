@@ -101,6 +101,7 @@ export function renderEmailFooterHtml(params: {
   recipientEmail?: string | null;
   coachId?: string | null;
   athleteId?: string | null;
+  athleteName?: string | null;
   position?: string | null;
   logoUrl?: string | null;
 }): string {

@@ -20,6 +20,7 @@ import {
   DollarSign,
   Languages,
   Award,
+  ShieldAlert,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -34,6 +35,13 @@ import {
   inputClass,
 } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
+import {
+  addCoachPreferenceSignalServerFn,
+  closeCoachPreferenceSignalServerFn,
+  getCoachPreferencesServerFn,
+  removeManualCoachSuppressionServerFn,
+  setCoachSuppressionServerFn,
+} from "@/lib/email/recruit-email.functions";
 import { US_STATES, LEAGUES, BUDGET_LEVELS, TOEFL_LEVELS } from "@/lib/universities-constants";
 import type {
   University,
@@ -42,6 +50,10 @@ import type {
   UniversityLeague,
   UniversityBudgetLevel,
   UniversityToeflLevel,
+  CoachInterestSignal,
+  EmailSuppression,
+  InterestSignalReason,
+  SuppressionType,
 } from "@/types/db";
 
 export const Route = createFileRoute("/_authenticated/admin/universities")({
@@ -1163,10 +1175,8 @@ function UniversitiesPage() {
                   ) : (
                     <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                       {formCoaches.map((coach, idx) => (
-                        <div
-                          key={coach.id || idx}
-                          className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/20"
-                        >
+                        <div key={coach.id || idx} className="space-y-2">
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/20">
                           <div className="grid grid-cols-3 gap-2 flex-1">
                             <input
                               type="text"
@@ -1198,6 +1208,18 @@ function UniversitiesPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
+                        </div>
+                        {editingUni && (
+                          <CoachPreferencesPanel
+                            coach={coach}
+                            universityName={formName}
+                            existingEmail={
+                              (Array.isArray(editingUni.coaches) ? editingUni.coaches : []).find(
+                                (saved) => saved.id === coach.id,
+                              )?.email
+                            }
+                          />
+                        )}
                         </div>
                       ))}
                     </div>
@@ -1505,5 +1527,361 @@ function UniversitiesPage() {
         )}
       </AppShell>
     </ProtectedPage>
+  );
+}
+
+const PREFERENCE_REASON_LABELS: Record<InterestSignalReason, string> = {
+  position_not_needed: "Não precisa desta posição",
+  fully_recruited: "Elenco/turma já está completo",
+  other_positions_only: "Busca outras posições específicas",
+  specific_athlete_dislike: "Esta atleta não é o fit desejado",
+};
+
+function CoachPreferencesPanel({
+  coach,
+  universityName,
+  existingEmail,
+}: {
+  coach: UniversityCoach;
+  universityName: string;
+  existingEmail?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [signals, setSignals] = useState<CoachInterestSignal[]>([]);
+  const [suppression, setSuppression] = useState<EmailSuppression | null>(null);
+  const [reason, setReason] = useState<InterestSignalReason>("position_not_needed");
+  const [position, setPosition] = useState("");
+  const [athleteName, setAthleteName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [suppressionType, setSuppressionType] = useState<SuppressionType>("temporary_6m");
+  const [savingSignal, setSavingSignal] = useState(false);
+  const [savingSuppression, setSavingSuppression] = useState(false);
+
+  const email = coach.email.trim().toLowerCase();
+  const savedEmail = (existingEmail || "").trim().toLowerCase();
+  const coachIsSaved = !!savedEmail && email === savedEmail;
+
+  useEffect(() => {
+    if (!coachIsSaved) {
+      setSignals([]);
+      setSuppression(null);
+    }
+  }, [coachIsSaved]);
+
+  async function refreshPreferences() {
+    if (!email || !email.includes("@") || !coachIsSaved) return;
+    setLoading(true);
+    try {
+      const result = await getCoachPreferencesServerFn({
+        data: { coachEmail: email, coachId: coach.id },
+      });
+      setSignals(result.signals as CoachInterestSignal[]);
+      setSuppression((result.suppression as EmailSuppression | null) ?? null);
+    } catch (error) {
+      console.error("[universities] Failed to load coach preferences:", error);
+      toast.error("Não foi possível carregar as preferências deste coach.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleToggle() {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (nextOpen) await refreshPreferences();
+  }
+
+  async function handleAddSignal() {
+    if (!coachIsSaved || !email.includes("@")) {
+      toast.error("Salve a universidade e o email deste coach antes de registrar preferências.");
+      return;
+    }
+    setSavingSignal(true);
+    try {
+      const result = await addCoachPreferenceSignalServerFn({
+        data: {
+          coachId: coach.id,
+          coachEmail: email,
+          reason,
+          position: position.trim() || null,
+          athleteName: athleteName.trim() || null,
+          notes: notes.trim() || null,
+        },
+      });
+      if (!result.success) {
+        toast.error(result.message || "Não foi possível registrar a preferência.");
+        return;
+      }
+      toast.success("Preferência de fit registrada por 6 meses.");
+      setPosition("");
+      setAthleteName("");
+      setNotes("");
+      await refreshPreferences();
+    } catch (error) {
+      console.error("[universities] Failed to add coach signal:", error);
+      toast.error("Não foi possível registrar a preferência.");
+    } finally {
+      setSavingSignal(false);
+    }
+  }
+
+  async function handleSetSuppression() {
+    if (!coachIsSaved || !email.includes("@")) {
+      toast.error("Salve a universidade e o email deste coach antes de alterar comunicações.");
+      return;
+    }
+    if (
+      suppressionType === "permanent" &&
+      !window.confirm(`Bloquear permanentemente emails para ${email}?`)
+    ) {
+      return;
+    }
+    setSavingSuppression(true);
+    try {
+      const result = await setCoachSuppressionServerFn({
+        data: { email, suppressionType },
+      });
+      if (!result.success) {
+        toast.error(result.message || "Não foi possível atualizar o bloqueio.");
+        return;
+      }
+      toast.success(
+        suppressionType === "permanent"
+          ? "Comunicações bloqueadas permanentemente."
+          : "Comunicações pausadas por 6 meses.",
+      );
+      await refreshPreferences();
+    } catch (error) {
+      console.error("[universities] Failed to set coach suppression:", error);
+      toast.error("Não foi possível atualizar o bloqueio.");
+    } finally {
+      setSavingSuppression(false);
+    }
+  }
+
+  async function handleCloseSignal(signalId: string) {
+    if (!window.confirm("Encerrar esta preferência de fit agora?")) return;
+    try {
+      const result = await closeCoachPreferenceSignalServerFn({
+        data: { id: signalId, coachEmail: email, coachId: coach.id },
+      });
+      if (!result.success) {
+        toast.error(result.message || "Não foi possível encerrar a preferência.");
+        return;
+      }
+      toast.success("Preferência encerrada.");
+      await refreshPreferences();
+    } catch (error) {
+      console.error("[universities] Failed to close coach signal:", error);
+      toast.error("Não foi possível encerrar a preferência.");
+    }
+  }
+
+  async function handleRemoveManualSuppression() {
+    if (!window.confirm(`Reativar os emails de recrutamento para ${email}?`)) return;
+    try {
+      const result = await removeManualCoachSuppressionServerFn({ data: { email } });
+      if (!result.success) {
+        toast.error(result.message || "Não foi possível reativar as comunicações.");
+        return;
+      }
+      toast.success("Emails de recrutamento reativados para este coach.");
+      await refreshPreferences();
+    } catch (error) {
+      console.error("[universities] Failed to remove manual coach suppression:", error);
+      toast.error("Não foi possível reativar as comunicações.");
+    }
+  }
+
+  const suppressionActive = Boolean(
+    suppression && (!suppression.expires_at || new Date(suppression.expires_at) > new Date()),
+  );
+  const canManageSuppression =
+    !suppressionActive || suppression?.reason === "admin_manual_preference";
+
+  return (
+    <div className="pl-2">
+      <button
+        type="button"
+        onClick={() => void handleToggle()}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-primary hover:bg-primary/5"
+        aria-expanded={open}
+      >
+        <ShieldAlert className="h-3.5 w-3.5" />
+        {open ? "Fechar preferências" : "Preferências do coach"}
+      </button>
+
+      {open && (
+        <div className="mt-1 space-y-4 rounded-xl border border-border bg-background p-3">
+          <div>
+            <p className="text-xs font-semibold text-foreground">
+              {coach.first_name} {coach.last_name} · {universityName}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{email || "Sem email cadastrado"}</p>
+          </div>
+
+          {!coachIsSaved && (
+            <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-800">
+              Salve primeiro o coach e o email deste coach na universidade para associar preferências com segurança.
+            </p>
+          )}
+
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando preferências…
+            </div>
+          ) : (
+            <>
+              <section className="space-y-2">
+                <h4 className="text-xs font-bold text-foreground">Fit de atletas e posições</h4>
+                <div className="space-y-1.5">
+                  {signals.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground">Nenhum sinal registrado.</p>
+                  ) : (
+                    signals.map((signal) => {
+                      const active = new Date(signal.expires_at) > new Date();
+                      return (
+                        <div key={signal.id} className="rounded-lg border border-border/70 p-2 text-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-1">
+                            <span className="font-semibold text-foreground">
+                              {PREFERENCE_REASON_LABELS[signal.reason] || signal.reason}
+                            </span>
+                            <span className={active ? "text-primary" : "text-muted-foreground"}>
+                              {active ? "Ativa" : "Expirada"} · até {new Date(signal.expires_at).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                          {(signal.athlete_name || signal.position) && (
+                            <p className="mt-1 text-muted-foreground">
+                              {[signal.athlete_name, signal.position].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {signal.notes && <p className="mt-1 text-muted-foreground">{signal.notes}</p>}
+                          {active && (
+                            <button
+                              type="button"
+                              onClick={() => void handleCloseSignal(signal.id)}
+                              className="mt-1 min-h-11 text-[11px] font-semibold text-destructive hover:underline"
+                            >
+                              Encerrar preferência
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="space-y-1 text-[11px] font-medium text-foreground">
+                    Preferência
+                    <select
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value as InterestSignalReason)}
+                      className={inputClass}
+                      disabled={!coachIsSaved}
+                    >
+                      {Object.entries(PREFERENCE_REASON_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1 text-[11px] font-medium text-foreground">
+                    Posição (opcional)
+                    <input
+                      value={position}
+                      onChange={(event) => setPosition(event.target.value)}
+                      className={inputClass}
+                      placeholder="Ex.: Setter"
+                      disabled={!coachIsSaved}
+                    />
+                  </label>
+                  {reason === "specific_athlete_dislike" && (
+                    <label className="space-y-1 text-[11px] font-medium text-foreground sm:col-span-2">
+                      Atleta (opcional)
+                      <input
+                        value={athleteName}
+                        onChange={(event) => setAthleteName(event.target.value)}
+                        className={inputClass}
+                        disabled={!coachIsSaved}
+                      />
+                    </label>
+                  )}
+                  <label className="space-y-1 text-[11px] font-medium text-foreground sm:col-span-2">
+                    Observação (opcional)
+                    <input
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      className={inputClass}
+                      disabled={!coachIsSaved}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleAddSignal()}
+                  disabled={!coachIsSaved || savingSignal}
+                  className={buttonClass}
+                >
+                  {savingSignal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Registrar sinal (6 meses)
+                </button>
+              </section>
+
+              <section className="space-y-2 border-t border-border pt-3">
+                <h4 className="text-xs font-bold text-foreground">Comunicações por email</h4>
+                {suppressionActive ? (
+                  <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
+                    {suppression?.suppression_type === "permanent"
+                      ? "Bloqueio permanente ativo."
+                      : `Pausa ativa até ${new Date(suppression?.expires_at || "").toLocaleDateString("pt-BR")}.`}
+                    {suppression?.reason === "admin_manual_preference"
+                      ? " Adicionado manualmente."
+                      : " Este bloqueio veio de outra origem e será preservado."}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Sem bloqueio ativo. O coach pode receber campanhas do Mailer.
+                  </p>
+                )}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <select
+                    value={suppressionType}
+                    onChange={(event) => setSuppressionType(event.target.value as SuppressionType)}
+                    className={inputClass}
+                    disabled={!coachIsSaved || !canManageSuppression}
+                    aria-label="Tipo de bloqueio de comunicação"
+                  >
+                    <option value="temporary_6m">Pausar por 6 meses</option>
+                    <option value="permanent">Bloquear permanentemente</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void handleSetSuppression()}
+                    disabled={!coachIsSaved || savingSuppression || !canManageSuppression}
+                    className={secondaryButtonClass}
+                  >
+                    {savingSuppression ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                    {suppressionActive ? "Atualizar bloqueio" : "Salvar preferência"}
+                  </button>
+                  {suppressionActive && suppression?.reason === "admin_manual_preference" && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveManualSuppression()}
+                      className={secondaryButtonClass}
+                    >
+                      Reativar emails
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Este bloqueio impede novos disparos de recrutamento para este email. Sinais de fit não bloqueiam campanhas.
+                </p>
+              </section>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

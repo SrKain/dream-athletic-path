@@ -10,7 +10,7 @@
  *  - TRUSTED ATHLETE CARD HTML: gerado a partir dos dados reais do atleta.
  *  - TRUSTED FOOTER HTML: assinatura da Fabiana + 3 ações obrigatórias, sempre anexadas.
  */
-import { EMAIL_BASE_URL, EMAIL_COLORS } from "./email-brand";
+import { EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./email-brand";
 import { escapeHtml, renderSignature } from "./email-layout";
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import { buildBoardCardUrls, renderAthleteBoardCard } from "./athlete-board-card";
@@ -139,15 +139,12 @@ export function buildNotRightFitUrl(params: {
   recipientEmail?: string | null;
   coachId?: string | null;
   athleteId?: string | null;
+  athleteName?: string | null;
   position?: string | null;
 }): string {
-  const query = new URLSearchParams();
-  if (params.recipientEmail) query.set("email", params.recipientEmail);
-  if (params.coachId) query.set("coachId", params.coachId);
-  if (params.athleteId) query.set("athleteId", params.athleteId);
-  if (params.position) query.set("position", params.position);
-  const qs = query.toString();
-  return qs ? `${EMAIL_BASE_URL}/feedback?${qs}` : `${EMAIL_BASE_URL}/feedback`;
+  const athleteName = params.athleteName?.replace(/[\r\n]+/g, " ").trim() || "Athlete";
+  const subject = `Not a fit: ${athleteName}`;
+  return `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent(subject)}`;
 }
 
 export function buildCatalogUrl(options: { appUrl?: string; campaignId?: string | null }): string {
@@ -273,6 +270,7 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
       recipientEmail: input.coachEmail,
       coachId: input.coachId,
       athleteId: firstAthlete?.id,
+      athleteName: firstAthlete?.name,
       position: firstAthlete?.positionEn,
     }),
     catalog: buildCatalogUrl({ appUrl, campaignId: input.campaignId }),

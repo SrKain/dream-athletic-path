@@ -1249,3 +1249,20 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - `package.json`, `bun.lock` e `vercel.json` não foram alterados. Build/typecheck não executados por falta de Bun e dependências instaladas neste ambiente.
 - **Plano:** `think/2026-10-09-1221-ajustes-assinatura-e-acoes-card.md`.
 
+## Atualização 2026-10-09 — Resposta Not a Fit e preferências manuais de coaches (TASK-093)
+
+- **Ações de email (`src/lib/email/recruit-email.ts`, `athlete-board-card.ts`, `email-layout.ts`, `personal-email-renderer.ts`)**:
+  - Botões `NOT A FIT` e o CTA de feedback legado agora abrem `mailto:contact@goteamgoagency.com`.
+  - O assunto identifica a atleta (`Not a fit: [athlete name]`); nenhum texto é pré-carregado no corpo.
+  - O Mailer define `Reply-To: contact@goteamgoagency.com` nos envios batch e fallback individual para direcionar respostas comuns.
+  - A rota pública `/feedback` não foi alterada; unsubscribe segue independente.
+- **Preferências de coach em Universidades (`src/routes/_authenticated/admin/universities.tsx`)**:
+  - Painel expansível associado ao coach salvo/email atual, com os quatro motivos existentes em `coach_interest_signals`, campos opcionais de posição, atleta e observações, histórico e encerramento antecipado de sinais.
+  - Preferências de comunicação permitem pausa de seis meses ou bloqueio permanente por email. Supressão manual pode ser removida para reativar emails.
+  - Alteração não rebaixa nem sobrescreve descadastros não manuais, hard bounces ou complaints; sinais de fit continuam distintos de bloqueio de comunicação.
+- **Server functions (`src/lib/email/recruit-email.functions.ts` & `recruit-email.server.ts`)**:
+  - Leitura, gravação e encerramento de preferências manuais passam por server functions protegidas por `requireAgency`.
+  - Reutilizadas as tabelas existentes; nenhuma migration foi necessária.
+- **Integridade de deploy:** `package.json`, `bun.lock` e `vercel.json` não foram alterados. `git diff --check` sem erros; typecheck/build indisponíveis porque Bun e `node_modules` não existem no ambiente.
+- **Plano:** `think/2026-10-09-1539-preferencias-manuais-coaches-e-not-a-fit-email.md`.
+
