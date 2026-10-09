@@ -939,3 +939,15 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação:** `git diff --check` sem erros. Não foi possível rodar typecheck/build porque Bun e `node_modules` não estão disponíveis no ambiente. `package.json`, `bun.lock` e `vercel.json` permaneceram intocados.
 - **Status:** `[CONCLUÍDO]` — Implementação finalizada; validação de build pendente de ambiente com Bun >= 1.3.14 e dependências instaladas.
 
+---
+
+## TASK-092 — 2026-10-09 12:21 — Ajustes da assinatura, botões e nome da atleta no card
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Codex
+- **Pedido:** Trocar o endereço da assinatura da Fabiana para `contact@goteamgoagency.com`; compactar os botões do card usando as cores do design system/UI&UX; diminuir o nome da atleta sem perder o peso tipográfico.
+- **Plano:** `think/2026-10-09-1221-ajustes-assinatura-e-acoes-card.md`.
+- **Entrega:** Atualizado e-mail de assinatura; separado do destino atual de recrutamento para preservar `RECRUIT NOW`; botões compactados usando verde primário/superfície clara/ação discreta e área de toque mínima 44px; nome reduzido para 20px mantendo peso 900. Documentado em `CERNE.md`.
+- **Validação:** `git diff --check` sem erros. Typecheck/build indisponíveis neste ambiente porque Bun e `node_modules` não estão presentes. `package.json`, `bun.lock` e `vercel.json` intocados.
+- **Status:** `[CONCLUÍDO]`.
+

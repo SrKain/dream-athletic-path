@@ -133,7 +133,7 @@ export function buildInterestedMailtoUrl(athlete: RecruitEmailAthlete, coachName
     coachName ? `Coach ${coachName}` : "Coach",
   ].join("\n");
 
-  return `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `mailto:${EMAIL_SIGNATURE.recruitmentEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 /**

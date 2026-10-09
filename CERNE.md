@@ -1240,3 +1240,12 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Vercel/dependências:** `package.json`, `bun.lock` e `vercel.json` não foram modificados. Typecheck/build não puderam ser executados neste ambiente: Bun e `node_modules` não estão disponíveis. `git diff --check` não apontou erros.
 - **Plano:** `think/2026-10-09-1105-corrigir-composicao-mailer-e-cards.md`.
 
+## Ajuste 2026-10-09 — Assinatura e ações compactas do card (TASK-092)
+
+- O e-mail exibido e linkado na assinatura passou para `contact@goteamgoagency.com`.
+- O destino de recrutamento permanece separado em `EMAIL_SIGNATURE.recruitmentEmail` (`fabiana@goteamgoagency.com`), usado por `buildInterestedMailtoUrl` para preservar o endereço do botão `RECRUIT NOW`.
+- A linha de ações ficou compacta, sem células que esticam os botões pela largura toda. O CTA primário `VIEW FULL PROFILE` usa verde escuro e texto branco; `RECRUIT NOW` usa superfície clara com borda verde; `NOT A FIT` permanece discreto. Os links mantêm altura mínima de toque de 44px.
+- Nome da atleta reduzido de 26px para 20px, preservando caixa alta e peso 900.
+- `package.json`, `bun.lock` e `vercel.json` não foram alterados. Build/typecheck não executados por falta de Bun e dependências instaladas neste ambiente.
+- **Plano:** `think/2026-10-09-1221-ajustes-assinatura-e-acoes-card.md`.
+

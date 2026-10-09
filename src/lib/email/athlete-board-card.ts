@@ -341,14 +341,14 @@ function renderFitReasons(athlete: RecruitEmailAthlete): string {
 
 function renderActions(urls: { recruit: string; profile: string; notFit: string }): string {
   const btn = (href: string, label: string, bg: string, color: string, border: string, blank = true) => `
-    <td class="mobile-stack" width="33%" align="center" valign="middle" style="padding:4px;">
-      <a href="${escapeHtml(href)}"${blank ? ' target="_blank" rel="noopener noreferrer"' : ""} style="display:block;min-height:44px;line-height:44px;padding:0 10px;background-color:${bg};color:${color};border:1px solid ${border};border-radius:6px;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:1px;text-decoration:none;text-align:center;">${label}</a>
+    <td align="center" valign="middle" style="padding:3px;">
+      <a href="${escapeHtml(href)}"${blank ? ' target="_blank" rel="noopener noreferrer"' : ""} style="display:inline-block;min-height:44px;line-height:20px;padding:10px 10px;background-color:${bg};color:${color};border:1px solid ${border};border-radius:6px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;text-align:center;box-sizing:border-box;">${label}</a>
     </td>`;
   return `
   <tr><td style="padding:14px 0 0 0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
       ${btn(urls.profile, BOARD_CARD_ACTION_LABELS.profile, C.darkGreenPrimary, "#ffffff", C.darkGreenPrimary)}
-      ${btn(urls.recruit, BOARD_CARD_ACTION_LABELS.recruit, C.boardYellow, C.darkGreenPrimary, C.boardYellow, false)}
+      ${btn(urls.recruit, BOARD_CARD_ACTION_LABELS.recruit, C.boardPanel, C.darkGreenPrimary, C.darkGreenPrimary, false)}
       ${btn(urls.notFit, BOARD_CARD_ACTION_LABELS.notFit, "#ffffff", C.textMuted, C.lineDivider)}
     </tr></table>
   </td></tr>`;
@@ -396,7 +396,7 @@ export function renderAthleteBoardCard(
   return `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="athlete-board-card" style="background-color:#ffffff;">
     <tr><td style="background-color:${C.boardYellow};border-radius:6px;padding:16px 14px;text-align:center;">
-      <a href="${escapeHtml(urls.profile)}" target="_blank" rel="noopener noreferrer" style="font-family:${FONT};font-size:26px;font-weight:900;line-height:1.1;color:${C.darkGreenPrimary};text-decoration:none;text-transform:uppercase;">${escapeHtml(athlete.name)}</a>
+      <a href="${escapeHtml(urls.profile)}" target="_blank" rel="noopener noreferrer" style="font-family:${FONT};font-size:20px;font-weight:900;line-height:1.2;color:${C.darkGreenPrimary};text-decoration:none;text-transform:uppercase;">${escapeHtml(athlete.name)}</a>
       ${subline ? `<div style="font-family:${FONT};font-size:11px;letter-spacing:3px;color:${C.textDark};padding-top:8px;">${subline}</div>` : ""}
     </td></tr>
     <tr><td>
