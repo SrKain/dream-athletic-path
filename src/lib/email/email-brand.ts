@@ -30,6 +30,8 @@ export const EMAIL_COLORS = {
   buttonSecondaryBorder: "#e3e9dc",
   heroSubtitle: "#d2ded6",
   copyrightText: "#8ba092",
+  boardYellow: "#f7c548",
+  boardPanel: "#f6f7f3",
 } as const;
 
 export const EMAIL_ASSETS = {
