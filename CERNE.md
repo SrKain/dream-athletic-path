@@ -165,6 +165,27 @@ bun run validate
 - [`src/routes/_authenticated/admin/mailer.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/mailer.tsx): **UI do composer do Mailer**. O estado de composição foi conectado ao renderer canônico, com preview em tempo real, seleção de atletas e payload final em `blocks` para o backend.
 - **Regra de arquitetura**: o modelo em blocos é o único canal de produção; compatibilidade legado continua funcionando como camada de entrada, mas não como fonte única de verdade.
 
+### 5.3 Fila de Disparos Inteligente do Mailer & Controle de Vazão (Atualização 2026-10-12)
+
+- **Migration `0024_mailer_queue_and_rate_limiting.sql`**:
+  - `mailer_queue`: Tabela persistente de controle item a item com estados `pending`, `processing`, `sent`, `failed`, `retry` e `cancelled`. Rastreia contagem de tentativas (`attempts`, max 3), erros higienizados (`last_error`), identificador único retornado pelo Resend (`provider_message_id`) e trava de concorrência com expiração (`reservation_expires_at`).
+  - `claim_mailer_queue_batch(p_worker_id, p_batch_size, p_lock_duration_sec)`: Função RPC PostgreSQL atômica utilizando `FOR UPDATE SKIP LOCKED` para reservar lotes de e-mails concorrentemente sem risco de double-send ou race conditions entre múltiplos workers.
+  - `mailer_rate_limits`: Tabela de limites de vazão global por provedor (`global_resend_limit`), com travamento atômico quando limites de taxa são atingidos (`locked_until`), registro de timestamps de lotes e suporte a cabeçalhos `Retry-After`.
+  - `mailer_campaigns`: Evoluída com colunas de orquestração assíncrona: status (`queued`, `running`, `paused`, `completed`, `failed`, `cancelled`), `batch_size` (máximo configurável de 150 e-mails), `delay_between_batches_sec` (60s), contadores agregados (`pending_count`, `processing_count`, `cancelled_count`), timestamp do próximo lote (`next_batch_at`), `paused_at`, `cancelled_at` e `last_error`.
+- **Motor Central do Worker (`src/lib/email/mailer-queue.server.ts`)**:
+  - `enqueueCampaignDispatches()`: Valida destinatários, aplica filtro de descadastro (`email_suppressions`), cria a campanha e insere itens em lotes atômicos de no máximo 150 e-mails, iniciando o ciclo em segundo plano.
+  - `processMailerQueue()`: Worker autônomo e resiliente. Verifica limites globais de taxa, respeita o cooldown de 60 segundos entre lotes, reserva atomicamente itens com `SKIP LOCKED`, processa com espaçamento de ~400ms por item, captura e trata erros HTTP 429 da API do Resend (aplicando backoff exponencial + jitter ou respeitando `Retry-After`), atualiza métricas e reagenda próximos lotes.
+  - `pauseCampaign()`, `resumeCampaign()`, `cancelCampaign()`: Operações seguras de ciclo de vida sem perda do histórico de envios já concluídos.
+  - `getCampaignQueueProgress()`, `getLatestActiveCampaign()`: Consolidação em tempo real das métricas da fila para monitoramento visual contínuo.
+- **Server Functions (`src/lib/email/recruit-email.functions.ts`)**:
+  - `enqueueMailerCampaignServerFn`, `getCampaignQueueProgressServerFn`, `getLatestActiveCampaignServerFn`, `pauseMailerCampaignServerFn`, `resumeMailerCampaignServerFn`, `cancelMailerCampaignServerFn`, `triggerProcessMailerQueueServerFn`.
+- **Rotas de Cron e Worker (`src/server.ts` & `vercel.json`)**:
+  - Endpoints `/api/cron/process-mailer-queue` e `/api/mailer/process-queue` para execução contínua no backend a cada 1 minuto via Vercel Cron ou pg_cron, totalmente desacoplados da sessão do navegador.
+- **Painel de Monitoramento ao Vivo (`src/routes/_authenticated/admin/mailer.tsx`)**:
+  - Card de monitoramento em tempo real com barra de progresso percentual, contadores dinâmicos (Total, Enviados, Na Fila, Falhas, Lote Atual), contagem regressiva durante a janela de cooldown de 60s, estimativa de conclusão (ETA) e botões de ação (Pausar, Retomar, Cancelar e Forçar Tick).
+- **Testes Unitários Automatizados (`src/lib/email/mailer-queue.test.ts`)**:
+  - 13 testes unitários com Vitest cobrindo cenários com 10, 150, 151, 300 e 1.000 destinatários, tratamento de HTTP 429 com `Retry-After`, retentativas com backoff exponencial, reserva concorrente sem duplicação, pausa e cancelamento.
+
 ## Atualização 2026-08-25 — Seção Highlights na Home do Catálogo Público
 
 - **Migration `0015_highlight_likes.sql`**: cria a tabela `athlete_video_likes` com colunas `id`, `video_id`, `athlete_id`, `user_fingerprint`, `created_at` e restrição UNIQUE (`video_id`, `user_fingerprint`), com permissões e RLS para inserção pública e leitura anônima/pública.

@@ -25,6 +25,11 @@ import {
   MessageSquareWarning,
   BarChart3,
   Activity,
+  Play,
+  Pause,
+  XCircle,
+  RefreshCw,
+  Zap,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -34,13 +39,19 @@ import { buttonClass, secondaryButtonClass } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 import {
   sendMailerServerFn,
+  enqueueMailerCampaignServerFn,
+  getCampaignQueueProgressServerFn,
+  getLatestActiveCampaignServerFn,
+  pauseMailerCampaignServerFn,
+  resumeMailerCampaignServerFn,
+  cancelMailerCampaignServerFn,
+  triggerProcessMailerQueueServerFn,
   getSuppressedEmailsServerFn,
   getMailerHistoryServerFn,
   getActiveInterestSignalsServerFn,
   getEmailEventTimelineServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
-import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
 import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
 import {
   renderRecruitEmail,
@@ -49,8 +60,9 @@ import {
 } from "@/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "@/lib/email/recruit-email-catalog-template";
 import {
-  buildFixedEmailBlocks,
+  buildDefaultEmailBlocks,
   sanitizeEmailBlocks,
+  type EmailBlock,
 } from "@/lib/email/personal-email-renderer";
 import type {
   University,
@@ -60,8 +72,10 @@ import type {
   UniversityBudgetLevel,
   UniversityToeflLevel,
   CoachInterestSignal,
+  CampaignProgress,
 } from "@/types/db";
 import { LEAGUES, US_STATES, BUDGET_LEVELS, TOEFL_LEVELS } from "@/lib/universities-constants";
+
 
 interface MailerSearch {
   mode?: "single" | "multi" | "catalog";
@@ -98,12 +112,6 @@ interface RawAthleteRecord {
     highlight_note: string | null;
     budget: string | null;
     highlight_video_url?: string | null;
-    current_school?: string | null;
-    course_of_interest?: string | null;
-    college_start_date?: string | null;
-    seeking_opportunities?: string | null;
-    stats?: Record<string, unknown> | null;
-    team_contribution_en?: string | null;
   } | null;
 }
 
@@ -124,13 +132,6 @@ interface AthleteSummary {
   highlight_note?: string | null;
   budget?: string | null;
   highlight_video_url?: string | null;
-  current_school?: string | null;
-  course_of_interest?: string | null;
-  college_start_date?: string | null;
-  seeking_opportunities?: string | null;
-  stats?: Record<string, unknown> | null;
-  team_contribution_en?: string | null;
-  videos?: Array<{ url: string; title?: string | null; kind?: string | null }>;
 }
 
 interface RecipientItem {
@@ -186,10 +187,7 @@ function MailerPage() {
   const [customGreeting, setCustomGreeting] = useState("");
   const [customIntroduction, setCustomIntroduction] = useState("");
   const [customHook, setCustomHook] = useState("");
-  const [mailerGreeting, setMailerGreeting] = useState<string | null>(null);
-  const [mailerIntroduction, setMailerIntroduction] = useState<string | null>(null);
-  const [mailerClosing, setMailerClosing] = useState<string | null>(null);
-  const [composerAthleteIds, setComposerAthleteIds] = useState<string[]>([]);
+  const [composerBlocks, setComposerBlocks] = useState<EmailBlock[]>([]);
 
   // Opções do Catálogo
   const [catalogHeadline, setCatalogHeadline] = useState(
@@ -211,19 +209,30 @@ function MailerPage() {
   // Modal de Confirmação & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isCheckingFit, setIsCheckingFit] = useState(false);
-  const [fitConflicts, setFitConflicts] = useState<CoachFitConflict[]>([]);
+
+  // Fila Inteligente: Estado de Monitoramento em Tempo Real e Operações
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const [campaignProgress, setCampaignProgress] = useState<CampaignProgress | null>(null);
+  const [isOperatingQueue, setIsOperatingQueue] = useState(false);
 
   // Carregar dados iniciais
   async function loadInitialData() {
     setLoading(true);
     try {
-      const [athletesRes, uniRes, suppressedRes, historyRes, signalsRes, visualRes, videosRes] =
-        await Promise.all([
-          supabase
-            .from("athletes")
-            .select(
-              `
+      const [
+        athletesRes,
+        uniRes,
+        suppressedRes,
+        historyRes,
+        signalsRes,
+        visualRes,
+        videosRes,
+        latestCampaignRes,
+      ] = await Promise.all([
+        supabase
+          .from("athletes")
+          .select(
+            `
             id,
             slug,
             full_name,
@@ -232,27 +241,34 @@ function MailerPage() {
             nationality,
             sport:sports(name_en),
             position:positions(name_en),
-            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, team_contribution_en)
+            profile:athlete_profiles(gpa, athlete_status, graduation_year, high_school_graduation, highlight_note, budget, highlight_video_url)
           `,
-            )
-            .eq("is_public", true)
-            .is("deleted_at", null)
-            .order("full_name", { ascending: true }),
-          supabase.from("universities").select("*").order("name", { ascending: true }),
-          getSuppressedEmailsServerFn().catch(() => []),
-          getMailerHistoryServerFn().catch(() => []),
-          getActiveInterestSignalsServerFn().catch(() => []),
-          supabase
-            .from("agency_visual_settings")
-            .select("logo_url, hero_background_url")
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from("athlete_videos")
-            .select("athlete_id, youtube_url, title, kind, sort_order")
-            .in("kind", ["highlight", "feature"])
-            .order("sort_order", { ascending: true }),
-        ]);
+          )
+          .eq("is_public", true)
+          .is("deleted_at", null)
+          .order("full_name", { ascending: true }),
+        supabase.from("universities").select("*").order("name", { ascending: true }),
+        getSuppressedEmailsServerFn().catch(() => []),
+        getMailerHistoryServerFn().catch(() => []),
+        getActiveInterestSignalsServerFn().catch(() => []),
+        supabase
+          .from("agency_visual_settings")
+          .select("logo_url, hero_background_url")
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("athlete_videos")
+          .select("athlete_id, youtube_url, kind, sort_order")
+          .eq("kind", "highlight")
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("mailer_campaigns")
+          .select("id, status")
+          .in("status", ["running", "queued", "paused"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
       if (visualRes.data) {
         setVisualSettings({
@@ -261,19 +277,26 @@ function MailerPage() {
         });
       }
 
-      const videoMap = new Map<string, Array<{ url: string; title?: string | null; kind?: string | null }>>();
+      if (latestCampaignRes?.data?.id) {
+        const campId = latestCampaignRes.data.id;
+        setActiveCampaignId(campId);
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: campId },
+        }).catch(() => null);
+        if (prog) {
+          setCampaignProgress(prog);
+        }
+      }
+
+
+      const videoMap = new Map<string, string>();
       if (videosRes.data) {
         for (const v of videosRes.data as Array<{
           athlete_id: string;
           youtube_url: string | null;
-          title: string | null;
-          kind: string;
         }>) {
-          if (!v.athlete_id || !v.youtube_url) continue;
-          const videos = videoMap.get(v.athlete_id) ?? [];
-          if (videos.length < 2) {
-            videos.push({ url: v.youtube_url, title: v.title, kind: v.kind });
-            videoMap.set(v.athlete_id, videos);
+          if (v.athlete_id && v.youtube_url && !videoMap.has(v.athlete_id)) {
+            videoMap.set(v.athlete_id, v.youtube_url);
           }
         }
       }
@@ -299,17 +322,7 @@ function MailerPage() {
           high_school_graduation: a.profile?.high_school_graduation ?? null,
           highlight_note: a.profile?.highlight_note ?? null,
           budget: a.profile?.budget ?? null,
-          highlight_video_url:
-            videoMap.get(a.id)?.find((video) => video.kind === "highlight")?.url ??
-            a.profile?.highlight_video_url ??
-            null,
-          current_school: a.profile?.current_school ?? null,
-          course_of_interest: a.profile?.course_of_interest ?? null,
-          college_start_date: a.profile?.college_start_date ?? null,
-          seeking_opportunities: a.profile?.seeking_opportunities ?? null,
-          stats: a.profile?.stats ?? null,
-          team_contribution_en: a.profile?.team_contribution_en ?? null,
-          videos: videoMap.get(a.id) ?? [],
+          highlight_video_url: videoMap.get(a.id) || a.profile?.highlight_video_url || null,
         }));
         setAthletes(formatted);
 
@@ -337,6 +350,13 @@ function MailerPage() {
       if (signalsRes) {
         setInterestSignals((signalsRes as CoachInterestSignal[]) || []);
       }
+
+      // Restaura monitoramento de campanha ativa (running/queued/paused), se houver
+      const activeCamp = await getLatestActiveCampaignServerFn().catch(() => null);
+      if (activeCamp) {
+        setActiveCampaignId(activeCamp.campaignId);
+        setCampaignProgress(activeCamp);
+      }
     } catch (err) {
       console.error("[mailer] Error loading data:", err);
       toast.error("Failed to load mailer data.");
@@ -348,6 +368,46 @@ function MailerPage() {
   useEffect(() => {
     void loadInitialData();
   }, []);
+
+  // Polling em tempo real da campanha ativa a cada 3s
+  useEffect(() => {
+    if (!activeCampaignId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+
+        if (!isMounted) return;
+
+        if (prog) {
+          setCampaignProgress(prog);
+
+          // Se a campanha foi concluída ou cancelada, atualiza histórico de logs
+          if (
+            prog.status === "completed" ||
+            prog.status === "cancelled" ||
+            prog.status === "failed"
+          ) {
+            const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
+            if (isMounted) {
+              setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[mailer] Error polling queue progress:", err);
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeCampaignId]);
+
 
   // Mapeamento de sinais de interesse ativos agrupados por e-mail do coach
   const signalsByEmail = useMemo(() => {
@@ -501,167 +561,66 @@ function MailerPage() {
 
   useEffect(() => {
     if (sendMode === "catalog") return;
-    setComposerAthleteIds((previous) => {
-      const selected = new Set(activeComposerAthleteIds);
-      const retained = previous.filter((id) => selected.has(id));
-      for (const id of activeComposerAthleteIds) {
-        if (!retained.includes(id)) retained.push(id);
-      }
-      return retained;
+    if (activeComposerAthleteIds.length === 0) {
+      setComposerBlocks([]);
+      return;
+    }
+
+    setComposerBlocks((prev) => {
+      if (prev.length > 0) return prev;
+      return buildDefaultEmailBlocks(activeComposerAthleteIds);
     });
   }, [activeComposerAthleteIds, sendMode]);
 
-  const effectiveMailerComposition = useMemo(
-    () => ({
-      greeting: mailerGreeting ?? "Hi Coach,",
-      introduction:
-        mailerIntroduction ??
-        (sendMode === "multi"
-          ? "I hope you're doing well. I selected a few athletes who could be a great fit for your program."
-          : "I hope you're doing well. I found an athlete who could be a great fit for your program."),
-      athleteOrder: composerAthleteIds,
-      closing: mailerClosing ?? "Let me know what you think.",
-    }),
-    [composerAthleteIds, mailerClosing, mailerGreeting, mailerIntroduction, sendMode],
-  );
+  function addComposerTextBlock() {
+    setComposerBlocks((prev) => [
+      ...prev,
+      {
+        type: "text",
+        content:
+          "I’d love to share more about this athlete and the fit for your recruiting needs.",
+      },
+    ]);
+  }
 
-  function moveComposerAthlete(index: number, direction: -1 | 1) {
-    setComposerAthleteIds((previous) => {
+  function insertComposerAthleteBlock(athleteId: string) {
+    setComposerBlocks((prev) => [
+      ...prev,
+      {
+        type: "athlete",
+        athleteId,
+      },
+    ]);
+  }
+
+  function updateComposerTextBlock(index: number, value: string) {
+    setComposerBlocks((prev) =>
+      prev.map((block, blockIndex) =>
+        blockIndex === index && block.type === "text" ? { ...block, content: value } : block,
+      ),
+    );
+  }
+
+  function moveComposerBlock(index: number, direction: -1 | 1) {
+    setComposerBlocks((prev) => {
       const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= previous.length) return previous;
-      const next = [...previous];
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-      return next;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+      return copy;
     });
   }
 
-  const renderMailerCompositionEditor = () => (
-    <div className="pt-3 border-t border-border space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-          Estrutura do e-mail
-        </div>
-        <div className="text-[11px] text-muted-foreground">
-          O preview acompanha o conteúdo que será enviado
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-foreground" htmlFor="mailer-greeting">
-          Saudação
-        </label>
-        <input
-          id="mailer-greeting"
-          type="text"
-          value={mailerGreeting ?? "Hi Coach,"}
-          onChange={(event) => setMailerGreeting(event.target.value)}
-          className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-foreground" htmlFor="mailer-introduction">
-          Corpo inicial
-        </label>
-        <textarea
-          id="mailer-introduction"
-          rows={3}
-          value={
-            mailerIntroduction ??
-            (sendMode === "multi"
-              ? "I hope you're doing well. I selected a few athletes who could be a great fit for your program."
-              : "I hope you're doing well. I found an athlete who could be a great fit for your program.")
-          }
-          onChange={(event) => setMailerIntroduction(event.target.value)}
-          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-medium text-foreground">Cards das atletas</div>
-          <div className="text-[11px] text-muted-foreground">Use as setas para mudar a sequência</div>
-        </div>
-        {orderedComposerAthletes.length > 0 ? (
-          <ol className="space-y-1.5">
-            {orderedComposerAthletes.map((athlete, index) => (
-              <li
-                key={athlete.id}
-                className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2"
-              >
-                <span className="w-6 text-center text-xs font-bold text-muted-foreground">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                {athlete.photo_url ? (
-                  <img
-                    src={athlete.photo_url}
-                    alt=""
-                    className="h-8 w-8 rounded-md object-cover"
-                  />
-                ) : null}
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
-                  {athlete.full_name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => moveComposerAthlete(index, -1)}
-                  disabled={index === 0}
-                  aria-label={`Mover ${athlete.full_name} para cima`}
-                  className="rounded border border-border px-2 py-1 text-xs disabled:opacity-40"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveComposerAthlete(index, 1)}
-                  disabled={index === orderedComposerAthletes.length - 1}
-                  aria-label={`Mover ${athlete.full_name} para baixo`}
-                  className="rounded border border-border px-2 py-1 text-xs disabled:opacity-40"
-                >
-                  ↓
-                </button>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-            Selecione ao menos uma atleta para incluir os cards.
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-foreground" htmlFor="mailer-closing">
-          Fechamento do e-mail
-        </label>
-        <textarea
-          id="mailer-closing"
-          rows={2}
-          value={mailerClosing ?? "Let me know what you think."}
-          onChange={(event) => setMailerClosing(event.target.value)}
-          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        A assinatura da Fabiana e o rodapé são adicionados automaticamente após o fechamento.
-      </p>
-    </div>
-  );
+  function removeComposerBlock(index: number) {
+    setComposerBlocks((prev) => prev.filter((_, blockIndex) => blockIndex !== index));
+  }
 
   const composerPreviewBlocks = useMemo(() => {
     if (sendMode === "catalog") return [];
-    return buildFixedEmailBlocks(effectiveMailerComposition, activeComposerAthleteIds);
-  }, [activeComposerAthleteIds, effectiveMailerComposition, sendMode]);
-
-  const orderedComposerAthletes = useMemo(() => {
-    const byId = new Map<string, AthleteSummary>(
-      athletes.map((athlete) => [athlete.id, athlete] as const),
+    return sanitizeEmailBlocks(
+      composerBlocks.length > 0 ? composerBlocks : buildDefaultEmailBlocks(activeComposerAthleteIds),
     );
-    return composerAthleteIds
-      .filter((id) => activeComposerAthleteIds.includes(id))
-      .map((id) => byId.get(id))
-      .filter((athlete): athlete is AthleteSummary => Boolean(athlete));
-  }, [activeComposerAthleteIds, athletes, composerAthleteIds]);
+  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
 
   // Gera HTML de Preview dinâmico
   const previewHtml = useMemo(() => {
@@ -685,7 +644,8 @@ function MailerPage() {
     }
 
     if (sendMode === "multi") {
-      const targets = orderedComposerAthletes;
+      const targets =
+        selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
 
       if (targets.length === 0) {
         return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>";
@@ -708,13 +668,6 @@ function MailerPage() {
         highlightNote: ath.highlight_note,
         budget: ath.budget,
         highlightVideoUrl: ath.highlight_video_url,
-        currentSchool: ath.current_school,
-        courseOfInterest: ath.course_of_interest,
-        collegeStartDate: ath.college_start_date,
-        seekingOpportunities: ath.seeking_opportunities,
-        stats: ath.stats,
-        teamContribution: ath.team_contribution_en,
-        videos: ath.videos,
         recipientEmail: "coach@example.edu",
       }));
 
@@ -723,6 +676,9 @@ function MailerPage() {
         coachName: "Smith",
         institutionName: "University Athletics",
         recipientEmail: "coach@example.edu",
+        customGreeting: customGreeting || null,
+        customIntroduction: customIntroduction || null,
+        customHook: customHook || null,
         blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
         logoUrl,
         heroBackgroundUrl,
@@ -752,14 +708,10 @@ function MailerPage() {
       highlightNote: currentSingleAthlete.highlight_note,
       budget: currentSingleAthlete.budget,
       highlightVideoUrl: currentSingleAthlete.highlight_video_url,
-      currentSchool: currentSingleAthlete.current_school,
-      courseOfInterest: currentSingleAthlete.course_of_interest,
-      collegeStartDate: currentSingleAthlete.college_start_date,
-      seekingOpportunities: currentSingleAthlete.seeking_opportunities,
-      stats: currentSingleAthlete.stats,
-      teamContribution: currentSingleAthlete.team_contribution_en,
-      videos: currentSingleAthlete.videos,
       recipientEmail: "coach@example.edu",
+      customGreeting: customGreeting || null,
+      customIntroduction: customIntroduction || null,
+      customHook: customHook || null,
       blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
       logoUrl,
       heroBackgroundUrl,
@@ -772,8 +724,10 @@ function MailerPage() {
     athletes,
     catalogHeadline,
     catalogMessage,
+    customGreeting,
+    customIntroduction,
+    customHook,
     composerPreviewBlocks,
-    orderedComposerAthletes,
     visualSettings,
   ]);
 
@@ -857,44 +811,6 @@ function MailerPage() {
   }
 
   // Ação de Disparo
-  async function openSendConfirmation() {
-    if (activeSelectedRecipients.length === 0) {
-      toast.error("Nenhum destinatário ativo selecionado.");
-      return;
-    }
-    let ids: string[] = [];
-    if (sendMode === "single") {
-      if (!selectedAthleteId) { toast.error("Selecione um atleta."); return; }
-      ids = [selectedAthleteId];
-    } else if (sendMode === "multi") {
-      if (selectedMultiAthleteIds.size === 0) { toast.error("Selecione ao menos um atleta."); return; }
-      ids = composerAthleteIds.filter((id) => selectedMultiAthleteIds.has(id));
-      for (const id of selectedMultiAthleteIds) if (!ids.includes(id)) ids.push(id);
-    }
-
-    setIsCheckingFit(true);
-    try {
-      if (sendMode === "catalog") {
-        setFitConflicts([]);
-      } else {
-        const freshSignals = await getActiveInterestSignalsServerFn();
-        setInterestSignals(freshSignals as CoachInterestSignal[]);
-        const selectedAthletes = ids.map((id) => athletes.find((athlete) => athlete.id === id)).filter((athlete): athlete is AthleteSummary => Boolean(athlete));
-        setFitConflicts(findCoachFitConflicts(
-          activeSelectedRecipients,
-          selectedAthletes.map((athlete) => ({ id: athlete.id, name: athlete.full_name, position: athlete.position_name })),
-          freshSignals as CoachInterestSignal[],
-        ));
-      }
-      setConfirmModalOpen(true);
-    } catch (error) {
-      console.error("[mailer] Could not refresh coach fit preferences:", error);
-      toast.error("Não foi possível atualizar as preferências dos coaches. Nenhum email foi enviado; tente novamente.");
-    } finally {
-      setIsCheckingFit(false);
-    }
-  }
-
   async function handleSendMailer() {
     if (activeSelectedRecipients.length === 0) {
       toast.error("Nenhum destinatário ativo selecionado.");
@@ -913,10 +829,7 @@ function MailerPage() {
         toast.error("Selecione ao menos um atleta.");
         return;
       }
-      targetAthleteIds = composerAthleteIds.filter((id) => selectedMultiAthleteIds.has(id));
-      for (const id of selectedMultiAthleteIds) {
-        if (!targetAthleteIds.includes(id)) targetAthleteIds.push(id);
-      }
+      targetAthleteIds = Array.from(selectedMultiAthleteIds);
     }
 
     setIsSending(true);
@@ -929,7 +842,7 @@ function MailerPage() {
         universityName: r.universityName,
       }));
 
-      const res = await sendMailerServerFn({
+      const res = await enqueueMailerCampaignServerFn({
         data: {
           mode:
             sendMode === "single"
@@ -947,18 +860,28 @@ function MailerPage() {
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
           },
-          blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerPreviewBlocks),
-          composition:
+          blocks:
             sendMode === "catalog"
-              ? undefined
-              : { ...effectiveMailerComposition, athleteOrder: targetAthleteIds },
+              ? []
+              : sanitizeEmailBlocks(
+                  composerBlocks.length
+                    ? composerBlocks
+                    : buildDefaultEmailBlocks(targetAthleteIds),
+                ),
           customOptions: {
             greeting: customGreeting || undefined,
             introduction: customIntroduction || undefined,
             hook: customHook || undefined,
             headline: catalogHeadline || undefined,
             message: catalogMessage || undefined,
-            blocks: sendMode === "catalog" ? [] : sanitizeEmailBlocks(composerPreviewBlocks),
+            blocks:
+              sendMode === "catalog"
+                ? []
+                : sanitizeEmailBlocks(
+                    composerBlocks.length
+                      ? composerBlocks
+                      : buildDefaultEmailBlocks(targetAthleteIds),
+                  ),
           },
           catalogOptions: {
             customHeadline: catalogHeadline,
@@ -968,29 +891,141 @@ function MailerPage() {
       });
 
       if (res.success) {
-        toast.success(`Disparo concluído! ${res.totalSent} e-mails enviados com sucesso.`);
+        toast.success(
+          `Campanha enfileirada com sucesso! ${res.totalEnqueued} e-mails distribuídos em ${res.totalBatches} lote(s). O processamento em segundo plano foi iniciado.`,
+        );
         if (res.totalSuppressed > 0) {
           toast.info(
             `${res.totalSuppressed} contatos foram ignorados por estarem na lista de descadastro (unsubscribed/pausados).`,
           );
         }
         setConfirmModalOpen(false);
+        setActiveCampaignId(res.campaignId);
+
+        // Atualizar progresso imediatamente
+        const initialProg = await getCampaignQueueProgressServerFn({
+          data: { campaignId: res.campaignId },
+        }).catch(() => null);
+        if (initialProg) {
+          setCampaignProgress(initialProg);
+        }
+
         // Atualizar histórico
         const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
         setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
       } else {
-        toast.error(res.message || "Falha no envio de e-mails.");
+        toast.error(res.message || "Falha ao enfileirar e-mails.");
         if (res.errors && res.errors.length > 0) {
           console.error("Errors:", res.errors);
         }
       }
     } catch (err) {
-      console.error("[mailer] Exception sending emails:", err);
-      toast.error("Erro inesperado ao processar disparo de e-mails.");
+      console.error("[mailer] Exception enqueueing emails:", err);
+      toast.error("Erro inesperado ao enfileirar disparo de e-mails.");
     } finally {
       setIsSending(false);
     }
   }
+
+  // Controles de Operação da Fila
+  async function handlePauseCampaign() {
+    if (!activeCampaignId) return;
+    setIsOperatingQueue(true);
+    try {
+      const res = await pauseMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
+      if (res.success) {
+        toast.info("Campanha pausada. Novos lotes não serão enviados.");
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+      } else {
+        toast.error(res.message || "Falha ao pausar campanha.");
+      }
+    } catch (err) {
+      console.error("[mailer] Error pausing campaign:", err);
+      toast.error("Erro ao pausar campanha.");
+    } finally {
+      setIsOperatingQueue(false);
+    }
+  }
+
+  async function handleResumeCampaign() {
+    if (!activeCampaignId) return;
+    setIsOperatingQueue(true);
+    try {
+      const res = await resumeMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
+      if (res.success) {
+        toast.success("Campanha retomada! Lote pendente iniciado no backend.");
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+      } else {
+        toast.error(res.message || "Falha ao retomar campanha.");
+      }
+    } catch (err) {
+      console.error("[mailer] Error resuming campaign:", err);
+      toast.error("Erro ao retomar campanha.");
+    } finally {
+      setIsOperatingQueue(false);
+    }
+  }
+
+  async function handleCancelCampaign() {
+    if (!activeCampaignId) return;
+    if (
+      !confirm(
+        "Tem certeza que deseja cancelar esta campanha? Os e-mails pendentes na fila serão cancelados imediatamente.",
+      )
+    ) {
+      return;
+    }
+    setIsOperatingQueue(true);
+    try {
+      const res = await cancelMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
+      if (res.success) {
+        toast.warning("Campanha cancelada.");
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+        const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
+        setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+      } else {
+        toast.error(res.message || "Falha ao cancelar campanha.");
+      }
+    } catch (err) {
+      console.error("[mailer] Error cancelling campaign:", err);
+      toast.error("Erro ao cancelar campanha.");
+    } finally {
+      setIsOperatingQueue(false);
+    }
+  }
+
+  async function handleTriggerWorker() {
+    setIsOperatingQueue(true);
+    try {
+      const res = await triggerProcessMailerQueueServerFn();
+      if (res.sent > 0) {
+        toast.success(`Lote processado no backend: ${res.sent} e-mail(s) enviado(s)!`);
+      } else if (res.message) {
+        toast.info(res.message);
+      }
+      if (activeCampaignId) {
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+      }
+    } catch (err) {
+      console.error("[mailer] Error triggering worker tick:", err);
+      toast.error("Erro ao acionar worker da fila.");
+    } finally {
+      setIsOperatingQueue(false);
+    }
+  }
+
 
   const handleViewTimeline = async (log: RecruitEmailLog) => {
     setSelectedTimelineLog(log);
@@ -1069,6 +1104,227 @@ function MailerPage() {
               </button>
             </div>
           </div>
+
+          {/* LIVE CAMPAIGN MONITOR */}
+          {campaignProgress && (
+            <div className="bg-card/90 backdrop-blur-md border border-primary/40 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                      Fila Inteligente de Disparos
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ID: {campaignProgress.campaignId.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-primary animate-pulse" />
+                    {campaignProgress.subject}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Status Badge */}
+                  {campaignProgress.status === "running" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      {campaignProgress.nextBatchAt &&
+                      new Date(campaignProgress.nextBatchAt) > new Date()
+                        ? `Aguardando Cooldown (${Math.max(
+                            0,
+                            Math.ceil(
+                              (new Date(campaignProgress.nextBatchAt).getTime() - Date.now()) /
+                                1000,
+                            ),
+                          )}s)`
+                        : `Enviando (Lote ${campaignProgress.currentBatch} de ${campaignProgress.totalBatches})`}
+                    </span>
+                  )}
+                  {campaignProgress.status === "paused" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                      <Pause className="w-3.5 h-3.5" />
+                      Campanha Pausada
+                    </span>
+                  )}
+                  {campaignProgress.status === "queued" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                      <Clock className="w-3.5 h-3.5" />
+                      Enfileirada
+                    </span>
+                  )}
+                  {campaignProgress.status === "completed" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Concluída com Sucesso
+                    </span>
+                  )}
+                  {campaignProgress.status === "cancelled" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                      <Ban className="w-3.5 h-3.5" />
+                      Cancelada
+                    </span>
+                  )}
+                  {campaignProgress.status === "failed" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Erro na Campanha
+                    </span>
+                  )}
+
+                  {/* Action Controls */}
+                  {campaignProgress.status === "running" && (
+                    <button
+                      type="button"
+                      disabled={isOperatingQueue}
+                      onClick={handlePauseCampaign}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Pause className="w-3 h-3" />
+                      Pausar
+                    </button>
+                  )}
+                  {campaignProgress.status === "paused" && (
+                    <button
+                      type="button"
+                      disabled={isOperatingQueue}
+                      onClick={handleResumeCampaign}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Play className="w-3 h-3" />
+                      Retomar
+                    </button>
+                  )}
+                  {(campaignProgress.status === "running" ||
+                    campaignProgress.status === "paused") && (
+                    <button
+                      type="button"
+                      disabled={isOperatingQueue}
+                      onClick={handleCancelCampaign}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isOperatingQueue}
+                    onClick={handleTriggerWorker}
+                    title="Processar lote pendente agora no backend"
+                    className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                  </button>
+                  {(campaignProgress.status === "completed" ||
+                    campaignProgress.status === "cancelled") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCampaignProgress(null);
+                        setActiveCampaignId(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                    >
+                      Ocultar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Barra de Progresso */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">
+                    Progresso Global:{" "}
+                    <strong className="text-foreground">{campaignProgress.sentCount}</strong> de{" "}
+                    {campaignProgress.totalRecipients} e-mails
+                  </span>
+                  <span className="font-bold text-primary">
+                    {campaignProgress.percentComplete}%
+                  </span>
+                </div>
+                <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
+                  <div
+                    className="h-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
+                    style={{ width: `${Math.max(2, campaignProgress.percentComplete)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Grid de Métricas do Lote */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                <div className="bg-muted/40 border border-border/60 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-muted-foreground uppercase font-bold flex items-center justify-center gap-1">
+                    <Users className="w-3 h-3 text-muted-foreground" /> Total
+                  </div>
+                  <div className="text-lg font-black text-foreground mt-0.5">
+                    {campaignProgress.totalRecipients}
+                  </div>
+                </div>
+
+                <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-emerald-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Enviados
+                  </div>
+                  <div className="text-lg font-black text-emerald-300 mt-0.5">
+                    {campaignProgress.sentCount}
+                  </div>
+                </div>
+
+                <div className="bg-sky-950/20 border border-sky-500/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-sky-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <Clock className="w-3 h-3" /> Na Fila
+                  </div>
+                  <div className="text-lg font-black text-sky-300 mt-0.5">
+                    {campaignProgress.pendingCount + campaignProgress.processingCount}
+                  </div>
+                </div>
+
+                <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-rose-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Falhas
+                  </div>
+                  <div className="text-lg font-black text-rose-300 mt-0.5">
+                    {campaignProgress.failedCount}
+                  </div>
+                </div>
+
+                <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-2.5 text-center col-span-2 sm:col-span-1">
+                  <div className="text-[11px] text-amber-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <Layers className="w-3 h-3" /> Lote
+                  </div>
+                  <div className="text-lg font-black text-amber-300 mt-0.5">
+                    {campaignProgress.currentBatch} / {campaignProgress.totalBatches}
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações de Estimativa e Pausa */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/30 gap-1">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>
+                    {campaignProgress.status === "completed"
+                      ? "Todos os e-mails foram processados com sucesso."
+                      : campaignProgress.estimatedRemainingSeconds > 0
+                        ? `Tempo estimado para conclusão: ~${Math.ceil(
+                            campaignProgress.estimatedRemainingSeconds / 60,
+                          )} min (150 e-mails / 60s)`
+                        : "Finalizando processamento..."}
+                  </span>
+                </div>
+                {campaignProgress.nextBatchAt &&
+                  new Date(campaignProgress.nextBatchAt) > new Date() && (
+                    <span className="text-amber-400 font-medium">
+                      Pausa automática de segurança ativa até{" "}
+                      {new Date(campaignProgress.nextBatchAt).toLocaleTimeString()}
+                    </span>
+                  )}
+              </div>
+            </div>
+          )}
+
 
           {activeTab === "compose" ? (
             <div className="space-y-6">
@@ -1199,7 +1455,55 @@ function MailerPage() {
                       )}
                     </div>
 
-                    {renderMailerCompositionEditor()}
+                    {/* Personalização Editorial Single */}
+                    <div className="pt-2 border-t border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Personalização da Mensagem (Opcional)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Altera em tempo real o preview e o e-mail real
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Saudação de 1 Linha (Topo)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Hi Coach {Name}, verified volleyball prospect:"
+                            value={customGreeting}
+                            onChange={(e) => setCustomGreeting(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Chamada / Hook
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Explore verified match films & academic records below."
+                            value={customHook}
+                            onChange={(e) => setCustomHook(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Texto Institucional (Bloco de Final de E-mail)
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
+                          value={customIntroduction}
+                          onChange={(e) => setCustomIntroduction(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1264,7 +1568,55 @@ function MailerPage() {
                       })}
                     </div>
 
-                    {renderMailerCompositionEditor()}
+                    {/* Personalização Editorial Multi */}
+                    <div className="pt-2 border-t border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Personalização da Mensagem (Opcional)
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Altera em tempo real o preview e o e-mail real
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Saudação de 1 Linha (Topo)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Hi Coach {Name}, {N} verified prospects, Class of {ano}:"
+                            value={customGreeting}
+                            onChange={(e) => setCustomGreeting(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Chamada / Hook
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Explore verified match films & academic records below."
+                            value={customHook}
+                            onChange={(e) => setCustomHook(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-foreground">
+                          Texto Institucional (Bloco de Final de E-mail)
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="Go Team Go connects verified international prospects with top US college programs..."
+                          value={customIntroduction}
+                          onChange={(e) => setCustomIntroduction(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1614,11 +1966,11 @@ function MailerPage() {
                           activeSelectedRecipients.length === 0 ||
                           (sendMode === "multi" && selectedMultiAthleteIds.size === 0)
                         }
-                        onClick={() => void openSendConfirmation()}
+                        onClick={() => setConfirmModalOpen(true)}
                         className="w-full py-2.5 px-4 rounded-lg bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                       >
-                        {isCheckingFit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {isCheckingFit ? "Verificando preferências…" : `Disparar Mailer (${totalCalculatedDispatches})`}
+                        <Send className="w-4 h-4" />
+                        Disparar Mailer ({totalCalculatedDispatches})
                       </button>
                     </div>
                   </div>
@@ -1942,24 +2294,6 @@ function MailerPage() {
                 </div>
               </div>
 
-              {fitConflicts.length > 0 && (
-                <section className="max-h-64 space-y-3 overflow-y-auto rounded-xl border border-amber-500/40 bg-amber-500/5 p-3" aria-label="Coach fit conflicts">
-                  <div>
-                    <h4 className="font-bold text-amber-800 dark:text-amber-300">
-                      {new Set(fitConflicts.map((item) => item.recipient.key)).size} coach(es) com conflitos de fit
-                    </h4>
-                    <p className="mt-1 text-xs text-muted-foreground">Confira as preferências antes de decidir. Nenhum destinatário será removido automaticamente.</p>
-                  </div>
-                  {fitConflicts.map((item, index) => (
-                    <div key={`${item.recipient.key}-${item.reason}-${index}`} className="rounded-lg border border-border bg-card p-2.5">
-                      <p className="font-semibold text-foreground">{item.recipient.name} · {item.recipient.universityName}</p>
-                      <p className={item.reviewOnly ? "text-amber-700 dark:text-amber-300" : "text-destructive"}>{item.reviewOnly ? "Revisar preferência" : "Conflito detectado"}: {item.detail}</p>
-                      <p className="text-muted-foreground">Atleta(s): {item.athletes.join(", ")}</p>
-                    </div>
-                  ))}
-                </section>
-              )}
-
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Cada e-mail incluirá automaticamente o rodapé com link de feedback de interesse e
                 descadastro (unsubscribe) em conformidade.
@@ -1969,7 +2303,7 @@ function MailerPage() {
                 <button
                   type="button"
                   disabled={isSending}
-                  onClick={() => { setConfirmModalOpen(false); setFitConflicts([]); }}
+                  onClick={() => setConfirmModalOpen(false)}
                   className={secondaryButtonClass}
                 >
                   Cancelar
@@ -1986,7 +2320,7 @@ function MailerPage() {
                       Disparando...
                     </>
                   ) : (
-                    fitConflicts.length > 0 ? "Enviar mesmo assim" : "Confirmar e Enviar"
+                    "Confirmar e Enviar"
                   )}
                 </button>
               </div>

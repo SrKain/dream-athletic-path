@@ -156,3 +156,80 @@ export const sendRecruitEmailServerFn = createServerFn({ method: "POST" })
     const { sendRecruitEmailToCoaches } = await import("./recruit-email.server");
     return sendRecruitEmailToCoaches(data);
   });
+
+// 10. Enfileiramento Inteligente de Campanha do Mailer (Requer agência)
+export const enqueueMailerCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: SendMailerInput) => data)
+  .handler(async ({ data }) => {
+    const { enqueueCampaignDispatches, processMailerQueue } = await import("./mailer-queue.server");
+    const enqueueRes = await enqueueCampaignDispatches(data);
+
+    // Se enfileirou com sucesso, dispara o primeiro lote imediatamente em background
+    if (enqueueRes.success && enqueueRes.totalEnqueued > 0) {
+      processMailerQueue().catch((err) => {
+        console.error("[mailer-queue] Initial queue tick failed:", err);
+      });
+    }
+
+    return enqueueRes;
+  });
+
+// 11. Progresso em Tempo Real da Fila da Campanha (Requer agência)
+export const getCampaignQueueProgressServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { getCampaignQueueProgress } = await import("./mailer-queue.server");
+    return getCampaignQueueProgress(data.campaignId);
+  });
+
+// 12. Pausar Campanha em Andamento (Requer agência)
+export const pauseMailerCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { pauseCampaign } = await import("./mailer-queue.server");
+    return pauseCampaign(data.campaignId);
+  });
+
+// 13. Retomar Campanha Pausada (Requer agência)
+export const resumeMailerCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { resumeCampaign, processMailerQueue } = await import("./mailer-queue.server");
+    const res = await resumeCampaign(data.campaignId);
+    if (res.success) {
+      processMailerQueue().catch((err) => {
+        console.error("[mailer-queue] Resume queue tick failed:", err);
+      });
+    }
+    return res;
+  });
+
+// 14. Cancelar Campanha (Requer agência)
+export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { cancelCampaign } = await import("./mailer-queue.server");
+    return cancelCampaign(data.campaignId);
+  });
+
+// 15. Disparar Worker da Fila Manualmente / Tick do Backend (Requer agência)
+export const triggerProcessMailerQueueServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .handler(async () => {
+    const { processMailerQueue } = await import("./mailer-queue.server");
+    return processMailerQueue();
+  });
+
+// 16. Buscar Campanha Ativa em Andamento (Requer agência)
+export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .handler(async () => {
+    const { getLatestActiveCampaign } = await import("./mailer-queue.server");
+    return getLatestActiveCampaign();
+  });
+

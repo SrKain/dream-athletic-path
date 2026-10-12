@@ -982,3 +982,28 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação:** `git diff --check` concluído sem erros de whitespace. Build/typecheck/lint não executáveis neste ambiente: Bun não está instalado e `node_modules` não existe. Nenhum pacote foi instalado nem arquivos `package.json`, `bun.lock` ou `vercel.json` alterados.
 - **Status:** `[IMPLEMENTADO — VALIDAÇÃO DE BUILD PENDENTE DE AMBIENTE BUN]`.
 
+---
+
+## TASK-091 — 2026-10-12 15:20 — Implementação da Fila de Disparos Inteligente do Mailer
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Architect)
+- **Pedido:**
+  1. Implementação de fila persistente de disparos com controle de taxa global (máximo 150 e-mails por lote, espaçamento ~400ms, pausa de 60s entre lotes e retomada automática).
+  2. Execução no backend independente da sessão do navegador (Vercel Cron e worker transacional com reserva atômica `FOR UPDATE SKIP LOCKED`).
+  3. Tratamento robusto de erros com retry exponencial, jitter, respeito a `Retry-After` e tratamento de HTTP 429.
+  4. Interface do Mailer com Live Campaign Monitor (total, pendentes, enviados, falhas, lote atual, tempo estimado, barra de progresso, pausar, retomar, cancelar).
+  5. Testes automatizados para 10, 150, 151, 300 e 1.000 destinatários e validação completa com `bun run validate`.
+- **Planejamento:** Registrado em `think/2026-10-12-1520-fila-de-disparos-inteligente-do-mailer.md`.
+- **Aprovação Humana:** Aprovado explicitamente pelo usuário humano Kauan ("Sim" / "Aprovado sim") em 2026-10-12 15:23.
+- **Entregas Concluídas:**
+  1. **Migration 0024 (`db/migrations/0024_mailer_queue_and_rate_limiting.sql`)**: Tabelas `mailer_queue`, `mailer_rate_limits`, evolução de `mailer_campaigns`, RPC atômica `claim_mailer_queue_batch` com `FOR UPDATE SKIP LOCKED`.
+  2. **Tipagem (`src/types/db.ts`)**: `MailerCampaignStatus`, `MailerQueueStatus`, `MailerQueueItem`, `MailerRateLimit`, `CampaignProgress`.
+  3. **Worker Central & Fila (`src/lib/email/mailer-queue.server.ts`)**: Enfileiramento em lotes <= 150, worker autônomo com intervalo de 400ms entre e-mails, janela de cooldown de 60s, tratamento de HTTP 429 e `Retry-After`, retry exponencial com jitter, pausa, retomada e cancelamento.
+  4. **Server Functions (`src/lib/email/recruit-email.functions.ts`)**: `enqueueMailerCampaignServerFn`, `getCampaignQueueProgressServerFn`, `getLatestActiveCampaignServerFn`, `pauseMailerCampaignServerFn`, `resumeMailerCampaignServerFn`, `cancelMailerCampaignServerFn`, `triggerProcessMailerQueueServerFn`.
+  5. **Endpoints de Cron (`src/server.ts` & `vercel.json`)**: Configuração do cron job de 1 minuto em `/api/cron/process-mailer-queue`.
+  6. **UI Monitor em Tempo Real (`src/routes/_authenticated/admin/mailer.tsx`)**: Painel com barra de progresso, métricas em tempo real (Total, Enviados, Na Fila, Falhas, Lote), badge de estado dinâmico com contagem regressiva de cooldown e controles de operação (Pausar, Retomar, Cancelar, Disparo Forçado).
+  7. **Testes Unitários Automatizados (`src/lib/email/mailer-queue.test.ts`)**: 13 testes cobrindo lotes de 10, 150, 151, 300 e 1.000 destinatários, concorrência, retentativas com backoff, HTTP 429, pausa e cancelamento (100% aprovados, totalizando 169 testes em 23 arquivos).
+- **Status:** `[CONCLUÍDO]`
+
+

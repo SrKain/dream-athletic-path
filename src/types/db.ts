@@ -464,6 +464,22 @@ export interface CoachInterestSignal {
 
 export type MailerCampaignMode = "single_athlete" | "multi_athlete" | "catalog";
 
+export type MailerCampaignStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type MailerQueueStatus =
+  | "pending"
+  | "processing"
+  | "sent"
+  | "failed"
+  | "retry"
+  | "cancelled";
+
 export interface MailerCampaign {
   id: string;
   created_at: string;
@@ -473,7 +489,98 @@ export interface MailerCampaign {
   athlete_ids: string[];
   recipients_count: number;
   filters: Record<string, unknown>;
+  status?: MailerCampaignStatus;
+  total_recipients?: number;
+  sent_count?: number;
+  failed_count?: number;
+  suppressed_count?: number;
+  current_batch?: number;
+  total_batches?: number;
+  batch_size?: number;
+  delay_between_batches_sec?: number;
+  delay_between_items_ms?: number;
+  next_batch_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  paused_at?: string | null;
+  cancelled_at?: string | null;
+  last_error?: string | null;
 }
+
+export interface MailerQueueItem {
+  id: string;
+  campaign_id: string;
+  coach_id?: string | null;
+  recipient_email: string;
+  recipient_name: string;
+  university_name?: string | null;
+  email_type: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
+  subject: string;
+  payload: Record<string, unknown>;
+  idempotency_key: string;
+  status: MailerQueueStatus;
+  batch_number: number;
+  attempts: number;
+  max_attempts: number;
+  reserved_by?: string | null;
+  reserved_at?: string | null;
+  reservation_expires_at?: string | null;
+  next_retry_at?: string | null;
+  provider_message_id?: string | null;
+  last_error?: string | null;
+  error_code?: string | null;
+  processed_at?: string | null;
+  created_at: string;
+}
+
+export interface MailerRateLimit {
+  id: string;
+  window_started_at: string;
+  dispatches_in_window: number;
+  max_dispatches_per_window: number;
+  window_duration_seconds: number;
+  last_batch_completed_at?: string | null;
+  pause_between_batches_seconds: number;
+  locked_until?: string | null;
+  updated_at: string;
+}
+
+export interface CampaignProgress {
+  campaignId: string;
+  status: MailerCampaignStatus;
+  subject: string;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  suppressedCount: number;
+  pendingCount: number;
+  processingCount: number;
+  cancelledCount: number;
+  currentBatch: number;
+  totalBatches: number;
+  batchSize: number;
+  percentComplete: number;
+  nextBatchAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  estimatedRemainingSeconds: number;
+  lastError: string | null;
+}
+
+export interface EnqueueResult {
+  success: boolean;
+  campaignId: string;
+  totalRecipients: number;
+  totalEnqueued: number;
+  totalSuppressed: number;
+  totalBatches: number;
+  batchSize: number;
+  status: MailerCampaignStatus;
+  message?: string;
+  errors?: string[];
+}
+
+
 
 export interface RecruitEmailLog {
   id: string;
