@@ -291,6 +291,25 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
   });
 
   describe("1. Campaign Enqueueing & Batch Calculations (10, 150, 151, 300, 1000)", () => {
+    it("persists a custom subject and a different greeting for each coach", async () => {
+      const result = await enqueueCampaignDispatches({
+        mode: "catalog",
+        customOptions: { subject: "Recruiting for next season" },
+        recipients: [
+          { name: "Taylor Smith", lastName: "Smith", email: "smith@college.edu" },
+          { name: "Alex Van Dijk", lastName: "Van Dijk", email: "alex@college.edu" },
+        ],
+      }, createMockAdminClient());
+      expect(result.success).toBe(true);
+      const items = Array.from(mockQueue.values());
+      expect(items).toHaveLength(2);
+      expect(items[0].subject).toBe("Recruiting for next season");
+      expect(items[0].payload.html).toContain("Hi Coach Smith,");
+      expect(items[0].payload.text).toContain("Hi Coach Smith,");
+      expect(items[1].payload.html).toContain("Hi Coach Van Dijk,");
+      expect(items[1].payload.text).toContain("Hi Coach Van Dijk,");
+    });
+
     it("handles small campaign (10 recipients) in 1 batch", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 10 }, (_, i) => ({

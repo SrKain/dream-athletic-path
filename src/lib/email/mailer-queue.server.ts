@@ -1,3 +1,4 @@
+import { resolveEmailSubject } from "./email-personalization";
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
@@ -86,6 +87,7 @@ export async function enqueueCampaignDispatches(
   input: SendMailerInput,
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<EnqueueResult> {
+  resolveEmailSubject(input.customOptions?.subject, "");
   const admin = customAdmin || getAdminClient();
   const campaignId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -179,6 +181,8 @@ export async function enqueueCampaignDispatches(
     for (const rec of activeRecipients) {
       const { subject, html, text } = renderCatalogEmail({
         coachName: rec.name,
+        coachLastName: rec.lastName,
+        customSubject: customOptions?.subject,
         institutionName: rec.universityName,
         customHeadline: headline,
         customMessage: message,
@@ -274,6 +278,8 @@ export async function enqueueCampaignDispatches(
       const { subject, html, text } = renderMultiAthleteRecruitEmail({
         athletes: loadedAthletes,
         coachName: rec.name,
+        coachLastName: rec.lastName,
+        customSubject: customOptions?.subject,
         institutionName: rec.universityName,
         recipientEmail: rec.email,
         coachId: rec.coachId,
@@ -366,6 +372,8 @@ export async function enqueueCampaignDispatches(
           recipientEmail: rec.email,
           coachId: rec.coachId,
           coachName: rec.name,
+          coachLastName: rec.lastName,
+          customSubject: customOptions?.subject,
           institutionName: rec.universityName,
           customGreeting: customOptions?.greeting,
           customIntroduction: customOptions?.introduction,

@@ -1,8 +1,11 @@
+import { buildCoachGreeting, resolveEmailSubject } from "./email-personalization";
 import { renderCatalogRecruitEmail, type RecruitEmailRenderOptions } from "./recruit-email";
 import { EMAIL_BASE_URL, EMAIL_SIGNATURE } from "./email-brand";
 
 export interface CatalogEmailData {
   coachName?: string | null;
+  coachLastName?: string | null;
+  customSubject?: string | null;
   institutionName?: string | null;
   customHeadline?: string | null;
   customMessage?: string | null;
@@ -17,11 +20,10 @@ export interface CatalogEmailData {
 }
 
 export function generateCatalogPlainText(data: CatalogEmailData): string {
-  const coach = data.coachName ? data.coachName.replace(/^Coach\s+/i, "") : "Coach";
   const portfolioUrl = EMAIL_BASE_URL;
 
   const lines = [
-    `Hi Coach ${coach},`,
+    buildCoachGreeting(data.coachLastName),
     "",
     "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
     "",
@@ -58,14 +60,16 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
   const result = renderCatalogRecruitEmail({
     coachName: data.coachName?.replace(/^Coach\s+/i, "") || undefined,
     coachEmail: data.recipientEmail || undefined,
-    greetingText: data.customGreeting || undefined,
+    coachLastName: data.coachLastName,
+    customSubject: resolveEmailSubject(data.customSubject, data.customHeadline || ""),
+    greetingText: buildCoachGreeting(data.coachLastName),
     introductionText: intro,
     agencyLogoUrl: data.logoUrl || undefined,
     appUrl: EMAIL_BASE_URL,
     campaignId: data.campaignId,
   });
 
-  const subject = data.customHeadline?.trim() ? data.customHeadline.trim() : result.subject;
+  const subject = result.subject;
 
   const text = generateCatalogPlainText(data);
 

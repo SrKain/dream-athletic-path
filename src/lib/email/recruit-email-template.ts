@@ -1,3 +1,4 @@
+import { buildCoachGreeting } from "./email-personalization";
 import {
   renderSingleAthleteRecruitEmail,
   renderMultiAthleteRecruitEmail as renderMultiAthleteRecruitEmailNew,
@@ -26,6 +27,8 @@ export interface RecruitEmailData extends EmailCardAthlete {
   recipientEmail?: string | null;
   coachId?: string | null;
   coachName?: string | null;
+  coachLastName?: string | null;
+  customSubject?: string | null;
   institutionName?: string | null;
   countryFlag?: string | null;
   customGreeting?: string | null;
@@ -41,6 +44,8 @@ export interface RecruitEmailData extends EmailCardAthlete {
 export interface MultiAthleteEmailData {
   athletes: RecruitEmailData[];
   coachName?: string | null;
+  coachLastName?: string | null;
+  customSubject?: string | null;
   institutionName?: string | null;
   recipientEmail?: string | null;
   coachId?: string | null;
@@ -122,6 +127,8 @@ export function generateRecruitEmailPlainText(data: RecruitEmailData): string {
   return generateRecruitEmailPlainTextNew({
     athlete,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
+    customSubject: data.customSubject,
     coachEmail: data.recipientEmail || undefined,
     greetingText: data.customGreeting || undefined,
     introductionText: data.customIntroduction || undefined,
@@ -134,34 +141,15 @@ export function generateRecruitEmailPlainText(data: RecruitEmailData): string {
 /**
  * Renderiza e-mail individual de um único atleta ("ATHLETE SPOTLIGHT" - Redesenho Leitura em 5 Segundos).
  */
-function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
-  const coachName = (data.coachName || "Coach").replace(/^Coach\s+/i, "").trim() || "Coach";
-  const coachGreeting = coachName ? `Coach ${coachName}` : "Coach";
-  const sportName =
-    "sportName" in data && data.sportName
-      ? data.sportName
-      : "athletes" in data && data.athletes[0]?.sportName
-        ? data.athletes[0].sportName
-        : "Volleyball";
-  const gradYear =
-    ("graduationYear" in data && data.graduationYear) ||
-    ("highSchoolGraduation" in data && data.highSchoolGraduation) ||
-    ("athletes" in data && data.athletes[0]?.graduationYear) ||
-    ("athletes" in data && data.athletes[0]?.highSchoolGraduation) ||
-    undefined;
-
-  if (athleteIds.length <= 1) {
-    return `Hi ${coachGreeting}, verified ${sportName} prospect${gradYear ? `, Class of ${gradYear}` : ""}:`;
-  }
-
-  return `Hi ${coachGreeting}, ${athleteIds.length} verified ${sportName} prospects${gradYear ? `, Class of ${gradYear}` : ""}:`;
+function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData) {
+  return buildCoachGreeting(data.coachLastName);
 }
 
 function resolveLegacyBodyBlocks(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
   if (data.blocks?.length) return data.blocks;
 
   const defaults = buildDefaultEmailBlocks(athleteIds);
-  const greeting = (data.customGreeting || buildLegacyGreetingText(data, athleteIds) || "").trim();
+  const greeting = (data.customGreeting || buildLegacyGreetingText(data) || "").trim();
   const hook = (data.customHook || "").trim();
   const intro = (data.customIntroduction || "").trim();
   const defaultIntro = athleteIds.length > 1
@@ -189,6 +177,8 @@ export function renderRecruitEmail(data: RecruitEmailData) {
   const result = renderSingleAthleteRecruitEmail({
     athlete,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
+    customSubject: data.customSubject,
     coachEmail: data.recipientEmail || undefined,
     greetingText: data.customGreeting || undefined,
     introductionText: data.customIntroduction || undefined,
@@ -206,6 +196,7 @@ export function renderRecruitEmail(data: RecruitEmailData) {
     subject: result.subject,
     preheader: result.preheader,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
     coachEmail: data.recipientEmail,
     coachId: data.coachId,
     campaignId: data.campaignId,
@@ -229,6 +220,8 @@ export function generateMultiAthletePlainText(data: MultiAthleteEmailData): stri
   return generateMultiAthletePlainTextNew({
     athletes,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
+    customSubject: data.customSubject,
     coachEmail: data.recipientEmail || undefined,
     greetingText: data.customGreeting || undefined,
     introductionText: data.customIntroduction || undefined,
@@ -248,6 +241,8 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
   const result = renderMultiAthleteRecruitEmailNew({
     athletes,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
+    customSubject: data.customSubject,
     coachEmail: data.recipientEmail || undefined,
     greetingText: data.customGreeting || undefined,
     introductionText: data.customIntroduction || undefined,
@@ -265,6 +260,7 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
     subject: result.subject,
     preheader: result.preheader,
     coachName: data.coachName || undefined,
+    coachLastName: data.coachLastName,
     coachEmail: data.recipientEmail,
     coachId: data.coachId,
     campaignId: data.campaignId,

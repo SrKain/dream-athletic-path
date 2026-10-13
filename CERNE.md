@@ -1297,3 +1297,17 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Deploy/schema:** nenhuma migration ou mudança de `package.json`, `bun.lock` ou `vercel.json` foi feita. `git diff --check` sem erros. Build, typecheck e lint não puderam ser executados porque Bun e `node_modules` estão ausentes no checkout.
 - **Plano:** `think/2026-10-09-1718-mailer-availability-coach-management-fit-warning-signature.md`.
 
+
+
+
+## Atualização 2026-10-13 — Assunto, saudação e respostas do Mailer
+
+- `src/lib/email/email-personalization.ts` centraliza o assunto opcional (até 200 caracteres, rejeição de CR/LF/tipos inválidos) e a saudação `Hi Coach [last_name],`, com fallback `Hi Coach,`. Não infere sobrenome pelo nome completo.
+- `admin/mailer.tsx` oferece campo de assunto comum a Individual/Multi/Catalog, mostra o assunto final no preview e identifica o primeiro coach selecionado ou Coach Smith como exemplo. Saudação passa a somente leitura.
+- `MailerRecipient.lastName`, `customOptions.subject`, `coachLastName` e `customSubject` propagam personalização aos templates, envio direto, enfileiramento e envio legado pelo perfil. Assunto resolvido é persistido na campanha, fila e logs de envio. Sem mudança de schema/dependências.
+- `personal-email-renderer.ts` personaliza a saudação inicial sem mutar os blocos originais nem perder a introdução; omite assinatura do coach apenas nas respostas mailto, mantendo a assinatura institucional do email de recrutamento.
+- `buildInterestedMailtoUrl` começa em `Hi Fabi,`, expressa interesse na atleta/posição e próximos passos, termina em `Thank you!`, sem ano de formatura ou assinatura Coach [nome].
+- `buildNotAFitUrl`, cards e ação equivalente do rodapé passam a preencher o corpo aprovado com atleta/posição. Sem posição, omitem parênteses. Assuntos/endereço de contato seguem contextualizados. O cliente de email do destinatário ainda pode inserir sua própria assinatura.
+- `email-personalization.test.ts` cobre textos exatos, caracteres especiais, nomes distintos, assunto/fallback/limites, saudação por sobrenome e HTML/texto nos três modos. Suítes de envio/fila receberam verificações de propagação; suíte de renderização teve expectativas alteradas para os novos requisitos.
+- Validação: 11 testes de personalização e 6 cenários complementares de direto/fila passaram via Node com mocks, além da rejeição de cabeçalho inválido. Suíte antiga 13/15, com as mesmas duas falhas reproduzidas no snapshot original. Validação completa Bun/Vitest/lint/typecheck/build e UI permanece pendente por indisponibilidade do ambiente.
+- Plano aprovado: `think/2026-10-13-2100-personalizacao-assunto-saudacao-respostas-mailer.md`. Apenas novos envios; campanhas já enfileiradas não são reescritas.
