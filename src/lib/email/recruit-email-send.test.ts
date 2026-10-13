@@ -168,11 +168,13 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
     const res = await sendMailerEmails({
       mode: "multi_athlete",
       athleteIds: [ath1, ath2],
+      customOptions: { subject: "Fall recruiting opportunities" },
       recipients: [
         {
           coachId: "330e8400-e29b-41d4-a716-446655440003",
           email: "coach@texas.edu",
           name: "Coach Elliott",
+          lastName: "Elliott",
           universityName: "UT Austin",
         },
       ],
@@ -191,6 +193,11 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
     // 2. Verifica envio de tags no Resend batch.send
     expect(mockBatchSentPayloads).toHaveLength(1);
     const firstMsg = mockBatchSentPayloads[0]?.[0];
+    expect(firstMsg?.subject).toBe("Fall recruiting opportunities");
+    expect(firstMsg?.html).toContain("Hi Coach Elliott,");
+    expect(firstMsg?.text).toContain("Hi Coach Elliott,");
+    expect(mockInsertedCampaigns[0]?.subject).toBe("Fall recruiting opportunities");
+    expect(mockInsertedLogs[0]?.subject).toBe("Fall recruiting opportunities");
     expect(firstMsg?.tags).toEqual([
       { name: "email_type", value: "athlete_teaser_multi" },
       { name: "campaign_id", value: res.campaignId },

@@ -1,3 +1,4 @@
+import { buildCoachGreeting, MAX_CUSTOM_SUBJECT_LENGTH } from "@/lib/email/email-personalization";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Mail,
@@ -138,6 +139,7 @@ interface RecipientItem {
   key: string;
   coachId?: string;
   name: string;
+  lastName?: string | null;
   email: string;
   universityName: string;
   universityCity: string;
@@ -184,7 +186,7 @@ function MailerPage() {
   const [selectedRecipientKeys, setSelectedRecipientKeys] = useState<Set<string>>(new Set());
 
   // Personalização Editorial (Single, Multi & Catalog)
-  const [customGreeting, setCustomGreeting] = useState("");
+  const [customSubject, setCustomSubject] = useState("");
   const [customIntroduction, setCustomIntroduction] = useState("");
   const [customHook, setCustomHook] = useState("");
   const [composerBlocks, setComposerBlocks] = useState<EmailBlock[]>([]);
@@ -442,6 +444,7 @@ function MailerPage() {
           key,
           coachId: coach.id,
           name: coachFullName,
+          lastName: coach.last_name,
           email: cleanEmail,
           universityName: uni.name,
           universityCity: uni.city,
@@ -623,24 +626,31 @@ function MailerPage() {
   }, [activeComposerAthleteIds, composerBlocks, sendMode]);
 
   // Gera HTML de Preview dinâmico
-  const previewHtml = useMemo(() => {
+  const previewCoach = useMemo(
+    () => allRecipients.find((recipient) => selectedRecipientKeys.has(recipient.key) && !recipient.isSuppressed),
+    [allRecipients, selectedRecipientKeys],
+  );
+  const previewLastName = previewCoach ? previewCoach.lastName : "Smith";
+  const previewEmail = useMemo(() => {
     const logoUrl = visualSettings?.logo_url ?? null;
     const heroBackgroundUrl = visualSettings?.hero_background_url ?? null;
 
     if (sendMode === "catalog") {
-      const { html } = renderCatalogEmail({
-        coachName: "Coach Smith",
+      const { html, subject } = renderCatalogEmail({
+        coachName: previewCoach?.name || "Coach Smith",
+        coachLastName: previewLastName,
+        customSubject,
         institutionName: "University Showcase",
         customHeadline: catalogHeadline,
         customMessage: catalogMessage,
-        customGreeting: customGreeting || null,
+
         customIntroduction: customIntroduction || null,
         customHook: customHook || null,
         recipientEmail: "coach@example.edu",
         logoUrl,
         heroBackgroundUrl,
       });
-      return html;
+      return { html, subject };
     }
 
     if (sendMode === "multi") {
@@ -648,7 +658,7 @@ function MailerPage() {
         selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
 
       if (targets.length === 0) {
-        return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>";
+        return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>", subject: "" };
       }
 
       const athletesData: RecruitEmailData[] = targets.map((ath) => ({
@@ -671,27 +681,31 @@ function MailerPage() {
         recipientEmail: "coach@example.edu",
       }));
 
-      const { html } = renderMultiAthleteRecruitEmail({
+      const { html, subject } = renderMultiAthleteRecruitEmail({
         athletes: athletesData,
-        coachName: "Smith",
+        coachName: previewCoach?.name || "Coach Smith",
+        coachLastName: previewLastName,
+        customSubject,
         institutionName: "University Athletics",
         recipientEmail: "coach@example.edu",
-        customGreeting: customGreeting || null,
         customIntroduction: customIntroduction || null,
         customHook: customHook || null,
         blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
         logoUrl,
         heroBackgroundUrl,
       });
-      return html;
+      return { html, subject };
     }
 
     // single mode
     if (!currentSingleAthlete) {
-      return "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>";
+      return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>", subject: "" };
     }
 
-    const { html } = renderRecruitEmail({
+    const { html, subject } = renderRecruitEmail({
+      coachName: previewCoach?.name || "Coach Smith",
+      coachLastName: previewLastName,
+      customSubject,
       athleteId: currentSingleAthlete.id,
       athleteName: currentSingleAthlete.full_name,
       athleteSlug: currentSingleAthlete.slug,
@@ -709,14 +723,13 @@ function MailerPage() {
       budget: currentSingleAthlete.budget,
       highlightVideoUrl: currentSingleAthlete.highlight_video_url,
       recipientEmail: "coach@example.edu",
-      customGreeting: customGreeting || null,
       customIntroduction: customIntroduction || null,
       customHook: customHook || null,
       blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
       logoUrl,
       heroBackgroundUrl,
     });
-    return html;
+    return { html, subject };
   }, [
     sendMode,
     currentSingleAthlete,
@@ -724,7 +737,9 @@ function MailerPage() {
     athletes,
     catalogHeadline,
     catalogMessage,
-    customGreeting,
+    customSubject,
+    previewCoach,
+    previewLastName,
     customIntroduction,
     customHook,
     composerPreviewBlocks,
@@ -838,6 +853,7 @@ function MailerPage() {
       const payloadRecipients = selectedRecipientsList.map((r) => ({
         coachId: r.coachId,
         name: r.name,
+        lastName: r.lastName,
         email: r.email,
         universityName: r.universityName,
       }));
@@ -869,7 +885,7 @@ function MailerPage() {
                     : buildDefaultEmailBlocks(targetAthleteIds),
                 ),
           customOptions: {
-            greeting: customGreeting || undefined,
+            subject: customSubject || undefined,
             introduction: customIntroduction || undefined,
             hook: customHook || undefined,
             headline: catalogHeadline || undefined,
@@ -1410,6 +1426,24 @@ function MailerPage() {
 
               {/* 2. CONFIGURAÇÃO DO MODO SELECIONADO */}
               <div className="glass-panel p-4 sm:p-5 space-y-4 rounded-xl border border-border bg-card">
+                <div className="space-y-2">
+                  <label htmlFor="mailer-subject" className="text-sm font-medium text-foreground">
+                    Assunto do e-mail (opcional)
+                  </label>
+                  <input
+                    id="mailer-subject"
+                    type="text"
+                    maxLength={MAX_CUSTOM_SUBJECT_LENGTH}
+                    value={customSubject}
+                    onChange={(event) => setCustomSubject(event.target.value.replace(/[\r\n]+/g, " "))}
+                    placeholder="Digite o assunto que o coach receberá"
+                    aria-describedby="mailer-subject-help"
+                    className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <p id="mailer-subject-help" className="text-xs text-muted-foreground">
+                    Deixe vazio para usar o assunto automático. Até 200 caracteres.
+                  </p>
+                </div>
                 {sendMode === "single" && (
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-foreground">
@@ -1468,14 +1502,15 @@ function MailerPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Saudação de 1 Linha (Topo)
+                            Saudação automática (por coach)
                           </label>
                           <input
                             type="text"
-                            placeholder="Hi Coach {Name}, verified volleyball prospect:"
-                            value={customGreeting}
-                            onChange={(e) => setCustomGreeting(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            placeholder="Hi Coach [sobrenome],"
+                            value={buildCoachGreeting(previewLastName)}
+                            readOnly
+                          aria-label="Saudação automática por sobrenome"
+                            className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1581,14 +1616,15 @@ function MailerPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Saudação de 1 Linha (Topo)
+                            Saudação automática (por coach)
                           </label>
                           <input
                             type="text"
-                            placeholder="Hi Coach {Name}, {N} verified prospects, Class of {ano}:"
-                            value={customGreeting}
-                            onChange={(e) => setCustomGreeting(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            placeholder="Hi Coach [sobrenome],"
+                            value={buildCoachGreeting(previewLastName)}
+                            readOnly
+                          aria-label="Saudação automática por sobrenome"
+                            className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1628,13 +1664,14 @@ function MailerPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
-                          Saudação de 1 Linha (Topo)
+                          Saudação automática (por coach)
                         </label>
                         <input
                           type="text"
-                          placeholder="Hi Coach {Name}, explore our full active recruiting portfolio:"
-                          value={customGreeting}
-                          onChange={(e) => setCustomGreeting(e.target.value)}
+                          placeholder="Hi Coach [sobrenome],"
+                          value={buildCoachGreeting(previewLastName)}
+                          readOnly
+                          aria-label="Saudação automática por sobrenome"
                           className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                       </div>
@@ -1910,10 +1947,14 @@ function MailerPage() {
                       </span>
                     </div>
 
+                    <div className="space-y-1 text-xs text-muted-foreground" aria-live="polite">
+                      <p><span className="font-medium text-foreground">Assunto:</span> {previewEmail.subject || "Selecione uma atleta"}</p>
+                      <p>{previewCoach ? `Prévia para ${previewCoach.name}` : "Prévia com Coach Smith (exemplo). A saudação usa o sobrenome de cada destinatário."}</p>
+                    </div>
                     <div className="rounded-xl border border-border bg-[#f8faf5] p-1 shadow-inner h-[460px] overflow-hidden">
                       <iframe
                         title="Email Preview"
-                        srcDoc={previewHtml}
+                        srcDoc={previewEmail.html}
                         className="w-full h-full rounded-lg border-0 bg-[#f8faf5]"
                       />
                     </div>

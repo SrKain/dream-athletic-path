@@ -1007,3 +1007,17 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[CONCLUÍDO]`
 
 
+
+
+
+## MAILER-PERSONALIZATION-2026-10-13 — Personalização de assunto, saudação e respostas
+
+- **Data:** 2026-10-13 UTC.
+- **Solicitante:** Usuário humano da sessão.
+- **Executor:** Codex.
+- **Pedido:** Personalizar o título/assunto ao enviar; saudação sempre Hi Coach [sobrenome]; respostas de interesse e Not a Fit com Hi Fabi, textos fornecidos, atleta/posição dinâmicos e sem assinatura automática Coach [nome].
+- **Plano:** `think/2026-10-13-2100-personalizacao-assunto-saudacao-respostas-mailer.md`, aprovado explicitamente pelo usuário com "Aprovado".
+- **Entrega:** Campo e preview do assunto em todos os modos, sobrenome separado em UI/renderer/direto/fila/legado, mailto de card e rodapé alinhados e documentação atualizada.
+- **Validação:** 11 testes novos de personalização e 6 cenários complementares direto/fila com mocks passaram via Node. Rejeição de CR/LF confirmada antes de efeitos externos. Suíte antiga 13/15 com duas falhas também existentes no snapshot original. git diff --check passou.
+- **Limite:** Bun/dependências não disponíveis; Vitest oficial, lint, typecheck, build e inspeção visual da UI pendentes. Nenhum email real enviado, nenhuma migration aplicada, nenhum deploy realizado.
+- **Status:** `[CONCLUÍDO — IMPLEMENTAÇÃO]`; validação completa e revisão/merge pendentes.

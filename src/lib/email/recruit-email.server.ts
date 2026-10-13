@@ -1,3 +1,4 @@
+import { resolveEmailSubject } from "./email-personalization";
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
@@ -16,6 +17,7 @@ export interface MailerRecipient {
   coachId?: string;
   email: string;
   name: string;
+  lastName?: string | null;
   universityName?: string;
 }
 
@@ -28,6 +30,7 @@ export interface SendMailerInput {
   blocks?: EmailBlock[];
   composition?: FixedEmailComposition;
   customOptions?: {
+    subject?: string;
     greeting?: string;
     introduction?: string;
     hook?: string;
@@ -447,6 +450,7 @@ async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData
 }
 
 export async function sendMailerEmails(input: SendMailerInput): Promise<SendMailerResult> {
+  resolveEmailSubject(input.customOptions?.subject, "");
   const {
     mode,
     athleteIds = [],
@@ -621,6 +625,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     for (const rec of activeRecipients) {
       const { subject, html, text } = renderCatalogEmail({
         coachName: rec.name,
+        coachLastName: rec.lastName,
+        customSubject: customOptions?.subject,
         institutionName: rec.universityName,
         customHeadline: headline,
         customMessage: message,
@@ -668,6 +674,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
         const { subject, html, text } = renderMultiAthleteRecruitEmail({
           athletes: loadedAthletes,
           coachName: rec.name,
+          coachLastName: rec.lastName,
+          customSubject: customOptions?.subject,
           institutionName: rec.universityName,
           recipientEmail: rec.email,
           coachId: rec.coachId,
@@ -711,6 +719,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           recipientEmail: rec.email,
           coachId: rec.coachId,
           coachName: rec.name,
+          coachLastName: rec.lastName,
+          customSubject: customOptions?.subject,
           institutionName: rec.universityName,
           customGreeting: customOptions?.greeting,
           customIntroduction: customOptions?.introduction,
@@ -934,6 +944,7 @@ export async function sendRecruitEmailToCoaches(input: {
       .map((coach) => ({
         coachId: coach.id,
         name: `${coach.first_name} ${coach.last_name}`.trim() || "Coach",
+        lastName: coach.last_name,
         email: coach.email,
         universityName: university.name,
       })),

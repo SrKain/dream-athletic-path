@@ -1,3 +1,5 @@
+import { buildCoachGreeting } from "./email-personalization";
+import { buildNotAFitUrl } from "./recruit-email";
 /**
  * Personal Email Renderer — Individual Athlete + Multi-Athlete.
  *
@@ -10,7 +12,7 @@
  *  - TRUSTED ATHLETE CARD HTML: gerado a partir dos dados reais do atleta.
  *  - TRUSTED FOOTER HTML: assinatura da Fabiana + 3 ações obrigatórias, sempre anexadas.
  */
-import { EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./email-brand";
+import { EMAIL_BASE_URL, EMAIL_COLORS } from "./email-brand";
 import { escapeHtml, renderSignature } from "./email-layout";
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import { buildBoardCardUrls, renderAthleteBoardCard } from "./athlete-board-card";
@@ -26,6 +28,7 @@ export interface PersonalEmailInput {
   subject: string;
   preheader?: string;
   coachName?: string;
+  coachLastName?: string | null;
   coachEmail?: string | null;
   coachId?: string | null;
   campaignId?: string | null;
@@ -116,6 +119,20 @@ export function buildFixedEmailBlocks(
   ]);
 }
 
+/** Always greet the recipient by the separately stored last_name. */
+export function personalizeEmailGreeting(input: unknown, lastName?: string | null): EmailBlock[] {
+  const blocks = sanitizeEmailBlocks(input);
+  const firstText = blocks[0];
+  const greeting = buildCoachGreeting(lastName);
+  if (firstText?.type === "text" && /^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i.test(firstText.content)) {
+    const remainder = firstText.content.replace(/^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i, "").trimStart();
+    blocks[0] = { type: "text", content: greeting + (remainder ? `\n\n${remainder}` : "") };
+  } else {
+    blocks.unshift({ type: "text", content: greeting });
+  }
+  return blocks;
+}
+
 /** Texto do usuário → parágrafos HTML seguros (linha em branco = novo parágrafo). */
 export function renderUserTextHtml(content: string): string {
   const normalized = content.replace(/\r\n?/g, "\n").trim();
@@ -142,9 +159,10 @@ export function buildNotRightFitUrl(params: {
   athleteName?: string | null;
   position?: string | null;
 }): string {
-  const athleteName = params.athleteName?.replace(/[\r\n]+/g, " ").trim() || "Athlete";
-  const subject = `Not a fit: ${athleteName}`;
-  return `mailto:${EMAIL_SIGNATURE.email}?subject=${encodeURIComponent(subject)}`;
+  return buildNotAFitUrl(params.athleteId || "", {
+    athleteName: params.athleteName || undefined,
+    position: params.position,
+  });
 }
 
 export function buildCatalogUrl(options: { appUrl?: string; campaignId?: string | null }): string {
@@ -216,7 +234,7 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
   const appUrl = input.appUrl || EMAIL_BASE_URL;
   const byId = new Map(input.athletes.map((a) => [a.id, a]));
   const coachName = input.coachName ? input.coachName.replace(/^Coach\s+/i, "").trim() : "";
-  const blocks = sanitizeEmailBlocks(input.blocks);
+  const blocks = personalizeEmailGreeting(input.blocks, input.coachLastName);
 
   const rows: string[] = [];
   const textParts: string[] = [];
