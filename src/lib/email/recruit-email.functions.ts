@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAgency } from "@/lib/supabase/auth-middleware";
-import type { SendMailerInput, CoachInterestSignalInput, AdminCoachPreferenceInput } from "./recruit-email.server";
+import type {
+  SendMailerInput,
+  CoachInterestSignalInput,
+  AdminCoachPreferenceInput,
+} from "./recruit-email.server";
 import type { SuppressionType } from "@/types/db";
 
 // 1. Envio do Mailer (Requer agência)
@@ -162,17 +166,8 @@ export const enqueueMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: SendMailerInput) => data)
   .handler(async ({ data }) => {
-    const { enqueueCampaignDispatches, processMailerQueue } = await import("./mailer-queue.server");
-    const enqueueRes = await enqueueCampaignDispatches(data);
-
-    // Se enfileirou com sucesso, dispara o primeiro lote imediatamente em background
-    if (enqueueRes.success && enqueueRes.totalEnqueued > 0) {
-      processMailerQueue().catch((err) => {
-        console.error("[mailer-queue] Initial queue tick failed:", err);
-      });
-    }
-
-    return enqueueRes;
+    const { enqueueCampaignDispatches } = await import("./mailer-queue.server");
+    return enqueueCampaignDispatches(data);
   });
 
 // 11. Progresso em Tempo Real da Fila da Campanha (Requer agência)
@@ -198,14 +193,8 @@ export const resumeMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
-    const { resumeCampaign, processMailerQueue } = await import("./mailer-queue.server");
-    const res = await resumeCampaign(data.campaignId);
-    if (res.success) {
-      processMailerQueue().catch((err) => {
-        console.error("[mailer-queue] Resume queue tick failed:", err);
-      });
-    }
-    return res;
+    const { resumeCampaign } = await import("./mailer-queue.server");
+    return resumeCampaign(data.campaignId);
   });
 
 // 14. Cancelar Campanha (Requer agência)
@@ -217,19 +206,33 @@ export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
     return cancelCampaign(data.campaignId);
   });
 
-// 15. Disparar Worker da Fila Manualmente / Tick do Backend (Requer agência)
+// 15. Processamento Autenticado de Micro-Lote da Fila (Orquestrado pelo Navegador da Agência)
+export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator(
+    (data?: { campaignId?: string; batchSize?: number; ignoreCooldown?: boolean }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { processMailerQueue } = await import("./mailer-queue.server");
+    return processMailerQueue({
+      campaignId: data?.campaignId,
+      maxBatchSize: data?.batchSize || 2,
+      ignoreCooldown: data?.ignoreCooldown,
+    });
+  });
+
+// 16. Disparar Worker da Fila Manualmente / Tick do Backend (Requer agência)
 export const triggerProcessMailerQueueServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .handler(async () => {
     const { processMailerQueue } = await import("./mailer-queue.server");
-    return processMailerQueue();
+    return processMailerQueue({ maxBatchSize: 2 });
   });
 
-// 16. Buscar Campanha Ativa em Andamento (Requer agência)
+// 17. Buscar Campanha Ativa em Andamento (Requer agência)
 export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .handler(async () => {
     const { getLatestActiveCampaign } = await import("./mailer-queue.server");
     return getLatestActiveCampaign();
   });
-

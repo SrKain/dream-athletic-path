@@ -164,23 +164,6 @@ export default {
         });
       }
 
-      if (
-        (url.pathname === "/api/cron/process-mailer-queue" ||
-          url.pathname === "/api/mailer/process-queue") &&
-        (request.method === "POST" || request.method === "GET")
-      ) {
-        const { processMailerQueue } = await import("./lib/email/mailer-queue.server");
-        const result = await processMailerQueue();
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-          },
-        });
-      }
-
-
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);

@@ -5,6 +5,7 @@
 **Causa confirmada:** o `bun.lock` publicado não bate com o `package.json`. O `package.json` fixa `@lovable.dev/vite-tanstack-config` em `2.25.3` e `nitro` em `3.0.260603-beta`, mas o lockfile ainda resolve `vite-tanstack-config@2.13.1` e outra faixa do `nitro`. Por isso o `bun install --frozen-lockfile` aborta com "lockfile had changes". O código da aplicação não tem culpa.
 
 **Correção:**
+
 - Gerar o `bun.lock` de novo com **Bun 1.3.14**, a versão exata da Vercel e do `packageManager`, usando `bunx bun@1.3.14 install`. O sandbox tem 1.3.3, então não vou usá-lo para mexer no lock.
 - Confirmar que o novo lock registra `vite-tanstack-config@2.25.3`, `nitro@3.0.260603-beta`, `react-start@1.168.60+` e nenhuma ocorrência de `1.168.48`.
 - Rodar `bunx bun@1.3.14 install --frozen-lockfile` sem erros. Isso reproduz o comando da Vercel.
@@ -15,6 +16,7 @@
 **Causa confirmada:** os modos Individual e Multi mostram os campos antigos (Saudação, Hook e Texto Institucional). Só que preview e envio sempre passam `blocks`, que são os blocos padrão do composer. O `resolveLegacyBodyBlocks` devolve `blocks` primeiro e ignora os três campos. Além disso, o editor de blocos (`composerBlocks`, `updateComposerTextBlock`, mover e remover) existe no estado, mas nenhuma tela o mostra.
 
 **Correção (só Individual e Multi; Catalog fica intacto):**
+
 - Tirar os 3 campos antigos dos modos Individual e Multi.
 - Mostrar o **editor de blocos**:
   - uma caixa de texto livre por bloco de texto, pré-preenchida com "Hi Coach, ..." e "Let me know what you think.";

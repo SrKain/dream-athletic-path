@@ -18,9 +18,7 @@ import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import { buildBoardCardUrls, renderAthleteBoardCard } from "./athlete-board-card";
 import type { RecruitEmailAthlete } from "./recruit-email";
 
-export type EmailBlock =
-  | { type: "text"; content: string }
-  | { type: "athlete"; athleteId: string };
+export type EmailBlock = { type: "text"; content: string } | { type: "athlete"; athleteId: string };
 
 export interface PersonalEmailInput {
   blocks: EmailBlock[];
@@ -104,16 +102,22 @@ export function buildFixedEmailBlocks(
   const requestedOrder = Array.isArray(composition?.athleteOrder)
     ? composition.athleteOrder.filter((id): id is string => typeof id === "string")
     : [];
-  const ordered = requestedOrder.filter((id, index, ids) =>
-    allowed.has(id) && ids.indexOf(id) === index,
+  const ordered = requestedOrder.filter(
+    (id, index, ids) => allowed.has(id) && ids.indexOf(id) === index,
   );
   for (const id of allowedIds) {
     if (!ordered.includes(id)) ordered.push(id);
   }
 
   return sanitizeEmailBlocks([
-    { type: "text", content: typeof composition?.greeting === "string" ? composition.greeting : "" },
-    { type: "text", content: typeof composition?.introduction === "string" ? composition.introduction : "" },
+    {
+      type: "text",
+      content: typeof composition?.greeting === "string" ? composition.greeting : "",
+    },
+    {
+      type: "text",
+      content: typeof composition?.introduction === "string" ? composition.introduction : "",
+    },
     ...ordered.map((athleteId) => ({ type: "athlete" as const, athleteId })),
     { type: "text", content: typeof composition?.closing === "string" ? composition.closing : "" },
   ]);
@@ -174,11 +178,7 @@ export function buildCatalogUrl(options: { appUrl?: string; campaignId?: string 
   });
 }
 
-function renderActionsRow(links: {
-  unsubscribe: string;
-  notFit: string;
-  catalog: string;
-}): string {
+function renderActionsRow(links: { unsubscribe: string; notFit: string; catalog: string }): string {
   const linkStyle = `font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;color:${EMAIL_COLORS.darkGreenPrimary};text-decoration:underline;`;
   const sep = `<span style="color:${EMAIL_COLORS.textMuted};padding:0 8px;">&middot;</span>`;
   return `
@@ -189,11 +189,7 @@ function renderActionsRow(links: {
   </tr>`;
 }
 
-function renderPersonalShell(params: {
-  title: string;
-  preheader: string;
-  body: string;
-}): string {
+function renderPersonalShell(params: { title: string; preheader: string; body: string }): string {
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" style="color-scheme: light only;">
 <head>

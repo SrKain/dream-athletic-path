@@ -1176,50 +1176,50 @@ function UniversitiesPage() {
                     <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                       {formCoaches.map((coach, idx) => (
                         <div key={coach.id || idx} className="space-y-2">
-                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/20">
-                          <div className="grid grid-cols-3 gap-2 flex-1">
-                            <input
-                              type="text"
-                              placeholder="Nome"
-                              value={coach.first_name}
-                              onChange={(e) => updateCoachRow(idx, "first_name", e.target.value)}
-                              className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Sobrenome"
-                              value={coach.last_name}
-                              onChange={(e) => updateCoachRow(idx, "last_name", e.target.value)}
-                              className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
-                            />
-                            <input
-                              type="email"
-                              placeholder="E-mail (obrigatório para mailer)"
-                              value={coach.email}
-                              onChange={(e) => updateCoachRow(idx, "email", e.target.value)}
-                              className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
-                            />
+                          <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/20">
+                            <div className="grid grid-cols-3 gap-2 flex-1">
+                              <input
+                                type="text"
+                                placeholder="Nome"
+                                value={coach.first_name}
+                                onChange={(e) => updateCoachRow(idx, "first_name", e.target.value)}
+                                className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Sobrenome"
+                                value={coach.last_name}
+                                onChange={(e) => updateCoachRow(idx, "last_name", e.target.value)}
+                                className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
+                              />
+                              <input
+                                type="email"
+                                placeholder="E-mail (obrigatório para mailer)"
+                                value={coach.email}
+                                onChange={(e) => updateCoachRow(idx, "email", e.target.value)}
+                                className="px-2.5 py-1.5 text-xs rounded border border-border bg-background"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeCoachRow(idx)}
+                              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                              title="Remover coach"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeCoachRow(idx)}
-                            className="p-1.5 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                            title="Remover coach"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        {editingUni && (
-                          <CoachPreferencesPanel
-                            coach={coach}
-                            universityName={formName}
-                            existingEmail={
-                              (Array.isArray(editingUni.coaches) ? editingUni.coaches : []).find(
-                                (saved) => saved.id === coach.id,
-                              )?.email
-                            }
-                          />
-                        )}
+                          {editingUni && (
+                            <CoachPreferencesPanel
+                              coach={coach}
+                              universityName={formName}
+                              existingEmail={
+                                (Array.isArray(editingUni.coaches) ? editingUni.coaches : []).find(
+                                  (saved) => saved.id === coach.id,
+                                )?.email
+                              }
+                            />
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1723,7 +1723,8 @@ function CoachPreferencesPanel({
 
           {!coachIsSaved && (
             <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-800">
-              Salve primeiro o coach e o email deste coach na universidade para associar preferências com segurança.
+              Salve primeiro o coach e o email deste coach na universidade para associar
+              preferências com segurança.
             </p>
           )}
 
@@ -1742,13 +1743,17 @@ function CoachPreferencesPanel({
                     signals.map((signal) => {
                       const active = new Date(signal.expires_at) > new Date();
                       return (
-                        <div key={signal.id} className="rounded-lg border border-border/70 p-2 text-xs">
+                        <div
+                          key={signal.id}
+                          className="rounded-lg border border-border/70 p-2 text-xs"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-1">
                             <span className="font-semibold text-foreground">
                               {PREFERENCE_REASON_LABELS[signal.reason] || signal.reason}
                             </span>
                             <span className={active ? "text-primary" : "text-muted-foreground"}>
-                              {active ? "Ativa" : "Expirada"} · até {new Date(signal.expires_at).toLocaleDateString("pt-BR")}
+                              {active ? "Ativa" : "Expirada"} · até{" "}
+                              {new Date(signal.expires_at).toLocaleDateString("pt-BR")}
                             </span>
                           </div>
                           {(signal.athlete_name || signal.position) && (
@@ -1756,7 +1761,9 @@ function CoachPreferencesPanel({
                               {[signal.athlete_name, signal.position].filter(Boolean).join(" · ")}
                             </p>
                           )}
-                          {signal.notes && <p className="mt-1 text-muted-foreground">{signal.notes}</p>}
+                          {signal.notes && (
+                            <p className="mt-1 text-muted-foreground">{signal.notes}</p>
+                          )}
                           {active && (
                             <button
                               type="button"
@@ -1782,7 +1789,9 @@ function CoachPreferencesPanel({
                       disabled={!coachIsSaved}
                     >
                       {Object.entries(PREFERENCE_REASON_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -1823,7 +1832,11 @@ function CoachPreferencesPanel({
                   disabled={!coachIsSaved || savingSignal}
                   className={buttonClass}
                 >
-                  {savingSignal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {savingSignal ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                   Registrar sinal (6 meses)
                 </button>
               </section>
@@ -1861,7 +1874,11 @@ function CoachPreferencesPanel({
                     disabled={!coachIsSaved || savingSuppression || !canManageSuppression}
                     className={secondaryButtonClass}
                   >
-                    {savingSuppression ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                    {savingSuppression ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldAlert className="h-4 w-4" />
+                    )}
                     {suppressionActive ? "Atualizar bloqueio" : "Salvar preferência"}
                   </button>
                   {suppressionActive && suppression?.reason === "admin_manual_preference" && (
@@ -1875,7 +1892,8 @@ function CoachPreferencesPanel({
                   )}
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Este bloqueio impede novos disparos de recrutamento para este email. Sinais de fit não bloqueiam campanhas.
+                  Este bloqueio impede novos disparos de recrutamento para este email. Sinais de fit
+                  não bloqueiam campanhas.
                 </p>
               </section>
             </>

@@ -89,9 +89,12 @@ vi.mock("@/lib/supabase/clients.server", () => ({
           select: () => {
             const chain = {
               eq: () => chain,
+              in: () => chain,
               order: () => chain,
               limit: () => chain,
               maybeSingle: () => Promise.resolve({ data: null, error: null }),
+              then: (resolve: (value: unknown) => void) =>
+                Promise.resolve({ data: [], error: null }).then(resolve),
             };
             return chain;
           },

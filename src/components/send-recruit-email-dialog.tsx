@@ -19,7 +19,10 @@ import { toast } from "sonner";
 
 import { buttonClass, secondaryButtonClass, inputClass } from "@/components/admin-ui";
 import { renderRecruitEmail } from "@/lib/email/recruit-email-template";
-import { getActiveInterestSignalsServerFn, sendRecruitEmailServerFn } from "@/lib/email/recruit-email.functions";
+import {
+  getActiveInterestSignalsServerFn,
+  sendRecruitEmailServerFn,
+} from "@/lib/email/recruit-email.functions";
 import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
 import { supabase } from "@/lib/supabase/client";
 import type { Athlete, AthleteProfile, Coach, University } from "@/types/db";
@@ -94,14 +97,20 @@ export function SendRecruitEmailDialog({
         setFetchError(coachesRes.error.message);
         toast.error("Failed to load coaches: " + coachesRes.error.message);
       } else {
-        const entries = (coachesRes.data ?? []) as unknown as Array<Pick<University, "id" | "name" | "coaches">>;
-        setCoaches(entries.flatMap((university) => (university.coaches ?? []).map((coach) => ({
-          id: coach.id,
-          name: `${coach.first_name} ${coach.last_name}`.trim() || "Coach",
-          email: coach.email,
-          institution: university.name,
-          created_at: "",
-        }))) as Coach[]);
+        const entries = (coachesRes.data ?? []) as unknown as Array<
+          Pick<University, "id" | "name" | "coaches">
+        >;
+        setCoaches(
+          entries.flatMap((university) =>
+            (university.coaches ?? []).map((coach) => ({
+              id: coach.id,
+              name: `${coach.first_name} ${coach.last_name}`.trim() || "Coach",
+              email: coach.email,
+              institution: university.name,
+              created_at: "",
+            })),
+          ) as Coach[],
+        );
       }
 
       if (visualRes.data) {
@@ -230,18 +239,20 @@ export function SendRecruitEmailDialog({
     try {
       const freshSignals = await getActiveInterestSignalsServerFn();
       const selectedCoaches = coaches.filter((coach) => selectedIds.has(coach.id));
-      setFitConflicts(findCoachFitConflicts(
-        selectedCoaches.map((coach) => ({
-          key: `${coach.institution}:${coach.id}`,
-          coachId: coach.id,
-          name: coach.name,
-          email: coach.email,
-          universityName: coach.institution ?? "University",
-          signals: [],
-        })),
-        [{ id: athlete.id, name: athlete.full_name, position: positionName ?? null }],
-        freshSignals,
-      ));
+      setFitConflicts(
+        findCoachFitConflicts(
+          selectedCoaches.map((coach) => ({
+            key: `${coach.institution}:${coach.id}`,
+            coachId: coach.id,
+            name: coach.name,
+            email: coach.email,
+            universityName: coach.institution ?? "University",
+            signals: [],
+          })),
+          [{ id: athlete.id, name: athlete.full_name, position: positionName ?? null }],
+          freshSignals,
+        ),
+      );
       setConfirmSendOpen(true);
     } catch (error) {
       console.error("[recruit-email] Could not refresh coach fit preferences:", error);
@@ -619,17 +630,41 @@ export function SendRecruitEmailDialog({
               <strong className="text-emerald-400">{selectedCount} collegiate coaches</strong>.
             </p>
             {fitConflicts.length > 0 && (
-              <section className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs" aria-label="Coach fit conflicts">
-                <p className="font-semibold text-amber-700 dark:text-amber-300">{new Set(fitConflicts.map((item) => item.recipient.key)).size} coach(es) with fit conflicts or preferences to review</p>
-                {fitConflicts.map((item, index) => <div key={`${item.recipient.key}-${index}`} className="rounded-md border border-border bg-card p-2 text-foreground"><strong>{item.recipient.name} · {item.recipient.universityName}</strong><p>{item.reviewOnly ? "Review" : "Conflict"}: {item.detail}</p><p className="text-muted-foreground">Athlete: {item.athletes.join(", ")}</p></div>)}
-                <p className="text-muted-foreground">Recipients will not be removed automatically.</p>
+              <section
+                className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs"
+                aria-label="Coach fit conflicts"
+              >
+                <p className="font-semibold text-amber-700 dark:text-amber-300">
+                  {new Set(fitConflicts.map((item) => item.recipient.key)).size} coach(es) with fit
+                  conflicts or preferences to review
+                </p>
+                {fitConflicts.map((item, index) => (
+                  <div
+                    key={`${item.recipient.key}-${index}`}
+                    className="rounded-md border border-border bg-card p-2 text-foreground"
+                  >
+                    <strong>
+                      {item.recipient.name} · {item.recipient.universityName}
+                    </strong>
+                    <p>
+                      {item.reviewOnly ? "Review" : "Conflict"}: {item.detail}
+                    </p>
+                    <p className="text-muted-foreground">Athlete: {item.athletes.join(", ")}</p>
+                  </div>
+                ))}
+                <p className="text-muted-foreground">
+                  Recipients will not be removed automatically.
+                </p>
               </section>
             )}
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={isSending}
-                onClick={() => { setConfirmSendOpen(false); setFitConflicts([]); }}
+                onClick={() => {
+                  setConfirmSendOpen(false);
+                  setFitConflicts([]);
+                }}
                 className={secondaryButtonClass}
               >
                 Cancel

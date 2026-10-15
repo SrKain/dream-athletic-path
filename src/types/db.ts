@@ -465,20 +465,10 @@ export interface CoachInterestSignal {
 export type MailerCampaignMode = "single_athlete" | "multi_athlete" | "catalog";
 
 export type MailerCampaignStatus =
-  | "queued"
-  | "running"
-  | "paused"
-  | "completed"
-  | "failed"
-  | "cancelled";
+  "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
 export type MailerQueueStatus =
-  | "pending"
-  | "processing"
-  | "sent"
-  | "failed"
-  | "retry"
-  | "cancelled";
+  "pending" | "processing" | "sent" | "failed" | "retry" | "cancelled";
 
 export interface MailerCampaign {
   id: string;
@@ -579,8 +569,6 @@ export interface EnqueueResult {
   message?: string;
   errors?: string[];
 }
-
-
 
 export interface RecruitEmailLog {
   id: string;

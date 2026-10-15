@@ -10,16 +10,13 @@ import {
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import { getSuppressedEmailSet, type SendMailerInput } from "./recruit-email.server";
-import type {
-  MailerCampaign,
-  MailerCampaignStatus,
-  MailerQueueItem,
-} from "@/types/db";
+import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
 export const QUEUE_CONFIG = {
   DEFAULT_BATCH_SIZE: 150,
+  DEFAULT_MICRO_BATCH_SIZE: 2,
   PAUSE_BETWEEN_BATCHES_SEC: 60,
-  ITEM_SPACING_MS: 400,
+  ITEM_SPACING_MS: 300,
   MAX_ATTEMPTS: 3,
   LOCK_DURATION_SEC: 120,
 } as const;
@@ -74,8 +71,12 @@ export interface ProcessQueueResult {
   failed: number;
   retried: number;
   rateLimited: boolean;
+  cooldownActive?: boolean;
+  cooldownRemainingSec?: number;
   campaignCompleted?: boolean;
   activeCampaignId?: string;
+  campaignStatus?: MailerCampaignStatus;
+  progress?: CampaignProgress | null;
   message?: string;
 }
 
@@ -240,7 +241,11 @@ export async function enqueueCampaignDispatches(
           ? admin.from("positions").select("name_en").eq("id", athlete.position_id).maybeSingle()
           : Promise.resolve({ data: null }),
         athlete.nationality
-          ? admin.from("countries").select("name_en, flag_emoji").eq("code", athlete.nationality).maybeSingle()
+          ? admin
+              .from("countries")
+              .select("name_en, flag_emoji")
+              .eq("code", athlete.nationality)
+              .maybeSingle()
           : Promise.resolve({ data: null }),
         admin
           .from("athlete_videos")
@@ -267,7 +272,8 @@ export async function enqueueCampaignDispatches(
         athleteStatus: profileRes.data?.athlete_status || null,
         highlightNote: profileRes.data?.highlight_note || null,
         budget: profileRes.data?.budget || null,
-        highlightVideoUrl: videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
+        highlightVideoUrl:
+          videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
         recipientEmail: "",
       });
     }
@@ -335,7 +341,11 @@ export async function enqueueCampaignDispatches(
           ? admin.from("positions").select("name_en").eq("id", athlete.position_id).maybeSingle()
           : Promise.resolve({ data: null }),
         athlete.nationality
-          ? admin.from("countries").select("name_en, flag_emoji").eq("code", athlete.nationality).maybeSingle()
+          ? admin
+              .from("countries")
+              .select("name_en, flag_emoji")
+              .eq("code", athlete.nationality)
+              .maybeSingle()
           : Promise.resolve({ data: null }),
         admin
           .from("athlete_videos")
@@ -362,7 +372,8 @@ export async function enqueueCampaignDispatches(
         athleteStatus: profileRes.data?.athlete_status || null,
         highlightNote: profileRes.data?.highlight_note || null,
         budget: profileRes.data?.budget || null,
-        highlightVideoUrl: videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
+        highlightVideoUrl:
+          videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
         recipientEmail: "",
       };
 
@@ -510,9 +521,11 @@ export async function enqueueCampaignDispatches(
 }
 
 /**
- * Worker do backend responsável por reservar e processar itens da fila com controle de taxa global.
+ * Worker do backend responsável por reservar e processar itens da fila em micro-lotes curtos
+ * com controle de taxa global, reserva atômica via SKIP LOCKED e proteção de idempotência.
  */
 export async function processMailerQueue(options?: {
+  campaignId?: string;
   workerId?: string;
   maxBatchSize?: number;
   itemSpacingMs?: number;
@@ -521,7 +534,7 @@ export async function processMailerQueue(options?: {
 }): Promise<ProcessQueueResult> {
   const admin = options?.customAdmin || getAdminClient();
   const workerId = options?.workerId || `worker-${crypto.randomBytes(4).toString("hex")}`;
-  const maxBatchSize = options?.maxBatchSize || QUEUE_CONFIG.DEFAULT_BATCH_SIZE;
+  const maxBatchSize = options?.maxBatchSize || QUEUE_CONFIG.DEFAULT_MICRO_BATCH_SIZE;
   const spacingMs =
     options?.itemSpacingMs !== undefined ? options.itemSpacingMs : QUEUE_CONFIG.ITEM_SPACING_MS;
 
@@ -555,27 +568,71 @@ export async function processMailerQueue(options?: {
   const now = new Date();
 
   if (rateLimit?.locked_until && new Date(rateLimit.locked_until) > now) {
-    console.warn(`[mailer-queue] Global rate limit locked until ${rateLimit.locked_until}. Skipping tick.`);
+    const lockWaitSec = Math.ceil(
+      (new Date(rateLimit.locked_until).getTime() - now.getTime()) / 1000,
+    );
+    console.warn(
+      `[mailer-queue] Global rate limit locked until ${rateLimit.locked_until}. Skipping tick.`,
+    );
     return {
       processed: 0,
       sent: 0,
       failed: 0,
       retried: 0,
       rateLimited: true,
+      cooldownActive: true,
+      cooldownRemainingSec: lockWaitSec,
       message: `Global rate limit active until ${rateLimit.locked_until}`,
     };
   }
 
-  // 3. Buscar primeira campanha em execução (running)
-  const { data: activeCampaign, error: campErr } = await admin
-    .from("mailer_campaigns")
-    .select("*")
-    .eq("status", "running")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // 3. Buscar a campanha em execução (específica ou mais antiga 'running')
+  let activeCampaign: MailerCampaign | null = null;
 
-  if (campErr || !activeCampaign) {
+  if (options?.campaignId) {
+    const { data: specificCamp, error: campErr } = await admin
+      .from("mailer_campaigns")
+      .select("*")
+      .eq("id", options.campaignId)
+      .maybeSingle();
+
+    if (!campErr && specificCamp) {
+      if (
+        specificCamp.status === "paused" ||
+        specificCamp.status === "cancelled" ||
+        specificCamp.status === "completed"
+      ) {
+        return {
+          processed: 0,
+          sent: 0,
+          failed: 0,
+          retried: 0,
+          rateLimited: false,
+          campaignCompleted: specificCamp.status === "completed",
+          campaignStatus: specificCamp.status,
+          activeCampaignId: specificCamp.id,
+          message: `Campaign is in state: ${specificCamp.status}`,
+        };
+      }
+      activeCampaign = specificCamp as MailerCampaign;
+    }
+  }
+
+  if (!activeCampaign) {
+    const { data: runningCamp, error: runningErr } = await admin
+      .from("mailer_campaigns")
+      .select("*")
+      .eq("status", "running")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!runningErr && runningCamp) {
+      activeCampaign = runningCamp as MailerCampaign;
+    }
+  }
+
+  if (!activeCampaign) {
     return {
       processed: 0,
       sent: 0,
@@ -586,21 +643,30 @@ export async function processMailerQueue(options?: {
     };
   }
 
-  // 4. Verificar se a pausa de 60s entre lotes foi respeitada
-  if (!options?.ignoreCooldown && activeCampaign.next_batch_at && new Date(activeCampaign.next_batch_at) > now) {
-    const waitSeconds = Math.ceil((new Date(activeCampaign.next_batch_at).getTime() - now.getTime()) / 1000);
+  // 4. Verificar se a janela de cooldown (ex: 60s entre blocos de 150) está ativa
+  if (
+    !options?.ignoreCooldown &&
+    activeCampaign.next_batch_at &&
+    new Date(activeCampaign.next_batch_at) > now
+  ) {
+    const waitSeconds = Math.ceil(
+      (new Date(activeCampaign.next_batch_at).getTime() - now.getTime()) / 1000,
+    );
     return {
       processed: 0,
       sent: 0,
       failed: 0,
       retried: 0,
       rateLimited: false,
+      cooldownActive: true,
+      cooldownRemainingSec: waitSeconds,
       activeCampaignId: activeCampaign.id,
+      campaignStatus: "running",
       message: `Waiting for cooldown window (${waitSeconds}s remaining).`,
     };
   }
 
-  // 5. Reservar atomicamente itens da fila
+  // 5. Reservar atomicamente itens da fila usando FOR UPDATE SKIP LOCKED via RPC
   let claimedItems: MailerQueueItem[] = [];
 
   try {
@@ -610,46 +676,38 @@ export async function processMailerQueue(options?: {
       p_lock_duration_sec: QUEUE_CONFIG.LOCK_DURATION_SEC,
     });
 
-    if (!rpcErr && rpcClaimed && Array.isArray(rpcClaimed)) {
-      claimedItems = rpcClaimed as MailerQueueItem[];
+    if (rpcErr) {
+      console.error("[mailer-queue] RPC claim_mailer_queue_batch returned error:", rpcErr.message);
+      return {
+        processed: 0,
+        sent: 0,
+        failed: 0,
+        retried: 0,
+        rateLimited: false,
+        activeCampaignId: activeCampaign.id,
+        message: `Reservation error: ${rpcErr.message}`,
+      };
     }
-  } catch {
-    // Fallback se a RPC falhar
+
+    if (rpcClaimed && Array.isArray(rpcClaimed)) {
+      claimedItems = (rpcClaimed as MailerQueueItem[]).filter(
+        (item) => !options?.campaignId || item.campaign_id === options.campaignId,
+      );
+    }
+  } catch (err) {
+    console.error("[mailer-queue] Exception invoking claim_mailer_queue_batch:", err);
+    return {
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      retried: 0,
+      rateLimited: false,
+      activeCampaignId: activeCampaign.id,
+      message: "Exception during atomic reservation.",
+    };
   }
 
-  if (!claimedItems || claimedItems.length === 0) {
-    // Tentar reserva direta se a RPC não estiver disponível
-    const { data: pendingItems } = await admin
-      .from("mailer_queue")
-      .select("*")
-      .eq("campaign_id", activeCampaign.id)
-      .in("status", ["pending", "retry"])
-      .order("batch_number", { ascending: true })
-      .order("created_at", { ascending: true })
-      .limit(maxBatchSize);
-
-    if (pendingItems && pendingItems.length > 0) {
-      const itemIds = pendingItems.map((p) => p.id);
-      const lockUntil = new Date(Date.now() + QUEUE_CONFIG.LOCK_DURATION_SEC * 1000).toISOString();
-
-      const { data: updated } = await admin
-        .from("mailer_queue")
-        .update({
-          status: "processing",
-          reserved_by: workerId,
-          reserved_at: now.toISOString(),
-          reservation_expires_at: lockUntil,
-        })
-        .in("id", itemIds)
-        .select("*");
-
-      if (updated) {
-        claimedItems = updated as MailerQueueItem[];
-      }
-    }
-  }
-
-  // Se não houver itens para processar, verificar se a campanha já foi concluída
+  // 6. Se nenhum item foi reservado, verificar se a campanha já foi concluída
   if (claimedItems.length === 0) {
     const { count: pendingCount } = await admin
       .from("mailer_queue")
@@ -663,8 +721,11 @@ export async function processMailerQueue(options?: {
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
+          next_batch_at: null,
         })
         .eq("id", activeCampaign.id);
+
+      const progress = await getCampaignQueueProgress(activeCampaign.id, admin);
 
       return {
         processed: 0,
@@ -673,7 +734,9 @@ export async function processMailerQueue(options?: {
         retried: 0,
         rateLimited: false,
         campaignCompleted: true,
+        campaignStatus: "completed",
         activeCampaignId: activeCampaign.id,
+        progress,
         message: "Campaign completed. All items processed.",
       };
     }
@@ -685,11 +748,12 @@ export async function processMailerQueue(options?: {
       retried: 0,
       rateLimited: false,
       activeCampaignId: activeCampaign.id,
+      campaignStatus: "running",
       message: "No claimable items at this time.",
     };
   }
 
-  // 6. Envio dos itens reservados via Resend com controle de taxa e retry
+  // 7. Envio sequencial dos itens do micro-lote via Resend com verificação de idempotência
   const resendClient = getResendClient();
   const resendConfig = getResendConfig();
   const from = resendConfig.from;
@@ -701,7 +765,6 @@ export async function processMailerQueue(options?: {
 
   for (const item of claimedItems) {
     if (rateLimited) {
-      // Liberar itens restantes para 'retry' se entramos em rate limit
       await admin
         .from("mailer_queue")
         .update({
@@ -714,6 +777,12 @@ export async function processMailerQueue(options?: {
         })
         .eq("id", item.id);
       retriedCount++;
+      continue;
+    }
+
+    // Verificação de idempotência: se a mensagem já foi enviada ou possui provider_message_id, pular envio real
+    if (item.status === "sent" && item.provider_message_id) {
+      sentCount++;
       continue;
     }
 
@@ -730,11 +799,10 @@ export async function processMailerQueue(options?: {
         throw new Error("Resend client not configured.");
       }
 
-      // Espaçamento nominal de segurança entre itens
-      if (spacingMs > 0 && claimedItems.length > 1) {
+      // Espaçamento nominal de segurança se houver mais de um item no micro-lote
+      if (spacingMs > 0 && sentCount > 0) {
         await new Promise((resolve) => setTimeout(resolve, spacingMs));
       }
-
 
       const resendRes = await resendClient.emails.send({
         from,
@@ -743,6 +811,9 @@ export async function processMailerQueue(options?: {
         html: payload.html || "",
         text: payload.text || "",
         tags: payload.tags || [],
+        headers: {
+          "X-Entity-Ref-ID": item.idempotency_key,
+        },
       });
 
       if (resendRes.error) {
@@ -752,7 +823,7 @@ export async function processMailerQueue(options?: {
       const providerId = resendRes.data?.id || null;
       const processedAt = new Date().toISOString();
 
-      // Sucesso: marcar como 'sent' em mailer_queue
+      // Sucesso: registrar status 'sent' e ID do provedor
       await admin
         .from("mailer_queue")
         .update({
@@ -795,7 +866,7 @@ export async function processMailerQueue(options?: {
         const retryAfterSec = 60;
         const lockUntil = new Date(Date.now() + retryAfterSec * 1000).toISOString();
 
-        // Travar limite global
+        // Ativar circuito de limite global
         await admin
           .from("mailer_rate_limits")
           .update({
@@ -818,9 +889,9 @@ export async function processMailerQueue(options?: {
 
         retriedCount++;
       } else {
-        const nextAttempts = (item.attempts || 1);
+        const nextAttempts = item.attempts || 1;
         if (nextAttempts >= item.max_attempts) {
-          // Falha definitiva
+          // Falha definitiva após estourar tentativas máximas
           const processedAt = new Date().toISOString();
           await admin
             .from("mailer_queue")
@@ -850,7 +921,7 @@ export async function processMailerQueue(options?: {
 
           failedCount++;
         } else {
-          // Retry com backoff exponencial e jitter
+          // Retentativa com backoff exponencial + jitter
           const delaySec = Math.min(300, Math.pow(2, nextAttempts) * 2 + Math.random() * 2);
           const nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
 
@@ -871,51 +942,63 @@ export async function processMailerQueue(options?: {
     }
   }
 
-  // 7. Atualizar contadores da campanha
-  const { data: updatedCounts } = await admin
+  // 8. Atualizar contadores da campanha e checagem de milestone para cooldown
+  const previousSent = activeCampaign.sent_count || 0;
+  const previousBatch = activeCampaign.current_batch || 1;
+  const newSent = previousSent + sentCount;
+  const batchThreshold = activeCampaign.batch_size || 150;
+
+  // Verifica se cruzou a fronteira de um lote de 150 (ex: de 149 para 151, ou de 299 para 301)
+  const crossedBatchMilestone =
+    batchThreshold > 0 &&
+    Math.floor(newSent / batchThreshold) > Math.floor(previousSent / batchThreshold);
+
+  const { count: remainingPending } = await admin
     .from("mailer_queue")
-    .select("status")
-    .eq("campaign_id", activeCampaign.id);
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", activeCampaign.id)
+    .in("status", ["pending", "processing", "retry"]);
 
-  let newSent = 0;
-  let newFailed = 0;
-  let newPending = 0;
+  const isCompleted = (remainingPending ?? 0) === 0;
 
-  if (updatedCounts) {
-    for (const c of updatedCounts) {
-      if (c.status === "sent") newSent++;
-      else if (c.status === "failed") newFailed++;
-      else if (c.status === "pending" || c.status === "retry" || c.status === "processing") {
-        newPending++;
-      }
-    }
+  let nextBatchTime: string | null = null;
+  let cooldownActive = false;
+  let cooldownRemainingSec = 0;
+
+  if (isCompleted) {
+    nextBatchTime = null;
+  } else if (crossedBatchMilestone) {
+    cooldownActive = true;
+    cooldownRemainingSec = QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC;
+    nextBatchTime = new Date(Date.now() + cooldownRemainingSec * 1000).toISOString();
   }
 
-  const isCompleted = newPending === 0;
-  const nextBatchTime = isCompleted
-    ? null
-    : new Date(Date.now() + QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC * 1000).toISOString();
+  const newCurrentBatch = crossedBatchMilestone ? previousBatch + 1 : previousBatch;
 
   await admin
     .from("mailer_campaigns")
     .update({
       sent_count: newSent,
-      failed_count: newFailed,
-      current_batch: (activeCampaign.current_batch || 1) + 1,
+      failed_count: (activeCampaign.failed_count || 0) + failedCount,
+      current_batch: newCurrentBatch,
       status: isCompleted ? "completed" : "running",
       completed_at: isCompleted ? new Date().toISOString() : null,
       next_batch_at: nextBatchTime,
     })
     .eq("id", activeCampaign.id);
 
-  // Atualizar último batch no rate limits
-  await admin
-    .from("mailer_rate_limits")
-    .update({
-      last_batch_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", "global_resend_limit");
+  if (crossedBatchMilestone) {
+    await admin
+      .from("mailer_rate_limits")
+      .update({
+        last_batch_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", "global_resend_limit");
+  }
+
+  // Retornar dados completos com o progresso consolidado
+  const progress = await getCampaignQueueProgress(activeCampaign.id, admin);
 
   return {
     processed: claimedItems.length,
@@ -923,8 +1006,12 @@ export async function processMailerQueue(options?: {
     failed: failedCount,
     retried: retriedCount,
     rateLimited,
+    cooldownActive,
+    cooldownRemainingSec,
     campaignCompleted: isCompleted,
+    campaignStatus: isCompleted ? "completed" : "running",
     activeCampaignId: activeCampaign.id,
+    progress,
   };
 }
 

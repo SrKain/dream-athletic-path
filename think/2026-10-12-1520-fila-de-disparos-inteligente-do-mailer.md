@@ -13,12 +13,15 @@
 ## 1. Diagnóstico da Implementação Atual e Riscos Identificados
 
 ### 1.1. Diagnóstico do Fluxo Atual
+
 Atualmente, o Mailer funciona com disparo monolítico e síncrono dentro da Server Function `sendMailerServerFn`:
+
 1. **Seleção de Destinatários na UI (`src/routes/_authenticated/admin/mailer.tsx`)**: O usuário seleciona filtros e destinatários, configurando modo (`single`, `multi`, `catalog`).
 2. **Envio Síncrono no Servidor (`src/lib/email/recruit-email.server.ts`)**: A função `sendMailerEmails` percorre todos os destinatários em lotes fixos de 100 via `resendClient.batch.send(chunk)` dentro da mesma requisição HTTP.
 3. **Registro Posterior**: Os logs em `recruit_email_logs` e a campanha em `mailer_campaigns` são inseridos sequencialmente após a resposta da API do Resend.
 
 ### 1.2. Riscos Críticos Identificados
+
 1. **Timeout Serverless da Vercel / Desconexão do Navegador:**
    - Requisições na Vercel possuem limites estritos de execução (10s no plano Hobby, 60s a 300s no Pro).
    - Se o usuário fechar a aba ou se a campanha possuir 151, 300 ou 1.000 destinatários, a requisição é cancelada no meio pela infraestrutura serverless, gerando perda silenciosa de disparos e deixando o sistema em estado inconsistente.
@@ -72,7 +75,9 @@ A solução adota uma arquitetura em camadas orientada a eventos e persistida no
 ## 3. Modelo de Dados & Persistência (Migration 0024)
 
 ### 3.1. Evolução da Tabela `mailer_campaigns`
+
 Adição de colunas para gerenciamento de estado e ciclo de vida:
+
 - `status`: `'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'` (default `'queued'`)
 - `total_recipients`: total de itens registrados na fila.
 - `sent_count`: total de itens enviados com sucesso e aceitos pelo provedor.
@@ -88,7 +93,9 @@ Adição de colunas para gerenciamento de estado e ciclo de vida:
 - `last_error`: último erro registrado de nível de campanha.
 
 ### 3.2. Nova Tabela `mailer_queue`
+
 Armazena individualmente cada envio com garantia estrita de unicidade:
+
 - `id uuid primary key default gen_random_uuid()`
 - `campaign_id uuid not null references public.mailer_campaigns(id) on delete cascade`
 - `coach_id uuid references public.coaches(id) on delete set null`
@@ -114,12 +121,15 @@ Armazena individualmente cada envio com garantia estrita de unicidade:
 - `created_at timestamptz not null default timezone('utc', now())`
 
 **Índices Otimizados:**
+
 - `idx_mailer_queue_campaign_status` em `(campaign_id, status)`
 - `idx_mailer_queue_fetch` em `(status, next_retry_at, created_at)` para itens `pending` e `retry`
 - `idx_mailer_queue_recovery` em `(status, reservation_expires_at)` para itens `processing`
 
 ### 3.3. Tabela de Controle de Taxa Global (`mailer_rate_limits`)
+
 Garante que múltiplas campanhas compartilhem o teto global:
+
 - `id text primary key default 'global_resend_limit'`
 - `window_started_at timestamptz not null`
 - `dispatches_in_window integer not null default 0`
@@ -131,6 +141,7 @@ Garante que múltiplas campanhas compartilhem o teto global:
 - `updated_at timestamptz not null`
 
 ### 3.4. Funções PostgreSQL Transacionais (RPC)
+
 - `claim_mailer_queue_batch(p_worker_id text, p_batch_size integer, p_lock_duration_sec integer)`:
   Utiliza `SELECT id FROM public.mailer_queue ... FOR UPDATE SKIP LOCKED` para reservar atômica e simultaneamente até `p_batch_size` itens de campanhas com `status = 'running'`.
 - `recover_stale_mailer_queue_reservations()`:
@@ -141,6 +152,7 @@ Garante que múltiplas campanhas compartilhem o teto global:
 ## 4. Controle de Disparos e Tolerância a Falhas
 
 ### 4.1. Regras do Lote e Pausa
+
 1. **Lote Máximo:** até 150 e-mails por ciclo.
 2. **Espaçamento:** distribuição nominal de ~400 ms entre disparos ou mini-batches de 10 a 50 com pausas controladas, sem estourar limites por segundo do Resend.
 3. **Pausa Entre Lotes:** 60 segundos obrigatórios após a conclusão de cada lote de até 150 itens, registrado em `next_batch_at`.
@@ -148,6 +160,7 @@ Garante que múltiplas campanhas compartilhem o teto global:
 5. **Multi-Lote:** campanhas com 151 destinatários geram lote 1 (150 itens), pausa de 60s, e lote 2 (1 item). Campanhas com 300 geram 2 lotes de 150 com 60s de intervalo. Campanhas com 1.000 geram 7 lotes.
 
 ### 4.2. Tratamento de Erros e HTTP 429
+
 - **HTTP 429:** Respeita o cabeçalho `Retry-After`. Define `locked_until` no limite global e agenda os itens restantes para `status = 'retry'` com `next_retry_at = now() + retryAfter`.
 - **Backoff Exponencial com Jitter:** para falhas temporárias de rede: `delay = Math.min(300, Math.pow(2, attempts) * 2 + Math.random() * 2)`.
 - **Tentativas Máximas:** configurável (padrão 3 tentativas). Excedendo 3 tentativas, o item é marcado como `failed`.
@@ -158,6 +171,7 @@ Garante que múltiplas campanhas compartilhem o teto global:
 ## 5. Estratégia de Execução sem Bloqueio Serverless
 
 Para garantir funcionamento 100% autônomo e sem dependência do navegador aberto:
+
 1. **Vercel Cron (`vercel.json`):**
    ```json
    "crons": [
@@ -176,8 +190,9 @@ Para garantir funcionamento 100% autônomo e sem dependência do navegador abert
 ## 6. Interface do Mailer e Monitoramento em Tempo Real
 
 A tela `/admin/mailer` será atualizada em conformidade com o `UI&UX.md`:
+
 1. **Painel de Monitoramento da Campanha Ativa:**
-   - Card estilo *Dark Glass Panel* (`.glass-dark`) com bordas esmeralda e dourada.
+   - Card estilo _Dark Glass Panel_ (`.glass-dark`) com bordas esmeralda e dourada.
    - **Indicadores Principais:** Total de Destinatários, Enviados (`sent`), Pendentes (`pending`), Falhas (`failed`), Lote Atual / Total de Lotes.
    - **Barra de Progresso:** Percentual visual em gradiente esmeralda (`bg-primary`).
    - **Estado em Tempo Real:** Badges dinâmicas (`QUEUED`, `SENDING`, `WAITING (Cooldown)`, `PAUSED`, `COMPLETED`, `CANCELLED`, `ERROR`).

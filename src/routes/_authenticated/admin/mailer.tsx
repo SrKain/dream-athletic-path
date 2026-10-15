@@ -41,6 +41,7 @@ import { supabase } from "@/lib/supabase/client";
 import {
   sendMailerServerFn,
   enqueueMailerCampaignServerFn,
+  processMailerMicroBatchServerFn,
   getCampaignQueueProgressServerFn,
   getLatestActiveCampaignServerFn,
   pauseMailerCampaignServerFn,
@@ -76,7 +77,6 @@ import type {
   CampaignProgress,
 } from "@/types/db";
 import { LEAGUES, US_STATES, BUDGET_LEVELS, TOEFL_LEVELS } from "@/lib/universities-constants";
-
 
 interface MailerSearch {
   mode?: "single" | "multi" | "catalog";
@@ -216,6 +216,13 @@ function MailerPage() {
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [campaignProgress, setCampaignProgress] = useState<CampaignProgress | null>(null);
   const [isOperatingQueue, setIsOperatingQueue] = useState(false);
+  const [isTabHidden, setIsTabHidden] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(null);
+
+  // Orquestrador do Navegador: Refs de controle do loop assíncrono
+  const isOrchestratorActiveRef = React.useRef(false);
+  const isProcessingTickRef = React.useRef(false);
+  const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Carregar dados iniciais
   async function loadInitialData() {
@@ -289,7 +296,6 @@ function MailerPage() {
           setCampaignProgress(prog);
         }
       }
-
 
       const videoMap = new Map<string, string>();
       if (videosRes.data) {
@@ -371,45 +377,114 @@ function MailerPage() {
     void loadInitialData();
   }, []);
 
-  // Polling em tempo real da campanha ativa a cada 3s
+  // 1. Monitorar visibilidade da aba do navegador
   useEffect(() => {
-    if (!activeCampaignId) return;
+    const handleVisibility = () => {
+      setIsTabHidden(document.visibilityState === "hidden");
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
-    let isMounted = true;
-    const interval = setInterval(async () => {
-      try {
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-
-        if (!isMounted) return;
-
-        if (prog) {
-          setCampaignProgress(prog);
-
-          // Se a campanha foi concluída ou cancelada, atualiza histórico de logs
-          if (
-            prog.status === "completed" ||
-            prog.status === "cancelled" ||
-            prog.status === "failed"
-          ) {
-            const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
-            if (isMounted) {
-              setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
-            }
-          }
+  // 2. Timer de contagem regressiva para cooldown de 60s
+  useEffect(() => {
+    if (cooldownRemaining === null || cooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return null;
         }
-      } catch (err) {
-        console.error("[mailer] Error polling queue progress:", err);
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
+
+  // 3. Orquestrador do Navegador: Disparo sequencial de micro-lotes de 2 e-mails
+  const triggerOrchestratorTick = React.useCallback(
+    (delayMs: number = 1000) => {
+      if (tickTimeoutRef.current) {
+        clearTimeout(tickTimeoutRef.current);
+        tickTimeoutRef.current = null;
       }
-    }, 3000);
+
+      if (!isOrchestratorActiveRef.current) return;
+
+      tickTimeoutRef.current = setTimeout(async () => {
+        if (!isOrchestratorActiveRef.current || isProcessingTickRef.current) return;
+        isProcessingTickRef.current = true;
+
+        try {
+          const res = await processMailerMicroBatchServerFn({
+            data: {
+              campaignId: activeCampaignId || undefined,
+              batchSize: 2,
+            },
+          });
+
+          if (res.progress) {
+            setCampaignProgress(res.progress);
+          }
+
+          if (res.campaignCompleted || res.campaignStatus === "completed") {
+            isOrchestratorActiveRef.current = false;
+            toast.success("Campanha de e-mails concluída com sucesso!");
+            const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
+            setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+            return;
+          }
+
+          if (res.campaignStatus === "paused" || res.campaignStatus === "cancelled") {
+            isOrchestratorActiveRef.current = false;
+            return;
+          }
+
+          if (res.cooldownActive && res.cooldownRemainingSec && res.cooldownRemainingSec > 0) {
+            setCooldownRemaining(res.cooldownRemainingSec);
+            // Aguardar o cooldown de 60s antes do próximo micro-lote
+            triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 500);
+            return;
+          }
+
+          setCooldownRemaining(null);
+
+          // Próximo micro-lote de 2 e-mails em aproximadamente 1 segundo
+          triggerOrchestratorTick(1000);
+        } catch (err) {
+          console.error("[mailer] Error during browser orchestrator micro-tick:", err);
+          // Em caso de falha de conexão, aguardar 3s para retentar
+          triggerOrchestratorTick(3000);
+        } finally {
+          isProcessingTickRef.current = false;
+        }
+      }, delayMs);
+    },
+    [activeCampaignId],
+  );
+
+  // 4. Iniciar ou pausar orquestrador conforme o estado da campanha
+  useEffect(() => {
+    if (activeCampaignId && campaignProgress?.status === "running") {
+      isOrchestratorActiveRef.current = true;
+      triggerOrchestratorTick(300);
+    } else {
+      isOrchestratorActiveRef.current = false;
+      if (tickTimeoutRef.current) {
+        clearTimeout(tickTimeoutRef.current);
+        tickTimeoutRef.current = null;
+      }
+    }
 
     return () => {
-      isMounted = false;
-      clearInterval(interval);
+      if (tickTimeoutRef.current) {
+        clearTimeout(tickTimeoutRef.current);
+        tickTimeoutRef.current = null;
+      }
     };
-  }, [activeCampaignId]);
-
+  }, [activeCampaignId, campaignProgress?.status, triggerOrchestratorTick]);
 
   // Mapeamento de sinais de interesse ativos agrupados por e-mail do coach
   const signalsByEmail = useMemo(() => {
@@ -580,8 +655,7 @@ function MailerPage() {
       ...prev,
       {
         type: "text",
-        content:
-          "I’d love to share more about this athlete and the fit for your recruiting needs.",
+        content: "I’d love to share more about this athlete and the fit for your recruiting needs.",
       },
     ]);
   }
@@ -621,7 +695,9 @@ function MailerPage() {
   const composerPreviewBlocks = useMemo(() => {
     if (sendMode === "catalog") return [];
     return sanitizeEmailBlocks(
-      composerBlocks.length > 0 ? composerBlocks : buildDefaultEmailBlocks(activeComposerAthleteIds),
+      composerBlocks.length > 0
+        ? composerBlocks
+        : buildDefaultEmailBlocks(activeComposerAthleteIds),
     );
   }, [activeComposerAthleteIds, composerBlocks, sendMode]);
 
@@ -908,7 +984,7 @@ function MailerPage() {
 
       if (res.success) {
         toast.success(
-          `Campanha enfileirada com sucesso! ${res.totalEnqueued} e-mails distribuídos em ${res.totalBatches} lote(s). O processamento em segundo plano foi iniciado.`,
+          `Campanha iniciada! ${res.totalEnqueued} e-mails na fila. O navegador está orquestrando os envios. Mantenha esta aba aberta.`,
         );
         if (res.totalSuppressed > 0) {
           toast.info(
@@ -925,6 +1001,10 @@ function MailerPage() {
         if (initialProg) {
           setCampaignProgress(initialProg);
         }
+
+        // Ativar orquestrador do navegador
+        isOrchestratorActiveRef.current = true;
+        triggerOrchestratorTick(300);
 
         // Atualizar histórico
         const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
@@ -947,10 +1027,16 @@ function MailerPage() {
   async function handlePauseCampaign() {
     if (!activeCampaignId) return;
     setIsOperatingQueue(true);
+    // Parar orquestrador no navegador imediatamente
+    isOrchestratorActiveRef.current = false;
+    if (tickTimeoutRef.current) {
+      clearTimeout(tickTimeoutRef.current);
+      tickTimeoutRef.current = null;
+    }
     try {
       const res = await pauseMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
-        toast.info("Campanha pausada. Novos lotes não serão enviados.");
+        toast.info("Campanha pausada. O navegador suspendeu os disparos.");
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
@@ -972,11 +1058,14 @@ function MailerPage() {
     try {
       const res = await resumeMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
-        toast.success("Campanha retomada! Lote pendente iniciado no backend.");
+        toast.success("Campanha retomada! O navegador continuará os disparos.");
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
         if (prog) setCampaignProgress(prog);
+        // Reativar o orquestrador do navegador
+        isOrchestratorActiveRef.current = true;
+        triggerOrchestratorTick(300);
       } else {
         toast.error(res.message || "Falha ao retomar campanha.");
       }
@@ -998,6 +1087,12 @@ function MailerPage() {
       return;
     }
     setIsOperatingQueue(true);
+    // Parar orquestrador imediatamente
+    isOrchestratorActiveRef.current = false;
+    if (tickTimeoutRef.current) {
+      clearTimeout(tickTimeoutRef.current);
+      tickTimeoutRef.current = null;
+    }
     try {
       const res = await cancelMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
@@ -1022,26 +1117,32 @@ function MailerPage() {
   async function handleTriggerWorker() {
     setIsOperatingQueue(true);
     try {
-      const res = await triggerProcessMailerQueueServerFn();
+      const res = await processMailerMicroBatchServerFn({
+        data: {
+          campaignId: activeCampaignId || undefined,
+          batchSize: 2,
+        },
+      });
       if (res.sent > 0) {
-        toast.success(`Lote processado no backend: ${res.sent} e-mail(s) enviado(s)!`);
+        toast.success(`Micro-lote processado: ${res.sent} e-mail(s) enviado(s)!`);
       } else if (res.message) {
         toast.info(res.message);
       }
-      if (activeCampaignId) {
+      if (res.progress) {
+        setCampaignProgress(res.progress);
+      } else if (activeCampaignId) {
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
         if (prog) setCampaignProgress(prog);
       }
     } catch (err) {
-      console.error("[mailer] Error triggering worker tick:", err);
-      toast.error("Erro ao acionar worker da fila.");
+      console.error("[mailer] Error triggering micro-batch tick:", err);
+      toast.error("Erro ao processar micro-lote.");
     } finally {
       setIsOperatingQueue(false);
     }
   }
-
 
   const handleViewTimeline = async (log: RecruitEmailLog) => {
     setSelectedTimelineLog(log);
@@ -1145,15 +1246,21 @@ function MailerPage() {
                   {campaignProgress.status === "running" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                      {campaignProgress.nextBatchAt &&
-                      new Date(campaignProgress.nextBatchAt) > new Date()
-                        ? `Aguardando Cooldown (${Math.max(
-                            0,
-                            Math.ceil(
-                              (new Date(campaignProgress.nextBatchAt).getTime() - Date.now()) /
-                                1000,
-                            ),
-                          )}s)`
+                      {(cooldownRemaining !== null && cooldownRemaining > 0) ||
+                      (campaignProgress.nextBatchAt &&
+                        new Date(campaignProgress.nextBatchAt) > new Date())
+                        ? `Aguardando Cooldown (${
+                            cooldownRemaining !== null && cooldownRemaining > 0
+                              ? cooldownRemaining
+                              : Math.max(
+                                  0,
+                                  Math.ceil(
+                                    (new Date(campaignProgress.nextBatchAt!).getTime() -
+                                      Date.now()) /
+                                      1000,
+                                  ),
+                                )
+                          }s)`
                         : `Enviando (Lote ${campaignProgress.currentBatch} de ${campaignProgress.totalBatches})`}
                     </span>
                   )}
@@ -1248,6 +1355,24 @@ function MailerPage() {
                 </div>
               </div>
 
+              {/* Orientação discreta da aba aberta e aviso de segundo plano */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                  <span>
+                    <strong className="text-foreground">Aba do Navegador:</strong> Mantenha esta aba
+                    aberta durante o envio da campanha. O progresso é gravado a cada 2 e-mails e
+                    você pode pausar ou retomar a qualquer momento.
+                  </span>
+                </div>
+                {isTabHidden && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Aba em segundo plano detectada
+                  </span>
+                )}
+              </div>
+
               {/* Barra de Progresso */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs">
@@ -1340,7 +1465,6 @@ function MailerPage() {
               </div>
             </div>
           )}
-
 
           {activeTab === "compose" ? (
             <div className="space-y-6">

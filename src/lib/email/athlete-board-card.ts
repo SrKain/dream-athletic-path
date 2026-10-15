@@ -88,7 +88,13 @@ function extractSeasonStatsEntry(
     if (items.length >= 5) break;
   }
   const note = clean(stats.note ?? stats.notes);
-  if (items.length === 0 && !note && !clean(stats.season ?? stats.title ?? stats.label ?? stats.class) && !clean(stats.team ?? stats.school)) return null;
+  if (
+    items.length === 0 &&
+    !note &&
+    !clean(stats.season ?? stats.title ?? stats.label ?? stats.class) &&
+    !clean(stats.team ?? stats.school)
+  )
+    return null;
   return {
     title: clean(stats.season ?? stats.title ?? stats.label ?? stats.class),
     team: clean(stats.team ?? stats.school) || clean(fallbackTeam),
@@ -114,7 +120,10 @@ export function extractSeasonStatsList(
   if (!stats || typeof stats !== "object" || Array.isArray(stats)) return [];
   if (Array.isArray(stats.seasons)) {
     return stats.seasons
-      .filter((season): season is Record<string, unknown> => !!season && typeof season === "object" && !Array.isArray(season))
+      .filter(
+        (season): season is Record<string, unknown> =>
+          !!season && typeof season === "object" && !Array.isArray(season),
+      )
       .map((season) => extractSeasonStatsEntry(season, fallbackTeam))
       .filter((season): season is BoardSeasonStats => season !== null)
       .slice(0, 2);
@@ -189,10 +198,16 @@ function renderQuickFacts(athlete: RecruitEmailAthlete): string {
   const available = clean(athlete.seekingOpportunities);
   if (available) rows.push({ icon: EMAIL_ASSETS.icons.film, label: "Available", value: available });
   const major = clean(athlete.courseOfInterest);
-  if (major) rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
+  if (major)
+    rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
   const country = clean(athlete.countryEn);
   if (country)
-    rows.push({ flag: clean(athlete.countryFlag), icon: EMAIL_ASSETS.icons.globe, label: "From", value: country });
+    rows.push({
+      flag: clean(athlete.countryFlag),
+      icon: EMAIL_ASSETS.icons.globe,
+      label: "From",
+      value: country,
+    });
 
   if (rows.length === 0) return "";
 
@@ -242,23 +257,30 @@ function renderChips(athlete: RecruitEmailAthlete): string {
 function renderSeasonStats(athlete: RecruitEmailAthlete): string {
   const seasons = extractSeasonStatsList(athlete.stats, athlete.currentSchool);
   if (seasons.length === 0) return "";
-  const cells = seasons.map((season, index) => {
-    const header = season.title || season.team
-      ? `<div style="background-color:${C.badgeGoldBg};border-radius:4px;padding:8px 12px;margin-bottom:10px;font-family:${FONT};font-size:13px;color:${C.textDark};">${season.title ? `<strong>${escapeHtml(season.title.toUpperCase())}</strong>` : ""}${season.title && season.team ? "<br>" : ""}${season.team ? escapeHtml(season.team) : ""}</div>`
-      : "";
-    const statCells = season.items.map((item, itemIndex) => `
+  const cells = seasons
+    .map((season, index) => {
+      const header =
+        season.title || season.team
+          ? `<div style="background-color:${C.badgeGoldBg};border-radius:4px;padding:8px 12px;margin-bottom:10px;font-family:${FONT};font-size:13px;color:${C.textDark};">${season.title ? `<strong>${escapeHtml(season.title.toUpperCase())}</strong>` : ""}${season.title && season.team ? "<br>" : ""}${season.team ? escapeHtml(season.team) : ""}</div>`
+          : "";
+      const statCells = season.items
+        .map(
+          (item, itemIndex) => `
       <td align="center" valign="top" style="padding:4px 6px;${itemIndex ? `border-left:1px solid ${C.lineDivider};` : ""}">
         <div style="font-family:${FONT};font-size:22px;font-weight:700;color:${C.darkGreenPrimary};line-height:1.1;">${escapeHtml(item.value)}</div>
         <div style="font-family:${FONT};font-size:10px;letter-spacing:0.5px;color:${C.textMuted};text-transform:uppercase;padding-top:4px;">${escapeHtml(item.label)}</div>
-      </td>`).join("");
-    const statsRow = statCells
-      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${statCells}</tr></table>`
-      : "";
-    const note = season.note
-      ? `<div style="font-family:${FONT};font-size:13px;color:${C.textDark};padding-top:${statCells ? "8px" : "0"};">${escapeHtml(season.note)}</div>`
-      : "";
-    return `<td class="mobile-stack" width="${seasons.length > 1 ? "50%" : "100%"}" valign="top" style="padding:${index ? "0 0 0 8px" : "0 8px 0 0"};">${header}${statsRow}${note}</td>`;
-  }).join("");
+      </td>`,
+        )
+        .join("");
+      const statsRow = statCells
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${statCells}</tr></table>`
+        : "";
+      const note = season.note
+        ? `<div style="font-family:${FONT};font-size:13px;color:${C.textDark};padding-top:${statCells ? "8px" : "0"};">${escapeHtml(season.note)}</div>`
+        : "";
+      return `<td class="mobile-stack" width="${seasons.length > 1 ? "50%" : "100%"}" valign="top" style="padding:${index ? "0 0 0 8px" : "0 8px 0 0"};">${header}${statsRow}${note}</td>`;
+    })
+    .join("");
   return sectionWrap(
     "Season Stats",
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table>`,
@@ -271,7 +293,9 @@ function renderVideos(athlete: RecruitEmailAthlete, options: BoardCardOptions): 
   const list: Array<{ url: string; title: string; id: string }> = [];
   const candidates = [
     ...(athlete.videos ?? []),
-    ...(athlete.highlightVideoUrl ? [{ url: athlete.highlightVideoUrl, title: "Highlight Video" }] : []),
+    ...(athlete.highlightVideoUrl
+      ? [{ url: athlete.highlightVideoUrl, title: "Highlight Video" }]
+      : []),
   ];
   for (const v of candidates) {
     const id = parseYoutubeId(v?.url);
@@ -340,7 +364,14 @@ function renderFitReasons(athlete: RecruitEmailAthlete): string {
 }
 
 function renderActions(urls: { recruit: string; profile: string; notFit: string }): string {
-  const btn = (href: string, label: string, bg: string, color: string, border: string, blank = true) => `
+  const btn = (
+    href: string,
+    label: string,
+    bg: string,
+    color: string,
+    border: string,
+    blank = true,
+  ) => `
     <td align="center" valign="middle" style="padding:3px;">
       <a href="${escapeHtml(href)}"${blank ? ' target="_blank" rel="noopener noreferrer"' : ""} style="display:inline-block;min-height:44px;line-height:20px;padding:10px 10px;background-color:${bg};color:${color};border:1px solid ${border};border-radius:6px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.5px;text-decoration:none;text-align:center;box-sizing:border-box;">${label}</a>
     </td>`;

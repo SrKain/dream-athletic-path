@@ -264,8 +264,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(res.subject).toContain("Libero · 5'9\" · Class of 2026: Laura Souza (Brazil)");
       expect(res.html).toContain("Hi Coach Dave,");
       expect(res.html).toContain("Laura Souza");
-      expect(res.html).toContain("WATCH FILM");
-      expect(res.html).toContain("I'M INTERESTED");
+      expect(res.html).toContain("RECRUIT NOW");
+      expect(res.html).toContain("VIEW FULL PROFILE");
       expect(res.text).toContain("Laura Souza");
 
       const multiRes = renderMultiLegacy({
@@ -330,8 +330,9 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
 
       const allHtml = [single.html, multi.html, catalog.html].join("\n");
 
-      // Extrai todos os códigos hexadecimais do HTML
-      const hexMatches = allHtml.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+      // Extrai todos os códigos hexadecimais do HTML (ignorando entidades HTML como &#9742;)
+      const hexMatches =
+        allHtml.match(/(?<!&)#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g) || [];
       const uniqueHexes = Array.from(new Set(hexMatches.map((h) => h.toLowerCase())));
 
       const allowedHexes = new Set([

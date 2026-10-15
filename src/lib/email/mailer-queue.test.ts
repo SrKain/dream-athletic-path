@@ -105,23 +105,35 @@ function createMockAdminClient() {
 
               // Return an object that is both awaitable (returns matches) AND allows chaining .in, .order, etc.
               const queryObj: any = {
-                then: (resolve: any) => resolve({ data: matches, error: null }),
-                in: vi.fn((statusCol: string, statuses: string[]) => ({
-                  order: vi.fn(() => ({
-                    order: vi.fn(() => ({
-                      limit: vi.fn(async (lim: number) => {
-                        const inMatches: any[] = [];
-                        for (const q of mockQueue.values()) {
-                          if (q[col] === val && statuses.includes(q[statusCol])) {
-                            inMatches.push(q);
-                            if (inMatches.length >= lim) break;
-                          }
-                        }
-                        return { data: inMatches, error: null };
+                then: (resolve: any) =>
+                  resolve({
+                    data: opts?.head ? null : matches,
+                    count: matches.length,
+                    error: null,
+                  }),
+                in: vi.fn((statusCol: string, statuses: string[]) => {
+                  const inMatches = matches.filter((q) => statuses.includes(q[statusCol]));
+                  return {
+                    then: (resolve: any) =>
+                      resolve({
+                        data: opts?.head ? null : inMatches,
+                        count: inMatches.length,
+                        error: null,
                       }),
+                    order: vi.fn(() => ({
+                      order: vi.fn(() => ({
+                        limit: vi.fn(async (lim: number) => {
+                          const limited = inMatches.slice(0, lim);
+                          return {
+                            data: opts?.head ? null : limited,
+                            count: limited.length,
+                            error: null,
+                          };
+                        }),
+                      })),
                     })),
-                  })),
-                })),
+                  };
+                }),
               };
               return queryObj;
             }),
@@ -534,6 +546,61 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(item.status).toBe("failed");
       expect(item.attempts).toBe(3);
     });
+
+    it("processes micro-batches of 2 emails per cycle as orchestrated by browser", async () => {
+      const mockAdmin = createMockAdminClient();
+      const recipients = Array.from({ length: 6 }, (_, i) => ({
+        name: `Coach ${i}`,
+        email: `coach${i}@college.edu`,
+      }));
+
+      const enqueueRes = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients },
+        mockAdmin,
+      );
+
+      // Micro-tick 1: 2 emails
+      const tick1 = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+        itemSpacingMs: 0,
+      });
+      expect(tick1.processed).toBe(2);
+      expect(tick1.sent).toBe(2);
+      expect(tick1.campaignCompleted).toBe(false);
+
+      // Micro-tick 2: 2 emails
+      const tick2 = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+        itemSpacingMs: 0,
+      });
+      expect(tick2.processed).toBe(2);
+      expect(tick2.sent).toBe(2);
+      expect(tick2.campaignCompleted).toBe(false);
+
+      // Micro-tick 3: 2 emails
+      const tick3 = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+        itemSpacingMs: 0,
+      });
+      expect(tick3.processed).toBe(2);
+      expect(tick3.sent).toBe(2);
+
+      // Micro-tick 4: all items sent -> marks completed
+      const tick4 = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+        itemSpacingMs: 0,
+      });
+      expect(tick4.campaignCompleted).toBe(true);
+      expect(tick4.campaignStatus).toBe("completed");
+    });
   });
 
   describe("3. Campaign State Controls: Pause, Resume & Cancel", () => {
@@ -578,7 +645,12 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const campaign = mockCampaigns.get(enqueueRes.campaignId);
       expect(campaign.status).toBe("running");
 
-      const processRes = await processMailerQueue({ customAdmin: mockAdmin, itemSpacingMs: 0, ignoreCooldown: true });
+      const processRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        itemSpacingMs: 0,
+        ignoreCooldown: true,
+        maxBatchSize: 5,
+      });
       expect(processRes.sent).toBe(5);
     });
 

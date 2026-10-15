@@ -51,6 +51,7 @@
 ## 2. Escopo da Solução
 
 ### A) Nova Migration `db/migrations/0023_fix_email_events_schema_and_metrics_rpc.sql` (Aditiva e Idempotente)
+
 1. **`public.email_events`**:
    - `add column if not exists svix_id text;`
    - `add column if not exists recipient_email text;`
@@ -80,6 +81,7 @@
 ---
 
 ### B) Código da Aplicação
+
 1. **`src/lib/email/resend-webhook.server.ts`**:
    - Remover gravação da coluna fictícia `event_id`.
    - Manter gravação de `svix_id`, `event_type`, `provider_email_id`, `recipient_email`, `subject`, `campaign_id`, `athlete_id`, `clicked_url`, `clicked_at`, `user_agent`, `is_probable_automated`, `occurred_at`, `tags` e `payload`.
@@ -636,47 +638,47 @@ grant execute on function public.get_mailer_dashboard_metrics(integer, uuid, uui
 
 ## 4. Relação de Colunas Referenciadas e suas Migrations de Origem
 
-| Tabela | Coluna Referenciada | Migration de Origem | Status / Correção na 0023 |
-| :--- | :--- | :--- | :--- |
-| `email_events` | `id` | `0021` | Existente |
-| `email_events` | `svix_id` | `0023` (adicionada) | Inexistente na 0021/0022; criada na 0023 com unique index completo |
-| `email_events` | `provider_event_id` | `0021` | Tornado opcional (drop not null) na 0023 para compatibilidade |
-| `email_events` | `provider_email_id` | `0021` | Existente |
-| `email_events` | `event_type` | `0021` | Existente |
-| `email_events` | `recipient` | `0021` | Tornado opcional (drop not null) na 0023 |
-| `email_events` | `recipient_email` | `0023` (adicionada) | Inexistente na 0021/0022; criada na 0023 com backfill de `recipient` |
-| `email_events` | `subject` | `0023` (adicionada) | Inexistente na 0021/0022; criada na 0023 |
-| `email_events` | `tags` | `0023` (adicionada) | Inexistente na 0021/0022; criada na 0023 como `jsonb not null default '{}'::jsonb` |
-| `email_events` | `campaign_id` | `0022` | Existente |
-| `email_events` | `athlete_id` | `0022` | Existente |
-| `email_events` | `clicked_url` | `0022` | Existente |
-| `email_events` | `clicked_at` | `0022` | Existente |
-| `email_events` | `user_agent` | `0022` | Existente |
-| `email_events` | `is_probable_automated` | `0022` | Existente |
-| `email_events` | `occurred_at` | `0021` | Existente |
-| `email_events` | `payload` | `0021` | Existente |
-| `recruit_email_logs` | `id` | `0016` | Existente |
-| `recruit_email_logs` | `athlete_id` | `0016` (tornada nullable na `0018`) | Existente |
-| `recruit_email_logs` | `athlete_ids` | `0022` | Existente |
-| `recruit_email_logs` | `coach_id` | `0016` | Existente (UUID) |
-| `recruit_email_logs` | `subject` | `0016` | Existente |
-| `recruit_email_logs` | `status` | `0016` | Existente |
-| `recruit_email_logs` | `error_message` | `0016` | Existente |
-| `recruit_email_logs` | `sent_at` | `0016` | Existente |
-| `recruit_email_logs` | `email_type` | `0018` | Existente |
-| `recruit_email_logs` | `recipient_email` | `0018` | Existente |
-| `recruit_email_logs` | `recipient_name` | `0018` | Existente |
-| `recruit_email_logs` | `university_name` | `0018` | Existente |
-| `recruit_email_logs` | `provider_id` | `0021` | Existente |
-| `recruit_email_logs` | `campaign_id` | `0022` | Existente |
-| `recruit_email_logs` | `university_id` | `0023` (adicionada) | Criada na 0023 como FK opcional para universities |
-| `recruit_email_logs` | `coach_role` | `0023` (adicionada) | Criada na 0023 |
-| `universities` | `id, name, state, league` | `0018` | Existente |
-| `coaches` | `id, name, institution` | `0016` | Existente (`id` é UUID) |
-| `mailer_campaigns` | `id, created_at, mode, subject, recipients_count` | `0022` | Existente |
-| `athletes` | `id, full_name, slug, position_id, deleted_at` | `0001` | Existente |
-| `positions` | `id, name_en` | `0001` / `0013` | Existente |
-| `coach_interest_signals` | `athlete_id, created_at` | `0020` | Existente |
+| Tabela                   | Coluna Referenciada                               | Migration de Origem                 | Status / Correção na 0023                                                          |
+| :----------------------- | :------------------------------------------------ | :---------------------------------- | :--------------------------------------------------------------------------------- |
+| `email_events`           | `id`                                              | `0021`                              | Existente                                                                          |
+| `email_events`           | `svix_id`                                         | `0023` (adicionada)                 | Inexistente na 0021/0022; criada na 0023 com unique index completo                 |
+| `email_events`           | `provider_event_id`                               | `0021`                              | Tornado opcional (drop not null) na 0023 para compatibilidade                      |
+| `email_events`           | `provider_email_id`                               | `0021`                              | Existente                                                                          |
+| `email_events`           | `event_type`                                      | `0021`                              | Existente                                                                          |
+| `email_events`           | `recipient`                                       | `0021`                              | Tornado opcional (drop not null) na 0023                                           |
+| `email_events`           | `recipient_email`                                 | `0023` (adicionada)                 | Inexistente na 0021/0022; criada na 0023 com backfill de `recipient`               |
+| `email_events`           | `subject`                                         | `0023` (adicionada)                 | Inexistente na 0021/0022; criada na 0023                                           |
+| `email_events`           | `tags`                                            | `0023` (adicionada)                 | Inexistente na 0021/0022; criada na 0023 como `jsonb not null default '{}'::jsonb` |
+| `email_events`           | `campaign_id`                                     | `0022`                              | Existente                                                                          |
+| `email_events`           | `athlete_id`                                      | `0022`                              | Existente                                                                          |
+| `email_events`           | `clicked_url`                                     | `0022`                              | Existente                                                                          |
+| `email_events`           | `clicked_at`                                      | `0022`                              | Existente                                                                          |
+| `email_events`           | `user_agent`                                      | `0022`                              | Existente                                                                          |
+| `email_events`           | `is_probable_automated`                           | `0022`                              | Existente                                                                          |
+| `email_events`           | `occurred_at`                                     | `0021`                              | Existente                                                                          |
+| `email_events`           | `payload`                                         | `0021`                              | Existente                                                                          |
+| `recruit_email_logs`     | `id`                                              | `0016`                              | Existente                                                                          |
+| `recruit_email_logs`     | `athlete_id`                                      | `0016` (tornada nullable na `0018`) | Existente                                                                          |
+| `recruit_email_logs`     | `athlete_ids`                                     | `0022`                              | Existente                                                                          |
+| `recruit_email_logs`     | `coach_id`                                        | `0016`                              | Existente (UUID)                                                                   |
+| `recruit_email_logs`     | `subject`                                         | `0016`                              | Existente                                                                          |
+| `recruit_email_logs`     | `status`                                          | `0016`                              | Existente                                                                          |
+| `recruit_email_logs`     | `error_message`                                   | `0016`                              | Existente                                                                          |
+| `recruit_email_logs`     | `sent_at`                                         | `0016`                              | Existente                                                                          |
+| `recruit_email_logs`     | `email_type`                                      | `0018`                              | Existente                                                                          |
+| `recruit_email_logs`     | `recipient_email`                                 | `0018`                              | Existente                                                                          |
+| `recruit_email_logs`     | `recipient_name`                                  | `0018`                              | Existente                                                                          |
+| `recruit_email_logs`     | `university_name`                                 | `0018`                              | Existente                                                                          |
+| `recruit_email_logs`     | `provider_id`                                     | `0021`                              | Existente                                                                          |
+| `recruit_email_logs`     | `campaign_id`                                     | `0022`                              | Existente                                                                          |
+| `recruit_email_logs`     | `university_id`                                   | `0023` (adicionada)                 | Criada na 0023 como FK opcional para universities                                  |
+| `recruit_email_logs`     | `coach_role`                                      | `0023` (adicionada)                 | Criada na 0023                                                                     |
+| `universities`           | `id, name, state, league`                         | `0018`                              | Existente                                                                          |
+| `coaches`                | `id, name, institution`                           | `0016`                              | Existente (`id` é UUID)                                                            |
+| `mailer_campaigns`       | `id, created_at, mode, subject, recipients_count` | `0022`                              | Existente                                                                          |
+| `athletes`               | `id, full_name, slug, position_id, deleted_at`    | `0001`                              | Existente                                                                          |
+| `positions`              | `id, name_en`                                     | `0001` / `0013`                     | Existente                                                                          |
+| `coach_interest_signals` | `athlete_id, created_at`                          | `0020`                              | Existente                                                                          |
 
 ---
 

@@ -1005,19 +1005,3 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   6. **UI Monitor em Tempo Real (`src/routes/_authenticated/admin/mailer.tsx`)**: Painel com barra de progresso, métricas em tempo real (Total, Enviados, Na Fila, Falhas, Lote), badge de estado dinâmico com contagem regressiva de cooldown e controles de operação (Pausar, Retomar, Cancelar, Disparo Forçado).
   7. **Testes Unitários Automatizados (`src/lib/email/mailer-queue.test.ts`)**: 13 testes cobrindo lotes de 10, 150, 151, 300 e 1.000 destinatários, concorrência, retentativas com backoff, HTTP 429, pausa e cancelamento (100% aprovados, totalizando 169 testes em 23 arquivos).
 - **Status:** `[CONCLUÍDO]`
-
-
-
-
-
-## MAILER-PERSONALIZATION-2026-10-13 — Personalização de assunto, saudação e respostas
-
-- **Data:** 2026-10-13 UTC.
-- **Solicitante:** Usuário humano da sessão.
-- **Executor:** Codex.
-- **Pedido:** Personalizar o título/assunto ao enviar; saudação sempre Hi Coach [sobrenome]; respostas de interesse e Not a Fit com Hi Fabi, textos fornecidos, atleta/posição dinâmicos e sem assinatura automática Coach [nome].
-- **Plano:** `think/2026-10-13-2100-personalizacao-assunto-saudacao-respostas-mailer.md`, aprovado explicitamente pelo usuário com "Aprovado".
-- **Entrega:** Campo e preview do assunto em todos os modos, sobrenome separado em UI/renderer/direto/fila/legado, mailto de card e rodapé alinhados e documentação atualizada.
-- **Validação:** 11 testes novos de personalização e 6 cenários complementares direto/fila com mocks passaram via Node. Rejeição de CR/LF confirmada antes de efeitos externos. Suíte antiga 13/15 com duas falhas também existentes no snapshot original. git diff --check passou.
-- **Limite:** Bun/dependências não disponíveis; Vitest oficial, lint, typecheck, build e inspeção visual da UI pendentes. Nenhum email real enviado, nenhuma migration aplicada, nenhum deploy realizado.
-- **Status:** `[CONCLUÍDO — IMPLEMENTAÇÃO]`; validação completa e revisão/merge pendentes.

@@ -2,7 +2,11 @@ import { resolveEmailSubject } from "./email-personalization";
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { getResendClient, getResendConfig } from "./resend-client.server";
-import { buildFixedEmailBlocks, type EmailBlock, type FixedEmailComposition } from "./personal-email-renderer";
+import {
+  buildFixedEmailBlocks,
+  type EmailBlock,
+  type FixedEmailComposition,
+} from "./personal-email-renderer";
 import {
   renderRecruitEmail,
   renderMultiAthleteRecruitEmail,
@@ -244,10 +248,16 @@ export async function getCoachPreferenceRecords(coachEmail: string, coachId?: st
   ]);
 
   if (signalsRes.error) {
-    console.error("[recruit-email] Error fetching coach preference signals:", signalsRes.error.message);
+    console.error(
+      "[recruit-email] Error fetching coach preference signals:",
+      signalsRes.error.message,
+    );
   }
   if (suppressionRes.error) {
-    console.error("[recruit-email] Error fetching coach suppression:", suppressionRes.error.message);
+    console.error(
+      "[recruit-email] Error fetching coach suppression:",
+      suppressionRes.error.message,
+    );
   }
 
   const matchingSignals = ((signalsRes.data ?? []) as CoachInterestSignal[]).filter(
@@ -284,7 +294,8 @@ export async function setCoachSuppression(
   if (existing?.reason === "ses_bounce_permanent" || existing?.reason === "ses_complaint") {
     return {
       success: false,
-      message: "Este endereço tem bloqueio permanente por bounce ou reclamação e não pode ser alterado aqui.",
+      message:
+        "Este endereço tem bloqueio permanente por bounce ou reclamação e não pode ser alterado aqui.",
     };
   }
   const existingSuppressionActive = Boolean(
@@ -293,7 +304,8 @@ export async function setCoachSuppression(
   if (existingSuppressionActive && existing?.reason !== "admin_manual_preference") {
     return {
       success: false,
-      message: "Este email já tem uma preferência de bloqueio registrada por outra origem; ela foi preservada.",
+      message:
+        "Este email já tem uma preferência de bloqueio registrada por outra origem; ela foi preservada.",
     };
   }
   if (
@@ -303,7 +315,8 @@ export async function setCoachSuppression(
   ) {
     return {
       success: false,
-      message: "Este email já tem bloqueio permanente. A preferência temporária não pode reduzir esse bloqueio.",
+      message:
+        "Este email já tem bloqueio permanente. A preferência temporária não pode reduzir esse bloqueio.",
     };
   }
   return unsubscribeEmailAddress(email, "admin_manual_preference", suppressionType);
@@ -929,7 +942,10 @@ export async function sendRecruitEmailToCoaches(input: {
     .select("id, name, coaches");
 
   if (coachesErr) {
-    console.error("[recruit-email] Error loading university coaches in legacy send:", coachesErr.message);
+    console.error(
+      "[recruit-email] Error loading university coaches in legacy send:",
+      coachesErr.message,
+    );
   }
 
   const selectedIds = new Set(input.coachIds);
@@ -938,7 +954,7 @@ export async function sendRecruitEmailToCoaches(input: {
     name: string;
     coaches: Array<{ id: string; first_name: string; last_name: string; email: string }> | null;
   }>;
-  const recipients: MailerRecipient[] = universityCoachRows.flatMap((university) =>
+  let recipients: MailerRecipient[] = universityCoachRows.flatMap((university) =>
     (Array.isArray(university.coaches) ? university.coaches : [])
       .filter((coach) => selectedIds.has(coach.id))
       .map((coach) => ({
@@ -949,6 +965,25 @@ export async function sendRecruitEmailToCoaches(input: {
         universityName: university.name,
       })),
   );
+
+  // Fallback para tabela legada coaches se não encontrar na coluna JSON de universities
+  if (recipients.length === 0 && input.coachIds.length > 0) {
+    const { data: legacyCoaches } = await admin
+      .from("coaches")
+      .select("id, name, email, institution")
+      .in("id", input.coachIds);
+
+    if (legacyCoaches && legacyCoaches.length > 0) {
+      recipients = (
+        legacyCoaches as Array<{ id: string; name?: string; email: string; institution?: string }>
+      ).map((c) => ({
+        coachId: c.id,
+        name: c.name || "Coach",
+        email: c.email,
+        universityName: c.institution || undefined,
+      }));
+    }
+  }
 
   const res = await sendMailerEmails({
     mode: "single_athlete",

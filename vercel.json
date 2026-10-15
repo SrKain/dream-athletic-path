@@ -3,12 +3,5 @@
   "buildCommand": "rm -rf .output .nitro .tanstack node_modules/.vite node_modules/.cache && bun run build",
   "installCommand": "rm -rf node_modules/@tanstack node_modules/.bun/@tanstack* && bun install --frozen-lockfile",
   "framework": null,
-  "outputDirectory": ".output",
-  "crons": [
-    {
-      "path": "/api/cron/process-mailer-queue",
-      "schedule": "* * * * *"
-    }
-  ]
+  "outputDirectory": ".output"
 }
-

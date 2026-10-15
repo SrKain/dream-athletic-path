@@ -64,7 +64,7 @@ Na aba **Create Send** em `src/routes/_authenticated/admin/mailer.tsx`, os 3 cam
 
 ## 3. Reforma do Quadro das Atletas Conforme Imagem Anexa + 3 Botões 100% em Inglês
 
-Analisamos detalhadamente o modelo enviado em anexo (`WhatsApp Image 2026-10-08 at 7.32.14 AM.jpeg` — exemplo *NICOLE DE OLIVEIRA DA SILVA*).
+Analisamos detalhadamente o modelo enviado em anexo (`WhatsApp Image 2026-10-08 at 7.32.14 AM.jpeg` — exemplo _NICOLE DE OLIVEIRA DA SILVA_).
 
 ### 3.1. Estrutura e Informações do Quadro da Atleta (Fiel ao Anexo)
 
@@ -83,17 +83,17 @@ Cada quadro de atleta (`renderAthleteCard` em `src/lib/email/recruit-email.ts`) 
    - **Linha 2 (Início na Faculdade / Graduação):** Ícone de capelo (`EMAIL_ASSETS.icons.gradCap`) + Semestre/Ano de entrada (priorizando `college_start_date`, ex.: `Fall 2026`, com fallback para `high_school_graduation` / `Class of {graduation_year}`).
    - **Linha 3 (GPA):** Ícone de estatísticas (`EMAIL_ASSETS.icons.stats`) + GPA formatado (ex.: `GPA: 3.4`).
    - **Linha 4 (Curso de Interesse / Major):** Ícone acadêmico (`EMAIL_ASSETS.icons.academic`) + Curso de interesse da atleta vindo de `athlete_profiles.course_of_interest` (ex.: `Sports Medicine`, `Business Administration`, etc.; caso a atleta não tenha `course_of_interest` preenchido, faz fallback gracioso para `highlight_note` ou `Undecided / General Studies`).
-   - *(Observação: para garantir que `college_start_date` e `course_of_interest` apareçam tanto no Preview quanto no disparo real, incluiremos esses dois campos nas queries de `athlete_profiles` em `src/routes/_authenticated/admin/mailer.tsx`, `src/lib/email/recruit-email.server.ts`, `src/components/send-recruit-email-dialog.tsx` e nas interfaces `EmailCardAthlete` / `RecruitEmailAthlete`).*
+   - _(Observação: para garantir que `college_start_date` e `course_of_interest` apareçam tanto no Preview quanto no disparo real, incluiremos esses dois campos nas queries de `athlete_profiles` em `src/routes/_authenticated/admin/mailer.tsx`, `src/lib/email/recruit-email.server.ts`, `src/components/send-recruit-email-dialog.tsx` e nas interfaces `EmailCardAthlete` / `RecruitEmailAthlete`)._
 
 ### 3.2. Os 3 Botões de Ação no Rodapé do Quadro da Atleta (100% em Inglês)
 
 Na parte inferior de cada quadro de atleta, onde antes havia apenas 1 botão ou 4 botões misturados, teremos exatamente os **3 botões de ação 100% em inglês (US)** com excelente ergonomia mobile/desktop:
 
-1. **`RECRUIT NOW`** *(Botão Primário de Destaque — Dourado `#f69e00` com texto Verde-Escuro `#084323` bold)*:
+1. **`RECRUIT NOW`** _(Botão Primário de Destaque — Dourado `#f69e00` com texto Verde-Escuro `#084323` bold)_:
    - Link `mailto:fabiana@goteamgoagency.com` pré-preenchido em inglês com Subject (`[Interested] {Athlete Name} ({Position}, {Term/Year})`) e mensagem pronta para o coach recrutar a atleta imediatamente.
-2. **`VIEW FULL PROFILE`** *(Botão Principal Institucional — Verde-Escuro `#084323` com texto Branco `#ffffff` bold e seta dourada `→`)*:
+2. **`VIEW FULL PROFILE`** _(Botão Principal Institucional — Verde-Escuro `#084323` com texto Branco `#ffffff` bold e seta dourada `→`)_:
    - Link direto para o perfil público completo da atleta (`https://portfolio.goteamgoagency.com/athlete/{slug}`) com parâmetros UTM da campanha (`appendMailerUtmParams`).
-3. **`NOT A FIT`** *(Botão Secundário Discreto — Borda sutil `#c5d4c0` / fundo claro com texto `#5e7165`)*:
+3. **`NOT A FIT`** _(Botão Secundário Discreto — Borda sutil `#c5d4c0` / fundo claro com texto `#5e7165`)_:
    - Link direto para `${EMAIL_BASE_URL}/feedback?sentiment=not_fit&athleteId=${athlete.id}&coach=${coachEmail}&token=${feedbackToken}` para registrar que aquela atleta específica não se encaixa no perfil buscado pelo coach.
 
 ---
