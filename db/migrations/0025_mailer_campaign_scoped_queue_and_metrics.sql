@@ -185,8 +185,8 @@ end;
 $$;
 
 -- Permissões
-revoke execute on function public.claim_mailer_queue_batch from public;
-grant execute on function public.claim_mailer_queue_batch to authenticated, service_role;
+revoke execute on function public.claim_mailer_queue_batch(text, integer, integer, uuid) from public;
+grant execute on function public.claim_mailer_queue_batch(text, integer, integer, uuid) to authenticated, service_role;
 
 revoke execute on function public.acquire_mailer_campaign_lease from public;
 grant execute on function public.acquire_mailer_campaign_lease to authenticated, service_role;
