@@ -133,6 +133,48 @@ export async function enqueueCampaignDispatches(
     }
   }
 
+  // Universities store coach contacts in their own JSON, not necessarily in public.coaches.
+  // A syntactically valid UUID is not evidence that a foreign key target exists.
+  // Keep the recipient email/university data and persist coach_id only for real coach rows.
+  const proposedCoachIds = Array.from(
+    new Set(
+      [...activeRecipients, ...suppressedRecipients]
+        .map((recipient) => recipient.coachId)
+        .filter((id): id is string => typeof id === "string" && UUID_REGEX.test(id)),
+    ),
+  );
+  const persistedCoachIds = new Set<string>();
+  for (let offset = 0; offset < proposedCoachIds.length; offset += 100) {
+    const { data: existingCoaches, error: coachLookupError } = await admin
+      .from("coaches")
+      .select("id")
+      .in("id", proposedCoachIds.slice(offset, offset + 100));
+
+    if (coachLookupError) {
+      console.error("[mailer-queue] Coach ID lookup failed:", coachLookupError.message);
+      return {
+        success: false,
+        campaignId,
+        totalRecipients: input.recipients.length,
+        totalEnqueued: 0,
+        totalSuppressed: suppressedRecipients.length,
+        totalBatches: 0,
+        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        status: "failed",
+        message: "Não foi possível validar os contatos da campanha. Tente novamente.",
+      };
+    }
+    for (const coach of existingCoaches || []) {
+      if (coach?.id) persistedCoachIds.add(coach.id.toLowerCase());
+    }
+  }
+
+  for (const recipient of [...activeRecipients, ...suppressedRecipients]) {
+    if (!recipient.coachId || !persistedCoachIds.has(recipient.coachId.toLowerCase())) {
+      recipient.coachId = null;
+    }
+  }
+
   // 2. Registrar logs para destinatários suprimidos de saída
   if (suppressedRecipients.length > 0) {
     const suppressedLogs = suppressedRecipients.map((rec) => ({
