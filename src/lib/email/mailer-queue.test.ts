@@ -14,6 +14,10 @@ import type { SendMailerInput } from "./recruit-email.server";
 const mockCampaigns = new Map<string, any>();
 const mockQueue = new Map<string, any>();
 const mockLogs: any[] = [];
+let failQueueInsertOnCall = 0;
+let queueInsertCalls = 0;
+let failSentPersistence = false;
+let failLease = false;
 const mockRateLimit = {
   id: "global_resend_limit",
   locked_until: null as string | null,
@@ -91,6 +95,10 @@ function createMockAdminClient() {
       if (table === "mailer_queue") {
         return {
           insert: vi.fn(async (rows: any[]) => {
+            queueInsertCalls += 1;
+            if (queueInsertCalls === failQueueInsertOnCall) {
+              return { data: null, error: { message: "simulated queue insert failure" } };
+            }
             for (const r of rows) {
               const id = r.id || `q_${mockQueue.size + 1}`;
               mockQueue.set(id, { ...r, id });
@@ -141,6 +149,9 @@ function createMockAdminClient() {
           update: vi.fn((updates: any) => ({
             eq: vi.fn((col: string, val: string) => {
               const performUpdate = () => {
+                if (updates.status === "sent" && failSentPersistence) {
+                  return { data: null, error: { message: "simulated sent persistence failure" } };
+                }
                 for (const [id, q] of mockQueue.entries()) {
                   if (q[col] === val) {
                     mockQueue.set(id, { ...q, ...updates });
@@ -267,7 +278,9 @@ function createMockAdminClient() {
         return { data: 0, error: null };
       }
       if (fnName === "acquire_mailer_campaign_lease") {
-        return { data: true, error: null };
+        return failLease
+          ? { data: null, error: { message: "simulated lease unavailable" } }
+          : { data: true, error: null };
       }
       if (fnName === "get_mailer_campaign_progress_summary") {
         const campaignId = args.p_campaign_id;
@@ -342,6 +355,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     mockCampaigns.clear();
     mockQueue.clear();
     mockLogs.length = 0;
+    failQueueInsertOnCall = 0;
+    queueInsertCalls = 0;
+    failSentPersistence = false;
+    failLease = false;
     mockRateLimit.locked_until = null;
     mockResendSend.mockReset();
     mockResendSend.mockResolvedValue({
@@ -696,6 +713,67 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       // Items for Campaign B must remain pending
       const queueB = Array.from(mockQueue.values()).find((q) => q.campaign_id === campB.campaignId);
       expect(queueB?.status).toBe("pending");
+    });
+
+    it("fails closed when the server-side lease cannot be obtained", async () => {
+      const mockAdmin = createMockAdminClient();
+      const camp = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients: [{ name: "Test Coach", email: "coach@college.edu" }] },
+        mockAdmin,
+      );
+      failLease = true;
+      const result = await processMailerQueue({
+        customAdmin: mockAdmin, campaignId: camp.campaignId, clientId: "browser-1",
+      });
+      expect(result.processed).toBe(0);
+      expect(result.message).toContain("lease");
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it("never activates a partially inserted campaign", async () => {
+      const mockAdmin = createMockAdminClient();
+      failQueueInsertOnCall = 2;
+      const recipients = Array.from({ length: 151 }, (_, i) => ({
+        name: `Coach ${i}`, email: `coach${i}@college.edu`,
+      }));
+      const camp = await enqueueCampaignDispatches({ mode: "catalog", recipients }, mockAdmin);
+      expect(camp.success).toBe(false);
+      expect(camp.totalEnqueued).toBe(0);
+      expect(mockCampaigns.get(camp.campaignId).status).toBe("failed");
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it("stops after Resend acceptance when queue persistence is unavailable", async () => {
+      const mockAdmin = createMockAdminClient();
+      const camp = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients: [{ name: "Test Coach", email: "coach@college.edu" }] },
+        mockAdmin,
+      );
+      failSentPersistence = true;
+      const result = await processMailerQueue({
+        customAdmin: mockAdmin, campaignId: camp.campaignId, clientId: "browser-1",
+      });
+      expect(result.campaignStatus).toBe("paused");
+      expect(result.message).toContain("Manual reconciliation required");
+      expect(mockResendSend).toHaveBeenCalledTimes(1);
+      expect(mockCampaigns.get(camp.campaignId).status).toBe("paused");
+    });
+
+    it("uses the official Resend request idempotency option", async () => {
+      const mockAdmin = createMockAdminClient();
+      const camp = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients: [{ name: "Test Coach", email: "coach@college.edu" }] },
+        mockAdmin,
+      );
+      await processMailerQueue({ customAdmin: mockAdmin, campaignId: camp.campaignId });
+      const queueItem = Array.from(mockQueue.values())[0];
+      expect(mockResendSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ["coach@college.edu"],
+          headers: { "X-Entity-Ref-ID": queueItem.idempotency_key },
+        }),
+        { idempotencyKey: queueItem.idempotency_key },
+      );
     });
 
     it("deduplicates recipients with the same normalized email address", async () => {
