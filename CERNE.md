@@ -1348,3 +1348,17 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Compilação de produção (`compile_applet`): Build verde com sucesso.
   - Governança de pacotes: `package.json` e `bun.lock` preservados intactos.
 - **Plano:** `think/2026-10-16-0735-correcao-definitiva-mailer-fila-navegador.md`.
+
+
+## Atualização 2026-10-16 — Recuperação da build e endurecimento do Mailer (TASK-097, em validação)
+
+- **Plano aprovado:** `think/2026-10-16-1238-recuperacao-build-e-auditoria-mailer.md`; implementação em `fix/2026-10-16-vercel-mailer-reliability`.
+- **Build:** divergência conhecida entre `package.json` e `bun.lock`; o lockfile precisa ser regenerado **exclusivamente com Bun 1.3.14** em ambiente capaz de instalar dependências. GitHub Actions de validação fornece ambiente e mantém `--frozen-lockfile`.
+- **Enfileiramento:** campanha permanece `queued` até a gravação de todos os blocos da fila. Falhas na inserção impedem a ativação e a campanha é marcada `failed`, em vez de retornar sucesso parcial.
+- **Lease:** `processMailerQueue` exige confirmação positiva da RPC `acquire_mailer_campaign_lease`. RPC ausente, sem permissão, indisponível ou resposta não verdadeira bloqueia o processamento. A autenticação administrativa continua em `requireAgency`.
+- **Resend:** cabeçalho lógico de correlação `X-Entity-Ref-ID` preservado e a chave oficial de transporte passada como segundo argumento do SDK: `{ idempotencyKey: item.idempotency_key }`. Essa deduplicação do provedor tem janela de 24h; não substitui o banco.
+- **Persistência pós-envio:** se a API Resend aceitar uma mensagem, mas a atualização de `mailer_queue` falhar, o backend interrompe a campanha com solicitação de reconciliação manual, sem continuar realizando envios cegamente. Falhas ao verificar o número de pendências não podem concluir falsamente a campanha.
+- **UI:** `src/routes/_authenticated/admin/mailer.tsx` conserva micro-lotes acionados no navegador, intervalos, countdown e sete métricas; corrige barra indevida de 2% em zero, comunicação antecipada de lease entre abas, estado de conflito persistente, tratamento de erros sem sucesso e mensagem de conclusão com falhas.
+- **SQL:** migration incremental `db/migrations/0026_mailer_rpc_security_hardening.sql` remove a versão de três argumentos não escopada de `claim_mailer_queue_batch` e restringe funções `SECURITY DEFINER` de administração do Mailer ao `service_role`. **Aplicar a 0025 e depois a 0026 no Supabase externo antes de liberar disparos.** Nenhuma migration foi executada a partir do GitHub.
+- **Testes:** cenários de lease indisponível, inserção parcial, envio aceito com falha de persistência e idempotência HTTP adicionados em `src/lib/email/mailer-queue.test.ts`. Resultados de CI/build e smoke tests serão registrados após execução.
+- **Restrições:** sem envio real a coaches no processo de validação e sem alterações diretas de schema até revisão operacional.
