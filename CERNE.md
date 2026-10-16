@@ -1362,3 +1362,13 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **SQL:** migration incremental `db/migrations/0026_mailer_rpc_security_hardening.sql` remove a versão de três argumentos não escopada de `claim_mailer_queue_batch` e restringe funções `SECURITY DEFINER` de administração do Mailer ao `service_role`. **Aplicar a 0025 e depois a 0026 no Supabase externo antes de liberar disparos.** Nenhuma migration foi executada a partir do GitHub.
 - **Testes:** cenários de lease indisponível, inserção parcial, envio aceito com falha de persistência e idempotência HTTP adicionados em `src/lib/email/mailer-queue.test.ts`. Resultados de CI/build e smoke tests serão registrados após execução.
 - **Restrições:** sem envio real a coaches no processo de validação e sem alterações diretas de schema até revisão operacional.
+
+
+## Atualização 2026-10-16 — Hotfix Mailer FK + contraste do monitor (TASK-098)
+
+- **Causa confirmada no Supabase `teamgoteam`:** `public.universities` possui 1.219 registros, mas `public.coaches` possui zero; os contatos vinculados ao JSON das universidades são exibidos no Mailer como coaches. Seus UUIDs não são necessariamente registros da tabela `public.coaches`. Ao criar `mailer_queue`, `coach_id` inválido acionava `mailer_queue_coach_id_fkey` e a campanha acabava em `failed`.
+- **Correção no servidor (`src/lib/email/mailer-queue.server.ts`):** no enfileiramento, IDs de coach são conferidos contra registros reais de `public.coaches`, em lotes de até 100. Referências não encontradas viram `coach_id = null` (permitido no schema). Mantém o endereço de e-mail, nome e universidade originais e preserva ID quando a linha existe. Falhas na consulta interrompem a criação da campanha, evitando associação incorreta. A validação vale inclusive para os logs de destinatários suprimidos.
+- **Progresso:** a restauração do monitor filtra campanhas com `total_recipients = 0`; entradas antigas vazias em `queued` deixam de ocupar o painel sem excluir nem alterar seu histórico.
+- **UI (`src/routes/_authenticated/admin/mailer.tsx`):** cores de badges, métricas e controles receberam variantes explícitas claro/escuro com tons de fundo claros e texto escuro no tema claro, e equivalentes de alto contraste no escuro; comportamento e métricas da fila preservados.
+- **Testes (`src/lib/email/mailer-queue.test.ts`):** cenários cobrem UUID existente e UUID que não referencia `public.coaches`; sem e-mails externos nos testes.
+- **Infraestrutura:** migrations 0025/0026 estavam aplicadas segundo `supabase_migrations`, sem novas alterações de banco. Validação GitHub Actions `38929272621`: instalação Bun frozen, typecheck, lint, testes unitários e build passaram; Vercel pós-merge será verificada pelo SHA publicado.

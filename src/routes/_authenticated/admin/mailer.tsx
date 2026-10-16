@@ -281,6 +281,7 @@ function MailerPage() {
           .from("mailer_campaigns")
           .select("id, status")
           .in("status", ["running", "queued", "paused"])
+          .gt("total_recipients", 0)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -1331,7 +1332,7 @@ function MailerPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                    <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/10 text-foreground border border-primary/30">
                       Fila Inteligente de Disparos
                     </span>
                     <span className="text-xs text-muted-foreground font-mono">
@@ -1347,17 +1348,17 @@ function MailerPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Status Badge Confiável */}
                   {isOffline ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Sem Conexão (Reconectando...)
                     </span>
                   ) : isAnotherTabActive ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
                       <ShieldAlert className="w-3.5 h-3.5" />
                       Outra Aba em Execução
                     </span>
                   ) : campaignProgress.status === "running" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       {(cooldownRemaining !== null && cooldownRemaining > 0) ||
                       (campaignProgress.nextBatchAt &&
@@ -1366,34 +1367,34 @@ function MailerPage() {
                         : `Enviando (Lote ${campaignProgress.currentBatch} de ${campaignProgress.totalBatches})`}
                     </span>
                   ) : campaignProgress.status === "paused" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
                       <Pause className="w-3.5 h-3.5" />
                       Campanha Pausada
                     </span>
                   ) : campaignProgress.status === "queued" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
                       <Clock className="w-3.5 h-3.5" />
                       Enfileirada
                     </span>
                   ) : campaignProgress.status === "completed" ? (
                     campaignProgress.failedCount > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-900 dark:text-amber-200" />
                         Concluída com {campaignProgress.failedCount} falha(s)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-900 dark:text-emerald-200" />
                         Concluída com Sucesso
                       </span>
                     )
                   ) : campaignProgress.status === "cancelled" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
                       <Ban className="w-3.5 h-3.5" />
                       Cancelada
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Erro na Campanha
                     </span>
@@ -1405,7 +1406,7 @@ function MailerPage() {
                       type="button"
                       disabled={isOperatingQueue}
                       onClick={handlePauseCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700 dark:hover:bg-amber-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Pause className="w-3 h-3" />
                       Pausar
@@ -1416,7 +1417,7 @@ function MailerPage() {
                       type="button"
                       disabled={isOperatingQueue}
                       onClick={handleResumeCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-950 border border-emerald-300 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:border-emerald-700 dark:hover:bg-emerald-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Play className="w-3 h-3" />
                       Retomar
@@ -1428,7 +1429,7 @@ function MailerPage() {
                       type="button"
                       disabled={isOperatingQueue}
                       onClick={handleCancelCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-100 text-rose-950 border border-rose-300 hover:bg-rose-200 dark:bg-rose-950/70 dark:text-rose-200 dark:border-rose-700 dark:hover:bg-rose-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <XCircle className="w-3 h-3" />
                       Cancelar
@@ -1462,7 +1463,7 @@ function MailerPage() {
                   </span>
                 </div>
                 {isTabHidden && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700 shrink-0">
                     <AlertCircle className="w-3.5 h-3.5" />
                     Aba em segundo plano detectada
                   </span>
@@ -1502,56 +1503,56 @@ function MailerPage() {
                   </div>
                 </div>
 
-                <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-emerald-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-emerald-900 dark:text-emerald-200 uppercase font-bold flex items-center justify-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Enviados
                   </div>
-                  <div className="text-base font-black text-emerald-300 mt-0.5">
+                  <div className="text-base font-black text-emerald-950 dark:text-emerald-100 mt-0.5">
                     {campaignProgress.sentCount}
                   </div>
                 </div>
 
-                <div className="bg-sky-950/20 border border-sky-500/20 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-sky-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-sky-50 border border-sky-200 dark:bg-sky-950/40 dark:border-sky-800 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-sky-900 dark:text-sky-200 uppercase font-bold flex items-center justify-center gap-1">
                     <Clock className="w-3 h-3" /> Na Fila
                   </div>
-                  <div className="text-base font-black text-sky-300 mt-0.5">
+                  <div className="text-base font-black text-sky-950 dark:text-sky-100 mt-0.5">
                     {campaignProgress.pendingCount}
                   </div>
                 </div>
 
-                <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-indigo-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-indigo-900 dark:text-indigo-200 uppercase font-bold flex items-center justify-center gap-1">
                     <Activity className="w-3 h-3" /> Em Curso
                   </div>
-                  <div className="text-base font-black text-indigo-300 mt-0.5">
+                  <div className="text-base font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
                     {campaignProgress.processingCount}
                   </div>
                 </div>
 
-                <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-rose-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-rose-900 dark:text-rose-200 uppercase font-bold flex items-center justify-center gap-1">
                     <AlertCircle className="w-3 h-3" /> Falhas
                   </div>
-                  <div className="text-base font-black text-rose-300 mt-0.5">
+                  <div className="text-base font-black text-rose-950 dark:text-rose-100 mt-0.5">
                     {campaignProgress.failedCount}
                   </div>
                 </div>
 
-                <div className="bg-zinc-800/40 border border-zinc-700/60 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-zinc-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-slate-50 border border-slate-200 dark:bg-slate-950/40 dark:border-slate-800 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-slate-900 dark:text-slate-200 uppercase font-bold flex items-center justify-center gap-1">
                     <Ban className="w-3 h-3" /> Suprimidos
                   </div>
-                  <div className="text-base font-black text-zinc-300 mt-0.5">
+                  <div className="text-base font-black text-slate-950 dark:text-slate-100 mt-0.5">
                     {campaignProgress.suppressedCount}
                   </div>
                 </div>
 
-                <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-2.5 text-center col-span-2 sm:col-span-1">
-                  <div className="text-[11px] text-amber-400 uppercase font-bold flex items-center justify-center gap-1">
+                <div className="bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 rounded-xl p-2.5 text-center col-span-2 sm:col-span-1">
+                  <div className="text-[11px] text-amber-900 dark:text-amber-200 uppercase font-bold flex items-center justify-center gap-1">
                     <Layers className="w-3 h-3" /> Bloco
                   </div>
-                  <div className="text-base font-black text-amber-300 mt-0.5">
+                  <div className="text-base font-black text-amber-950 dark:text-amber-100 mt-0.5">
                     {campaignProgress.currentBatch} / {campaignProgress.totalBatches}
                   </div>
                 </div>
@@ -1575,7 +1576,7 @@ function MailerPage() {
                 </div>
                 {campaignProgress.nextBatchAt &&
                   new Date(campaignProgress.nextBatchAt) > new Date() && (
-                    <span className="text-amber-400 font-medium">
+                    <span className="text-amber-900 dark:text-amber-200 font-medium">
                       Pausa automática de segurança ativa até{" "}
                       {new Date(campaignProgress.nextBatchAt).toLocaleTimeString()}
                     </span>
@@ -2135,7 +2136,7 @@ function MailerPage() {
                                   <div className="font-semibold text-foreground flex items-center gap-1.5 truncate">
                                     <span>{rec.name}</span>
                                     {rec.isSuppressed && (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-slate-900 dark:text-slate-200 border border-zinc-700">
                                         <ShieldAlert className="w-3 h-3 text-amber-500" />
                                         Opt-out (Pausado)
                                       </span>
@@ -2160,7 +2161,7 @@ function MailerPage() {
                                 <div className="font-medium text-foreground truncate max-w-[160px]">
                                   {rec.universityName}
                                   {rec.isHbcu && (
-                                    <span className="ml-1 text-[10px] text-amber-400 font-bold">
+                                    <span className="ml-1 text-[10px] text-amber-900 dark:text-amber-200 font-bold">
                                       [HBCU]
                                     </span>
                                   )}
@@ -2357,7 +2358,7 @@ function MailerPage() {
                                 </span>
                               ) : log.status === "suppressed" ? (
                                 <span
-                                  className="inline-flex items-center gap-1 text-zinc-400 font-semibold"
+                                  className="inline-flex items-center gap-1 text-slate-900 dark:text-slate-200 font-semibold"
                                   title="Ignorado por descadastro (Suppressed)"
                                 >
                                   <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
@@ -2443,7 +2444,7 @@ function MailerPage() {
                 {selectedTimelineLog.provider_id && (
                   <div className="flex justify-between text-[11px]">
                     <span className="text-muted-foreground">Resend Email ID:</span>
-                    <span className="font-mono text-zinc-400">
+                    <span className="font-mono text-slate-900 dark:text-slate-200">
                       {selectedTimelineLog.provider_id}
                     </span>
                   </div>
@@ -2502,7 +2503,7 @@ function MailerPage() {
                           </div>
                         )}
                         {evt.clickedLink && (
-                          <div className="text-[11px] text-sky-400 truncate max-w-sm mt-0.5">
+                          <div className="text-[11px] text-sky-900 dark:text-sky-200 truncate max-w-sm mt-0.5">
                             Link: {evt.clickedLink}
                           </div>
                         )}

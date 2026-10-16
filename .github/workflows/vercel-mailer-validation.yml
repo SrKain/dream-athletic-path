@@ -3,7 +3,7 @@ name: Vercel and Mailer Validation
 on:
   push:
     branches:
-      - fix/2026-10-16-vercel-mailer-reliability
+      - 'fix/**'
   pull_request:
     branches:
       - main
