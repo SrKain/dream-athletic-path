@@ -120,7 +120,10 @@ export function isTransferEligible(status: string | null | undefined): boolean {
 /**
  * Gera o link mailto: pré-preenchido para o botão "I'M INTERESTED"
  */
-export function buildInterestedMailtoUrl(athlete: RecruitEmailAthlete, _coachName?: string): string {
+export function buildInterestedMailtoUrl(
+  athlete: RecruitEmailAthlete,
+  _coachName?: string,
+): string {
   const cleanName = athlete.name.replace(/[\r\n]+/g, " ").trim() || "Athlete";
   const position = athlete.positionEn?.replace(/[\r\n]+/g, " ").trim();
   const prospect = `${cleanName}${position ? ` (${position})` : ""}`;
@@ -140,7 +143,13 @@ export function buildInterestedMailtoUrl(athlete: RecruitEmailAthlete, _coachNam
 /** Prefilled reply for the athlete whose Not a Fit action was clicked. */
 export function buildNotAFitUrl(
   _athleteId: string,
-  options: { appUrl?: string; coachEmail?: string; feedbackToken?: string; athleteName?: string; position?: string | null },
+  options: {
+    appUrl?: string;
+    coachEmail?: string;
+    feedbackToken?: string;
+    athleteName?: string;
+    position?: string | null;
+  },
 ): string {
   const athleteName = options.athleteName?.replace(/[\r\n]+/g, " ").trim() || "Athlete";
   const position = options.position?.replace(/[\r\n]+/g, " ").trim();
@@ -189,7 +198,11 @@ export function renderAthleteCard(
     content: `watch_film_${athlete.slug}`,
   });
   const interestedMailto = buildInterestedMailtoUrl(athlete, options.coachName);
-  const notAFitUrl = buildNotAFitUrl(athlete.id, { ...options, athleteName: athlete.name, position: athlete.positionEn });
+  const notAFitUrl = buildNotAFitUrl(athlete.id, {
+    ...options,
+    athleteName: athlete.name,
+    position: athlete.positionEn,
+  });
 
   const specs = buildAthleteSpecsLine(athlete);
   const showTransferBadge = isTransferEligible(athlete.athleteStatus);
@@ -382,7 +395,10 @@ export function renderSingleAthleteRecruitEmail(options: RecruitEmailRenderOptio
     gradYear,
   ].filter(Boolean);
   const subjectPrefix = specParts.join(" · ");
-  const subject = resolveEmailSubject(options.customSubject, `${subjectPrefix}: ${athlete.name} ${country}`.trim());
+  const subject = resolveEmailSubject(
+    options.customSubject,
+    `${subjectPrefix}: ${athlete.name} ${country}`.trim(),
+  );
   const preheader = `Verified prospect ${athlete.name} — ${buildAthleteSpecsLine(athlete)}`;
 
   const greetingLine = buildCoachGreeting(options.coachLastName);
@@ -437,7 +453,7 @@ export function renderSingleAthleteRecruitEmail(options: RecruitEmailRenderOptio
     ${renderFeedbackBlock({
       recipientEmail: options.coachEmail,
       athleteId: athlete.id,
-      athleteName: athlete.name, position: athlete.positionEn,
+      athleteName: athlete.name,
       position: athlete.positionEn,
     })}
 
@@ -475,7 +491,10 @@ export function renderMultiAthleteRecruitEmail(options: RecruitEmailRenderOption
   const gradYear = options.gradYear ? `Class of ${options.gradYear}` : "Class of 2027";
 
   const count = athletes.length;
-  const subject = resolveEmailSubject(options.customSubject, `${count} verified ${sport} prospects, ${gradYear}`);
+  const subject = resolveEmailSubject(
+    options.customSubject,
+    `${count} verified ${sport} prospects, ${gradYear}`,
+  );
   const firstNames = athletes
     .slice(0, 3)
     .map((a) => a.name)
@@ -569,7 +588,10 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
   const coachGreeting = coachName ? `Coach ${coachName}` : "Coach";
   const baseUrl = options.appUrl || EMAIL_BASE_URL;
 
-  const subject = resolveEmailSubject(options.customSubject, "Go Team Go — Active US College Recruiting Portfolio");
+  const subject = resolveEmailSubject(
+    options.customSubject,
+    "Go Team Go — Active US College Recruiting Portfolio",
+  );
   const preheader = "Explore our active verified international college prospects roster.";
 
   const greetingLine = buildCoachGreeting(options.coachLastName);
@@ -667,7 +689,8 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     appUrl: baseUrl,
     coachEmail: options.coachEmail,
     feedbackToken: options.feedbackToken,
-    athleteName: athlete.name, position: athlete.positionEn,
+    athleteName: athlete.name,
+    position: athlete.positionEn,
   });
 
   const lines = [

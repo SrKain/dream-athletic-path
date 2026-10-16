@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   enqueueCampaignDispatches,
@@ -96,48 +97,47 @@ function createMockAdminClient() {
             }
             return { data: rows, error: null };
           }),
-          select: vi.fn((_cols?: string, opts?: any) => ({
-            eq: vi.fn((col: string, val: any) => {
-              const matches: any[] = [];
-              for (const q of mockQueue.values()) {
-                if (q[col] === val) matches.push(q);
-              }
-
-              // Return an object that is both awaitable (returns matches) AND allows chaining .in, .order, etc.
-              const queryObj: any = {
+          select: vi.fn((_cols?: string, opts?: any) => {
+            const createQueryChain = (currentMatches: any[]) => {
+              const chain: any = {
                 then: (resolve: any) =>
                   resolve({
-                    data: opts?.head ? null : matches,
-                    count: matches.length,
+                    data: opts?.head ? null : currentMatches,
+                    count: currentMatches.length,
                     error: null,
                   }),
-                in: vi.fn((statusCol: string, statuses: string[]) => {
-                  const inMatches = matches.filter((q) => statuses.includes(q[statusCol]));
-                  return {
-                    then: (resolve: any) =>
-                      resolve({
-                        data: opts?.head ? null : inMatches,
-                        count: inMatches.length,
-                        error: null,
-                      }),
-                    order: vi.fn(() => ({
-                      order: vi.fn(() => ({
-                        limit: vi.fn(async (lim: number) => {
-                          const limited = inMatches.slice(0, lim);
-                          return {
-                            data: opts?.head ? null : limited,
-                            count: limited.length,
-                            error: null,
-                          };
-                        }),
-                      })),
-                    })),
-                  };
+                eq: vi.fn((col: string, val: any) => {
+                  const filtered = currentMatches.filter((q) => q[col] === val);
+                  return createQueryChain(filtered);
                 }),
+                in: vi.fn((col: string, vals: any[]) => {
+                  const filtered = currentMatches.filter((q) => vals.includes(q[col]));
+                  return createQueryChain(filtered);
+                }),
+                order: vi.fn(() => ({
+                  order: vi.fn(() => ({
+                    limit: vi.fn(async (lim: number) => ({
+                      data: opts?.head ? null : currentMatches.slice(0, lim),
+                      count: Math.min(currentMatches.length, lim),
+                      error: null,
+                    })),
+                  })),
+                })),
               };
-              return queryObj;
-            }),
-          })),
+              return chain;
+            };
+
+            return {
+              eq: vi.fn((col: string, val: any) => {
+                const matches = Array.from(mockQueue.values()).filter((q) => q[col] === val);
+                return createQueryChain(matches);
+              }),
+              in: vi.fn((col: string, vals: any[]) => {
+                const matches = Array.from(mockQueue.values()).filter((q) => vals.includes(q[col]));
+                return createQueryChain(matches);
+              }),
+            };
+          }),
           update: vi.fn((updates: any) => ({
             eq: vi.fn((col: string, val: string) => {
               const performUpdate = () => {
@@ -266,10 +266,58 @@ function createMockAdminClient() {
       if (fnName === "recover_stale_mailer_queue_reservations") {
         return { data: 0, error: null };
       }
+      if (fnName === "acquire_mailer_campaign_lease") {
+        return { data: true, error: null };
+      }
+      if (fnName === "get_mailer_campaign_progress_summary") {
+        const campaignId = args.p_campaign_id;
+        const c = mockCampaigns.get(campaignId);
+        if (!c) return { data: null, error: null };
+        let sent = 0;
+        let failed = 0;
+        let pending = 0;
+        let processing = 0;
+        let cancelled = 0;
+        for (const q of mockQueue.values()) {
+          if (q.campaign_id === campaignId) {
+            if (q.status === "sent") sent++;
+            else if (q.status === "failed") failed++;
+            else if (q.status === "pending" || q.status === "retry") pending++;
+            else if (q.status === "processing") processing++;
+            else if (q.status === "cancelled") cancelled++;
+          }
+        }
+        return {
+          data: {
+            campaign_id: c.id,
+            status: c.status,
+            subject: c.subject,
+            total_recipients: c.total_recipients,
+            sent_count: sent,
+            failed_count: failed,
+            suppressed_count: c.suppressed_count || 0,
+            pending_count: pending,
+            processing_count: processing,
+            cancelled_count: cancelled,
+            current_batch: c.current_batch || 1,
+            total_batches: c.total_batches || 1,
+            batch_size: c.batch_size || 150,
+            next_batch_at: c.next_batch_at,
+            cooldown_remaining_sec: 0,
+            started_at: c.started_at,
+            completed_at: c.completed_at,
+            last_error: c.last_error,
+            controller_id: c.controller_id,
+          },
+          error: null,
+        };
+      }
       if (fnName === "claim_mailer_queue_batch") {
-        const batchSize = args.p_batch_size || 150;
+        const batchSize = Math.min(2, Math.max(1, args.p_batch_size || 2));
+        const campaignId = args.p_campaign_id;
         const claimed: any[] = [];
         for (const [id, q] of mockQueue.entries()) {
+          if (campaignId && q.campaign_id !== campaignId) continue;
           if (q.status === "pending" || q.status === "retry") {
             const updated = {
               ...q,
@@ -304,14 +352,17 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
 
   describe("1. Campaign Enqueueing & Batch Calculations (10, 150, 151, 300, 1000)", () => {
     it("persists a custom subject and a different greeting for each coach", async () => {
-      const result = await enqueueCampaignDispatches({
-        mode: "catalog",
-        customOptions: { subject: "Recruiting for next season" },
-        recipients: [
-          { name: "Taylor Smith", lastName: "Smith", email: "smith@college.edu" },
-          { name: "Alex Van Dijk", lastName: "Van Dijk", email: "alex@college.edu" },
-        ],
-      }, createMockAdminClient());
+      const result = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          customOptions: { subject: "Recruiting for next season" },
+          recipients: [
+            { name: "Taylor Smith", lastName: "Smith", email: "smith@college.edu" },
+            { name: "Alex Van Dijk", lastName: "Van Dijk", email: "alex@college.edu" },
+          ],
+        },
+        createMockAdminClient(),
+      );
       expect(result.success).toBe(true);
       const items = Array.from(mockQueue.values());
       expect(items).toHaveLength(2);
@@ -459,7 +510,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
   });
 
   describe("2. Worker Processing, Rate Limits & Batch Progression", () => {
-    it("processes a batch of up to 150 items and updates queue & logs", async () => {
+    it("processes items in micro-batches and updates queue & logs", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 10 }, (_, i) => ({
         name: `Coach ${i}`,
@@ -471,16 +522,21 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         mockAdmin,
       );
 
-      const processRes = await processMailerQueue({
-        customAdmin: mockAdmin,
-        maxBatchSize: 150,
-        itemSpacingMs: 0,
-      });
+      let totalProcessed = 0;
+      let totalSent = 0;
+      while (totalSent < 10) {
+        const tickRes = await processMailerQueue({
+          customAdmin: mockAdmin,
+          campaignId: enqueueRes.campaignId,
+          maxBatchSize: 2,
+        });
+        totalProcessed += tickRes.processed;
+        totalSent += tickRes.sent;
+        if (tickRes.campaignCompleted || tickRes.processed === 0) break;
+      }
 
-      expect(processRes.processed).toBe(10);
-      expect(processRes.sent).toBe(10);
-      expect(processRes.failed).toBe(0);
-      expect(processRes.rateLimited).toBe(false);
+      expect(totalProcessed).toBe(10);
+      expect(totalSent).toBe(10);
 
       for (const q of mockQueue.values()) {
         expect(q.status).toBe("sent");
@@ -499,14 +555,17 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         email: `coach${i}@college.edu`,
       }));
 
-      await enqueueCampaignDispatches({ mode: "catalog", recipients }, mockAdmin);
+      const enqueueRes = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients },
+        mockAdmin,
+      );
 
       mockResendSend.mockRejectedValueOnce(new Error("429 Too Many Requests"));
 
       const processRes = await processMailerQueue({
         customAdmin: mockAdmin,
-        maxBatchSize: 150,
-        itemSpacingMs: 0,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
       });
 
       expect(processRes.rateLimited).toBe(true);
@@ -522,11 +581,18 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const mockAdmin = createMockAdminClient();
       const recipients = [{ name: "Coach Error", email: "error@college.edu" }];
 
-      await enqueueCampaignDispatches({ mode: "catalog", recipients }, mockAdmin);
+      const enqueueRes = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients },
+        mockAdmin,
+      );
 
       // Attempt 1: fails -> retry
       mockResendSend.mockRejectedValueOnce(new Error("Network timeout"));
-      await processMailerQueue({ customAdmin: mockAdmin, itemSpacingMs: 0, ignoreCooldown: true });
+      await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 1,
+      });
 
       let item = Array.from(mockQueue.values())[0];
       expect(item.status).toBe("retry");
@@ -534,14 +600,22 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
 
       // Attempt 2: fails -> retry
       mockResendSend.mockRejectedValueOnce(new Error("Network timeout"));
-      await processMailerQueue({ customAdmin: mockAdmin, itemSpacingMs: 0, ignoreCooldown: true });
+      await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 1,
+      });
       item = Array.from(mockQueue.values())[0];
       expect(item.status).toBe("retry");
       expect(item.attempts).toBe(2);
 
       // Attempt 3: fails -> reached max_attempts (3) -> failed
       mockResendSend.mockRejectedValueOnce(new Error("Permanent server error"));
-      await processMailerQueue({ customAdmin: mockAdmin, itemSpacingMs: 0, ignoreCooldown: true });
+      await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 1,
+      });
       item = Array.from(mockQueue.values())[0];
       expect(item.status).toBe("failed");
       expect(item.attempts).toBe(3);
@@ -564,7 +638,6 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         customAdmin: mockAdmin,
         campaignId: enqueueRes.campaignId,
         maxBatchSize: 2,
-        itemSpacingMs: 0,
       });
       expect(tick1.processed).toBe(2);
       expect(tick1.sent).toBe(2);
@@ -575,7 +648,6 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         customAdmin: mockAdmin,
         campaignId: enqueueRes.campaignId,
         maxBatchSize: 2,
-        itemSpacingMs: 0,
       });
       expect(tick2.processed).toBe(2);
       expect(tick2.sent).toBe(2);
@@ -586,7 +658,6 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         customAdmin: mockAdmin,
         campaignId: enqueueRes.campaignId,
         maxBatchSize: 2,
-        itemSpacingMs: 0,
       });
       expect(tick3.processed).toBe(2);
       expect(tick3.sent).toBe(2);
@@ -596,10 +667,55 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         customAdmin: mockAdmin,
         campaignId: enqueueRes.campaignId,
         maxBatchSize: 2,
-        itemSpacingMs: 0,
       });
       expect(tick4.campaignCompleted).toBe(true);
       expect(tick4.campaignStatus).toBe("completed");
+    });
+
+    it("scopes queue reservation strictly to authorized campaignId and does not claim items from other campaigns", async () => {
+      const mockAdmin = createMockAdminClient();
+      const campA = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients: [{ name: "Coach A", email: "a@college.edu" }] },
+        mockAdmin,
+      );
+      const campB = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients: [{ name: "Coach B", email: "b@college.edu" }] },
+        mockAdmin,
+      );
+
+      // Process only Campaign A
+      const resA = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: campA.campaignId,
+        maxBatchSize: 2,
+      });
+
+      expect(resA.sent).toBe(1);
+      expect(resA.activeCampaignId).toBe(campA.campaignId);
+
+      // Items for Campaign B must remain pending
+      const queueB = Array.from(mockQueue.values()).find((q) => q.campaign_id === campB.campaignId);
+      expect(queueB?.status).toBe("pending");
+    });
+
+    it("deduplicates recipients with the same normalized email address", async () => {
+      const mockAdmin = createMockAdminClient();
+      const res = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [
+            { name: "Coach One", email: "coach@college.edu" },
+            { name: "Coach Two", email: "  COACH@college.edu " },
+          ],
+        },
+        mockAdmin,
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.totalEnqueued).toBe(1);
+      const items = Array.from(mockQueue.values()).filter((q) => q.campaign_id === res.campaignId);
+      expect(items).toHaveLength(1);
+      expect(items[0].recipient_email).toBe("coach@college.edu");
     });
   });
 
@@ -622,13 +738,17 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const campaign = mockCampaigns.get(enqueueRes.campaignId);
       expect(campaign.status).toBe("paused");
 
-      const processRes = await processMailerQueue({ customAdmin: mockAdmin, itemSpacingMs: 0 });
+      const processRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+      });
       expect(processRes.processed).toBe(0);
+      expect(processRes.campaignStatus).toBe("paused");
     });
 
     it("resumes a paused campaign and enables processing", async () => {
       const mockAdmin = createMockAdminClient();
-      const recipients = Array.from({ length: 5 }, (_, i) => ({
+      const recipients = Array.from({ length: 4 }, (_, i) => ({
         name: `Coach ${i}`,
         email: `coach${i}@college.edu`,
       }));
@@ -647,16 +767,15 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
 
       const processRes = await processMailerQueue({
         customAdmin: mockAdmin,
-        itemSpacingMs: 0,
-        ignoreCooldown: true,
-        maxBatchSize: 5,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
       });
-      expect(processRes.sent).toBe(5);
+      expect(processRes.sent).toBe(2);
     });
 
     it("cancels campaign and marks pending items as cancelled without losing sent history", async () => {
       const mockAdmin = createMockAdminClient();
-      const recipients = Array.from({ length: 10 }, (_, i) => ({
+      const recipients = Array.from({ length: 6 }, (_, i) => ({
         name: `Coach ${i}`,
         email: `coach${i}@college.edu`,
       }));
@@ -666,8 +785,12 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         mockAdmin,
       );
 
-      // Process first 5 items
-      await processMailerQueue({ customAdmin: mockAdmin, maxBatchSize: 5, itemSpacingMs: 0 });
+      // Process first 2 items
+      await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+      });
 
       // Cancel campaign
       const cancelRes = await cancelCampaign(enqueueRes.campaignId, mockAdmin);
@@ -683,13 +806,13 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         if (q.status === "cancelled") cancelledCount++;
       }
 
-      expect(sentCount).toBe(5);
-      expect(cancelledCount).toBe(5);
+      expect(sentCount).toBe(2);
+      expect(cancelledCount).toBe(4);
     });
 
     it("calculates accurate campaign progress metrics", async () => {
       const mockAdmin = createMockAdminClient();
-      const recipients = Array.from({ length: 20 }, (_, i) => ({
+      const recipients = Array.from({ length: 6 }, (_, i) => ({
         name: `Coach ${i}`,
         email: `coach${i}@college.edu`,
       }));
@@ -699,13 +822,17 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         mockAdmin,
       );
 
-      await processMailerQueue({ customAdmin: mockAdmin, maxBatchSize: 10, itemSpacingMs: 0 });
+      await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 2,
+      });
 
       const progress = await getCampaignQueueProgress(enqueueRes.campaignId, mockAdmin);
       expect(progress).toBeDefined();
-      expect(progress?.totalRecipients).toBe(20);
-      expect(progress?.sentCount).toBe(10);
-      expect(progress?.percentComplete).toBe(50);
+      expect(progress?.totalRecipients).toBe(6);
+      expect(progress?.sentCount).toBe(2);
+      expect(progress?.percentComplete).toBe(33);
       expect(progress?.currentBatch).toBeGreaterThanOrEqual(1);
     });
   });

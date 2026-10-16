@@ -1311,3 +1311,40 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - `email-personalization.test.ts` cobre textos exatos, caracteres especiais, nomes distintos, assunto/fallback/limites, saudação por sobrenome e HTML/texto nos três modos. Suítes de envio/fila receberam verificações de propagação; suíte de renderização teve expectativas alteradas para os novos requisitos.
 - Validação: 11 testes de personalização e 6 cenários complementares de direto/fila passaram via Node com mocks, além da rejeição de cabeçalho inválido. Suíte antiga 13/15, com as mesmas duas falhas reproduzidas no snapshot original. Validação completa Bun/Vitest/lint/typecheck/build e UI permanece pendente por indisponibilidade do ambiente.
 - Plano aprovado: `think/2026-10-13-2100-personalizacao-assunto-saudacao-respostas-mailer.md`. Apenas novos envios; campanhas já enfileiradas não são reescritas.
+
+## Atualização 2026-10-16 — Correção Definitiva do Mailer: Orquestração Segura pelo Navegador, Reserva Escopada e Redução de Carga no Backend (TASK-095)
+
+- **Orquestração pelo Navegador e Desacoplamento da Vercel**:
+  - Eliminação de qualquer dependência de Vercel Cron, workers permanentes ou requisições longas no backend.
+  - O navegador da agência controla o ciclo de vida completo: início sequencial, envio em micro-lotes de até 2 e-mails, intervalo de pelo menos 1 segundo entre micro-lotes, pausa automática de 60 segundos após cada bloco de 150 envios, pausa manual, retomada imediata e cancelamento com limpeza da fila.
+  - Cooldown de 60s executado estritamente no cliente com contagem regressiva reativa local, sem requisições de polling ao servidor a cada segundo.
+  - Tratamento resiliente de desconexão e visibilidade: detecção de aba oculta e perda de conexão (`offline`), retomando sem rajadas de requisições ao reconectar (`online`).
+  - Prevenção de concorrência com `BroadcastChannel` local (`gtg_mailer_orchestrator`) e trava de desmonte (`isUnmountedRef`).
+
+- **Reserva Atômica Escopada por Campanha e Lease no Servidor (`db/migrations/0025_mailer_campaign_scoped_queue_and_metrics.sql`)**:
+  - A RPC `claim_mailer_queue_batch` foi atualizada com o parâmetro `p_campaign_id uuid default null`, garantindo que apenas itens pertencentes estritamente à campanha autorizada sejam reservados via `FOR UPDATE SKIP LOCKED`. Itens de outras campanhas nunca são tocados ou corrompidos.
+  - Criação da RPC `acquire_mailer_campaign_lease` com colunas `controller_id` e `controller_lease_expires_at` em `mailer_campaigns`, prevenindo que múltiplas abas ou sessões concorrentes operem a mesma campanha em paralelo.
+  - Criação da RPC `get_mailer_campaign_progress_summary(p_campaign_id uuid)` com agregação SQL compacta em O(1) (`COUNT(*) FILTER ...`), eliminando completamente o carregamento de milhares de linhas para processamento em memória JavaScript.
+
+- **Idempotência, Redução de Carga e Tratamento Parcial de Falhas**:
+  - Implementação de cabeçalho duplo oficial `Idempotency-Key` e `X-Entity-Ref-ID` com hash SHA-256 estável (`${campaignId}:${recipientEmail}`).
+  - Se a mensagem já contiver `provider_message_id`, o envio é pulado com sucesso garantido, impedindo reenvios duplicados.
+  - Proteção contra falha de log: se o Resend confirmar o envio com `provider_message_id`, o item é imediatamente gravado como `sent` com o ID correspondente. Eventuais falhas na gravação secundária de logs não invalidam o status nem causam reenvio cego.
+  - A resposta de cada micro-lote (`processMailerMicroBatchServerFn`) já traz o progresso consolidado da campanha, eliminando requisições paralelas de polling.
+  - Deduplicação estrita de destinatários por e-mail normalizado (`email.toLowerCase().trim()`) e higienização de IDs não-UUID de coaches.
+
+- **Remoção de Bypasses e Validação Restritiva no Servidor**:
+  - Remoção de `ignoreCooldown` no backend e no frontend; o servidor valida e rejeita qualquer tentativa de burlar o intervalo de segurança.
+  - Limitação estrita do lote no servidor a no máximo 2 e-mails (`Math.min(2, Math.max(1, batchSize))`).
+  - Remoção de qualquer botão ou Server Function de disparo forçado desprotegido.
+
+- **Preservação de Textos Canônicos e Destinos**:
+  - Preservados integralmente os destinos: `RECRUIT NOW` para `fabiana@goteamgoagency.com` com assunto `[Interested] [Athlete Name] ([Position])`, `NOT A FIT` para `contact@goteamgoagency.com` com assunto `Not a fit: [Athlete Name]`, e `Reply-To: contact@goteamgoagency.com` em todos os envios enfileirados.
+  - Saudação dinâmica `Hi Coach [last_name],` preservada.
+
+- **Qualidade e Validação**:
+  - Vitest: 24 arquivos de teste, 186 testes unitários executados e 100% aprovados (0 falhas).
+  - ESLint: 0 erros.
+  - Compilação de produção (`compile_applet`): Build verde com sucesso.
+  - Governança de pacotes: `package.json` e `bun.lock` preservados intactos.
+- **Plano:** `think/2026-10-16-0735-correcao-definitiva-mailer-fila-navegador.md`.

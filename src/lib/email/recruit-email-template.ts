@@ -145,20 +145,26 @@ function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData)
   return buildCoachGreeting(data.coachLastName);
 }
 
-function resolveLegacyBodyBlocks(data: RecruitEmailData | MultiAthleteEmailData, athleteIds: string[]) {
+function resolveLegacyBodyBlocks(
+  data: RecruitEmailData | MultiAthleteEmailData,
+  athleteIds: string[],
+) {
   if (data.blocks?.length) return data.blocks;
 
   const defaults = buildDefaultEmailBlocks(athleteIds);
   const greeting = (data.customGreeting || buildLegacyGreetingText(data) || "").trim();
   const hook = (data.customHook || "").trim();
   const intro = (data.customIntroduction || "").trim();
-  const defaultIntro = athleteIds.length > 1
-    ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
-    : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
+  const defaultIntro =
+    athleteIds.length > 1
+      ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
+      : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
 
   return buildFixedEmailBlocks(
     {
-      greeting: greeting || (defaults[0]?.type === "text" ? defaults[0].content.split("\n\n")[0] : "Hi Coach,"),
+      greeting:
+        greeting ||
+        (defaults[0]?.type === "text" ? defaults[0].content.split("\n\n")[0] : "Hi Coach,"),
       introduction: intro || defaultIntro,
       athleteOrder: athleteIds,
       closing: hook || "Let me know what you think.",
@@ -255,7 +261,10 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
   });
 
   const personal = renderPersonalEmail({
-    blocks: resolveLegacyBodyBlocks(data, athletes.map((a) => a.id)),
+    blocks: resolveLegacyBodyBlocks(
+      data,
+      athletes.map((a) => a.id),
+    ),
     athletes,
     subject: result.subject,
     preheader: result.preheader,

@@ -495,6 +495,8 @@ export interface MailerCampaign {
   paused_at?: string | null;
   cancelled_at?: string | null;
   last_error?: string | null;
+  controller_id?: string | null;
+  controller_lease_expires_at?: string | null;
 }
 
 export interface MailerQueueItem {

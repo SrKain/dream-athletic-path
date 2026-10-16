@@ -396,7 +396,11 @@ export function buildBoardCardUrls(athlete: RecruitEmailAthlete, options: BoardC
       campaignId: options.campaignId,
       content: `full_profile_${athlete.slug}`,
     }),
-    notFit: buildNotAFitUrl(athlete.id, { ...options, athleteName: athlete.name, position: athlete.positionEn }),
+    notFit: buildNotAFitUrl(athlete.id, {
+      ...options,
+      athleteName: athlete.name,
+      position: athlete.positionEn,
+    }),
   };
 }
 

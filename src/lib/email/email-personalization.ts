@@ -2,7 +2,8 @@
 export const MAX_CUSTOM_SUBJECT_LENGTH = 200;
 
 export function resolveEmailSubject(customSubject: unknown, fallback: string): string {
-  if (customSubject == null || customSubject === "") return fallback.replace(/[\r\n]+/g, " ").trim();
+  if (customSubject == null || customSubject === "")
+    return fallback.replace(/[\r\n]+/g, " ").trim();
   if (typeof customSubject !== "string" || /[\r\n]/.test(customSubject)) {
     throw new Error("Email subject must be a single line of text.");
   }

@@ -126,7 +126,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
     it("renders athlete card with photo, name, specs, TRANSFER badge and 4 buttons", () => {
       const cardHtml = renderAthleteCard(athlete1, {
         appUrl: "https://portfolio.goteamgoagency.com",
-        coachName: "Smith", coachLastName: "Smith",
+        coachName: "Smith",
+        coachLastName: "Smith",
       });
 
       expect(cardHtml).toContain("Mariana Silva");
@@ -150,7 +151,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
     it("renders lean header, 1-line greeting, athlete card first, and institutional block at the end", () => {
       const { subject, html } = renderSingleAthleteRecruitEmail({
         athlete: athlete1,
-        coachName: "Dave", coachLastName: "Dave",
+        coachName: "Dave",
+        coachLastName: "Dave",
         sportName: "volleyball",
       });
 
@@ -176,7 +178,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
     it("renders full-width stacked rows (1 athlete per row) with specs in preheader", () => {
       const { subject, preheader, html } = renderMultiAthleteRecruitEmail({
         athletes: [athlete1, athlete2, transferAthlete],
-        coachName: "Smith", coachLastName: "Smith",
+        coachName: "Smith",
+        coachLastName: "Smith",
         sportName: "volleyball",
         gradYear: "2027",
       });
@@ -194,13 +197,12 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
   describe("5. Catalog Mode Email Render", () => {
     it("renders quick actions at top and institutional block at bottom", () => {
       const { subject, html } = renderCatalogRecruitEmail({
-        coachName: "Johnson", coachLastName: "Johnson",
+        coachName: "Johnson",
+        coachLastName: "Johnson",
       });
 
       expect(subject).toContain("Go Team Go — Active US College Recruiting Portfolio");
-      expect(html).toContain(
-        "Hi Coach Johnson,",
-      );
+      expect(html).toContain("Hi Coach Johnson,");
       expect(html).toContain("VIEW FULL PORTFOLIO →");
       expect(html).toContain("REQUEST BY POSITION");
 
@@ -215,7 +217,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
     it("generates plain text with specs first and action links included", () => {
       const singleText = generateRecruitEmailPlainText({
         athlete: athlete1,
-        coachName: "Smith", coachLastName: "Smith",
+        coachName: "Smith",
+        coachLastName: "Smith",
       });
 
       expect(singleText).toContain("Hi Coach Smith,");
@@ -229,7 +232,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
 
       const multiText = generateMultiAthletePlainText({
         athletes: [athlete1, athlete2],
-        coachName: "Smith", coachLastName: "Smith",
+        coachName: "Smith",
+        coachLastName: "Smith",
       });
 
       expect(multiText).toContain("Hi Coach Smith,");
@@ -257,7 +261,8 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
         athleteStatus: "Junior",
         highlightNote: "Elite defensive specialist.",
         recipientEmail: "coach@stanford.edu",
-        coachName: "Dave", coachLastName: "Dave",
+        coachName: "Dave",
+        coachLastName: "Dave",
       };
 
       const res = renderRecruitEmail(legacyData);
@@ -270,14 +275,16 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
 
       const multiRes = renderMultiLegacy({
         athletes: [legacyData],
-        coachName: "Dave", coachLastName: "Dave",
+        coachName: "Dave",
+        coachLastName: "Dave",
         recipientEmail: "coach@stanford.edu",
       });
       expect(multiRes.subject).toContain("1 verified Volleyball prospects, Class of 2026");
       expect(multiRes.html).toContain("Laura Souza");
 
       const catalogRes = renderCatalogEmail({
-        coachName: "Dave", coachLastName: "Dave",
+        coachName: "Dave",
+        coachLastName: "Dave",
         recipientEmail: "coach@stanford.edu",
       });
       expect(catalogRes.subject).toContain("Go Team Go");

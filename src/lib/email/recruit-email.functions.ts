@@ -209,27 +209,26 @@ export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
 // 15. Processamento Autenticado de Micro-Lote da Fila (Orquestrado pelo Navegador da Agência)
 export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
-  .inputValidator(
-    (data?: { campaignId?: string; batchSize?: number; ignoreCooldown?: boolean }) => data,
-  )
+  .inputValidator((data: { campaignId: string; batchSize?: number; clientId?: string }) => {
+    if (!data?.campaignId || typeof data.campaignId !== "string" || !data.campaignId.trim()) {
+      throw new Error("campaignId is required.");
+    }
+    return {
+      campaignId: data.campaignId.trim(),
+      batchSize: Math.min(2, Math.max(1, Number(data.batchSize) || 2)),
+      clientId: typeof data.clientId === "string" ? data.clientId.trim() : undefined,
+    };
+  })
   .handler(async ({ data }) => {
     const { processMailerQueue } = await import("./mailer-queue.server");
     return processMailerQueue({
-      campaignId: data?.campaignId,
-      maxBatchSize: data?.batchSize || 2,
-      ignoreCooldown: data?.ignoreCooldown,
+      campaignId: data.campaignId,
+      maxBatchSize: data.batchSize,
+      clientId: data.clientId,
     });
   });
 
-// 16. Disparar Worker da Fila Manualmente / Tick do Backend (Requer agência)
-export const triggerProcessMailerQueueServerFn = createServerFn({ method: "POST" })
-  .middleware([requireAgency])
-  .handler(async () => {
-    const { processMailerQueue } = await import("./mailer-queue.server");
-    return processMailerQueue({ maxBatchSize: 2 });
-  });
-
-// 17. Buscar Campanha Ativa em Andamento (Requer agência)
+// 16. Buscar Campanha Ativa em Andamento (Requer agência)
 export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .handler(async () => {

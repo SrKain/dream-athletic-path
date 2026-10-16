@@ -47,7 +47,6 @@ import {
   pauseMailerCampaignServerFn,
   resumeMailerCampaignServerFn,
   cancelMailerCampaignServerFn,
-  triggerProcessMailerQueueServerFn,
   getSuppressedEmailsServerFn,
   getMailerHistoryServerFn,
   getActiveInterestSignalsServerFn,
@@ -218,8 +217,16 @@ function MailerPage() {
   const [isOperatingQueue, setIsOperatingQueue] = useState(false);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(null);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false,
+  );
+  const [isAnotherTabActive, setIsAnotherTabActive] = useState(false);
 
-  // Orquestrador do Navegador: Refs de controle do loop assíncrono
+  // Orquestrador do Navegador: Refs de controle do loop assíncrono e concorrência
+  const tabIdRef = React.useRef<string>(
+    `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`,
+  );
+  const isUnmountedRef = React.useRef(false);
   const isOrchestratorActiveRef = React.useRef(false);
   const isProcessingTickRef = React.useRef(false);
   const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -377,18 +384,69 @@ function MailerPage() {
     void loadInitialData();
   }, []);
 
-  // 1. Monitorar visibilidade da aba do navegador
+  // 0. Monitorar desmonte do componente para evitar vazamento de memória e chamadas fantasmas
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+      isOrchestratorActiveRef.current = false;
+      if (tickTimeoutRef.current) {
+        clearTimeout(tickTimeoutRef.current);
+        tickTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // 1. Monitorar visibilidade da aba do navegador e conectividade de rede
   useEffect(() => {
     const handleVisibility = () => {
       setIsTabHidden(document.visibilityState === "hidden");
     };
+    const onOnline = () => {
+      setIsOffline(false);
+      // Ao reconectar, aguardar 1s e retomar sem rajadas
+      if (activeCampaignId && isOrchestratorActiveRef.current && !isUnmountedRef.current) {
+        triggerOrchestratorTick(1000);
+      }
+    };
+    const onOffline = () => {
+      setIsOffline(true);
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
     };
-  }, []);
+  }, [activeCampaignId]);
 
-  // 2. Timer de contagem regressiva para cooldown de 60s
+  // 2. BroadcastChannel para coordenação entre abas locais no mesmo navegador
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined" || !activeCampaignId) return;
+    const bc = new BroadcastChannel("gtg_mailer_orchestrator");
+    bc.onmessage = (event) => {
+      if (
+        event.data?.type === "HEARTBEAT" &&
+        event.data.campaignId === activeCampaignId &&
+        event.data.tabId !== tabIdRef.current
+      ) {
+        setIsAnotherTabActive(true);
+        isOrchestratorActiveRef.current = false;
+        if (tickTimeoutRef.current) {
+          clearTimeout(tickTimeoutRef.current);
+          tickTimeoutRef.current = null;
+        }
+      }
+    };
+    return () => {
+      bc.close();
+    };
+  }, [activeCampaignId]);
+
+  // 3. Timer de contagem regressiva para cooldown de 60s
   useEffect(() => {
     if (cooldownRemaining === null || cooldownRemaining <= 0) return;
     const timer = setInterval(() => {
@@ -403,7 +461,7 @@ function MailerPage() {
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // 3. Orquestrador do Navegador: Disparo sequencial de micro-lotes de 2 e-mails
+  // 4. Orquestrador do Navegador: Disparo sequencial de micro-lotes de até 2 e-mails
   const triggerOrchestratorTick = React.useCallback(
     (delayMs: number = 1000) => {
       if (tickTimeoutRef.current) {
@@ -411,19 +469,52 @@ function MailerPage() {
         tickTimeoutRef.current = null;
       }
 
-      if (!isOrchestratorActiveRef.current) return;
+      if (!isOrchestratorActiveRef.current || isUnmountedRef.current) return;
 
       tickTimeoutRef.current = setTimeout(async () => {
-        if (!isOrchestratorActiveRef.current || isProcessingTickRef.current) return;
+        if (
+          !isOrchestratorActiveRef.current ||
+          isUnmountedRef.current ||
+          isProcessingTickRef.current ||
+          !activeCampaignId
+        ) {
+          return;
+        }
+
         isProcessingTickRef.current = true;
+
+        // Notificar outras abas locais que este tab está no controle
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            const bc = new BroadcastChannel("gtg_mailer_orchestrator");
+            bc.postMessage({
+              type: "HEARTBEAT",
+              campaignId: activeCampaignId,
+              tabId: tabIdRef.current,
+            });
+            bc.close();
+          }
+        } catch (_broadcastErr) {
+          // Ignora indisponibilidade do BroadcastChannel em ambientes isolados
+        }
 
         try {
           const res = await processMailerMicroBatchServerFn({
             data: {
-              campaignId: activeCampaignId || undefined,
+              campaignId: activeCampaignId,
               batchSize: 2,
+              clientId: tabIdRef.current,
             },
           });
+
+          if (isUnmountedRef.current) return;
+
+          if (res.controllerConflict) {
+            setIsAnotherTabActive(true);
+            isOrchestratorActiveRef.current = false;
+            toast.warning("Outra aba ou sessão já está executando esta campanha.");
+            return;
+          }
 
           if (res.progress) {
             setCampaignProgress(res.progress);
@@ -431,9 +522,18 @@ function MailerPage() {
 
           if (res.campaignCompleted || res.campaignStatus === "completed") {
             isOrchestratorActiveRef.current = false;
-            toast.success("Campanha de e-mails concluída com sucesso!");
+            const hasFailures = (res.progress?.failedCount || 0) > 0;
+            if (hasFailures) {
+              toast.warning(
+                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount} falha(s).`,
+              );
+            } else {
+              toast.success("Campanha de e-mails concluída com sucesso!");
+            }
             const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
-            setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+            if (!isUnmountedRef.current) {
+              setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+            }
             return;
           }
 
@@ -444,19 +544,23 @@ function MailerPage() {
 
           if (res.cooldownActive && res.cooldownRemainingSec && res.cooldownRemainingSec > 0) {
             setCooldownRemaining(res.cooldownRemainingSec);
-            // Aguardar o cooldown de 60s antes do próximo micro-lote
-            triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 500);
+            // Aguardar janela de cooldown antes do próximo micro-lote (+ 1s de margem segura)
+            triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 1000);
             return;
           }
 
           setCooldownRemaining(null);
 
-          // Próximo micro-lote de 2 e-mails em aproximadamente 1 segundo
-          triggerOrchestratorTick(1000);
+          // Próximo micro-lote de até 2 e-mails: aguardar pelo menos 1 segundo
+          if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
+            triggerOrchestratorTick(1000);
+          }
         } catch (err) {
           console.error("[mailer] Error during browser orchestrator micro-tick:", err);
-          // Em caso de falha de conexão, aguardar 3s para retentar
-          triggerOrchestratorTick(3000);
+          // Em caso de falha de conexão, aguardar 3s para retentar sem rajadas
+          if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
+            triggerOrchestratorTick(3000);
+          }
         } finally {
           isProcessingTickRef.current = false;
         }
@@ -465,7 +569,7 @@ function MailerPage() {
     [activeCampaignId],
   );
 
-  // 4. Iniciar ou pausar orquestrador conforme o estado da campanha
+  // 5. Iniciar ou pausar orquestrador conforme o estado da campanha
   useEffect(() => {
     if (activeCampaignId && campaignProgress?.status === "running") {
       isOrchestratorActiveRef.current = true;
@@ -703,7 +807,10 @@ function MailerPage() {
 
   // Gera HTML de Preview dinâmico
   const previewCoach = useMemo(
-    () => allRecipients.find((recipient) => selectedRecipientKeys.has(recipient.key) && !recipient.isSuppressed),
+    () =>
+      allRecipients.find(
+        (recipient) => selectedRecipientKeys.has(recipient.key) && !recipient.isSuppressed,
+      ),
     [allRecipients, selectedRecipientKeys],
   );
   const previewLastName = previewCoach ? previewCoach.lastName : "Smith";
@@ -734,7 +841,10 @@ function MailerPage() {
         selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
 
       if (targets.length === 0) {
-        return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>", subject: "" };
+        return {
+          html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>",
+          subject: "",
+        };
       }
 
       const athletesData: RecruitEmailData[] = targets.map((ath) => ({
@@ -775,7 +885,10 @@ function MailerPage() {
 
     // single mode
     if (!currentSingleAthlete) {
-      return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>", subject: "" };
+      return {
+        html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>",
+        subject: "",
+      };
     }
 
     const { html, subject } = renderRecruitEmail({
@@ -1114,36 +1227,6 @@ function MailerPage() {
     }
   }
 
-  async function handleTriggerWorker() {
-    setIsOperatingQueue(true);
-    try {
-      const res = await processMailerMicroBatchServerFn({
-        data: {
-          campaignId: activeCampaignId || undefined,
-          batchSize: 2,
-        },
-      });
-      if (res.sent > 0) {
-        toast.success(`Micro-lote processado: ${res.sent} e-mail(s) enviado(s)!`);
-      } else if (res.message) {
-        toast.info(res.message);
-      }
-      if (res.progress) {
-        setCampaignProgress(res.progress);
-      } else if (activeCampaignId) {
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
-      }
-    } catch (err) {
-      console.error("[mailer] Error triggering micro-batch tick:", err);
-      toast.error("Erro ao processar micro-lote.");
-    } finally {
-      setIsOperatingQueue(false);
-    }
-  }
-
   const handleViewTimeline = async (log: RecruitEmailLog) => {
     setSelectedTimelineLog(log);
     setLoadingTimeline(true);
@@ -1242,60 +1325,61 @@ function MailerPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Status Badge */}
-                  {campaignProgress.status === "running" && (
+                  {/* Status Badge Confiável */}
+                  {isOffline ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Sem Conexão (Reconectando...)
+                    </span>
+                  ) : isAnotherTabActive ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      Outra Aba em Execução
+                    </span>
+                  ) : campaignProgress.status === "running" ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       {(cooldownRemaining !== null && cooldownRemaining > 0) ||
                       (campaignProgress.nextBatchAt &&
                         new Date(campaignProgress.nextBatchAt) > new Date())
-                        ? `Aguardando Cooldown (${
-                            cooldownRemaining !== null && cooldownRemaining > 0
-                              ? cooldownRemaining
-                              : Math.max(
-                                  0,
-                                  Math.ceil(
-                                    (new Date(campaignProgress.nextBatchAt!).getTime() -
-                                      Date.now()) /
-                                      1000,
-                                  ),
-                                )
-                          }s)`
+                        ? `Aguardando Intervalo (${cooldownRemaining ?? 60}s)`
                         : `Enviando (Lote ${campaignProgress.currentBatch} de ${campaignProgress.totalBatches})`}
                     </span>
-                  )}
-                  {campaignProgress.status === "paused" && (
+                  ) : campaignProgress.status === "paused" ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
                       <Pause className="w-3.5 h-3.5" />
                       Campanha Pausada
                     </span>
-                  )}
-                  {campaignProgress.status === "queued" && (
+                  ) : campaignProgress.status === "queued" ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
                       <Clock className="w-3.5 h-3.5" />
                       Enfileirada
                     </span>
-                  )}
-                  {campaignProgress.status === "completed" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      Concluída com Sucesso
-                    </span>
-                  )}
-                  {campaignProgress.status === "cancelled" && (
+                  ) : campaignProgress.status === "completed" ? (
+                    campaignProgress.failedCount > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                        Concluída com {campaignProgress.failedCount} falha(s)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Concluída com Sucesso
+                      </span>
+                    )
+                  ) : campaignProgress.status === "cancelled" ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
                       <Ban className="w-3.5 h-3.5" />
                       Cancelada
                     </span>
-                  )}
-                  {campaignProgress.status === "failed" && (
+                  ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Erro na Campanha
                     </span>
                   )}
 
-                  {/* Action Controls */}
+                  {/* Controles de Ação Seguros */}
                   {campaignProgress.status === "running" && (
                     <button
                       type="button"
@@ -1330,15 +1414,6 @@ function MailerPage() {
                       Cancelar
                     </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={isOperatingQueue}
-                    onClick={handleTriggerWorker}
-                    title="Processar lote pendente agora no backend"
-                    className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                  </button>
                   {(campaignProgress.status === "completed" ||
                     campaignProgress.status === "cancelled") && (
                     <button
@@ -1355,14 +1430,15 @@ function MailerPage() {
                 </div>
               </div>
 
-              {/* Orientação discreta da aba aberta e aviso de segundo plano */}
+              {/* Orientação discreta da aba aberta e dispositivo ativo */}
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary shrink-0" />
                   <span>
                     <strong className="text-foreground">Aba do Navegador:</strong> Mantenha esta aba
-                    aberta durante o envio da campanha. O progresso é gravado a cada 2 e-mails e
-                    você pode pausar ou retomar a qualquer momento.
+                    aberta e o dispositivo ativo durante o envio da campanha. O progresso é
+                    persistido a cada micro-lote no banco de dados e você pode pausar ou retomar a
+                    qualquer momento.
                   </span>
                 </div>
                 {isTabHidden && (
@@ -1393,13 +1469,13 @@ function MailerPage() {
                 </div>
               </div>
 
-              {/* Grid de Métricas do Lote */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+              {/* Grid de Métricas da Fila */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
                 <div className="bg-muted/40 border border-border/60 rounded-xl p-2.5 text-center">
                   <div className="text-[11px] text-muted-foreground uppercase font-bold flex items-center justify-center gap-1">
                     <Users className="w-3 h-3 text-muted-foreground" /> Total
                   </div>
-                  <div className="text-lg font-black text-foreground mt-0.5">
+                  <div className="text-base font-black text-foreground mt-0.5">
                     {campaignProgress.totalRecipients}
                   </div>
                 </div>
@@ -1408,7 +1484,7 @@ function MailerPage() {
                   <div className="text-[11px] text-emerald-400 uppercase font-bold flex items-center justify-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Enviados
                   </div>
-                  <div className="text-lg font-black text-emerald-300 mt-0.5">
+                  <div className="text-base font-black text-emerald-300 mt-0.5">
                     {campaignProgress.sentCount}
                   </div>
                 </div>
@@ -1417,8 +1493,17 @@ function MailerPage() {
                   <div className="text-[11px] text-sky-400 uppercase font-bold flex items-center justify-center gap-1">
                     <Clock className="w-3 h-3" /> Na Fila
                   </div>
-                  <div className="text-lg font-black text-sky-300 mt-0.5">
-                    {campaignProgress.pendingCount + campaignProgress.processingCount}
+                  <div className="text-base font-black text-sky-300 mt-0.5">
+                    {campaignProgress.pendingCount}
+                  </div>
+                </div>
+
+                <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-indigo-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <Activity className="w-3 h-3" /> Em Curso
+                  </div>
+                  <div className="text-base font-black text-indigo-300 mt-0.5">
+                    {campaignProgress.processingCount}
                   </div>
                 </div>
 
@@ -1426,16 +1511,25 @@ function MailerPage() {
                   <div className="text-[11px] text-rose-400 uppercase font-bold flex items-center justify-center gap-1">
                     <AlertCircle className="w-3 h-3" /> Falhas
                   </div>
-                  <div className="text-lg font-black text-rose-300 mt-0.5">
+                  <div className="text-base font-black text-rose-300 mt-0.5">
                     {campaignProgress.failedCount}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-800/40 border border-zinc-700/60 rounded-xl p-2.5 text-center">
+                  <div className="text-[11px] text-zinc-400 uppercase font-bold flex items-center justify-center gap-1">
+                    <Ban className="w-3 h-3" /> Suprimidos
+                  </div>
+                  <div className="text-base font-black text-zinc-300 mt-0.5">
+                    {campaignProgress.suppressedCount}
                   </div>
                 </div>
 
                 <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-2.5 text-center col-span-2 sm:col-span-1">
                   <div className="text-[11px] text-amber-400 uppercase font-bold flex items-center justify-center gap-1">
-                    <Layers className="w-3 h-3" /> Lote
+                    <Layers className="w-3 h-3" /> Bloco
                   </div>
-                  <div className="text-lg font-black text-amber-300 mt-0.5">
+                  <div className="text-base font-black text-amber-300 mt-0.5">
                     {campaignProgress.currentBatch} / {campaignProgress.totalBatches}
                   </div>
                 </div>
@@ -1559,7 +1653,9 @@ function MailerPage() {
                     type="text"
                     maxLength={MAX_CUSTOM_SUBJECT_LENGTH}
                     value={customSubject}
-                    onChange={(event) => setCustomSubject(event.target.value.replace(/[\r\n]+/g, " "))}
+                    onChange={(event) =>
+                      setCustomSubject(event.target.value.replace(/[\r\n]+/g, " "))
+                    }
                     placeholder="Digite o assunto que o coach receberá"
                     aria-describedby="mailer-subject-help"
                     className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1633,7 +1729,7 @@ function MailerPage() {
                             placeholder="Hi Coach [sobrenome],"
                             value={buildCoachGreeting(previewLastName)}
                             readOnly
-                          aria-label="Saudação automática por sobrenome"
+                            aria-label="Saudação automática por sobrenome"
                             className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
                         </div>
@@ -1747,7 +1843,7 @@ function MailerPage() {
                             placeholder="Hi Coach [sobrenome],"
                             value={buildCoachGreeting(previewLastName)}
                             readOnly
-                          aria-label="Saudação automática por sobrenome"
+                            aria-label="Saudação automática por sobrenome"
                             className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
                         </div>
@@ -2072,8 +2168,15 @@ function MailerPage() {
                     </div>
 
                     <div className="space-y-1 text-xs text-muted-foreground" aria-live="polite">
-                      <p><span className="font-medium text-foreground">Assunto:</span> {previewEmail.subject || "Selecione uma atleta"}</p>
-                      <p>{previewCoach ? `Prévia para ${previewCoach.name}` : "Prévia com Coach Smith (exemplo). A saudação usa o sobrenome de cada destinatário."}</p>
+                      <p>
+                        <span className="font-medium text-foreground">Assunto:</span>{" "}
+                        {previewEmail.subject || "Selecione uma atleta"}
+                      </p>
+                      <p>
+                        {previewCoach
+                          ? `Prévia para ${previewCoach.name}`
+                          : "Prévia com Coach Smith (exemplo). A saudação usa o sobrenome de cada destinatário."}
+                      </p>
                     </div>
                     <div className="rounded-xl border border-border bg-[#f8faf5] p-1 shadow-inner h-[460px] overflow-hidden">
                       <iframe

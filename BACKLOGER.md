@@ -1005,3 +1005,38 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   6. **UI Monitor em Tempo Real (`src/routes/_authenticated/admin/mailer.tsx`)**: Painel com barra de progresso, métricas em tempo real (Total, Enviados, Na Fila, Falhas, Lote), badge de estado dinâmico com contagem regressiva de cooldown e controles de operação (Pausar, Retomar, Cancelar, Disparo Forçado).
   7. **Testes Unitários Automatizados (`src/lib/email/mailer-queue.test.ts`)**: 13 testes cobrindo lotes de 10, 150, 151, 300 e 1.000 destinatários, concorrência, retentativas com backoff, HTTP 429, pausa e cancelamento (100% aprovados, totalizando 169 testes em 23 arquivos).
 - **Status:** `[CONCLUÍDO]`
+
+---
+
+## TASK-095 — 2026-10-16 07:35 — Correção Definitiva do Mailer: Orquestração Segura pelo Navegador, Reserva Escopada e Redução de Carga no Backend
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Architect)
+- **Pedido:** Concluir a execução da fila de e-mails do Mailer orquestrada pelo navegador, reduzindo chamadas e carga no backend e oferecendo feedback confiável e em tempo real de progresso ao usuário. Eliminar crons ou requisições longas de backend, escopar reserva atômica estritamente por campanha, evitar contagem de fila inteira na aplicação, implementar idempotência estável e proteger contra reenvios e concorrência entre abas.
+- **Plano:** `think/2026-10-16-0735-correcao-definitiva-mailer-fila-navegador.md`.
+- **Aprovação:** Aprovada e autorizada no prompt do usuário em 2026-10-16.
+- **Entregas Concluídas:**
+  1. **Migration 0025 (`db/migrations/0025_mailer_campaign_scoped_queue_and_metrics.sql`)**: RPC `claim_mailer_queue_batch` escopada por `p_campaign_id`, lease de campanha controladora (`acquire_mailer_campaign_lease`), colunas `controller_id` e `controller_lease_expires_at` em `mailer_campaigns`, e agregação SQL compacta em O(1) via `get_mailer_campaign_progress_summary`.
+  2. **Worker e Backend Seguros (`src/lib/email/mailer-queue.server.ts` & `src/lib/email/recruit-email.functions.ts`)**:
+     - `campaignId` obrigatório e validado com UUID regex.
+     - `maxBatchSize` estritamente limitado no servidor a no máximo 2 e-mails.
+     - Remoção de `ignoreCooldown` e eliminação de funções de disparo forçado desprotegidas.
+     - Resposta do micro-lote já retorna o progresso consolidado, eliminando polling secundário.
+     - Idempotência reforçada com cabeçalho duplo oficial `Idempotency-Key` e `X-Entity-Ref-ID` com hash SHA-256 estável (`${campaignId}:${recipientEmail}`).
+     - Pulo idempotente seguro se o registro já tiver `provider_message_id`.
+     - Tratamento seguro de falha secundária de gravação de log, marcando o item como enviado e impedindo reenvios cegos.
+     - Deduplicação de destinatários por e-mail normalizado e higienização de IDs de coaches não-UUID.
+     - Preservação estrita dos textos, assuntos e destinos (`RECRUIT NOW` para Fabiana, `NOT A FIT` para Contact, `Reply-To: contact@goteamgoagency.com`).
+  3. **Interface e Orquestração Reativa (`src/routes/_authenticated/admin/mailer.tsx`)**:
+     - Loop de micro-lotes encadeados com `setTimeout` (~1s) controlado no navegador.
+     - Coordenação entre abas locais via `BroadcastChannel` (`gtg_mailer_orchestrator`) e trava estrita de desmonte de componente (`isUnmountedRef`).
+     - Cooldown de 60s executado localmente com contagem regressiva reativa.
+     - Aviso contextual orientando o usuário a manter a aba aberta e dispositivo ativo, com detecção de aba oculta e estado offline.
+     - Status badges dinâmicos e precisos (Enviando, Aguardando Intervalo, Pausado, Concluído com Falhas, Concluído com Sucesso, Cancelado, Outra Aba Ativa, Sem Conexão).
+     - Grid completo com 7 métricas detalhadas (Total, Enviados, Na Fila, Em Curso, Falhas, Suprimidos, Bloco).
+  4. **Testes Unitários Automatizados (`src/lib/email/mailer-queue.test.ts` e suíte completa)**:
+     - 17 testes na suíte do Mailer e 186 testes em 24 arquivos de teste na aplicação inteira (100% aprovados, 0 falhas).
+     - `compile_applet` verde e ESLint aprovado sem erros.
+     - Governança de pacotes preservada (`bun.lock` e `package.json` intocados).
+- **Status:** `[CONCLUÍDO]`
+

@@ -128,8 +128,13 @@ export function personalizeEmailGreeting(input: unknown, lastName?: string | nul
   const blocks = sanitizeEmailBlocks(input);
   const firstText = blocks[0];
   const greeting = buildCoachGreeting(lastName);
-  if (firstText?.type === "text" && /^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i.test(firstText.content)) {
-    const remainder = firstText.content.replace(/^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i, "").trimStart();
+  if (
+    firstText?.type === "text" &&
+    /^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i.test(firstText.content)
+  ) {
+    const remainder = firstText.content
+      .replace(/^\s*(?:Hi|Hello|Dear)\b[^\n]*(?:\n|$)/i, "")
+      .trimStart();
     blocks[0] = { type: "text", content: greeting + (remainder ? `\n\n${remainder}` : "") };
   } else {
     blocks.unshift({ type: "text", content: greeting });
