@@ -723,7 +723,9 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       );
       failLease = true;
       const result = await processMailerQueue({
-        customAdmin: mockAdmin, campaignId: camp.campaignId, clientId: "browser-1",
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+        clientId: "browser-1",
       });
       expect(result.processed).toBe(0);
       expect(result.message).toContain("lease");
@@ -734,7 +736,8 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const mockAdmin = createMockAdminClient();
       failQueueInsertOnCall = 2;
       const recipients = Array.from({ length: 151 }, (_, i) => ({
-        name: `Coach ${i}`, email: `coach${i}@college.edu`,
+        name: `Coach ${i}`,
+        email: `coach${i}@college.edu`,
       }));
       const camp = await enqueueCampaignDispatches({ mode: "catalog", recipients }, mockAdmin);
       expect(camp.success).toBe(false);
@@ -751,7 +754,9 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       );
       failSentPersistence = true;
       const result = await processMailerQueue({
-        customAdmin: mockAdmin, campaignId: camp.campaignId, clientId: "browser-1",
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+        clientId: "browser-1",
       });
       expect(result.campaignStatus).toBe("paused");
       expect(result.message).toContain("Manual reconciliation required");

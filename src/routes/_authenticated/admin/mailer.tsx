@@ -504,8 +504,13 @@ function MailerPage() {
             return;
           }
 
-          if (!res.progress && res.processed === 0 && !res.cooldownActive &&
-              !res.campaignCompleted && !res.campaignStatus) {
+          if (
+            !res.progress &&
+            res.processed === 0 &&
+            !res.cooldownActive &&
+            !res.campaignCompleted &&
+            !res.campaignStatus
+          ) {
             isOrchestratorActiveRef.current = false;
             toast.error(res.message || "Não foi possível validar a fila de envios.");
             return;
@@ -516,7 +521,11 @@ function MailerPage() {
           try {
             if (typeof BroadcastChannel !== "undefined") {
               const bc = new BroadcastChannel("gtg_mailer_orchestrator");
-              bc.postMessage({ type: "HEARTBEAT", campaignId: activeCampaignId, tabId: tabIdRef.current });
+              bc.postMessage({
+                type: "HEARTBEAT",
+                campaignId: activeCampaignId,
+                tabId: tabIdRef.current,
+              });
               bc.close();
             }
           } catch {
@@ -1475,7 +1484,9 @@ function MailerPage() {
                 <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
                   <div
                     className="h-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${Math.max(0, Math.min(100, campaignProgress.percentComplete))}%` }}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, campaignProgress.percentComplete))}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -1553,8 +1564,8 @@ function MailerPage() {
                   <span>
                     {campaignProgress.status === "completed"
                       ? campaignProgress.failedCount > 0
-                          ? `Processamento concluído com ${campaignProgress.failedCount} falha(s).`
-                          : "Todos os e-mails foram processados com sucesso."
+                        ? `Processamento concluído com ${campaignProgress.failedCount} falha(s).`
+                        : "Todos os e-mails foram processados com sucesso."
                       : campaignProgress.estimatedRemainingSeconds > 0
                         ? `Tempo estimado para conclusão: ~${Math.ceil(
                             campaignProgress.estimatedRemainingSeconds / 60,

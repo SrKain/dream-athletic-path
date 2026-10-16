@@ -558,16 +558,26 @@ export async function enqueueCampaignDispatches(
         console.error("[mailer-queue] Error inserting queue chunk:", res.error.message);
         const failureMessage = `Failed to create campaign queue: ${res.error.message}`;
         // Fail closed: a partially inserted queue must never be dispatched.
-        const { error: stopError } = await admin.from("mailer_campaigns").update({
-          status: "failed",
-          last_error: failureMessage,
-          completed_at: new Date().toISOString(),
-        }).eq("id", campaignId);
-        if (stopError) console.error("[mailer-queue] Failed to quarantine incomplete campaign:", stopError);
+        const { error: stopError } = await admin
+          .from("mailer_campaigns")
+          .update({
+            status: "failed",
+            last_error: failureMessage,
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", campaignId);
+        if (stopError)
+          console.error("[mailer-queue] Failed to quarantine incomplete campaign:", stopError);
         return {
-          success: false, campaignId, totalRecipients: input.recipients.length,
-          totalEnqueued: 0, totalSuppressed: suppressedRecipients.length,
-          totalBatches, batchSize, status: "failed", message: failureMessage,
+          success: false,
+          campaignId,
+          totalRecipients: input.recipients.length,
+          totalEnqueued: 0,
+          totalSuppressed: suppressedRecipients.length,
+          totalBatches,
+          batchSize,
+          status: "failed",
+          message: failureMessage,
         };
       }
     }
@@ -575,18 +585,28 @@ export async function enqueueCampaignDispatches(
 
   // Only activate the campaign after every queue chunk has been persisted.
   if (queueItemsToInsert.length > 0) {
-    const { error: activationError } = await admin.from("mailer_campaigns")
+    const { error: activationError } = await admin
+      .from("mailer_campaigns")
       .update({ status: "running", next_batch_at: new Date().toISOString() })
       .eq("id", campaignId);
     if (activationError) {
       const failureMessage = `Failed to activate complete campaign: ${activationError.message}`;
-      const { error: stopError } = await admin.from("mailer_campaigns")
-        .update({ status: "failed", last_error: failureMessage }).eq("id", campaignId);
-      if (stopError) console.error("[mailer-queue] Failed to quarantine inactive campaign:", stopError);
+      const { error: stopError } = await admin
+        .from("mailer_campaigns")
+        .update({ status: "failed", last_error: failureMessage })
+        .eq("id", campaignId);
+      if (stopError)
+        console.error("[mailer-queue] Failed to quarantine inactive campaign:", stopError);
       return {
-        success: false, campaignId, totalRecipients: input.recipients.length,
-        totalEnqueued: 0, totalSuppressed: suppressedRecipients.length,
-        totalBatches, batchSize, status: "failed", message: failureMessage,
+        success: false,
+        campaignId,
+        totalRecipients: input.recipients.length,
+        totalEnqueued: 0,
+        totalSuppressed: suppressedRecipients.length,
+        totalBatches,
+        batchSize,
+        status: "failed",
+        message: failureMessage,
       };
     }
   }
@@ -648,8 +668,12 @@ export async function processMailerQueue(
     );
     if (leaseErr || leaseAcquired !== true) {
       return {
-        processed: 0, sent: 0, failed: 0, retried: 0,
-        rateLimited: false, activeCampaignId: campaignId,
+        processed: 0,
+        sent: 0,
+        failed: 0,
+        retried: 0,
+        rateLimited: false,
+        activeCampaignId: campaignId,
         controllerConflict: leaseAcquired === false && !leaseErr,
         message: leaseErr
           ? `Campaign lease unavailable: ${leaseErr.message}`
@@ -658,8 +682,12 @@ export async function processMailerQueue(
     }
   } catch (err) {
     return {
-      processed: 0, sent: 0, failed: 0, retried: 0,
-      rateLimited: false, activeCampaignId: campaignId,
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      retried: 0,
+      rateLimited: false,
+      activeCampaignId: campaignId,
       message: `Campaign lease request failed: ${err instanceof Error ? err.message : "unknown error"}`,
     };
   }
@@ -897,13 +925,19 @@ export async function processMailerQueue(
 
     // Verificação de idempotência: se a mensagem já tem provider_message_id, pular envio
     if (item.provider_message_id) {
-      const { error: confirmedError } = await admin.from("mailer_queue")
+      const { error: confirmedError } = await admin
+        .from("mailer_queue")
         .update({ status: "sent", reserved_by: null, reservation_expires_at: null })
         .eq("id", item.id);
       if (confirmedError) {
         return {
-          processed: 0, sent: sentCount, failed: failedCount, retried: retriedCount,
-          rateLimited: false, campaignStatus: "paused", activeCampaignId: campaignId,
+          processed: 0,
+          sent: sentCount,
+          failed: failedCount,
+          retried: retriedCount,
+          rateLimited: false,
+          campaignStatus: "paused",
+          activeCampaignId: campaignId,
           message: `Unable to persist provider-confirmed delivery: ${confirmedError.message}`,
         };
       }
@@ -924,18 +958,21 @@ export async function processMailerQueue(
         throw new Error("Resend client not configured.");
       }
 
-      const resendRes = await resendClient.emails.send({
-        from,
-        to: [item.recipient_email],
-        subject: item.subject,
-        html: payload.html || "",
-        text: payload.text || "",
-        replyTo: EMAIL_SIGNATURE.email, // contact@goteamgoagency.com
-        tags: payload.tags || [],
-        headers: {
-          "X-Entity-Ref-ID": item.idempotency_key,
+      const resendRes = await resendClient.emails.send(
+        {
+          from,
+          to: [item.recipient_email],
+          subject: item.subject,
+          html: payload.html || "",
+          text: payload.text || "",
+          replyTo: EMAIL_SIGNATURE.email, // contact@goteamgoagency.com
+          tags: payload.tags || [],
+          headers: {
+            "X-Entity-Ref-ID": item.idempotency_key,
+          },
         },
-      }, { idempotencyKey: item.idempotency_key });
+        { idempotencyKey: item.idempotency_key },
+      );
 
       if (resendRes.error) {
         throw new Error(resendRes.error.message || "Failed to send email via Resend");
@@ -961,13 +998,20 @@ export async function processMailerQueue(
         // The provider accepted the message. Do not retry blindly or continue this campaign.
         const message = `Resend accepted ${item.recipient_email} (${providerId ?? "no id"}) but queue persistence failed: ${persistError.message}. Manual reconciliation required.`;
         console.error("[mailer-queue]", message);
-        const { error: pauseError } = await admin.from("mailer_campaigns")
+        const { error: pauseError } = await admin
+          .from("mailer_campaigns")
           .update({ status: "paused", last_error: message, next_batch_at: null })
           .eq("id", campaignId);
-        if (pauseError) console.error("[mailer-queue] Unable to pause after uncertain persistence:", pauseError);
+        if (pauseError)
+          console.error("[mailer-queue] Unable to pause after uncertain persistence:", pauseError);
         return {
-          processed: 0, sent: sentCount, failed: failedCount, retried: retriedCount,
-          rateLimited: false, activeCampaignId: campaignId, campaignStatus: "paused",
+          processed: 0,
+          sent: sentCount,
+          failed: failedCount,
+          retried: retriedCount,
+          rateLimited: false,
+          activeCampaignId: campaignId,
+          campaignStatus: "paused",
           progress: await getCampaignQueueProgress(campaignId, admin),
           message,
         };
@@ -1102,8 +1146,12 @@ export async function processMailerQueue(
 
   if (remainingCountError || remainingPending === null) {
     return {
-      processed: claimedItems.length, sent: sentCount, failed: failedCount,
-      retried: retriedCount, rateLimited, activeCampaignId: campaignId,
+      processed: claimedItems.length,
+      sent: sentCount,
+      failed: failedCount,
+      retried: retriedCount,
+      rateLimited,
+      activeCampaignId: campaignId,
       message: `Unable to verify campaign completion: ${remainingCountError?.message ?? "missing count"}`,
     };
   }
