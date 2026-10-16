@@ -1513,6 +1513,7 @@ export async function getLatestActiveCampaign(
     .from("mailer_campaigns")
     .select("id")
     .in("status", ["running", "queued", "paused"])
+    .gt("total_recipients", 0)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
