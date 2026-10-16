@@ -1040,3 +1040,22 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
      - Governança de pacotes preservada (`bun.lock` e `package.json` intocados).
 - **Status:** `[CONCLUÍDO]`
 
+---
+
+## TASK-096 — 2026-10-16 15:00 — Sincronização do bun.lock com Bun 1.3.14 e Validação Completa de Instalação e Build na Vercel
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Coding Engine (AI Studio / Senior Software Architect)
+- **Pedido:**
+  1. Corrigir falha de instalação na Vercel (`error: lockfile had changes, but lockfile is frozen`) do repositório SrKain/dream-athletic-path (commit base `8e91de8`).
+  2. Resolver a divergência entre `package.json` (`@lovable.dev/vite-tanstack-config: 2.25.3`, `nitro: 3.0.260603-beta`) e as versões desatualizadas no `bun.lock` antigo.
+  3. Utilizar rigorosamente Bun 1.3.14 sem edição manual de hashes ou campos do lockfile, sem uso de npm/yarn/pnpm.
+  4. Manter a flag `--frozen-lockfile` no comando de instalação do `vercel.json`.
+  5. Validar o ciclo completo em ambiente limpo: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test` e `bun run build`.
+  6. Preservar integralmente as melhorias e correções arquiteturais do Mailer (orquestração pelo navegador, micro-lotes <= 2, idempotência SHA-256 e Resend tags, textos canônicos dos coaches, Reply-To, etc.).
+  7. Atualizar a documentação viva `CERNE.md` e registrar a necessidade da migration `0025_mailer_campaign_scoped_queue_and_metrics.sql` para o novo fluxo.
+- **Plano:** `think/2026-10-16-1500-sincronizacao-bun-lock-e-validacao-build.md`.
+- **Aprovação Humana:** Autorizado no prompt do usuário em 2026-10-16.
+- **Status:** `[EM EXECUÇÃO]`
+
+

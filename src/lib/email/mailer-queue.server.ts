@@ -220,7 +220,7 @@ export async function enqueueCampaignDispatches(
       });
 
       queueItemsToInsert.push({
-        coachId: rec.coachId,
+        coachId: rec.coachId ?? null,
         recipientEmail: rec.email,
         recipientName: rec.name,
         universityName: rec.universityName ?? null,
@@ -351,7 +351,7 @@ export async function enqueueCampaignDispatches(
       });
 
       queueItemsToInsert.push({
-        coachId: rec.coachId,
+        coachId: rec.coachId ?? null,
         recipientEmail: rec.email,
         recipientName: rec.name,
         universityName: rec.universityName ?? null,
@@ -448,7 +448,7 @@ export async function enqueueCampaignDispatches(
         });
 
         queueItemsToInsert.push({
-          coachId: rec.coachId,
+          coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
           recipientName: rec.name,
           universityName: rec.universityName ?? null,

@@ -18,7 +18,7 @@ import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from 
 import { EMAIL_SIGNATURE } from "./email-brand";
 
 export interface MailerRecipient {
-  coachId?: string;
+  coachId?: string | null;
   email: string;
   name: string;
   lastName?: string | null;

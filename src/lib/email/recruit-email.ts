@@ -175,6 +175,7 @@ export function renderAthleteCard(
   options: {
     appUrl?: string;
     coachName?: string;
+    coachLastName?: string | null;
     coachEmail?: string;
     feedbackToken?: string;
     campaignId?: string | null;
