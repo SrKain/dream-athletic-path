@@ -762,6 +762,9 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(result.message).toContain("Manual reconciliation required");
       expect(mockResendSend).toHaveBeenCalledTimes(1);
       expect(mockCampaigns.get(camp.campaignId).status).toBe("paused");
+      const unsafeResume = await resumeCampaign(camp.campaignId, mockAdmin);
+      expect(unsafeResume.success).toBe(false);
+      expect(unsafeResume.message).toContain("Manual reconciliation required");
     });
 
     it("uses the official Resend request idempotency option", async () => {
