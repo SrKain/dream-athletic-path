@@ -1395,6 +1395,26 @@ export async function resumeCampaign(
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<{ success: boolean; message?: string }> {
   const admin = customAdmin || getAdminClient();
+  const { data: campaign, error: readError } = await admin
+    .from("mailer_campaigns")
+    .select("status, last_error")
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (readError || !campaign) {
+    return { success: false, message: readError?.message || "Campaign not found." };
+  }
+  if (campaign.status !== "paused") {
+    return { success: false, message: "Only paused campaigns can be resumed." };
+  }
+  // A delivery accepted by Resend but not persisted cannot be replayed safely.
+  if (campaign.last_error?.includes("Manual reconciliation required")) {
+    return {
+      success: false,
+      message: "Manual reconciliation required before resuming this campaign.",
+    };
+  }
+
   const { error } = await admin
     .from("mailer_campaigns")
     .update({
