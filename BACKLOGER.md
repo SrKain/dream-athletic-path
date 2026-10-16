@@ -1059,3 +1059,17 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[EM EXECUÇÃO]`
 
 
+
+
+## TASK-097 — 2026-10-16 — Recuperação do deployment Vercel e estabilização da orquestração do Mailer
+
+- **Solicitante:** usuário responsável pelo projeto
+- **Executor:** ChatGPT / GitHub conectado
+- **Aprovação:** explícita em 2026-10-16: "Pode executar, o plano foi aprovado."
+- **Plano:** `think/2026-10-16-1238-recuperacao-build-e-auditoria-mailer.md`
+- **Baseline:** `main` / `cf9f98baca4a63c93d8742992f36c877329f5f39`
+- **Branch:** `fix/2026-10-16-vercel-mailer-reliability`
+- **Escopo:** corrigir divergência Bun lockfile na instalação congelada; tornar a fila browser-driven segura contra lease ausente, enfileiramento incompleto, persistência falha, envio duplicado e progresso enganoso; validar testes e publicar após pré-requisitos.
+- **Arquivos previstos/modificados:** `src/lib/email/mailer-queue.server.ts`, `src/lib/email/mailer-queue.test.ts`, `src/routes/_authenticated/admin/mailer.tsx`, `db/migrations/0026_mailer_rpc_security_hardening.sql`, `CERNE.md`, `BACKLOGER.md`, plano em `think/`, workflow de validação e `bun.lock` gerado pelo Bun.
+- **Critérios de aceite:** Bun 1.3.14 com frozen-lockfile; lint/typecheck/Vitest/build; logs de execução; deployment Vercel verde no mesmo SHA; migrations 0025/0026 aplicadas e verificadas; smoke test do Mailer com destinatários de teste.
+- **Status:** `[EM EXECUÇÃO — AGUARDANDO RESULTADOS CI / MIGRATIONS / DEPLOY]`
