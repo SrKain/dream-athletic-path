@@ -433,12 +433,9 @@ function MailerPage() {
         event.data.campaignId === activeCampaignId &&
         event.data.tabId !== tabIdRef.current
       ) {
+        // The server-side lease arbitrates ownership; do not permanently
+        // disable recovery just because another tab emitted a heartbeat.
         setIsAnotherTabActive(true);
-        isOrchestratorActiveRef.current = false;
-        if (tickTimeoutRef.current) {
-          clearTimeout(tickTimeoutRef.current);
-          tickTimeoutRef.current = null;
-        }
       }
     };
     return () => {
@@ -481,22 +478,13 @@ function MailerPage() {
           return;
         }
 
-        isProcessingTickRef.current = true;
-
-        // Notificar outras abas locais que este tab está no controle
-        try {
-          if (typeof BroadcastChannel !== "undefined") {
-            const bc = new BroadcastChannel("gtg_mailer_orchestrator");
-            bc.postMessage({
-              type: "HEARTBEAT",
-              campaignId: activeCampaignId,
-              tabId: tabIdRef.current,
-            });
-            bc.close();
-          }
-        } catch (_broadcastErr) {
-          // Ignora indisponibilidade do BroadcastChannel em ambientes isolados
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          setIsOffline(true);
+          triggerOrchestratorTick(3000);
+          return;
         }
+
+        isProcessingTickRef.current = true;
 
         try {
           const res = await processMailerMicroBatchServerFn({
@@ -507,13 +495,41 @@ function MailerPage() {
             },
           });
 
-          if (isUnmountedRef.current) return;
+          if (isUnmountedRef.current || !isOrchestratorActiveRef.current) return;
 
           if (res.controllerConflict) {
             setIsAnotherTabActive(true);
-            isOrchestratorActiveRef.current = false;
-            toast.warning("Outra aba ou sessão já está executando esta campanha.");
+            // An expired lease can be acquired later; do not leave the UI stuck.
+            triggerOrchestratorTick(17000);
             return;
+          }
+
+          if (
+            !res.progress &&
+            res.processed === 0 &&
+            !res.cooldownActive &&
+            !res.campaignCompleted &&
+            !res.campaignStatus
+          ) {
+            isOrchestratorActiveRef.current = false;
+            toast.error(res.message || "Não foi possível validar a fila de envios.");
+            return;
+          }
+
+          setIsAnotherTabActive(false);
+          // Signal ownership only after an authenticated server response.
+          try {
+            if (typeof BroadcastChannel !== "undefined") {
+              const bc = new BroadcastChannel("gtg_mailer_orchestrator");
+              bc.postMessage({
+                type: "HEARTBEAT",
+                campaignId: activeCampaignId,
+                tabId: tabIdRef.current,
+              });
+              bc.close();
+            }
+          } catch {
+            // Broadcast is an advisory UI signal; the database lease is authoritative.
           }
 
           if (res.progress) {
@@ -539,6 +555,7 @@ function MailerPage() {
 
           if (res.campaignStatus === "paused" || res.campaignStatus === "cancelled") {
             isOrchestratorActiveRef.current = false;
+            if (res.message && res.campaignStatus === "paused") toast.warning(res.message);
             return;
           }
 
@@ -1105,6 +1122,8 @@ function MailerPage() {
           );
         }
         setConfirmModalOpen(false);
+        setIsAnotherTabActive(false);
+        setCooldownRemaining(null);
         setActiveCampaignId(res.campaignId);
 
         // Atualizar progresso imediatamente
@@ -1177,6 +1196,7 @@ function MailerPage() {
         });
         if (prog) setCampaignProgress(prog);
         // Reativar o orquestrador do navegador
+        setIsAnotherTabActive(false);
         isOrchestratorActiveRef.current = true;
         triggerOrchestratorTick(300);
       } else {
@@ -1464,7 +1484,9 @@ function MailerPage() {
                 <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
                   <div
                     className="h-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${Math.max(2, campaignProgress.percentComplete)}%` }}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, campaignProgress.percentComplete))}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -1541,7 +1563,9 @@ function MailerPage() {
                   <Clock className="w-3.5 h-3.5 text-primary" />
                   <span>
                     {campaignProgress.status === "completed"
-                      ? "Todos os e-mails foram processados com sucesso."
+                      ? campaignProgress.failedCount > 0
+                        ? `Processamento concluído com ${campaignProgress.failedCount} falha(s).`
+                        : "Todos os e-mails foram processados com sucesso."
                       : campaignProgress.estimatedRemainingSeconds > 0
                         ? `Tempo estimado para conclusão: ~${Math.ceil(
                             campaignProgress.estimatedRemainingSeconds / 60,
