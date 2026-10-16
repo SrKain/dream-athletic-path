@@ -1073,3 +1073,15 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Arquivos previstos/modificados:** `src/lib/email/mailer-queue.server.ts`, `src/lib/email/mailer-queue.test.ts`, `src/routes/_authenticated/admin/mailer.tsx`, `db/migrations/0026_mailer_rpc_security_hardening.sql`, `CERNE.md`, `BACKLOGER.md`, plano em `think/`, workflow de validação e `bun.lock` gerado pelo Bun.
 - **Critérios de aceite:** Bun 1.3.14 com frozen-lockfile; lint/typecheck/Vitest/build; logs de execução; deployment Vercel verde no mesmo SHA; migrations 0025/0026 aplicadas e verificadas; smoke test do Mailer com destinatários de teste.
 - **Status:** `[EM EXECUÇÃO — AGUARDANDO RESULTADOS CI / MIGRATIONS / DEPLOY]`
+
+
+## TASK-098 — 2026-10-16 — Correção direta do disparo Mailer e contraste do painel
+
+- **Solicitante:** usuário responsável pelo Go Team Go.
+- **Executor:** ChatGPT / GitHub conectado.
+- **Pedido:** corrigir erro `mailer_queue_coach_id_fkey` ao tentar enviar campanhas com coaches de universidades; resolver contraste fraco dos sete indicadores, estados e controles; remover painel falso de campanha antiga `Enfileirada` com 0 destinatários. Usuário autorizou execução direta sem novo planejamento formal.
+- **Causa raiz:** `public.coaches` sem linhas; contatos vinculados a `universities.coaches` tinham IDs distintos. A coluna `mailer_queue.coach_id` exige FK para `public.coaches.id` quando não é `null`.
+- **Implementação:** conferir UUIDs contra `public.coaches` e usar `null` para IDs ausentes, preservar destinatários; filtrar campanhas legadas de 0 destinatários na restauração; aplicar variantes de contraste claro/escuro aos indicadores de progresso; ampliar testes.
+- **Branch:** `fix/2026-10-16-mailer-coach-fk-contrast`.
+- **Validação:** GitHub Actions `38929272621` aprovado: Bun 1.3.14, frozen install, typecheck, lint, testes unitários e build.
+- **Status:** `[EM EXECUÇÃO — PUBLICAÇÃO E VERIFICAÇÃO DO DEPLOY]`
