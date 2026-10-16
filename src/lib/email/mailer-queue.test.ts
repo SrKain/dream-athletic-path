@@ -800,17 +800,24 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("sets coach_id to null for valid-looking university JSON IDs not present in coaches", async () => {
       const mockAdmin = createMockAdminClient();
       const syntheticCoachId = "b0c7a8f1-3210-4200-8101-556677889900";
-      const camp = await enqueueCampaignDispatches({
-        mode: "catalog",
-        recipients: [{
-          coachId: syntheticCoachId,
-          name: "University Coach",
-          email: "university-coach@college.edu",
-          universityName: "Test University",
-        }],
-      }, mockAdmin);
+      const camp = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [
+            {
+              coachId: syntheticCoachId,
+              name: "University Coach",
+              email: "university-coach@college.edu",
+              universityName: "Test University",
+            },
+          ],
+        },
+        mockAdmin,
+      );
       expect(camp.success).toBe(true);
-      const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === camp.campaignId);
+      const queued = Array.from(mockQueue.values()).find(
+        (row) => row.campaign_id === camp.campaignId,
+      );
       expect(queued?.coach_id).toBeNull();
       expect(queued?.recipient_email).toBe("university-coach@college.edu");
       expect(queued?.university_name).toBe("Test University");
@@ -820,12 +827,19 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const mockAdmin = createMockAdminClient();
       const existingCoachId = "b0c7a8f1-3210-4200-8101-556677889900";
       mockPersistedCoachIds.add(existingCoachId);
-      const camp = await enqueueCampaignDispatches({
-        mode: "catalog",
-        recipients: [{ coachId: existingCoachId, name: "Existing Coach", email: "existing@college.edu" }],
-      }, mockAdmin);
+      const camp = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [
+            { coachId: existingCoachId, name: "Existing Coach", email: "existing@college.edu" },
+          ],
+        },
+        mockAdmin,
+      );
       expect(camp.success).toBe(true);
-      const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === camp.campaignId);
+      const queued = Array.from(mockQueue.values()).find(
+        (row) => row.campaign_id === camp.campaignId,
+      );
       expect(queued?.coach_id).toBe(existingCoachId);
     });
 
