@@ -47,6 +47,14 @@ jobs:
           bun install --frozen-lockfile
           git diff --exit-code -- package.json
 
+      - name: Format changed TypeScript files with project Prettier
+        if: github.event_name == 'push'
+        run: |
+          bunx prettier --write \
+            src/lib/email/mailer-queue.server.ts \
+            src/lib/email/mailer-queue.test.ts \
+            src/routes/_authenticated/admin/mailer.tsx
+
       - name: Typecheck
         run: bun run typecheck
 
@@ -63,8 +71,8 @@ jobs:
         if: github.event_name == 'push'
         shell: bash
         run: |
-          if ! git diff --quiet -- bun.lock; then
-            git add bun.lock
+          git add bun.lock src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/routes/_authenticated/admin/mailer.tsx
+          if ! git diff --cached --quiet; then
             git -c user.name='github-actions[bot]' \
                 -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
                 commit -m 'chore(build): synchronize bun.lock with Bun 1.3.14 after validation'
