@@ -165,7 +165,7 @@ export function buildFitReasons(athlete: RecruitEmailAthlete): string[] {
 }
 
 function sectionBar(title: string): string {
-  return `<tr><td style="background-color:${C.darkGreenPrimary};padding:9px 14px;border-radius:6px 6px 0 0;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:3px;color:#ffffff;text-transform:uppercase;">${escapeHtml(title)}</td></tr>`;
+  return `<tr><td style="background-color:${C.darkGreenPrimary};padding:9px 14px;border-radius:6px 6px 0 0;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:3px;color:#ffffff;text-transform:uppercase;">${escapeHtml(title.toUpperCase())}</td></tr>`;
 }
 
 function sectionWrap(title: string, inner: string): string {
