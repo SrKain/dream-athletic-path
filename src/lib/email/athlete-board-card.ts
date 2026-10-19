@@ -184,7 +184,7 @@ function icon(url: string, alt: string): string {
 
 function renderQuickFacts(athlete: RecruitEmailAthlete): string {
   const rows: Array<{ icon?: string; flag?: string; label: string; value: string }> = [];
-  const gpa = formatGpa(athlete.gpa);
+  const gpa = formatGpa(athlete.gpa == null ? null : Number(athlete.gpa.toFixed(1)));
   if (gpa) rows.push({ icon: EMAIL_ASSETS.icons.gradCap, label: "GPA", value: gpa });
   const school = clean(athlete.currentSchool);
   if (school)
