@@ -15,6 +15,8 @@ const mockCampaigns = new Map<string, any>();
 const mockQueue = new Map<string, any>();
 const mockLogs: any[] = [];
 const mockPersistedCoachIds = new Set<string>();
+let mockEmailBio: string | null = "Full professional biography for the athlete.";
+let mockEmailFit: string | null = "High court awareness; Reliable leadership";
 let failQueueInsertOnCall = 0;
 let queueInsertCalls = 0;
 let failSentPersistence = false;
@@ -47,6 +49,31 @@ vi.mock("./recruit-email.server", async (importOriginal) => {
   return {
     ...actual,
     getSuppressedEmailSet: vi.fn().mockResolvedValue(new Set(["suppressed@coach.edu"])),
+  };
+});
+
+// Queue paths must use one complete per-athlete dataset, never per-recipient queries.
+vi.mock("./athlete-email-data.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./athlete-email-data.server")>();
+  return {
+    ...actual,
+    loadAthletesEmailData: vi.fn(async (athleteIds: string[]) =>
+      athleteIds.map((id) => ({
+        athleteId: id,
+        athleteName: `Prospect ${id.slice(0, 4)}`,
+        athleteSlug: `prospect-${id.slice(0, 4)}`,
+        positionName: "Setter",
+        nationality: "Brazil",
+        athleteStatus: "Freshman",
+        heightCm: 181,
+        gpa: 3.5,
+        currentSchool: "Central High",
+        aboutHer: mockEmailBio,
+        teamContribution: mockEmailFit,
+        highSchoolGraduation: "2025",
+        collegeStartDate: "Fall 2026",
+      })),
+    ),
   };
 });
 
@@ -368,6 +395,8 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     mockQueue.clear();
     mockLogs.length = 0;
     mockPersistedCoachIds.clear();
+    mockEmailBio = "Full professional biography for the athlete.";
+    mockEmailFit = "High court awareness; Reliable leadership";
     failQueueInsertOnCall = 0;
     queueInsertCalls = 0;
     failSentPersistence = false;
@@ -377,6 +406,66 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     mockResendSend.mockResolvedValue({
       data: { id: "resend_test_msg_id" },
       error: null,
+    });
+  });
+
+  describe("Mandatory athlete data during enqueue", () => {
+    const first = "110e8400-e29b-41d4-a716-446655440001";
+    const second = "220e8400-e29b-41d4-a716-446655440002";
+    const recipients = [{ name: "Coach Taylor", email: "taylor@college.edu" }];
+
+    it("queues complete HTML and text in single- and multi-athlete modes", async () => {
+      const client = createMockAdminClient();
+      const single = await enqueueCampaignDispatches(
+        { mode: "single_athlete", athleteIds: [first], recipients },
+        client,
+      );
+      expect(single.success).toBe(true);
+      const singlePayload = Array.from(mockQueue.values()).find(
+        (item) => item.campaign_id === single.campaignId,
+      )?.payload;
+      expect(singlePayload?.html).toContain("ABOUT HER");
+      expect(singlePayload?.html).toContain("Full professional biography for the athlete.");
+      expect(singlePayload?.html).toContain("High court awareness");
+      expect(singlePayload?.text).toContain("WHY SHE COULD FIT YOUR PROGRAM");
+
+      const multi = await enqueueCampaignDispatches(
+        { mode: "multi_athlete", athleteIds: [first, second], recipients },
+        client,
+      );
+      expect(multi.success).toBe(true);
+      const multiPayload = Array.from(mockQueue.values()).find(
+        (item) => item.campaign_id === multi.campaignId,
+      )?.payload;
+      expect(
+        multiPayload?.html.match(/Full professional biography for the athlete\./g),
+      ).toHaveLength(2);
+      expect(multiPayload?.html.match(/WHY SHE COULD FIT YOUR PROGRAM/g)).toHaveLength(2);
+      expect(multiPayload?.text.match(/ABOUT HER/g)).toHaveLength(2);
+    });
+
+    it("rejects missing bio or missing fit before creating a campaign or queue rows", async () => {
+      const client = createMockAdminClient();
+      mockEmailBio = " ";
+      const noBio = await enqueueCampaignDispatches(
+        { mode: "single_athlete", athleteIds: [first], recipients },
+        client,
+      );
+      expect(noBio.success).toBe(false);
+      expect(noBio.message).toContain("ABOUT HER");
+      expect(mockQueue.size).toBe(0);
+      expect(mockCampaigns.size).toBe(0);
+
+      mockEmailBio = "Complete bio";
+      mockEmailFit = "";
+      const noFit = await enqueueCampaignDispatches(
+        { mode: "multi_athlete", athleteIds: [first, second], recipients },
+        client,
+      );
+      expect(noFit.success).toBe(false);
+      expect(noFit.message).toContain("WHY SHE COULD FIT YOUR PROGRAM");
+      expect(mockQueue.size).toBe(0);
+      expect(mockCampaigns.size).toBe(0);
     });
   });
 

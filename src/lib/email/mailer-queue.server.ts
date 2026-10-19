@@ -10,6 +10,7 @@ import {
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import { getSuppressedEmailSet, type SendMailerInput } from "./recruit-email.server";
+import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
@@ -109,6 +110,29 @@ export async function enqueueCampaignDispatches(
   const athleteIds = input.athleteIds || [];
   const validUuidAthleteIds = filterValidUuids(athleteIds);
   const mode = input.mode;
+
+  // Validate all athletes before writing logs, campaigns or queue rows.
+  // Load once for the entire campaign, independently of recipient count.
+  let loadedAthleteData: RecruitEmailData[] = [];
+  if (mode !== "catalog") {
+    try {
+      if (athleteIds.length === 0) throw new Error("Select at least one athlete.");
+      loadedAthleteData = await loadAthletesEmailData(athleteIds, admin);
+      assertAthleteEmailFields(loadedAthleteData, athleteIds);
+    } catch (error) {
+      return {
+        success: false,
+        campaignId,
+        totalRecipients: input.recipients.length,
+        totalEnqueued: 0,
+        totalSuppressed: 0,
+        totalBatches: 0,
+        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        status: "failed",
+        message: error instanceof Error ? error.message : "Failed to validate athlete fields.",
+      };
+    }
+  }
 
   // 1. Deduplicar destinatários por e-mail normalizado e checar lista de supressão
   const suppressedSet = await getSuppressedEmailSet();
@@ -279,100 +303,8 @@ export async function enqueueCampaignDispatches(
       });
     }
   } else if (mode === "multi_athlete") {
-    const athletesData: RecruitEmailData[] = [];
-
-    for (const athId of athleteIds) {
-      const { data: athlete } = await admin
-        .from("athletes")
-        .select("id, slug, full_name, photo_url, height_cm, nationality, sport_id, position_id")
-        .eq("id", athId)
-        .maybeSingle();
-
-      if (!athlete) continue;
-
-      const [profileRes, sportRes, posRes, countryRes, videoRes] = await Promise.all([
-        admin
-          .from("athlete_profiles")
-          .select(
-            "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url",
-          )
-          .eq("athlete_id", athId)
-          .maybeSingle(),
-        athlete.sport_id
-          ? admin.from("sports").select("name_en").eq("id", athlete.sport_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        athlete.position_id
-          ? admin.from("positions").select("name_en").eq("id", athlete.position_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        athlete.nationality
-          ? admin
-              .from("countries")
-              .select("name_en, flag_emoji")
-              .eq("code", athlete.nationality)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-        admin
-          .from("athlete_videos")
-          .select("youtube_url")
-          .eq("athlete_id", athId)
-          .eq("kind", "highlight")
-          .limit(1)
-          .maybeSingle(),
-      ]);
-
-      athletesData.push({
-        athleteId: athlete.id,
-        athleteName: athlete.full_name,
-        athleteSlug: athlete.slug,
-        photoUrl: athlete.photo_url,
-        positionName: posRes.data?.name_en || null,
-        sportName: sportRes.data?.name_en || null,
-        heightCm: athlete.height_cm,
-        nationality: athlete.nationality,
-        countryFlag: countryRes.data?.flag_emoji || null,
-        highSchoolGraduation: profileRes.data?.high_school_graduation || null,
-        graduationYear: profileRes.data?.graduation_year || null,
-        gpa: profileRes.data?.gpa || null,
-        athleteStatus: profileRes.data?.athlete_status || null,
-        highlightNote: profileRes.data?.highlight_note || null,
-        budget: profileRes.data?.budget || null,
-        highlightVideoUrl:
-          videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
-        recipientEmail: "",
-      });
-    }
-
-    const { data: athletesWithRelations } = await admin
-      .from("athletes")
-      .select("id, slug, full_name, photo_url, height_cm, nationality, sport_id, position_id")
-      .in("id", athleteIds);
-
-    const loadedAthleteIds = filterValidUuids(athletesWithRelations?.map((a) => a.id) ?? []);
-
-    const loadedAthletes: RecruitEmailData[] = (athletesWithRelations || []).map((a) => {
-      const existing = athletesData.find((ad) => ad.athleteId === a.id);
-      return (
-        existing || {
-          athleteId: a.id,
-          athleteName: a.full_name,
-          athleteSlug: a.slug,
-          photoUrl: a.photo_url,
-          positionName: null,
-          sportName: null,
-          heightCm: a.height_cm,
-          nationality: a.nationality,
-          countryFlag: null,
-          highSchoolGraduation: null,
-          graduationYear: null,
-          gpa: null,
-          athleteStatus: null,
-          highlightNote: null,
-          budget: null,
-          highlightVideoUrl: null,
-          recipientEmail: "",
-        }
-      );
-    });
+    const loadedAthletes = loadedAthleteData;
+    const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
 
     for (const rec of activeRecipients) {
       const { subject, html, text } = renderMultiAthleteRecruitEmail({
@@ -411,65 +343,8 @@ export async function enqueueCampaignDispatches(
     }
   } else {
     // single_athlete
-    for (const athId of athleteIds) {
-      const { data: athlete } = await admin
-        .from("athletes")
-        .select("id, slug, full_name, photo_url, height_cm, nationality, sport_id, position_id")
-        .eq("id", athId)
-        .maybeSingle();
-
-      if (!athlete) continue;
-
-      const [profileRes, sportRes, posRes, countryRes, videoRes] = await Promise.all([
-        admin
-          .from("athlete_profiles")
-          .select(
-            "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url",
-          )
-          .eq("athlete_id", athId)
-          .maybeSingle(),
-        athlete.sport_id
-          ? admin.from("sports").select("name_en").eq("id", athlete.sport_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        athlete.position_id
-          ? admin.from("positions").select("name_en").eq("id", athlete.position_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        athlete.nationality
-          ? admin
-              .from("countries")
-              .select("name_en, flag_emoji")
-              .eq("code", athlete.nationality)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-        admin
-          .from("athlete_videos")
-          .select("youtube_url")
-          .eq("athlete_id", athId)
-          .eq("kind", "highlight")
-          .limit(1)
-          .maybeSingle(),
-      ]);
-
-      const singleData: RecruitEmailData = {
-        athleteId: athlete.id,
-        athleteName: athlete.full_name,
-        athleteSlug: athlete.slug,
-        photoUrl: athlete.photo_url,
-        positionName: posRes.data?.name_en || null,
-        sportName: sportRes.data?.name_en || null,
-        heightCm: athlete.height_cm,
-        nationality: athlete.nationality,
-        countryFlag: countryRes.data?.flag_emoji || null,
-        highSchoolGraduation: profileRes.data?.high_school_graduation || null,
-        graduationYear: profileRes.data?.graduation_year || null,
-        gpa: profileRes.data?.gpa || null,
-        athleteStatus: profileRes.data?.athlete_status || null,
-        highlightNote: profileRes.data?.highlight_note || null,
-        budget: profileRes.data?.budget || null,
-        highlightVideoUrl:
-          videoRes.data?.youtube_url || profileRes.data?.highlight_video_url || null,
-        recipientEmail: "",
-      };
+    for (const singleData of loadedAthleteData) {
+      const athId = singleData.athleteId!;
 
       for (const rec of activeRecipients) {
         const { subject, html, text } = renderRecruitEmail({

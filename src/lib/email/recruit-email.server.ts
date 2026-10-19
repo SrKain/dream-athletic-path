@@ -16,6 +16,7 @@ import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 import { EMAIL_SIGNATURE } from "./email-brand";
+import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
 
 export interface MailerRecipient {
   coachId?: string | null;
@@ -367,101 +368,6 @@ export async function removeManualCoachSuppression(
   return { success: true };
 }
 
-// Carregar dados de um atleta formatados para o template
-async function loadAthleteEmailData(athleteId: string): Promise<RecruitEmailData | null> {
-  const admin = getAdminClient();
-
-  const { data: athlete, error: athleteError } = await admin
-    .from("athletes")
-    .select("id, slug, full_name, photo_url, height_cm, nationality, sport_id, position_id")
-    .eq("id", athleteId)
-    .single();
-
-  if (athleteError || !athlete) {
-    console.error("[recruit-email] Athlete not found:", athleteError?.message);
-    return null;
-  }
-
-  const [profileRes, sportRes, posRes, countryRes, videoRes, achievementRes] = await Promise.all([
-    admin
-      .from("athlete_profiles")
-      .select(
-        "high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, team_contribution_en",
-      )
-      .eq("athlete_id", athleteId)
-      .maybeSingle(),
-    athlete.sport_id
-      ? admin.from("sports").select("name_en").eq("id", athlete.sport_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    athlete.position_id
-      ? admin.from("positions").select("name_en").eq("id", athlete.position_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    athlete.nationality
-      ? admin
-          .from("countries")
-          .select("name_en, flag_emoji")
-          .eq("code", athlete.nationality)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    admin
-      .from("athlete_videos")
-      .select("youtube_url, title, kind")
-      .eq("athlete_id", athleteId)
-      .in("kind", ["highlight", "feature"])
-      .order("sort_order", { ascending: true })
-      .limit(2),
-    admin
-      .from("achievements")
-      .select("title_en")
-      .eq("athlete_id", athleteId)
-      .eq("is_public", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  const profile = profileRes.data;
-  const sportName = sportRes.data?.name_en ?? null;
-  const positionName = posRes.data?.name_en ?? null;
-  const countryFlag = countryRes.data?.flag_emoji ?? null;
-  const nationalityName = countryRes.data?.name_en ?? athlete.nationality ?? null;
-  const videos = (videoRes.data ?? []).map((video) => ({
-    url: video.youtube_url,
-    title: video.title,
-    kind: video.kind,
-  }));
-  const highlightVideoUrl =
-    videos.find((video) => video.kind === "highlight")?.url ?? profile?.highlight_video_url ?? null;
-  const achievementTitle = achievementRes.data?.title_en ?? null;
-
-  return {
-    athleteId: athlete.id,
-    athleteName: athlete.full_name,
-    athleteSlug: athlete.slug,
-    photoUrl: athlete.photo_url,
-    positionName,
-    sportName,
-    heightCm: athlete.height_cm,
-    nationality: nationalityName,
-    countryFlag,
-    highSchoolGraduation: profile?.high_school_graduation,
-    graduationYear: profile?.graduation_year,
-    gpa: profile?.gpa,
-    athleteStatus: profile?.athlete_status,
-    highlightNote: profile?.highlight_note,
-    achievementTitle,
-    budget: profile?.budget,
-    highlightVideoUrl,
-    currentSchool: profile?.current_school,
-    courseOfInterest: profile?.course_of_interest,
-    collegeStartDate: profile?.college_start_date,
-    seekingOpportunities: profile?.seeking_opportunities,
-    stats: profile?.stats,
-    teamContribution: profile?.team_contribution_en,
-    videos,
-  };
-}
-
 export async function sendMailerEmails(input: SendMailerInput): Promise<SendMailerResult> {
   resolveEmailSubject(input.customOptions?.subject, "");
   const {
@@ -499,6 +405,22 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   const validUuidAthleteIds = filterValidUuids(athleteIds);
 
   const admin = getAdminClient();
+  let loadedAthletes: RecruitEmailData[] = [];
+  if (mode !== "catalog") {
+    try {
+      if (athleteIds.length === 0) throw new Error("Select at least one athlete.");
+      loadedAthletes = await loadAthletesEmailData(athleteIds, admin);
+      assertAthleteEmailFields(loadedAthletes, athleteIds);
+    } catch (error) {
+      return {
+        success: false,
+        totalSent: 0,
+        totalFailed: 0,
+        totalSuppressed: 0,
+        message: error instanceof Error ? error.message : "Failed to validate athlete fields.",
+      };
+    }
+  }
   const [suppressedSet, visualRes] = await Promise.all([
     getSuppressedEmailSet(),
     admin
@@ -672,12 +594,6 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       });
     }
   } else if (mode === "multi_athlete") {
-    const loadedAthletes: RecruitEmailData[] = [];
-    for (const athId of athleteIds) {
-      const emailData = await loadAthleteEmailData(athId);
-      if (emailData) loadedAthletes.push(emailData);
-    }
-
     const loadedAthleteIds = filterValidUuids(
       loadedAthletes.map((a) => a.athleteId).filter((id): id is string => Boolean(id)),
     );
@@ -722,9 +638,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
     }
   } else {
     // single_athlete
-    for (const athId of athleteIds) {
-      const emailData = await loadAthleteEmailData(athId);
-      if (!emailData) continue;
+    for (const emailData of loadedAthletes) {
+      const athId = emailData.athleteId!;
 
       for (const rec of activeRecipients) {
         const { subject, html, text } = renderRecruitEmail({

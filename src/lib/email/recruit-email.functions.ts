@@ -235,3 +235,12 @@ export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" }
     const { getLatestActiveCampaign } = await import("./mailer-queue.server");
     return getLatestActiveCampaign();
   });
+
+// Preview usa exatamente o mesmo carregador em lote do envio e da fila.
+export const getAthletesEmailDataServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { athleteIds: string[] }) => data)
+  .handler(async ({ data }) => {
+    const { loadAthletesEmailData } = await import("./athlete-email-data.server");
+    return loadAthletesEmailData(data.athleteIds);
+  });

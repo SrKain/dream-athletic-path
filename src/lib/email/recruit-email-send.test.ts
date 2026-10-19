@@ -47,22 +47,39 @@ vi.mock("@/lib/supabase/clients.server", () => ({
       if (table === "athletes") {
         return {
           select: () => ({
-            eq: (_col: string, id: string) => ({
-              single: () =>
-                Promise.resolve({
-                  data: {
-                    id,
-                    slug: `slug-${id.slice(0, 4)}`,
-                    full_name: `Athlete ${id.slice(0, 4)}`,
-                    photo_url: null,
-                    height_cm: 185,
-                    nationality: "BRA",
-                    sport_id: null,
-                    position_id: null,
-                  },
-                  error: null,
-                }),
-            }),
+            in: (_col: string, ids: string[]) =>
+              Promise.resolve({
+                data: ids.map((id) => ({
+                  id,
+                  slug: `slug-${id.slice(0, 4)}`,
+                  full_name: `Athlete ${id.slice(0, 4)}`,
+                  photo_url: null,
+                  height_cm: 185,
+                  nationality: "BRA",
+                  sport_id: null,
+                  position_id: null,
+                })),
+                error: null,
+              }),
+          }),
+        };
+      }
+      if (table === "athlete_profiles") {
+        return {
+          select: () => ({
+            in: (_col: string, ids: string[]) =>
+              Promise.resolve({
+                data: ids.map((id) => ({
+                  athlete_id: id,
+                  gpa: 3.5,
+                  athlete_status: "Freshman",
+                  bio_en: "A dedicated student-athlete with leadership experience.",
+                  team_contribution_en: "Reliable defender; Strong communicator",
+                  highlight_note: null,
+                  stats: null,
+                })),
+                error: null,
+              }),
           }),
         };
       }

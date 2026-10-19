@@ -4,6 +4,7 @@ import { EMAIL_ASSETS, EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./e
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import {
   escapeHtml,
+  type EmailStatValue,
   renderBottomBar,
   renderEmailShell,
   renderFeedbackBlock,
@@ -20,6 +21,8 @@ export interface RecruitEmailAthlete {
   positionEn?: string | null;
   heightCm?: number | null;
   graduationYear?: number | null;
+  highSchoolGraduation?: string | null;
+  aboutHer?: string | null;
   gpa?: number | null;
   athleteStatus?: string | null;
   countryEn?: string | null;
@@ -31,7 +34,7 @@ export interface RecruitEmailAthlete {
   collegeStartDate?: string | null;
   seekingOpportunities?: string | null;
   currentSchool?: string | null;
-  stats?: Record<string, unknown> | null;
+  stats?: Record<string, EmailStatValue> | null;
   teamContribution?: string | null;
   videos?: Array<{ url: string; title?: string | null; kind?: string | null }> | null;
   index?: number;
@@ -701,6 +704,10 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     `SPECS: ${buildAthleteSpecsLine(athlete)}`,
     athlete.seekingOpportunities ? `AVAILABLE: ${athlete.seekingOpportunities}` : null,
     athlete.highlightNote ? `NOTE: ${athlete.highlightNote}` : null,
+    athlete.aboutHer?.trim() ? `ABOUT HER\n${athlete.aboutHer.trim()}` : null,
+    athlete.teamContribution?.trim()
+      ? `WHY SHE COULD FIT YOUR PROGRAM\n${athlete.teamContribution.trim()}`
+      : null,
     "",
     `WATCH FILM: ${videoUrl}`,
     `FULL PROFILE: ${profileUrl}`,
@@ -737,9 +744,15 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
       `${i + 1}. ${ath.name}`,
       `   Specs: ${buildAthleteSpecsLine(ath)}`,
       ath.seekingOpportunities ? `   Available: ${ath.seekingOpportunities}` : null,
+      ath.aboutHer?.trim() ? `   ABOUT HER\n${ath.aboutHer.trim()}` : null,
+      ath.teamContribution?.trim()
+        ? `   WHY SHE COULD FIT YOUR PROGRAM\n${ath.teamContribution.trim()}`
+        : null,
       `   Film: ${videoUrl}`,
       `   Profile: ${profileUrl}`,
-    ].join("\n");
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
   });
 
   const lines = [
