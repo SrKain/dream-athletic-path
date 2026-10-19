@@ -1397,3 +1397,14 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Escopo preservado:** bun.lock, package.json, renderizadores/layout do card, fila, idempotência, Reply-To e textos canônicos intactos. Sem disparo real a coaches.
 
 - **Verificação real:** consulta SQL equivalente à de conquistas, com `WHERE false` e `ORDER BY achieved_on DESC NULLS LAST, id ASC`, executada com sucesso no Supabase, sem ler fichas nem enviar mensagens. Os três cenários do painel têm cobertura automatizada da lógica. Aceitação manual em navegador autenticado não executada neste ambiente; procedimento registrado no plano.
+
+
+## Quick Facts do Mailer — 2026-10-19 (TASK-101)
+
+O módulo `athlete-quick-facts.ts` define `QUICK_FACTS_ROWS`, fonte única e ordenada do HTML e texto: POSITION, HEIGHT, GPA, CURRENT SCHOOL, STATUS, AVAILABLE, INTENDED MAJOR, FROM. Dados vazios são omitidos. GPA aceita strings numéricas em runtime, omite valores inválidos e preserva precisão (3.31; inteiro 4 → 4.0). FROM usa bandeira ou ícone globe. Rótulos 12px; contraste textMuted/boardPanel 6.08:1, sem mudança de cores.
+
+`athlete-board-card.ts` mantém cabeçalho, TRANSFER e demais seções/ações. Os dois adaptadores `renderAthleteCard` de `recruit-email.ts` e `email-layout.ts` delegam ao mesmo `renderAthleteBoardCard`. `personal-email-renderer.ts` e textos legados compartilham os fatos, sem duplicar posição/AVAILABLE. Catálogo institucional permanece separado porque não possui card de atleta. Campos highSchoolGraduation/collegeStartDate permanecem nos tipos e loader, sem renderização na tabela.
+
+Admin/diálogo individual, envio individual/multi e novos enfileiramentos usam os templates comuns. A fila conserva snapshots HTML/texto em `mailer_queue.payload`; itens antigos não são reprocessados nem atualizados. Após deploy, gerar novo preview/campanha para o layout novo.
+
+Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.ts`; saída `docs/email-previews/ana-carolina-quick-facts.html` e `.txt`. Valores dos oito fatos fornecidos pelo solicitante; bio/fit ilustrativos e nenhuma foto pessoal inventada. Testes cobrem ordem, precisão, omissão, bandeira/fallback, escape, contraste e paridade dos payloads. Validação completa com Bun 1.3.14 aprovada no CI (runs 39307599456 e 39307568704): frozen install, typecheck, lint (0 erros/11 avisos preexistentes), 232/232 testes em 27 arquivos e build. Capturas Chromium desktop/mobile revisadas em docs/email-previews. PR #8.

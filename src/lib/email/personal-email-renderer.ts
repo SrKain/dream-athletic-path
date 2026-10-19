@@ -1,3 +1,4 @@
+import { renderQuickFactsPlainText } from "./athlete-quick-facts";
 import { buildCoachGreeting } from "./email-personalization";
 import { buildNotAFitUrl } from "./recruit-email";
 /**
@@ -272,8 +273,7 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
     textParts.push(
       [
         `— ${athlete.name}`,
-        athlete.positionEn,
-        athlete.seekingOpportunities ? `Available: ${athlete.seekingOpportunities}` : null,
+        renderQuickFactsPlainText(athlete),
         athlete.aboutHer?.trim() ? `ABOUT HER\n${athlete.aboutHer.trim()}` : null,
         athlete.teamContribution?.trim()
           ? `WHY SHE COULD FIT YOUR PROGRAM\n${athlete.teamContribution.trim()}`

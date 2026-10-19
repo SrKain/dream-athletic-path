@@ -10,6 +10,8 @@ import {
 } from "./mailer-queue.server";
 import type { SendMailerInput } from "./recruit-email.server";
 
+import { assertAnaQuickFacts } from "./__fixtures__/assert-quick-facts";
+
 // Mocks do Supabase e Resend
 const mockCampaigns = new Map<string, any>();
 const mockQueue = new Map<string, any>();
@@ -64,10 +66,13 @@ vi.mock("./athlete-email-data.server", async (importOriginal) => {
         athleteSlug: `prospect-${id.slice(0, 4)}`,
         positionName: "Setter",
         nationality: "Brazil",
-        athleteStatus: "Freshman",
-        heightCm: 181,
-        gpa: 3.5,
-        currentSchool: "Central High",
+        athleteStatus: "Sophomore",
+        heightCm: 170,
+        gpa: 3.31,
+        currentSchool: "Eastern Wyoming College",
+        seekingOpportunities: "Fall 2025",
+        courseOfInterest: "Computer Engineering",
+        countryFlag: "🇧🇷",
         aboutHer: mockEmailBio,
         teamContribution: mockEmailFit,
         highSchoolGraduation: "2025",
@@ -424,6 +429,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const singlePayload = Array.from(mockQueue.values()).find(
         (item) => item.campaign_id === single.campaignId,
       )?.payload;
+      assertAnaQuickFacts(singlePayload.html, singlePayload.text);
       expect(singlePayload?.html).toContain("ABOUT HER");
       expect(singlePayload?.html).toContain("Full professional biography for the athlete.");
       expect(singlePayload?.html).toContain("High court awareness");
@@ -442,6 +448,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       ).toHaveLength(2);
       expect(multiPayload?.html.match(/WHY SHE COULD FIT YOUR PROGRAM/g)).toHaveLength(2);
       expect(multiPayload?.text.match(/ABOUT HER/g)).toHaveLength(2);
+      assertAnaQuickFacts(multiPayload.html, multiPayload.text, 2);
     });
 
     it("rejects missing bio or missing fit before creating a campaign or queue rows", async () => {

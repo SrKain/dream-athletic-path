@@ -1117,3 +1117,18 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 
 - **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
+
+
+## TASK-101 — 2026-10-19 18:31 UTC — Plano de alinhamento dos Quick Facts do Mailer
+
+- **Solicitante:** responsável pelo repositório (SrKain).
+- **Executor:** ChatGPT / GitHub conectado.
+- **Pedido:** alinhar Quick Facts às oito linhas aprovadas, corrigir precisão do GPA, garantir HTML/texto e canais equivalentes e preservar as demais seções do card.
+- **Base/branch:** main @ 8a6c315ed98522040313b3bf33aed58a09b052d8 / fix/2026-10-19-mailer-quick-facts.
+- **Plano:** think/2026-10-19-1831-quick-facts-mailer.md.
+- **Diagnóstico:** renderQuickFacts removeu POSITION/HEIGHT/FROM, adicionou graduação/início e arredondou GPA; dois renderizadores legados ainda produzem cards distintos; texto pessoal e legado não compartilham a mesma tabela de fatos.
+- **Decisões:** definição única QUICK_FACTS_ROWS para HTML/texto, oito linhas condicionais na ordem aprovada, GPA real e strings numéricas tratadas, labels 12px, bandeira com fallback globe, adaptadores legados delegando ao card canônico. Contraste medido 6.0823:1; cores preservadas.
+- **Instrução mais recente:** solicitante aprovou expressamente a execução integral em 2026-10-19.
+- **Status:** `[CONCLUÍDO]` — PR #8, oito fatos e adaptadores unificados; 232/232 testes em 27 arquivos, instalação frozen, typecheck, lint (0 erros/11 avisos preexistentes) e build aprovados com Bun 1.3.14. CI 39307599456 e 39307568704; capturas desktop/mobile revisadas, HTML/texto e comparação em docs/email-previews.
+- **Restrições:** sem alterar bun.lock/package.json, loader, fila, idempotência, Reply-To, textos canônicos, outras seções ou ações do card. Sem migration ou envio real. CERNE.md atualizado com o contrato compartilhado e a política de snapshots.
+- **Fila/cache:** snapshots já enfileirados permanecem com HTML/texto originais; sem reprocessar ou alterar envios anteriores.

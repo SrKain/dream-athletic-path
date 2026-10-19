@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { sendMailerEmails, sendRecruitEmailToCoaches } from "./recruit-email.server";
 
+import { assertAnaQuickFacts } from "./__fixtures__/assert-quick-facts";
+
 const mockInsertedCampaigns: Array<Record<string, unknown>> = [];
 const mockInsertedLogs: Array<Record<string, unknown>> = [];
 const mockBatchSentPayloads: Array<Array<Record<string, unknown>>> = [];
@@ -54,10 +56,10 @@ vi.mock("@/lib/supabase/clients.server", () => ({
                   slug: `slug-${id.slice(0, 4)}`,
                   full_name: `Athlete ${id.slice(0, 4)}`,
                   photo_url: null,
-                  height_cm: 185,
+                  height_cm: 170,
                   nationality: "BRA",
                   sport_id: null,
-                  position_id: null,
+                  position_id: "setter",
                 })),
                 error: null,
               }),
@@ -71,13 +73,32 @@ vi.mock("@/lib/supabase/clients.server", () => ({
               Promise.resolve({
                 data: ids.map((id) => ({
                   athlete_id: id,
-                  gpa: 3.5,
-                  athlete_status: "Freshman",
+                  gpa: 3.31,
+                  athlete_status: "Sophomore",
+                  current_school: "Eastern Wyoming College",
+                  seeking_opportunities: "Fall 2025",
+                  course_of_interest: "Computer Engineering",
+                  high_school_graduation: "2022",
+                  college_start_date: "Fall 2023",
                   bio_en: "A dedicated student-athlete with leadership experience.",
                   team_contribution_en: "Reliable defender; Strong communicator",
                   highlight_note: null,
                   stats: null,
                 })),
+                error: null,
+              }),
+          }),
+        };
+      }
+      if (table === "positions" || table === "countries") {
+        return {
+          select: () => ({
+            in: () =>
+              Promise.resolve({
+                data:
+                  table === "positions"
+                    ? [{ id: "setter", name_en: "Setter" }]
+                    : [{ code: "BRA", name_en: "Brazil", flag_emoji: "🇧🇷" }],
                 error: null,
               }),
           }),
@@ -213,6 +234,7 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
     // 2. Verifica envio de tags no Resend batch.send
     expect(mockBatchSentPayloads).toHaveLength(1);
     const firstMsg = mockBatchSentPayloads[0]?.[0];
+    assertAnaQuickFacts(String(firstMsg?.html), String(firstMsg?.text), 2);
     expect(firstMsg?.subject).toBe("Fall recruiting opportunities");
     expect(firstMsg?.html).toContain("Hi Coach Elliott,");
     expect(firstMsg?.text).toContain("Hi Coach Elliott,");
@@ -229,6 +251,17 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
     expect(mockInsertedLogs[0]?.athlete_id).toBe(ath1);
     expect(mockInsertedLogs[0]?.athlete_ids).toEqual([ath1, ath2]);
     expect(mockInsertedLogs[0]?.provider_id).toBe("re_batch_1");
+  });
+
+  it("sends the same approved facts in individual mode", async () => {
+    const result = await sendMailerEmails({
+      mode: "single_athlete",
+      athleteIds: [ath1],
+      recipients: [{ email: "coach@college.edu", name: "Coach Taylor" }],
+    });
+    expect(result.success).toBe(true);
+    const payload = mockBatchSentPayloads[0]?.[0];
+    assertAnaQuickFacts(String(payload?.html), String(payload?.text));
   });
 
   it("sends tags and logs campaign_id in fallback emails.send when batch fails", async () => {
