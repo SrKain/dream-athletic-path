@@ -4,6 +4,7 @@ import { EMAIL_ASSETS, EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./e
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import {
   escapeHtml,
+  type EmailStatValue,
   renderBottomBar,
   renderEmailShell,
   renderFeedbackBlock,
@@ -33,7 +34,7 @@ export interface RecruitEmailAthlete {
   collegeStartDate?: string | null;
   seekingOpportunities?: string | null;
   currentSchool?: string | null;
-  stats?: Record<string, unknown> | null;
+  stats?: Record<string, EmailStatValue> | null;
   teamContribution?: string | null;
   videos?: Array<{ url: string; title?: string | null; kind?: string | null }> | null;
   index?: number;
