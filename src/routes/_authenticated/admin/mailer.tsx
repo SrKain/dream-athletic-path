@@ -51,6 +51,7 @@ import {
   getMailerHistoryServerFn,
   getActiveInterestSignalsServerFn,
   getEmailEventTimelineServerFn,
+  getAthletesEmailDataServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
 import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
@@ -60,6 +61,7 @@ import {
   type RecruitEmailData,
 } from "@/lib/email/recruit-email-template";
 import { renderCatalogEmail } from "@/lib/email/recruit-email-catalog-template";
+import { getMissingAthleteEmailFields } from "@/lib/email/athlete-email-quality";
 import {
   buildDefaultEmailBlocks,
   sanitizeEmailBlocks,
@@ -167,6 +169,9 @@ function MailerPage() {
 
   // Dados do Banco
   const [athletes, setAthletes] = useState<AthleteSummary[]>([]);
+  const [emailAthletes, setEmailAthletes] = useState<RecruitEmailData[]>([]);
+  const [emailAthletesLoading, setEmailAthletesLoading] = useState(false);
+  const [emailAthletesError, setEmailAthletesError] = useState<string | null>(null);
   const [universities, setUniversities] = useState<University[]>([]);
   const [suppressedEmails, setSuppressedEmails] = useState<Set<string>>(new Set());
   const [interestSignals, setInterestSignals] = useState<CoachInterestSignal[]>([]);
@@ -759,6 +764,29 @@ function MailerPage() {
     return selectedMultiAthletesList.map((athlete) => athlete.id);
   }, [currentSingleAthlete, selectedMultiAthletesList, sendMode]);
 
+  // Shared authenticated bulk data used for the actual dispatch.
+  useEffect(() => {
+    let cancelled = false;
+    if (activeComposerAthleteIds.length === 0) {
+      setEmailAthletes([]);
+      setEmailAthletesError(null);
+      setEmailAthletesLoading(false);
+      return;
+    }
+    setEmailAthletesLoading(true);
+    setEmailAthletesError(null);
+    void getAthletesEmailDataServerFn({ data: { athleteIds: activeComposerAthleteIds } })
+      .then((data) => { if (!cancelled) setEmailAthletes(data); })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setEmailAthletes([]);
+          setEmailAthletesError(error instanceof Error ? error.message : "Failed loading athlete email data.");
+        }
+      })
+      .finally(() => { if (!cancelled) setEmailAthletesLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeComposerAthleteIds]);
+
   useEffect(() => {
     if (sendMode === "catalog") return;
     if (activeComposerAthleteIds.length === 0) {
@@ -855,38 +883,18 @@ function MailerPage() {
     }
 
     if (sendMode === "multi") {
-      const targets =
-        selectedMultiAthletesList.length > 0 ? selectedMultiAthletesList : athletes.slice(0, 2);
-
-      if (targets.length === 0) {
+      const targets = activeComposerAthleteIds
+        .map((id) => emailAthletes.find((athlete) => athlete.athleteId === id))
+        .filter((athlete): athlete is RecruitEmailData => Boolean(athlete));
+      if (targets.length === 0 || targets.length !== activeComposerAthleteIds.length || emailAthletesLoading || emailAthletesError) {
         return {
-          html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Selecione ao menos um atleta para visualizar o preview.</p>",
+          html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa das atletas para o preview.</p>",
           subject: "",
         };
       }
 
-      const athletesData: RecruitEmailData[] = targets.map((ath) => ({
-        athleteId: ath.id,
-        athleteName: ath.full_name,
-        athleteSlug: ath.slug,
-        photoUrl: ath.photo_url,
-        positionName: ath.position_name,
-        sportName: ath.sport_name,
-        heightCm: ath.height_cm,
-        nationality: ath.nationality,
-        countryFlag: ath.country_flag,
-        highSchoolGraduation: ath.high_school_graduation,
-        graduationYear: ath.graduation_year,
-        gpa: ath.gpa,
-        athleteStatus: ath.athlete_status,
-        highlightNote: ath.highlight_note,
-        budget: ath.budget,
-        highlightVideoUrl: ath.highlight_video_url,
-        recipientEmail: "coach@example.edu",
-      }));
-
       const { html, subject } = renderMultiAthleteRecruitEmail({
-        athletes: athletesData,
+        athletes: targets,
         coachName: previewCoach?.name || "Coach Smith",
         coachLastName: previewLastName,
         customSubject,
@@ -909,26 +917,15 @@ function MailerPage() {
       };
     }
 
+    const selectedData = emailAthletes.find((athlete) => athlete.athleteId === currentSingleAthlete.id);
+    if (!selectedData || emailAthletesLoading || emailAthletesError) {
+      return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa da atleta para o preview.</p>", subject: "" };
+    }
     const { html, subject } = renderRecruitEmail({
+      ...selectedData,
       coachName: previewCoach?.name || "Coach Smith",
       coachLastName: previewLastName,
       customSubject,
-      athleteId: currentSingleAthlete.id,
-      athleteName: currentSingleAthlete.full_name,
-      athleteSlug: currentSingleAthlete.slug,
-      photoUrl: currentSingleAthlete.photo_url,
-      positionName: currentSingleAthlete.position_name,
-      sportName: currentSingleAthlete.sport_name,
-      heightCm: currentSingleAthlete.height_cm,
-      nationality: currentSingleAthlete.nationality,
-      countryFlag: currentSingleAthlete.country_flag,
-      highSchoolGraduation: currentSingleAthlete.high_school_graduation,
-      graduationYear: currentSingleAthlete.graduation_year,
-      gpa: currentSingleAthlete.gpa,
-      athleteStatus: currentSingleAthlete.athlete_status,
-      highlightNote: currentSingleAthlete.highlight_note,
-      budget: currentSingleAthlete.budget,
-      highlightVideoUrl: currentSingleAthlete.highlight_video_url,
       recipientEmail: "coach@example.edu",
       customIntroduction: customIntroduction || null,
       customHook: customHook || null,
@@ -940,8 +937,10 @@ function MailerPage() {
   }, [
     sendMode,
     currentSingleAthlete,
-    selectedMultiAthletesList,
-    athletes,
+    activeComposerAthleteIds,
+    emailAthletes,
+    emailAthletesLoading,
+    emailAthletesError,
     catalogHeadline,
     catalogMessage,
     customSubject,
@@ -952,6 +951,26 @@ function MailerPage() {
     composerPreviewBlocks,
     visualSettings,
   ]);
+
+  const selectedEmailData = useMemo(
+    () => activeComposerAthleteIds
+      .map((id) => emailAthletes.find((athlete) => athlete.athleteId === id))
+      .filter((athlete): athlete is RecruitEmailData => Boolean(athlete)),
+    [activeComposerAthleteIds, emailAthletes],
+  );
+  const missingAthleteFields = useMemo(
+    () => getMissingAthleteEmailFields(selectedEmailData),
+    [selectedEmailData],
+  );
+  const emailAthletesReady = sendMode === "catalog" || (
+    !emailAthletesLoading && !emailAthletesError &&
+    selectedEmailData.length === activeComposerAthleteIds.length &&
+    activeComposerAthleteIds.length > 0
+  );
+  const previewSizeBytes = useMemo(
+    () => new TextEncoder().encode(previewEmail.html).length,
+    [previewEmail.html],
+  );
 
   // Calcular contagens para o disparo
   const selectedRecipientsList = useMemo(() => {
@@ -1034,6 +1053,10 @@ function MailerPage() {
 
   // Ação de Disparo
   async function handleSendMailer() {
+    if (!emailAthletesReady || missingAthleteFields.length > 0) {
+      toast.error("Mailer bloqueado: ABOUT HER e WHY SHE COULD FIT YOUR PROGRAM são obrigatórios.");
+      return;
+    }
     if (activeSelectedRecipients.length === 0) {
       toast.error("Nenhum destinatário ativo selecionado.");
       return;
@@ -2253,9 +2276,28 @@ function MailerPage() {
                         </div>
                       </div>
 
+                      {sendMode !== "catalog" && (emailAthletesError || !emailAthletesReady || missingAthleteFields.length > 0) && (
+                        <div role="alert" className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-foreground space-y-2">
+                          <p className="font-semibold">Envio bloqueado: ABOUT HER (bio_en) e WHY SHE COULD FIT YOUR PROGRAM (team_contribution_en) são obrigatórios.</p>
+                          {emailAthletesError && <p>{emailAthletesError}</p>}
+                          {!emailAthletesReady && !emailAthletesError && <p>Carregando e validando fichas completas...</p>}
+                          {missingAthleteFields.map((entry) => (
+                            <p key={entry.athleteId}>
+                              <a className="underline font-semibold" href={`/admin/athletes/${encodeURIComponent(entry.athleteId)}`}>{entry.athleteName}</a>: {entry.fields.join(" / ")}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {sendMode === "multi" && emailAthletesReady && previewSizeBytes > 90 * 1024 && (
+                        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+                          Aviso: HTML estimado em {(previewSizeBytes / 1024).toFixed(1)} KB. O Gmail pode cortar e-mails acima de ~102 KB.
+                        </p>
+                      )}
                       <button
                         type="button"
                         disabled={
+                          !emailAthletesReady ||
+                          missingAthleteFields.length > 0 ||
                           activeSelectedRecipients.length === 0 ||
                           (sendMode === "multi" && selectedMultiAthleteIds.size === 0)
                         }
@@ -2603,7 +2645,7 @@ function MailerPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={isSending}
+                  disabled={isSending || !emailAthletesReady || missingAthleteFields.length > 0}
                   onClick={handleSendMailer}
                   className={buttonClass}
                 >
