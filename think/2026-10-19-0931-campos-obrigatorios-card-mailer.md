@@ -6,7 +6,7 @@
 - **Base:** `main` @ `32b17976b847afd9c154d2b6f0f8bb18b828eca5`
 - **Branch:** `feat/2026-10-19-mailer-card-campos-obrigatorios`
 - **Aprovação humana:** explícita no prompt de 2026-10-19 (execução autorizada).
-- **Status:** aprovado — em execução.
+- **Status:** execução concluída; validação GitHub Actions `39256913678` aprovada (200/200 testes, typecheck, lint e build). Sem migrations ou alterações no lockfile/dependências.
 
 ## Contexto
 O carregamento legado de `recruit-email.server.ts` não seleciona `bio_en`, e as estruturas da fila, do preview administrativo e do diálogo usam selects/mapeamentos divergentes. O template pessoal do Mailer renderiza o mesmo `renderAthleteBoardCard`, mas recebe campos incompletos.
