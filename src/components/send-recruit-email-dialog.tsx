@@ -18,9 +18,11 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { buttonClass, secondaryButtonClass, inputClass } from "@/components/admin-ui";
-import { renderRecruitEmail } from "@/lib/email/recruit-email-template";
+import { renderRecruitEmail, type RecruitEmailData } from "@/lib/email/recruit-email-template";
+import { getMissingAthleteEmailFields } from "@/lib/email/athlete-email-quality";
 import {
   getActiveInterestSignalsServerFn,
+  getAthletesEmailDataServerFn,
   sendRecruitEmailServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
@@ -40,11 +42,7 @@ interface SendRecruitEmailDialogProps {
 
 export function SendRecruitEmailDialog({
   athlete,
-  profile,
-  sportName,
   positionName,
-  countryFlag,
-  nationalityName,
   open,
   onClose,
 }: SendRecruitEmailDialogProps) {
@@ -59,18 +57,18 @@ export function SendRecruitEmailDialog({
   const [checkingFit, setCheckingFit] = useState(false);
   const [fitConflicts, setFitConflicts] = useState<CoachFitConflict[]>([]);
   const [activeTab, setActiveTab] = useState<"coaches" | "preview">("coaches");
-  const [highlightVideoUrl, setHighlightVideoUrl] = useState<string | null>(null);
+  const [emailAthlete, setEmailAthlete] = useState<RecruitEmailData | null>(null);
   const [visualSettings, setVisualSettings] = useState<{
     logo_url: string | null;
     hero_background_url: string | null;
   } | null>(null);
 
-  // Carregar coaches, visual settings e vídeos para este atleta
+  // Carregar coaches, configurações visuais e ficha completa da atleta
   const loadData = useCallback(async () => {
     setLoadingCoaches(true);
     setFetchError(null);
     try {
-      const [coachesRes, logsRes, visualRes, videoRes] = await Promise.all([
+      const [coachesRes, logsRes, visualRes, emailAthleteRes] = await Promise.all([
         supabase.from("universities").select("id,name,coaches").order("name", { ascending: true }),
         supabase
           .from("recruit_email_logs")
@@ -83,14 +81,7 @@ export function SendRecruitEmailDialog({
           .select("logo_url, hero_background_url")
           .limit(1)
           .maybeSingle(),
-        supabase
-          .from("athlete_videos")
-          .select("youtube_url")
-          .eq("athlete_id", athlete.id)
-          .eq("kind", "highlight")
-          .order("sort_order", { ascending: true })
-          .limit(1)
-          .maybeSingle(),
+        getAthletesEmailDataServerFn({ data: { athleteIds: [athlete.id] } }),
       ]);
 
       if (coachesRes.error) {
@@ -120,9 +111,9 @@ export function SendRecruitEmailDialog({
         });
       }
 
-      if (videoRes.data?.youtube_url) {
-        setHighlightVideoUrl(videoRes.data.youtube_url);
-      }
+      const loaded = emailAthleteRes[0] ?? null;
+      setEmailAthlete(loaded);
+      if (!loaded) setFetchError("A ficha da atleta não foi encontrada.");
 
       if (logsRes.data) {
         const map = new Map<string, string>();
@@ -158,50 +149,21 @@ export function SendRecruitEmailDialog({
     );
   }, [coaches, search]);
 
-  // Gerar dados do template WYSIWYG
+  const emailMissingFields = emailAthlete
+    ? getMissingAthleteEmailFields([emailAthlete])
+    : [];
+
+  // Preview and direct send both use the exact server-side athlete dataset.
   const emailTemplate = useMemo(() => {
+    if (!emailAthlete) {
+      return { subject: "Carregando preview...", html: "<p>Loading athlete profile...</p>" };
+    }
     return renderRecruitEmail({
-      athleteId: athlete.id,
-      athleteName: athlete.full_name,
-      athleteSlug: athlete.slug,
-      photoUrl: athlete.photo_url,
-      positionName,
-      sportName,
-      heightCm: athlete.height_cm,
-      nationality: nationalityName,
-      countryFlag,
-      highSchoolGraduation: profile?.high_school_graduation,
-      graduationYear: profile?.graduation_year,
-      gpa: profile?.gpa,
-      athleteStatus: profile?.athlete_status,
-      highlightNote: profile?.highlight_note,
-      budget: profile?.budget,
-      highlightVideoUrl: highlightVideoUrl || profile?.highlight_video_url,
-      seekingOpportunities: profile?.seeking_opportunities,
+      ...emailAthlete,
       logoUrl: visualSettings?.logo_url,
       heroBackgroundUrl: visualSettings?.hero_background_url,
     });
-  }, [
-    athlete.id,
-    athlete.full_name,
-    athlete.slug,
-    athlete.photo_url,
-    athlete.height_cm,
-    positionName,
-    sportName,
-    nationalityName,
-    countryFlag,
-    profile?.high_school_graduation,
-    profile?.graduation_year,
-    profile?.gpa,
-    profile?.athlete_status,
-    profile?.highlight_note,
-    profile?.budget,
-    profile?.highlight_video_url,
-    profile?.seeking_opportunities,
-    highlightVideoUrl,
-    visualSettings,
-  ]);
+  }, [emailAthlete, visualSettings]);
 
   // Ações de seleção
   function toggleSelect(id: string) {
@@ -231,6 +193,10 @@ export function SendRecruitEmailDialog({
   }
 
   async function openSendConfirmation() {
+    if (!emailAthlete || emailMissingFields.length > 0) {
+      toast.error("ABOUT HER and WHY SHE COULD FIT YOUR PROGRAM are required before sending.");
+      return;
+    }
     if (selectedIds.size === 0) {
       toast.error("Please select at least one coach.");
       return;
@@ -575,6 +541,12 @@ export function SendRecruitEmailDialog({
           </div>
         </div>
 
+        {emailMissingFields.length > 0 && (
+          <div role="alert" className="mx-6 mb-2 text-sm text-red-300">
+            Envio bloqueado para <a href={`/admin/athletes/${encodeURIComponent(athlete.id)}`} className="underline">{athlete.full_name}</a>: {emailMissingFields[0].fields.join(" / ")}.
+          </div>
+        )}
+        {!emailAthlete && fetchError && <p role="alert" className="px-6 text-red-300">{fetchError}</p>}
         {/* Modal Bottom Bar */}
         <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-xs text-zinc-400 text-center sm:text-left">
@@ -596,7 +568,7 @@ export function SendRecruitEmailDialog({
 
             <button
               type="button"
-              disabled={isSending || checkingFit || selectedCount === 0}
+              disabled={isSending || checkingFit || selectedCount === 0 || !emailAthlete || emailMissingFields.length > 0}
               onClick={() => void openSendConfirmation()}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none transition-all"
             >
