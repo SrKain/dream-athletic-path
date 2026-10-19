@@ -72,6 +72,8 @@ function mapEmailDataToAthlete(data: RecruitEmailData): RecruitEmailAthlete {
     positionEn: data.positionName,
     heightCm: data.heightCm,
     graduationYear: gradYearNumber,
+    highSchoolGraduation: data.highSchoolGraduation,
+    aboutHer: data.aboutHer,
     gpa: data.gpa,
     athleteStatus: data.athleteStatus,
     countryEn: data.nationality,
