@@ -1085,3 +1085,16 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Branch:** `fix/2026-10-16-mailer-coach-fk-contrast`.
 - **Validação:** GitHub Actions `38929272621` aprovado: Bun 1.3.14, frozen install, typecheck, lint, testes unitários e build.
 - **Status:** `[EM EXECUÇÃO — PUBLICAÇÃO E VERIFICAÇÃO DO DEPLOY]`
+
+
+## TASK-099 — 2026-10-19 09:31 — Restaurar bio e encaixe obrigatórios no card de atleta do Mailer
+
+- **Solicitante:** usuário responsável pelo repositório (SrKain).
+- **Executor:** ChatGPT / GitHub conectado.
+- **Data/hora:** 2026-10-19 09:31 (America/Sao_Paulo).
+- **Aprovação humana:** explícita no prompt de 2026-10-19; execução direta autorizada.
+- **Base/branch:** `main` @ `32b17976b847afd9c154d2b6f0f8bb18b828eca5` / `feat/2026-10-19-mailer-card-campos-obrigatorios`.
+- **Plano:** `think/2026-10-19-0931-campos-obrigatorios-card-mailer.md`.
+- **Pedido:** unificar dados do Mailer nos envios individual, multi e em fila e previews; restabelecer ABOUT HER e WHY SHE COULD FIT YOUR PROGRAM; completar Quick Facts, remover repetições, preservar HTML seguro, texto puro e validação de obrigatoriedade dupla UI/servidor; testes e Bun 1.3.14.
+- **Implementação:** carregador em lote `athlete-email-data.server.ts`, validador puro `athlete-email-quality.ts`, proteção de campanhas, previews pelo servidor, card completo e plain-text; testes Vitest. Sem migration, alterações de orquestração ou de dependências.
+- **Status:** `[PENDENTE — VALIDAÇÃO CI/TESTES]` (atualizar após evidência de execução).
