@@ -38,7 +38,7 @@ jobs:
 
       # Repair only the dedicated, user-approved branch. PRs must use committed lock.
       - name: Regenerate bun.lock with official Bun
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-16-vercel-mailer-reliability'
         run: bun install
 
       - name: Verify immutable dependency install
@@ -46,9 +46,12 @@ jobs:
           rm -rf node_modules
           bun install --frozen-lockfile
           git diff --exit-code -- package.json
+          if [ "$GITHUB_REF_NAME" != "fix/2026-10-16-vercel-mailer-reliability" ]; then
+            git diff --exit-code -- bun.lock
+          fi
 
       - name: Format changed TypeScript files with project Prettier
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-16-vercel-mailer-reliability'
         run: |
           bunx prettier --write \
             src/lib/email/mailer-queue.server.ts \
@@ -68,7 +71,7 @@ jobs:
         run: bun run build
 
       - name: Commit verified lockfile to correction branch
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-16-vercel-mailer-reliability'
         shell: bash
         run: |
           git add bun.lock src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/routes/_authenticated/admin/mailer.tsx
@@ -78,3 +81,4 @@ jobs:
                 commit -m 'chore(build): synchronize bun.lock with Bun 1.3.14 after validation'
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
+
