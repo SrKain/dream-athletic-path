@@ -184,10 +184,6 @@ function icon(url: string, alt: string): string {
 
 function renderQuickFacts(athlete: RecruitEmailAthlete): string {
   const rows: Array<{ icon?: string; flag?: string; label: string; value: string }> = [];
-  const position = clean(athlete.positionEn);
-  if (position) rows.push({ icon: EMAIL_ASSETS.icons.star, label: "Position", value: position });
-  const height = formatBoardHeight(athlete.heightCm);
-  if (height) rows.push({ icon: EMAIL_ASSETS.icons.height, label: "Height", value: height });
   const gpa = formatGpa(athlete.gpa);
   if (gpa) rows.push({ icon: EMAIL_ASSETS.icons.gradCap, label: "GPA", value: gpa });
   const school = clean(athlete.currentSchool);
@@ -200,14 +196,12 @@ function renderQuickFacts(athlete: RecruitEmailAthlete): string {
   const major = clean(athlete.courseOfInterest);
   if (major)
     rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
-  const country = clean(athlete.countryEn);
-  if (country)
-    rows.push({
-      flag: clean(athlete.countryFlag),
-      icon: EMAIL_ASSETS.icons.globe,
-      label: "From",
-      value: country,
-    });
+  const graduation = clean(athlete.highSchoolGraduation) || (athlete.graduationYear ? String(athlete.graduationYear) : "");
+  if (graduation)
+    rows.push({ icon: EMAIL_ASSETS.icons.gradCap, label: "High School Graduation", value: graduation });
+  const collegeStart = clean(athlete.collegeStartDate);
+  if (collegeStart)
+    rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "College Start Date", value: collegeStart });
 
   if (rows.length === 0) return "";
 
@@ -239,19 +233,20 @@ function renderChips(athlete: RecruitEmailAthlete): string {
       `<span style="display:inline-block;padding:6px 10px;margin:0 6px 6px 0;background-color:${C.badgeGoldBg};border-radius:4px;font-family:${FONT};font-size:12px;font-weight:700;color:${C.darkGreenPrimary};">TRANSFER</span>`,
     );
   }
-  const available = clean(athlete.seekingOpportunities);
-  if (available) {
-    chips.push(
-      `<span style="display:inline-block;padding:6px 10px;margin:0 6px 6px 0;border:1px solid ${C.lineDivider};border-radius:4px;font-family:${FONT};font-size:12px;color:${C.textMuted};">AVAILABLE: <strong style="color:${C.darkGreenPrimary};">${escapeHtml(available.toUpperCase())}</strong></span>`,
-    );
-  }
-  const gpa = formatGpa(athlete.gpa);
-  if (gpa) {
-    chips.push(
-      `<span style="display:inline-block;padding:6px 10px;margin:0 0 6px 0;background-color:${C.boardPanel};border-radius:4px;font-family:${FONT};font-size:12px;color:${C.textMuted};">GPA <strong style="color:${C.darkGreenPrimary};">${escapeHtml(gpa)}</strong></span>`,
-    );
-  }
   return chips.length ? `<div style="line-height:1;">${chips.join("")}</div>` : "";
+}
+
+function renderAboutHer(athlete: RecruitEmailAthlete): string {
+  const bio = clean(athlete.aboutHer);
+  if (!bio) return "";
+  const paragraphs = bio
+    .split(/\r?\n\s*\r?\n/)
+    .filter((part) => part.trim())
+    .map((part) =>
+      `<p style="margin:0 0 12px 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${C.textDark};">${escapeHtml(part.trim()).replace(/\r?\n/g, "<br>")}</p>`,
+    )
+    .join("");
+  return sectionWrap("About Her", paragraphs);
 }
 
 function renderSeasonStats(athlete: RecruitEmailAthlete): string {
@@ -443,6 +438,7 @@ export function renderAthleteBoardCard(
         </td>
       </tr></table>
     </td></tr>
+    ${renderAboutHer(athlete)}
     ${renderSeasonStats(athlete)}
     ${renderVideos(athlete, { ...options, appUrl: baseUrl })}
     ${renderFitReasons(athlete)}
