@@ -1,5 +1,31 @@
 import type { RecruitEmailData } from "./recruit-email-template";
 
+export type AthleteEmailPanelState = "ready" | "empty" | "loading" | "error" | "missing";
+
+export function getAthleteEmailPanelState(input: {
+  mode: "single" | "multi" | "catalog";
+  loading: boolean;
+  error: string | null;
+  requestedCount: number;
+  receivedCount: number;
+  missingFieldCount: number;
+}): AthleteEmailPanelState {
+  if (input.mode === "catalog") return "ready";
+  if (input.requestedCount === 0) return "empty";
+  if (input.loading) return "loading";
+  if (input.error || input.receivedCount !== input.requestedCount) return "error";
+  if (input.missingFieldCount > 0) return "missing";
+  return "ready";
+}
+
+export const ATHLETE_EMAIL_STATE_MESSAGES: Record<AthleteEmailPanelState, string> = {
+  ready: "",
+  empty: "Selecione ao menos uma atleta.",
+  loading: "Carregando e validando fichas completas...",
+  error: "Não foi possível carregar os dados das atletas",
+  missing: "Envio bloqueado: ABOUT HER e WHY SHE COULD FIT YOUR PROGRAM são obrigatórios.",
+};
+
 export type MissingAthleteField = "ABOUT HER" | "WHY SHE COULD FIT YOUR PROGRAM";
 export interface AthleteEmailMissingFields {
   athleteId: string;
@@ -41,3 +67,4 @@ export function assertAthleteEmailFields(
     );
   }
 }
+

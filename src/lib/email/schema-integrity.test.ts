@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 function extractColumnsFromSql(migrationFiles: string[], tableName: string): Set<string> {
   const columns = new Set<string>();
 
   for (const filePath of migrationFiles) {
-    const content = fs.readFileSync(filePath, "utf-8");
+    const content = fs.readFileSync(filePath, "utf-8").replace(/\/\*[\s\S]*?\*\/|--[^\n]*/g, "");
 
     // 1. CREATE TABLE public.<table_name> ( ... )
     const createTableRegex = new RegExp(
@@ -21,11 +22,7 @@ function extractColumnsFromSql(migrationFiles: string[], tableName: string): Set
         const line = rawLine.trim().replace(/--.*$/, "").trim();
         if (
           !line ||
-          line.startsWith("constraint") ||
-          line.startsWith("primary key") ||
-          line.startsWith("foreign key") ||
-          line.startsWith("check") ||
-          line.startsWith("unique")
+          /^(constraint|primary\s+key|foreign\s+key|check|unique)\b/i.test(line)
         ) {
           continue;
         }
@@ -52,25 +49,52 @@ function extractColumnsFromSql(migrationFiles: string[], tableName: string): Set
         }
       }
 
-      // Suporta cláusula composta tipo: add column if not exists col1 type, add column if not exists col2 type
-      // ou vírgula após add column
-      const multiColRegex =
-        /,\s*(?:add\s+column\s+)?(?:if\s+not\s+exists\s+)?([a-z0-9_]+)\s+[a-z]/gi;
-      let multiMatch: RegExpExecArray | null;
-      while ((multiMatch = multiColRegex.exec(alterBody)) !== null) {
-        if (
-          multiMatch[1] &&
-          !["constraint", "primary", "foreign", "check", "unique"].includes(
-            multiMatch[1].toLowerCase(),
-          )
-        ) {
-          columns.add(multiMatch[1].toLowerCase());
-        }
-      }
+      // Each SQL ADD COLUMN is explicit. Do not infer columns from commas in
+      // types, constraints, foreign keys or default expressions.
     }
   }
 
   return columns;
+}
+
+function extractLoaderReferences(source: string) {
+  const references: Array<{ table: string; method: string; columns: string[] }> = [];
+  const file = ts.createSourceFile("loader.ts", source, ts.ScriptTarget.Latest, true);
+  function visit(node: ts.Node) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "from"
+    ) {
+      const table = node.arguments[0];
+      if (!table || !ts.isStringLiteralLike(table)) throw new Error("Expected a literal relation");
+      let current: ts.Node = node;
+      while (
+        current.parent &&
+        ts.isPropertyAccessExpression(current.parent) &&
+        current.parent.expression === current &&
+        ts.isCallExpression(current.parent.parent)
+      ) {
+        const call = current.parent.parent;
+        const method = current.parent.name.text;
+        if (method === "select" || method === "order") {
+          const argument = call.arguments[0];
+          if (!argument || !ts.isStringLiteralLike(argument)) {
+            throw new Error(`Expected literal ${method} columns for ${table.text}`);
+          }
+          const columns = argument.text.split(",").map((column) => column.trim());
+          if (!columns.every((column) => /^[a-z_][a-z0-9_]*$/i.test(column))) {
+            throw new Error(`Unsupported ${method} expression for ${table.text}`);
+          }
+          references.push({ table: table.text, method, columns });
+        }
+        current = call;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  return references;
 }
 
 describe("Database Migration Schema Integrity vs. Application Code", () => {
@@ -80,6 +104,44 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
     .filter((f) => /^\d{4}_.*\.sql$/.test(f))
     .sort()
     .map((f) => path.join(migrationsDir, f));
+
+  const loaderSource = fs.readFileSync(
+    path.resolve(process.cwd(), "src/lib/email/athlete-email-data.server.ts"),
+    "utf-8",
+  );
+
+  function validateLoaderColumns(source: string) {
+    const references = extractLoaderReferences(source);
+    const expectedTables = [
+      "achievements", "athlete_profiles", "athlete_videos", "athletes",
+      "sports", "positions", "countries",
+    ].sort();
+    expect([...new Set(references.filter((ref) => ref.method === "select").map((ref) => ref.table))].sort()).toEqual(expectedTables);
+    const schemas = new Map(expectedTables.map((table) => [table, extractColumnsFromSql(migrationFiles, table)]));
+    for (const { table, method, columns } of references) {
+      for (const column of columns) {
+        if (!schemas.get(table)?.has(column)) {
+          throw new Error(`Unknown database column ${table}.${column} in ${method}`);
+        }
+      }
+    }
+    return references;
+  }
+
+  it("validates every loader select/order column against migrations for all seven relations", () => {
+    const references = validateLoaderColumns(loaderSource);
+    expect(references.filter((ref) => ref.table === "achievements" && ref.method === "order").map((ref) => ref.columns)).toEqual([["achieved_on"], ["id"]]);
+  });
+
+  it("rejects the original production regression achievements.created_at", () => {
+    const brokenSource = loaderSource.replace('.order("achieved_on",', '.order("created_at",');
+    expect(brokenSource).not.toBe(loaderSource);
+    expect(() => validateLoaderColumns(brokenSource)).toThrow("Unknown database column achievements.created_at in order");
+    const columns = extractColumnsFromSql(migrationFiles, "achievements");
+    expect(columns.has("achieved_on")).toBe(true);
+    expect(columns.has("id")).toBe(true);
+    expect(columns.has("created_at")).toBe(false);
+  });
 
   it("verifies that email_events schema from migrations 0001–0023 covers every column written by resend-webhook.server.ts", () => {
     const emailEventsColumns = extractColumnsFromSql(migrationFiles, "email_events");
@@ -185,3 +247,4 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
     );
   });
 });
+

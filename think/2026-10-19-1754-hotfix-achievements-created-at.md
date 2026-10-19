@@ -174,3 +174,11 @@ Registrar testes manuais como executados somente se houver ambiente e evidência
 - Atualizar este plano com arquivos efetivamente alterados, outras incompatibilidades comprovadas e resultados de cada comando/teste.
 - Publicar commits claros na branch solicitada e apresentar uma única entrega com causa, correção, resultados e limitações verificadas.
 - Esta etapa entrega apenas o plano. Não alterar `main`, implementar código ou publicar deployment como parte da solicitação atual de planejamento.
+
+## 7. Execução após aprovação
+
+- O usuário aprovou explicitamente este plano com “Aprovado” em 2026-10-19. A restrição anterior a planejamento foi substituída por autorização de implementação.
+- Correções e testes implementados conforme escopo; auditoria não encontrou outra coluna inexistente nas consultas do Mailer.
+- O workflow existente regenerava bun.lock e formatava/commitava arquivos da fila em qualquer push fix/**. As etapas mutantes foram restringidas à branch antiga fix/2026-10-16-vercel-mailer-reliability, garantindo que o hotfix não altere esses arquivos.
+- Sem Bun disponível localmente e com proxy local inacessível, validação será executada no GitHub Actions com versão exata 1.3.14. A primeira execução disponibiliza diff de formatação para aplicar com o Prettier do próprio projeto; o commit final será validado sem essa etapa auxiliar.
+- Status atual: em validação. Testes manuais de navegador não foram realizados. Nenhum envio real e nenhuma migration aplicados.

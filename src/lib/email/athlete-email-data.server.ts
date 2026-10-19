@@ -5,7 +5,7 @@ export { assertAthleteEmailFields, getMissingAthleteEmailFields } from "./athlet
 type AdminClient = ReturnType<typeof getAdminClient>;
 /**
  * One batched loader for all recruitment channels. No queries per recipient and
- * no silent fallback when Supabase rejects a column or a relation.
+ * Essential relations fail explicitly; achievements are optional enrichment.
  */
 export async function loadAthletesEmailData(
   athleteIds: string[],
@@ -32,21 +32,35 @@ export async function loadAthletesEmailData(
       .in("athlete_id", ids)
       .in("kind", ["highlight", "feature"])
       .order("sort_order", { ascending: true }),
-    admin
-      .from("achievements")
-      .select("athlete_id, title_en")
-      .in("athlete_id", ids)
-      .eq("is_public", true)
-      .order("created_at", { ascending: false }),
+    Promise.resolve(
+      admin
+        .from("achievements")
+        .select("athlete_id, title_en")
+        .in("athlete_id", ids)
+        .eq("is_public", true)
+        .order("achieved_on", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: true }),
+    ).catch((error: unknown) => ({
+      data: null,
+      error: {
+        message: error instanceof Error ? error.message : "Unexpected achievements query failure",
+      },
+    })),
   ]);
 
   for (const [name, result] of [
     ["athletes", athletesRes],
     ["athlete_profiles", profilesRes],
     ["athlete_videos", videosRes],
-    ["achievements", achievementsRes],
   ] as const) {
     if (result.error) throw new Error(`Mailer: failed loading ${name}: ${result.error.message}`);
+  }
+
+  if (achievementsRes.error) {
+    console.error("[mailer] Optional athlete enrichment unavailable", {
+      relation: "achievements",
+      message: achievementsRes.error.message,
+    });
   }
 
   const athleteRows = athletesRes.data ?? [];
@@ -96,7 +110,7 @@ export async function loadAthletesEmailData(
     }
   }
   const achievements = new Map<string, string | null>();
-  for (const achievement of achievementsRes.data ?? []) {
+  for (const achievement of achievementsRes.error ? [] : (achievementsRes.data ?? [])) {
     if (!achievements.has(achievement.athlete_id)) {
       achievements.set(achievement.athlete_id, achievement.title_en);
     }
@@ -141,3 +155,4 @@ export async function loadAthletesEmailData(
     ];
   });
 }
+
