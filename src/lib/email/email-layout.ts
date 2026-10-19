@@ -22,7 +22,8 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
-export type EmailStatValue = string | number | boolean | null | EmailStatValue[] | { [key: string]: EmailStatValue };
+export type EmailStatValue =
+  string | number | boolean | null | EmailStatValue[] | { [key: string]: EmailStatValue };
 
 export interface EmailCardAthlete {
   athleteId?: string | null;

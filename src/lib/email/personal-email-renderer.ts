@@ -275,7 +275,9 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
         athlete.positionEn,
         athlete.seekingOpportunities ? `Available: ${athlete.seekingOpportunities}` : null,
         athlete.aboutHer?.trim() ? `ABOUT HER\n${athlete.aboutHer.trim()}` : null,
-        athlete.teamContribution?.trim() ? `WHY SHE COULD FIT YOUR PROGRAM\n${athlete.teamContribution.trim()}` : null,
+        athlete.teamContribution?.trim()
+          ? `WHY SHE COULD FIT YOUR PROGRAM\n${athlete.teamContribution.trim()}`
+          : null,
         `VIEW FULL PROFILE: ${actionUrls.profile}`,
         `RECRUIT NOW: ${actionUrls.recruit}`,
         `NOT A FIT: ${actionUrls.notFit}`,

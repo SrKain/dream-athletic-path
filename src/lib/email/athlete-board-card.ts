@@ -196,12 +196,22 @@ function renderQuickFacts(athlete: RecruitEmailAthlete): string {
   const major = clean(athlete.courseOfInterest);
   if (major)
     rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
-  const graduation = clean(athlete.highSchoolGraduation) || (athlete.graduationYear ? String(athlete.graduationYear) : "");
+  const graduation =
+    clean(athlete.highSchoolGraduation) ||
+    (athlete.graduationYear ? String(athlete.graduationYear) : "");
   if (graduation)
-    rows.push({ icon: EMAIL_ASSETS.icons.gradCap, label: "High School Graduation", value: graduation });
+    rows.push({
+      icon: EMAIL_ASSETS.icons.gradCap,
+      label: "High School Graduation",
+      value: graduation,
+    });
   const collegeStart = clean(athlete.collegeStartDate);
   if (collegeStart)
-    rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "College Start Date", value: collegeStart });
+    rows.push({
+      icon: EMAIL_ASSETS.icons.academic,
+      label: "College Start Date",
+      value: collegeStart,
+    });
 
   if (rows.length === 0) return "";
 
@@ -242,8 +252,9 @@ function renderAboutHer(athlete: RecruitEmailAthlete): string {
   const paragraphs = bio
     .split(/\r?\n\s*\r?\n/)
     .filter((part) => part.trim())
-    .map((part) =>
-      `<p style="margin:0 0 12px 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${C.textDark};">${escapeHtml(part.trim()).replace(/\r?\n/g, "<br>")}</p>`,
+    .map(
+      (part) =>
+        `<p style="margin:0 0 12px 0;font-family:${FONT};font-size:13px;line-height:1.5;color:${C.textDark};">${escapeHtml(part.trim()).replace(/\r?\n/g, "<br>")}</p>`,
     )
     .join("");
   return sectionWrap("About Her", paragraphs);

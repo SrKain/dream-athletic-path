@@ -16,18 +16,24 @@ export async function loadAthletesEmailData(
   if (ids.length > 200) throw new Error("Mailer supports up to 200 athletes per load.");
 
   const [athletesRes, profilesRes, videosRes, achievementsRes] = await Promise.all([
-    admin.from("athletes")
+    admin
+      .from("athletes")
       .select("id, slug, full_name, photo_url, height_cm, nationality, sport_id, position_id")
       .in("id", ids),
-    admin.from("athlete_profiles")
-      .select("athlete_id, high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, bio_en, team_contribution_en")
+    admin
+      .from("athlete_profiles")
+      .select(
+        "athlete_id, high_school_graduation, graduation_year, gpa, athlete_status, highlight_note, budget, highlight_video_url, current_school, course_of_interest, college_start_date, seeking_opportunities, stats, bio_en, team_contribution_en",
+      )
       .in("athlete_id", ids),
-    admin.from("athlete_videos")
+    admin
+      .from("athlete_videos")
       .select("athlete_id, youtube_url, title, kind, sort_order")
       .in("athlete_id", ids)
       .in("kind", ["highlight", "feature"])
       .order("sort_order", { ascending: true }),
-    admin.from("achievements")
+    admin
+      .from("achievements")
       .select("athlete_id, title_en")
       .in("athlete_id", ids)
       .eq("is_public", true)
@@ -44,9 +50,15 @@ export async function loadAthletesEmailData(
   }
 
   const athleteRows = athletesRes.data ?? [];
-  const sportIds = [...new Set(athleteRows.map((a) => a.sport_id).filter((id): id is string => !!id))];
-  const positionIds = [...new Set(athleteRows.map((a) => a.position_id).filter((id): id is string => !!id))];
-  const countryCodes = [...new Set(athleteRows.map((a) => a.nationality).filter((id): id is string => !!id))];
+  const sportIds = [
+    ...new Set(athleteRows.map((a) => a.sport_id).filter((id): id is string => !!id)),
+  ];
+  const positionIds = [
+    ...new Set(athleteRows.map((a) => a.position_id).filter((id): id is string => !!id)),
+  ];
+  const countryCodes = [
+    ...new Set(athleteRows.map((a) => a.nationality).filter((id): id is string => !!id)),
+  ];
 
   const [sportsRes, positionsRes, countriesRes] = await Promise.all([
     sportIds.length
@@ -57,10 +69,15 @@ export async function loadAthletesEmailData(
       : Promise.resolve({ data: [] as Array<{ id: string; name_en: string | null }>, error: null }),
     countryCodes.length
       ? admin.from("countries").select("code, name_en, flag_emoji").in("code", countryCodes)
-      : Promise.resolve({ data: [] as Array<{ code: string; name_en: string | null; flag_emoji: string | null }>, error: null }),
+      : Promise.resolve({
+          data: [] as Array<{ code: string; name_en: string | null; flag_emoji: string | null }>,
+          error: null,
+        }),
   ]);
   for (const [name, result] of [
-    ["sports", sportsRes], ["positions", positionsRes], ["countries", countriesRes],
+    ["sports", sportsRes],
+    ["positions", positionsRes],
+    ["countries", countriesRes],
   ] as const) {
     if (result.error) throw new Error(`Mailer: failed loading ${name}: ${result.error.message}`);
   }
@@ -92,32 +109,35 @@ export async function loadAthletesEmailData(
     const profile = profiles.get(id);
     const videos = videosByAthlete.get(id) ?? [];
     const country = athlete.nationality ? countries.get(athlete.nationality) : null;
-    return [{
-      athleteId: athlete.id,
-      athleteName: athlete.full_name,
-      athleteSlug: athlete.slug,
-      photoUrl: athlete.photo_url,
-      positionName: athlete.position_id ? positions.get(athlete.position_id) ?? null : null,
-      sportName: athlete.sport_id ? sports.get(athlete.sport_id) ?? null : null,
-      heightCm: athlete.height_cm,
-      nationality: country?.name_en ?? athlete.nationality,
-      countryFlag: country?.flag_emoji ?? null,
-      highSchoolGraduation: profile?.high_school_graduation ?? null,
-      graduationYear: profile?.graduation_year ?? null,
-      gpa: profile?.gpa ?? null,
-      athleteStatus: profile?.athlete_status ?? null,
-      highlightNote: profile?.highlight_note ?? null,
-      achievementTitle: achievements.get(id) ?? null,
-      budget: profile?.budget ?? null,
-      highlightVideoUrl: videos.find((v) => v.kind === "highlight")?.url ?? profile?.highlight_video_url ?? null,
-      currentSchool: profile?.current_school ?? null,
-      courseOfInterest: profile?.course_of_interest ?? null,
-      collegeStartDate: profile?.college_start_date ?? null,
-      seekingOpportunities: profile?.seeking_opportunities ?? null,
-      stats: profile?.stats ?? null,
-      aboutHer: profile?.bio_en ?? null,
-      teamContribution: profile?.team_contribution_en ?? null,
-      videos,
-    }];
+    return [
+      {
+        athleteId: athlete.id,
+        athleteName: athlete.full_name,
+        athleteSlug: athlete.slug,
+        photoUrl: athlete.photo_url,
+        positionName: athlete.position_id ? (positions.get(athlete.position_id) ?? null) : null,
+        sportName: athlete.sport_id ? (sports.get(athlete.sport_id) ?? null) : null,
+        heightCm: athlete.height_cm,
+        nationality: country?.name_en ?? athlete.nationality,
+        countryFlag: country?.flag_emoji ?? null,
+        highSchoolGraduation: profile?.high_school_graduation ?? null,
+        graduationYear: profile?.graduation_year ?? null,
+        gpa: profile?.gpa ?? null,
+        athleteStatus: profile?.athlete_status ?? null,
+        highlightNote: profile?.highlight_note ?? null,
+        achievementTitle: achievements.get(id) ?? null,
+        budget: profile?.budget ?? null,
+        highlightVideoUrl:
+          videos.find((v) => v.kind === "highlight")?.url ?? profile?.highlight_video_url ?? null,
+        currentSchool: profile?.current_school ?? null,
+        courseOfInterest: profile?.course_of_interest ?? null,
+        collegeStartDate: profile?.college_start_date ?? null,
+        seekingOpportunities: profile?.seeking_opportunities ?? null,
+        stats: profile?.stats ?? null,
+        aboutHer: profile?.bio_en ?? null,
+        teamContribution: profile?.team_contribution_en ?? null,
+        videos,
+      },
+    ];
   });
 }

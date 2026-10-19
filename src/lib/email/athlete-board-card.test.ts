@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { renderAthleteBoardCard, buildFitReasons } from "./athlete-board-card";
 import { getMissingAthleteEmailFields, assertAthleteEmailFields } from "./athlete-email-quality";
-import { renderRecruitEmail, renderMultiAthleteRecruitEmail, type RecruitEmailData } from "./recruit-email-template";
+import {
+  renderRecruitEmail,
+  renderMultiAthleteRecruitEmail,
+  type RecruitEmailData,
+} from "./recruit-email-template";
 import { generateRecruitEmailPlainText, generateMultiAthletePlainText } from "./recruit-email";
 
 const athlete: RecruitEmailData = {
@@ -22,7 +26,8 @@ const athlete: RecruitEmailData = {
   graduationYear: 2025,
   collegeStartDate: "Fall 2026",
   highlightNote: "Fallback reason only",
-  aboutHer: "First paragraph & hard work <script>alert(1)</script>.\nAnother line.\n\nSecond paragraph on leadership.",
+  aboutHer:
+    "First paragraph & hard work <script>alert(1)</script>.\nAnother line.\n\nSecond paragraph on leadership.",
   teamContribution: "Creative <setter> & leader; Strong court vision",
   stats: { season: "2025", kills: 17 },
   videos: [
@@ -57,7 +62,12 @@ const cardAthlete = {
 describe("Athlete Mailer Board — mandatory data and single source mapping", () => {
   it("includes the complete biography and manual reasons in the required order", () => {
     const html = renderAthleteBoardCard(cardAthlete);
-    const titles = ["ABOUT HER", "SEASON STATS", "WATCH HER IN ACTION", "WHY SHE COULD FIT YOUR PROGRAM"];
+    const titles = [
+      "ABOUT HER",
+      "SEASON STATS",
+      "WATCH HER IN ACTION",
+      "WHY SHE COULD FIT YOUR PROGRAM",
+    ];
     const indexes = titles.map((title) => html.indexOf(title));
     expect(indexes.every((index) => index > 0)).toBe(true);
     expect(indexes).toEqual([...indexes].sort((a, b) => a - b));
@@ -70,21 +80,31 @@ describe("Athlete Mailer Board — mandatory data and single source mapping", ()
 
   it("uses distinct paragraphs and preserves within-paragraph line breaks", () => {
     const html = renderAthleteBoardCard(cardAthlete);
-    expect(html).toMatch(/First paragraph[\s\S]*?Another line\.[\s\S]*?<\/p>\s*<p[\s\S]*?Second paragraph/);
+    expect(html).toMatch(
+      /First paragraph[\s\S]*?Another line\.[\s\S]*?<\/p>\s*<p[\s\S]*?Second paragraph/,
+    );
     expect(html).toContain("Another line.");
     expect(html).toContain("<br>Another line.");
   });
 
   it("shows every quick fact once without repeated chips or header facts", () => {
     const html = renderAthleteBoardCard(cardAthlete);
-    for (const label of ["GPA", "Current School", "Status", "Available", "Intended Major", "High School Graduation", "College Start Date"]) {
+    for (const label of [
+      "GPA",
+      "Current School",
+      "Status",
+      "Available",
+      "Intended Major",
+      "High School Graduation",
+      "College Start Date",
+    ]) {
       expect(html.match(new RegExp(`>${label}<`, "g"))).toHaveLength(1);
     }
     expect(html).not.toContain("AVAILABLE: <strong");
     expect(html).not.toContain("GPA <strong");
-    expect(html).not.toContain('>Position<');
-    expect(html).not.toContain('>Height<');
-    expect(html).not.toContain('>From<');
+    expect(html).not.toContain(">Position<");
+    expect(html).not.toContain(">Height<");
+    expect(html).not.toContain(">From<");
     expect(html).toContain(">3.9</td>");
     expect(html).toContain(">TRANSFER</span>");
     expect(html).not.toContain("N/A");
@@ -135,12 +155,18 @@ describe("Athlete Mailer Board — mandatory data and single source mapping", ()
     const missing = getMissingAthleteEmailFields(bad);
     expect(missing).toEqual([
       { athleteId: athlete.athleteId, athleteName: athlete.athleteName, fields: ["ABOUT HER"] },
-      { athleteId: "id-other", athleteName: "Ana Costa", fields: ["WHY SHE COULD FIT YOUR PROGRAM"] },
+      {
+        athleteId: "id-other",
+        athleteName: "Ana Costa",
+        fields: ["WHY SHE COULD FIT YOUR PROGRAM"],
+      },
     ]);
     expect(() => assertAthleteEmailFields(bad, [athlete.athleteId!, "id-other"])).toThrow(
       /Mariana Ribeiro.*ABOUT HER.*Ana Costa.*WHY SHE COULD FIT YOUR PROGRAM/,
     );
-    expect(() => assertAthleteEmailFields([athlete], [athlete.athleteId!, "missing-id"])).toThrow(/missing-id/);
+    expect(() => assertAthleteEmailFields([athlete], [athlete.athleteId!, "missing-id"])).toThrow(
+      /missing-id/,
+    );
     expect(() => assertAthleteEmailFields([athlete], [athlete.athleteId!])).not.toThrow();
   });
 });

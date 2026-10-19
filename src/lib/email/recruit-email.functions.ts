@@ -236,7 +236,6 @@ export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" }
     return getLatestActiveCampaign();
   });
 
-
 // Preview usa exatamente o mesmo carregador em lote do envio e da fila.
 export const getAthletesEmailDataServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])

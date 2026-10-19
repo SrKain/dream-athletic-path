@@ -304,9 +304,7 @@ export async function enqueueCampaignDispatches(
     }
   } else if (mode === "multi_athlete") {
     const loadedAthletes = loadedAthleteData;
-    const loadedAthleteIds = filterValidUuids(
-      loadedAthletes.map((athlete) => athlete.athleteId),
-    );
+    const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
 
     for (const rec of activeRecipients) {
       const { subject, html, text } = renderMultiAthleteRecruitEmail({

@@ -776,15 +776,23 @@ function MailerPage() {
     setEmailAthletesLoading(true);
     setEmailAthletesError(null);
     void getAthletesEmailDataServerFn({ data: { athleteIds: activeComposerAthleteIds } })
-      .then((data) => { if (!cancelled) setEmailAthletes(data); })
+      .then((data) => {
+        if (!cancelled) setEmailAthletes(data);
+      })
       .catch((error: unknown) => {
         if (!cancelled) {
           setEmailAthletes([]);
-          setEmailAthletesError(error instanceof Error ? error.message : "Failed loading athlete email data.");
+          setEmailAthletesError(
+            error instanceof Error ? error.message : "Failed loading athlete email data.",
+          );
         }
       })
-      .finally(() => { if (!cancelled) setEmailAthletesLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setEmailAthletesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeComposerAthleteIds]);
 
   useEffect(() => {
@@ -886,7 +894,12 @@ function MailerPage() {
       const targets = activeComposerAthleteIds
         .map((id) => emailAthletes.find((athlete) => athlete.athleteId === id))
         .filter((athlete): athlete is RecruitEmailData => Boolean(athlete));
-      if (targets.length === 0 || targets.length !== activeComposerAthleteIds.length || emailAthletesLoading || emailAthletesError) {
+      if (
+        targets.length === 0 ||
+        targets.length !== activeComposerAthleteIds.length ||
+        emailAthletesLoading ||
+        emailAthletesError
+      ) {
         return {
           html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa das atletas para o preview.</p>",
           subject: "",
@@ -917,9 +930,14 @@ function MailerPage() {
       };
     }
 
-    const selectedData = emailAthletes.find((athlete) => athlete.athleteId === currentSingleAthlete.id);
+    const selectedData = emailAthletes.find(
+      (athlete) => athlete.athleteId === currentSingleAthlete.id,
+    );
     if (!selectedData || emailAthletesLoading || emailAthletesError) {
-      return { html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa da atleta para o preview.</p>", subject: "" };
+      return {
+        html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa da atleta para o preview.</p>",
+        subject: "",
+      };
     }
     const { html, subject } = renderRecruitEmail({
       ...selectedData,
@@ -953,20 +971,22 @@ function MailerPage() {
   ]);
 
   const selectedEmailData = useMemo(
-    () => activeComposerAthleteIds
-      .map((id) => emailAthletes.find((athlete) => athlete.athleteId === id))
-      .filter((athlete): athlete is RecruitEmailData => Boolean(athlete)),
+    () =>
+      activeComposerAthleteIds
+        .map((id) => emailAthletes.find((athlete) => athlete.athleteId === id))
+        .filter((athlete): athlete is RecruitEmailData => Boolean(athlete)),
     [activeComposerAthleteIds, emailAthletes],
   );
   const missingAthleteFields = useMemo(
     () => getMissingAthleteEmailFields(selectedEmailData),
     [selectedEmailData],
   );
-  const emailAthletesReady = sendMode === "catalog" || (
-    !emailAthletesLoading && !emailAthletesError &&
-    selectedEmailData.length === activeComposerAthleteIds.length &&
-    activeComposerAthleteIds.length > 0
-  );
+  const emailAthletesReady =
+    sendMode === "catalog" ||
+    (!emailAthletesLoading &&
+      !emailAthletesError &&
+      selectedEmailData.length === activeComposerAthleteIds.length &&
+      activeComposerAthleteIds.length > 0);
   const previewSizeBytes = useMemo(
     () => new TextEncoder().encode(previewEmail.html).length,
     [previewEmail.html],
@@ -2276,23 +2296,43 @@ function MailerPage() {
                         </div>
                       </div>
 
-                      {sendMode !== "catalog" && (emailAthletesError || !emailAthletesReady || missingAthleteFields.length > 0) && (
-                        <div role="alert" className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-foreground space-y-2">
-                          <p className="font-semibold">Envio bloqueado: ABOUT HER (bio_en) e WHY SHE COULD FIT YOUR PROGRAM (team_contribution_en) são obrigatórios.</p>
-                          {emailAthletesError && <p>{emailAthletesError}</p>}
-                          {!emailAthletesReady && !emailAthletesError && <p>Carregando e validando fichas completas...</p>}
-                          {missingAthleteFields.map((entry) => (
-                            <p key={entry.athleteId}>
-                              <a className="underline font-semibold" href={`/admin/athletes/${encodeURIComponent(entry.athleteId)}`}>{entry.athleteName}</a>: {entry.fields.join(" / ")}
+                      {sendMode !== "catalog" &&
+                        (emailAthletesError ||
+                          !emailAthletesReady ||
+                          missingAthleteFields.length > 0) && (
+                          <div
+                            role="alert"
+                            className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-foreground space-y-2"
+                          >
+                            <p className="font-semibold">
+                              Envio bloqueado: ABOUT HER (bio_en) e WHY SHE COULD FIT YOUR PROGRAM
+                              (team_contribution_en) são obrigatórios.
                             </p>
-                          ))}
-                        </div>
-                      )}
-                      {sendMode === "multi" && emailAthletesReady && previewSizeBytes > 90 * 1024 && (
-                        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
-                          Aviso: HTML estimado em {(previewSizeBytes / 1024).toFixed(1)} KB. O Gmail pode cortar e-mails acima de ~102 KB.
-                        </p>
-                      )}
+                            {emailAthletesError && <p>{emailAthletesError}</p>}
+                            {!emailAthletesReady && !emailAthletesError && (
+                              <p>Carregando e validando fichas completas...</p>
+                            )}
+                            {missingAthleteFields.map((entry) => (
+                              <p key={entry.athleteId}>
+                                <a
+                                  className="underline font-semibold"
+                                  href={`/admin/athletes/${encodeURIComponent(entry.athleteId)}`}
+                                >
+                                  {entry.athleteName}
+                                </a>
+                                : {entry.fields.join(" / ")}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      {sendMode === "multi" &&
+                        emailAthletesReady &&
+                        previewSizeBytes > 90 * 1024 && (
+                          <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+                            Aviso: HTML estimado em {(previewSizeBytes / 1024).toFixed(1)} KB. O
+                            Gmail pode cortar e-mails acima de ~102 KB.
+                          </p>
+                        )}
                       <button
                         type="button"
                         disabled={

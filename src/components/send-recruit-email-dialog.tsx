@@ -149,9 +149,7 @@ export function SendRecruitEmailDialog({
     );
   }, [coaches, search]);
 
-  const emailMissingFields = emailAthlete
-    ? getMissingAthleteEmailFields([emailAthlete])
-    : [];
+  const emailMissingFields = emailAthlete ? getMissingAthleteEmailFields([emailAthlete]) : [];
 
   // Preview and direct send both use the exact server-side athlete dataset.
   const emailTemplate = useMemo(() => {
@@ -543,10 +541,18 @@ export function SendRecruitEmailDialog({
 
         {emailMissingFields.length > 0 && (
           <div role="alert" className="mx-6 mb-2 text-sm text-red-300">
-            Envio bloqueado para <a href={`/admin/athletes/${encodeURIComponent(athlete.id)}`} className="underline">{athlete.full_name}</a>: {emailMissingFields[0].fields.join(" / ")}.
+            Envio bloqueado para{" "}
+            <a href={`/admin/athletes/${encodeURIComponent(athlete.id)}`} className="underline">
+              {athlete.full_name}
+            </a>
+            : {emailMissingFields[0].fields.join(" / ")}.
           </div>
         )}
-        {!emailAthlete && fetchError && <p role="alert" className="px-6 text-red-300">{fetchError}</p>}
+        {!emailAthlete && fetchError && (
+          <p role="alert" className="px-6 text-red-300">
+            {fetchError}
+          </p>
+        )}
         {/* Modal Bottom Bar */}
         <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-xs text-zinc-400 text-center sm:text-left">
@@ -568,7 +574,13 @@ export function SendRecruitEmailDialog({
 
             <button
               type="button"
-              disabled={isSending || checkingFit || selectedCount === 0 || !emailAthlete || emailMissingFields.length > 0}
+              disabled={
+                isSending ||
+                checkingFit ||
+                selectedCount === 0 ||
+                !emailAthlete ||
+                emailMissingFields.length > 0
+              }
               onClick={() => void openSendConfirmation()}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-950 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none transition-all"
             >
