@@ -67,11 +67,18 @@ const cardAthlete = {
 describe("Approved Ana Carolina Quick Facts", () => {
   it("renders exactly the eight rows, labels, values and icons in the approved order", () => {
     const rows = getAthleteQuickFacts(ANA_CAROLINA);
-    expect(rows.map((row) => [row.label, `${row.flag ? row.flag + " " : ""}${row.value}`])).toEqual(ANA_QUICK_FACTS);
+    expect(rows.map((row) => [row.label, `${row.flag ? row.flag + " " : ""}${row.value}`])).toEqual(
+      ANA_QUICK_FACTS,
+    );
     expect(rows.map((row) => row.icon)).toEqual([
-      EMAIL_ASSETS.icons.star, EMAIL_ASSETS.icons.height, EMAIL_ASSETS.icons.gradCap,
-      EMAIL_ASSETS.icons.academic, EMAIL_ASSETS.icons.arrowGold, EMAIL_ASSETS.icons.film,
-      EMAIL_ASSETS.icons.academic, EMAIL_ASSETS.icons.globe,
+      EMAIL_ASSETS.icons.star,
+      EMAIL_ASSETS.icons.height,
+      EMAIL_ASSETS.icons.gradCap,
+      EMAIL_ASSETS.icons.academic,
+      EMAIL_ASSETS.icons.arrowGold,
+      EMAIL_ASSETS.icons.film,
+      EMAIL_ASSETS.icons.academic,
+      EMAIL_ASSETS.icons.globe,
     ]);
     const html = renderAthleteBoardCard(ANA_CAROLINA);
     const indices = ANA_QUICK_FACTS.map(([label]) => html.indexOf(`>${label}</td>`));
@@ -81,20 +88,22 @@ describe("Approved Ana Carolina Quick Facts", () => {
       expect(html.split(`>${row.label}</td>`)).toHaveLength(2);
       expect(html).toContain(`>${escapeHtml(row.value)}</td>`);
     }
-    expect(html).toContain('>🇧🇷</td>');
+    expect(html).toContain(">🇧🇷</td>");
     expect(html).not.toContain(EMAIL_ASSETS.icons.globe);
     expect(html).not.toMatch(/High School Graduation|College Start Date|AVAILABLE:|GPA <strong/);
     expect(html).toContain(">TRANSFER</span>");
   });
 
-  it.each([[3.31, "3.31"], [4, "4.0"], ["3.31", "3.31"], ["4", "4.0"]])(
-    "keeps numeric or string GPA %s as %s without rounding",
-    (gpa, expected) => {
-      const input = { ...ANA_CAROLINA, gpa } as unknown as RecruitEmailAthlete;
-      expect(getAthleteQuickFacts(input).find((row) => row.label === "GPA")?.value).toBe(expected);
-      expect(renderAthleteBoardCard(input)).toContain(`>${expected}</td>`);
-    },
-  );
+  it.each([
+    [3.31, "3.31"],
+    [4, "4.0"],
+    ["3.31", "3.31"],
+    ["4", "4.0"],
+  ])("keeps numeric or string GPA %s as %s without rounding", (gpa, expected) => {
+    const input = { ...ANA_CAROLINA, gpa } as unknown as RecruitEmailAthlete;
+    expect(getAthleteQuickFacts(input).find((row) => row.label === "GPA")?.value).toBe(expected);
+    expect(renderAthleteBoardCard(input)).toContain(`>${expected}</td>`);
+  });
 
   it.each([NaN, Infinity, "not a number", " ", null])("omits invalid GPA %s", (gpa) => {
     const input = { ...ANA_CAROLINA, gpa } as unknown as RecruitEmailAthlete;
@@ -102,14 +111,22 @@ describe("Approved Ana Carolina Quick Facts", () => {
   });
 
   it("omits absent fields, uses globe without a flag and escapes malicious school names", () => {
-    const sparse = { ...ANA_CAROLINA, currentSchool: " ", countryFlag: null, athleteStatus: "Graduate Transfer" };
+    const sparse = {
+      ...ANA_CAROLINA,
+      currentSchool: " ",
+      countryFlag: null,
+      athleteStatus: "Graduate Transfer",
+    };
     const html = renderAthleteBoardCard(sparse);
     expect(html).not.toContain(">CURRENT SCHOOL</td>");
     expect(html).not.toContain(">TRANSFER</span>");
     expect(html).toContain(EMAIL_ASSETS.icons.globe);
     expect(renderQuickFactsPlainText(sparse)).toContain("FROM: Brazil");
     expect(renderQuickFactsPlainText(sparse)).not.toContain("CURRENT SCHOOL:");
-    const malicious = renderAthleteBoardCard({ ...ANA_CAROLINA, currentSchool: "<script>alert(1)</script>" });
+    const malicious = renderAthleteBoardCard({
+      ...ANA_CAROLINA,
+      currentSchool: "<script>alert(1)</script>",
+    });
     expect(malicious).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(malicious).not.toContain("<script>");
     expect(malicious).not.toContain("<svg");
@@ -118,26 +135,44 @@ describe("Approved Ana Carolina Quick Facts", () => {
   it("reuses the same card through both legacy adapters", () => {
     const canonical = renderAthleteBoardCard(ANA_CAROLINA);
     expect(renderLegacyCard(ANA_CAROLINA)).toBe(canonical);
-    expect(renderLayoutCard({
-      athleteId: ANA_CAROLINA.id, athleteName: ANA_CAROLINA.name, athleteSlug: ANA_CAROLINA.slug,
-      positionName: ANA_CAROLINA.positionEn, heightCm: ANA_CAROLINA.heightCm,
-      gpa: ANA_CAROLINA.gpa, currentSchool: ANA_CAROLINA.currentSchool,
-      athleteStatus: ANA_CAROLINA.athleteStatus, seekingOpportunities: ANA_CAROLINA.seekingOpportunities,
-      courseOfInterest: ANA_CAROLINA.courseOfInterest, nationality: ANA_CAROLINA.countryEn,
-      countryFlag: ANA_CAROLINA.countryFlag, aboutHer: ANA_CAROLINA.aboutHer,
-      teamContribution: ANA_CAROLINA.teamContribution,
-    }, 0)).toBe(canonical);
+    expect(
+      renderLayoutCard(
+        {
+          athleteId: ANA_CAROLINA.id,
+          athleteName: ANA_CAROLINA.name,
+          athleteSlug: ANA_CAROLINA.slug,
+          positionName: ANA_CAROLINA.positionEn,
+          heightCm: ANA_CAROLINA.heightCm,
+          gpa: ANA_CAROLINA.gpa,
+          currentSchool: ANA_CAROLINA.currentSchool,
+          athleteStatus: ANA_CAROLINA.athleteStatus,
+          seekingOpportunities: ANA_CAROLINA.seekingOpportunities,
+          courseOfInterest: ANA_CAROLINA.courseOfInterest,
+          nationality: ANA_CAROLINA.countryEn,
+          countryFlag: ANA_CAROLINA.countryFlag,
+          aboutHer: ANA_CAROLINA.aboutHer,
+          teamContribution: ANA_CAROLINA.teamContribution,
+        },
+        0,
+      ),
+    ).toBe(canonical);
   });
 
   it("keeps labels at 12px and textMuted over boardPanel above WCAG 4.5:1", () => {
     function luminance(hex: string) {
-      const values = hex.slice(1).match(/../g)!.map((channel) => parseInt(channel, 16) / 255)
-        .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      const values = hex
+        .slice(1)
+        .match(/../g)!
+        .map((channel) => parseInt(channel, 16) / 255)
+        .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
       return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
     }
-    const ratio = (luminance(EMAIL_COLORS.boardPanel) + 0.05) / (luminance(EMAIL_COLORS.textMuted) + 0.05);
+    const ratio =
+      (luminance(EMAIL_COLORS.boardPanel) + 0.05) / (luminance(EMAIL_COLORS.textMuted) + 0.05);
     expect(ratio).toBeGreaterThanOrEqual(4.5);
-    expect(renderAthleteBoardCard(ANA_CAROLINA)).toContain(`font-size:12px;letter-spacing:0.6px;color:${EMAIL_COLORS.textMuted}`);
+    expect(renderAthleteBoardCard(ANA_CAROLINA)).toContain(
+      `font-size:12px;letter-spacing:0.6px;color:${EMAIL_COLORS.textMuted}`,
+    );
   });
 });
 
@@ -171,7 +206,16 @@ describe("Athlete Mailer Board — mandatory data and single source mapping", ()
 
   it("shows approved quick facts without graduation rows or duplicate chips", () => {
     const html = renderAthleteBoardCard(cardAthlete);
-    const labels = ["POSITION", "HEIGHT", "GPA", "CURRENT SCHOOL", "STATUS", "AVAILABLE", "INTENDED MAJOR", "FROM"];
+    const labels = [
+      "POSITION",
+      "HEIGHT",
+      "GPA",
+      "CURRENT SCHOOL",
+      "STATUS",
+      "AVAILABLE",
+      "INTENDED MAJOR",
+      "FROM",
+    ];
     const indices = labels.map((label) => html.indexOf(`>${label}</td>`));
     expect(indices.every((index) => index > 0)).toBe(true);
     expect(indices).toEqual([...indices].sort((a, b) => a - b));
@@ -244,4 +288,3 @@ describe("Athlete Mailer Board — mandatory data and single source mapping", ()
     expect(() => assertAthleteEmailFields([athlete], [athlete.athleteId!])).not.toThrow();
   });
 });
-

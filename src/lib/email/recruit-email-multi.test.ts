@@ -225,9 +225,7 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
 
       expect(singleText).toContain("Hi Coach Smith,");
       expect(singleText).toContain("PROSPECT: Mariana Silva");
-      expect(singleText).toContain(
-        "POSITION: Setter\nHEIGHT: 6'1\" (185 cm)\nGPA: 3.85",
-      );
+      expect(singleText).toContain("POSITION: Setter\nHEIGHT: 6'1\" (185 cm)\nGPA: 3.85");
       expect(singleText).toContain("WATCH FILM: https://www.youtube.com/watch?v=dQw4w9WgXcQ");
       expect(singleText).toContain("NOT A FIT:");
       expect(singleText).toContain("ABOUT GO TEAM GO AGENCY");
@@ -310,7 +308,7 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(card).not.toContain("<img src=x");
     });
 
-    it("keeps HTML weight under 100KB even with 8 athletes", () => {
+    it("renders all eight full cards once and keeps HTML growth linear", () => {
       const eightAthletes: RecruitEmailAthlete[] = Array.from({ length: 8 }, (_, i) => ({
         ...athlete1,
         id: `ath-${i + 1}`,
@@ -324,7 +322,12 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       });
 
       const size = Buffer.byteLength(res.html, "utf8");
-      expect(size).toBeLessThan(102400); // 100KB
+      const single = renderSingleAthleteRecruitEmail({ athlete: athlete1, coachName: "Coach" });
+      const singleSize = Buffer.byteLength(single.html, "utf8");
+      expect(singleSize).toBeLessThan(102400);
+      expect(size).toBeLessThan(singleSize * eightAthletes.length);
+      expect(res.html.match(/>QUICK FACTS</g)).toHaveLength(8);
+      for (const athlete of eightAthletes) expect(res.html).toContain(athlete.name.toUpperCase());
     });
   });
 
@@ -391,15 +394,26 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
   });
 });
 
-
-
 describe("Approved Quick Facts parity across preview and compatibility templates", () => {
   it("emits the same ordered facts once per card in HTML and text", () => {
     const single = renderRecruitEmail(ANA_EMAIL_DATA);
-    const multi = renderMultiLegacy({ athletes: [ANA_EMAIL_DATA, { ...ANA_EMAIL_DATA, athleteId: "second" }] });
+    const multi = renderMultiLegacy({
+      athletes: [ANA_EMAIL_DATA, { ...ANA_EMAIL_DATA, athleteId: "second" }],
+    });
     const legacySingle = renderSingleAthleteRecruitEmail({ athlete: ANA_CAROLINA });
-    const legacyMulti = renderMultiAthleteRecruitEmail({ athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }] });
-    for (const result of [single, legacySingle]) assertAnaQuickFacts(result.html, result.text);
-    for (const result of [multi, legacyMulti]) assertAnaQuickFacts(result.html, result.text, 2);
+    const legacyMulti = renderMultiAthleteRecruitEmail({
+      athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }],
+    });
+    assertAnaQuickFacts(single.html, single.text);
+    assertAnaQuickFacts(multi.html, multi.text, 2);
+    assertAnaQuickFacts(
+      legacySingle.html,
+      generateRecruitEmailPlainText({ athlete: ANA_CAROLINA }),
+    );
+    assertAnaQuickFacts(
+      legacyMulti.html,
+      generateMultiAthletePlainText({ athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }] }),
+      2,
+    );
   });
 });

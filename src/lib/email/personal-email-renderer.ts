@@ -323,4 +323,3 @@ export function renderPersonalEmail(input: PersonalEmailInput): PersonalEmailOut
 
   return { html, text, missingAthleteIds: missing, renderedAthleteIds: rendered };
 }
-

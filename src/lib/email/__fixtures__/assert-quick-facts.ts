@@ -6,10 +6,12 @@ import { escapeHtml } from "../email-layout";
 export function assertAnaQuickFacts(html: string, text: string, count = 1) {
   const expected = Array.from({ length: count }, () => ANA_QUICK_FACTS).flat();
   const labels = ANA_QUICK_FACTS.map(([label]) => label).join("|");
-  expect([...html.matchAll(new RegExp(`>(${labels})</td>`, "g"))].map((m) => m[1]))
-    .toEqual(expected.map(([label]) => label));
-  expect([...text.matchAll(new RegExp(`^(${labels}): (.+)$`, "gm"))].map((m) => [m[1], m[2]]))
-    .toEqual(expected);
+  expect([...html.matchAll(new RegExp(`>(${labels})</td>`, "g"))].map((m) => m[1])).toEqual(
+    expected.map(([label]) => label),
+  );
+  expect(
+    [...text.matchAll(new RegExp(`^(${labels}): (.+)$`, "gm"))].map((m) => [m[1], m[2]]),
+  ).toEqual(expected);
   for (const [label, value] of ANA_QUICK_FACTS) {
     expect(html).toContain(`>${escapeHtml(label === "FROM" ? "Brazil" : value)}</td>`);
   }

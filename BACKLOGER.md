@@ -1122,7 +1122,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Implementação:** loader e estados/retry do painel corrigidos, testes de schema/loader/lógica adicionados e CERNE.md atualizado. bun.lock, package.json, fila, idempotência, Reply-To, textos canônicos e layout preservados; nenhuma migration ou envio real.
 
 
-- **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
+
 
 
 ## TASK-101 — 2026-10-19 18:31 UTC — Plano de alinhamento dos Quick Facts do Mailer

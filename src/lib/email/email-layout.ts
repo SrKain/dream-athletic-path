@@ -1,10 +1,5 @@
 import { renderAthleteBoardCard } from "./athlete-board-card";
-import {
-  EMAIL_BASE_URL,
-  EMAIL_ASSETS,
-  EMAIL_COLORS,
-  EMAIL_SIGNATURE,
-} from "./email-brand";
+import { EMAIL_BASE_URL, EMAIL_ASSETS, EMAIL_COLORS, EMAIL_SIGNATURE } from "./email-brand";
 
 /**
  * Sanitiza strings para HTML seguro prevenindo quebras de renderização e XSS.
@@ -802,4 +797,3 @@ export function renderLegalFooter(params: { recipientEmail?: string | null }): s
     </td>
   </tr>`;
 }
-

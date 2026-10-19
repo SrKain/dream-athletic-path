@@ -6,7 +6,8 @@ import { renderRecruitEmail } from "../src/lib/email/recruit-email-template";
 const result = renderRecruitEmail({
   ...ANA_EMAIL_DATA,
   customSubject: "Ana Carolina Martins — Quick Facts preview",
-  customIntroduction: "Layout demonstration using the supplied Quick Facts. Biography and fit text are illustrative; no athlete photo was supplied.",
+  customIntroduction:
+    "Layout demonstration using the supplied Quick Facts. Biography and fit text are illustrative; no athlete photo was supplied.",
 });
 const directory = "docs/email-previews";
 mkdirSync(directory, { recursive: true });

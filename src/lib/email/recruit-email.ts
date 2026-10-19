@@ -666,4 +666,3 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
 
   return lines.join("\n");
 }
-

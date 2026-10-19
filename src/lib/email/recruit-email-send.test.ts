@@ -91,10 +91,18 @@ vi.mock("@/lib/supabase/clients.server", () => ({
         };
       }
       if (table === "positions" || table === "countries") {
-        return { select: () => ({ in: () => Promise.resolve({
-          data: table === "positions" ? [{ id: "setter", name_en: "Setter" }]
-            : [{ code: "BRA", name_en: "Brazil", flag_emoji: "🇧🇷" }], error: null,
-        }) }) };
+        return {
+          select: () => ({
+            in: () =>
+              Promise.resolve({
+                data:
+                  table === "positions"
+                    ? [{ id: "setter", name_en: "Setter" }]
+                    : [{ code: "BRA", name_en: "Brazil", flag_emoji: "🇧🇷" }],
+                error: null,
+              }),
+          }),
+        };
       }
       if (table === "coaches") {
         return {
@@ -246,8 +254,11 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
   });
 
   it("sends the same approved facts in individual mode", async () => {
-    const result = await sendMailerEmails({ mode: "single_athlete", athleteIds: [ath1],
-      recipients: [{ email: "coach@college.edu", name: "Coach Taylor" }] });
+    const result = await sendMailerEmails({
+      mode: "single_athlete",
+      athleteIds: [ath1],
+      recipients: [{ email: "coach@college.edu", name: "Coach Taylor" }],
+    });
     expect(result.success).toBe(true);
     const payload = mockBatchSentPayloads[0]?.[0];
     assertAnaQuickFacts(String(payload?.html), String(payload?.text));
@@ -295,4 +306,3 @@ describe("Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence"
     expect(mockInsertedLogs[0]?.athlete_ids).toEqual([ath1]);
   });
 });
-

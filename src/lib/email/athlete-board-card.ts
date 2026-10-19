@@ -424,4 +424,3 @@ export function renderAthleteBoardCard(
     ${renderActions(urls)}
   </table>`;
 }
-
