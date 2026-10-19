@@ -182,3 +182,31 @@ Registrar testes manuais como executados somente se houver ambiente e evidência
 - O workflow existente regenerava bun.lock e formatava/commitava arquivos da fila em qualquer push fix/**. As etapas mutantes foram restringidas à branch antiga fix/2026-10-16-vercel-mailer-reliability, garantindo que o hotfix não altere esses arquivos.
 - Sem Bun disponível localmente e com proxy local inacessível, validação será executada no GitHub Actions com versão exata 1.3.14. A primeira execução disponibiliza diff de formatação para aplicar com o Prettier do próprio projeto; o commit final será validado sem essa etapa auxiliar.
 - Status atual: em validação. Testes manuais de navegador não foram realizados. Nenhum envio real e nenhuma migration aplicados.
+
+
+## 8. Resultado de implementação e validação
+
+- Correções implementadas nos arquivos previstos: loader, qualidade/estado, painel, integridade do schema e dois arquivos novos de teste. CERNE.md/BACKLOGER.md atualizados. Workflow recebeu proteção pontual para preservar o lockfile e fontes da fila.
+- A auditoria com rg e conferência das projeções/filtros/ordenações contra migrations e information_schema não identificou outra coluna inexistente no escopo do Mailer. Não há substituição global de created_at.
+- Consulta SQL equivalente corrigida executou com sucesso no Supabase usando WHERE false, sem leitura de dados pessoais.
+- GitHub Actions: https://github.com/SrKain/dream-athletic-path/actions/runs/39300420381 (Bun 1.3.14; sucesso).
+
+| Comando | Resultado comprovado |
+| --- | --- |
+| bun install --frozen-lockfile | Sucesso, 528 pacotes, manifesto e lockfile sem diff |
+| bun run typecheck | Sucesso |
+| bun run lint | Sucesso, 0 erros e 11 avisos preexistentes |
+| bun run test | Sucesso, 217/217 testes em 27 arquivos |
+| bun run build | Sucesso |
+
+O primeiro CI usou Prettier apenas sobre os arquivos do hotfix e disponibilizou seu diff. Esse diff foi aplicado às fontes versionadas, sem executar novamente o gerador de lockfile. A etapa auxiliar foi removida; o commit final será validado pelo workflow normal sem formatação ou commits automáticos.
+
+### Aceitação manual: procedimento e limite
+
+Não houve sessão de navegador autenticada disponível neste executor. Os casos abaixo são o roteiro manual, não uma alegação de execução:
+
+1. Selecionar atleta com bio_en e team_contribution_en preenchidos e destinatário ativo: preview e botão de envio devem ficar disponíveis. Repetir em individual e multi.
+2. Selecionar atleta sem um campo: deve aparecer apenas o bloqueio por campo faltante, com nome/link de edição.
+3. Simular falha no carregamento essencial: deve aparecer o título de erro amigável, detalhe recolhível e Tentar novamente. Remover a falha e clicar no botão: loading seguido de recuperação.
+
+A lógica desses estados, erro opcional, rejeição de promise, ordenação, erro essencial e regressão da coluna antiga foi coberta automaticamente. Nenhum teste disparou mensagens reais a coaches. PR: https://github.com/SrKain/dream-athletic-path/pull/7.

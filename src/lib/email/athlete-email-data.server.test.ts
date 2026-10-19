@@ -23,7 +23,9 @@ function mockClient(overrides: Record<string, Partial<QueryResult> | Error> = {}
       error: null,
     },
     athlete_profiles: {
-      data: [{ athlete_id: "a1", bio_en: "Complete biography", team_contribution_en: "Strong leader" }],
+      data: [
+        { athlete_id: "a1", bio_en: "Complete biography", team_contribution_en: "Strong leader" },
+      ],
       error: null,
     },
     athlete_videos: { data: [], error: null },
@@ -46,7 +48,10 @@ function mockClient(overrides: Record<string, Partial<QueryResult> | Error> = {}
         return chain;
       }),
       then: (resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) =>
-        (result instanceof Error ? Promise.reject(result) : Promise.resolve(result)).then(resolve, reject),
+        (result instanceof Error ? Promise.reject(result) : Promise.resolve(result)).then(
+          resolve,
+          reject,
+        ),
     };
     return chain;
   });
@@ -101,7 +106,11 @@ describe("Shared athlete email loader", () => {
     });
     const [athlete] = await loadAthletesEmailData(["a1", "a1"], client);
     expect(orders.filter((order) => order.table === "achievements")).toEqual([
-      { table: "achievements", column: "achieved_on", options: { ascending: false, nullsFirst: false } },
+      {
+        table: "achievements",
+        column: "achieved_on",
+        options: { ascending: false, nullsFirst: false },
+      },
       { table: "achievements", column: "id", options: { ascending: true } },
     ]);
     expect(athlete.achievementTitle).toBe("Latest public title");

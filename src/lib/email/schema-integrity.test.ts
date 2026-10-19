@@ -20,10 +20,7 @@ function extractColumnsFromSql(migrationFiles: string[], tableName: string): Set
       const lines = body.split("\n");
       for (const rawLine of lines) {
         const line = rawLine.trim().replace(/--.*$/, "").trim();
-        if (
-          !line ||
-          /^(constraint|primary\s+key|foreign\s+key|check|unique)\b/i.test(line)
-        ) {
+        if (!line || /^(constraint|primary\s+key|foreign\s+key|check|unique)\b/i.test(line)) {
           continue;
         }
         const colMatch = line.match(/^([a-z0-9_]+)\s+/i);
@@ -113,11 +110,22 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
   function validateLoaderColumns(source: string) {
     const references = extractLoaderReferences(source);
     const expectedTables = [
-      "achievements", "athlete_profiles", "athlete_videos", "athletes",
-      "sports", "positions", "countries",
+      "achievements",
+      "athlete_profiles",
+      "athlete_videos",
+      "athletes",
+      "sports",
+      "positions",
+      "countries",
     ].sort();
-    expect([...new Set(references.filter((ref) => ref.method === "select").map((ref) => ref.table))].sort()).toEqual(expectedTables);
-    const schemas = new Map(expectedTables.map((table) => [table, extractColumnsFromSql(migrationFiles, table)]));
+    expect(
+      [
+        ...new Set(references.filter((ref) => ref.method === "select").map((ref) => ref.table)),
+      ].sort(),
+    ).toEqual(expectedTables);
+    const schemas = new Map(
+      expectedTables.map((table) => [table, extractColumnsFromSql(migrationFiles, table)]),
+    );
     for (const { table, method, columns } of references) {
       for (const column of columns) {
         if (!schemas.get(table)?.has(column)) {
@@ -130,13 +138,19 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
 
   it("validates every loader select/order column against migrations for all seven relations", () => {
     const references = validateLoaderColumns(loaderSource);
-    expect(references.filter((ref) => ref.table === "achievements" && ref.method === "order").map((ref) => ref.columns)).toEqual([["achieved_on"], ["id"]]);
+    expect(
+      references
+        .filter((ref) => ref.table === "achievements" && ref.method === "order")
+        .map((ref) => ref.columns),
+    ).toEqual([["achieved_on"], ["id"]]);
   });
 
   it("rejects the original production regression achievements.created_at", () => {
     const brokenSource = loaderSource.replace('.order("achieved_on",', '.order("created_at",');
     expect(brokenSource).not.toBe(loaderSource);
-    expect(() => validateLoaderColumns(brokenSource)).toThrow("Unknown database column achievements.created_at in order");
+    expect(() => validateLoaderColumns(brokenSource)).toThrow(
+      "Unknown database column achievements.created_at in order",
+    );
     const columns = extractColumnsFromSql(migrationFiles, "achievements");
     expect(columns.has("achieved_on")).toBe(true);
     expect(columns.has("id")).toBe(true);
@@ -247,4 +261,3 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
     );
   });
 });
-

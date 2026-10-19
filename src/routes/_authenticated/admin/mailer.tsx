@@ -990,8 +990,7 @@ function MailerPage() {
   );
   const emailAthletesPanelState = getAthleteEmailPanelState({
     mode: sendMode,
-    loading:
-      emailAthletesLoading || emailAthletesRequestKey !== activeComposerAthleteIds.join(","),
+    loading: emailAthletesLoading || emailAthletesRequestKey !== activeComposerAthleteIds.join(","),
     error: emailAthletesError,
     requestedCount: activeComposerAthleteIds.length,
     receivedCount: selectedEmailData.length,
@@ -2315,35 +2314,45 @@ function MailerPage() {
                       </div>
 
                       {emailAthletesPanelState !== "ready" && (
-                          <div
-                            role={emailAthletesPanelState === "loading" ? "status" : "alert"}
-                            className={`rounded-lg border p-3 text-sm text-foreground space-y-2 ${
-                              emailAthletesPanelState === "loading" || emailAthletesPanelState === "empty"
-                                ? "border-border bg-muted/40"
-                                : "border-destructive/60 bg-destructive/10"
-                            }`}
-                          >
-                            <p className="font-semibold">
-                              {ATHLETE_EMAIL_STATE_MESSAGES[emailAthletesPanelState]}
-                            </p>
-                            {emailAthletesPanelState === "error" && (
-                              <>
-                                <p>O carregamento falhou. Tente novamente para validar as fichas antes do envio.</p>
-                                <details className="text-xs text-foreground break-words">
-                                  <summary className="cursor-pointer underline">Detalhes técnicos</summary>
-                                  <p className="mt-2">{emailAthletesError || "A resposta não incluiu todas as atletas selecionadas."}</p>
-                                </details>
-                                <button
-                                  type="button"
-                                  onClick={retryEmailAthletes}
-                                  disabled={emailAthletesLoading}
-                                  className="min-h-[44px] rounded-md border border-border bg-background px-3 py-2 font-semibold text-foreground hover:bg-muted disabled:opacity-50"
-                                >
-                                  Tentar novamente
-                                </button>
-                              </>
-                            )}
-                            {emailAthletesPanelState === "missing" && missingAthleteFields.map((entry) => (
+                        <div
+                          role={emailAthletesPanelState === "loading" ? "status" : "alert"}
+                          className={`rounded-lg border p-3 text-sm text-foreground space-y-2 ${
+                            emailAthletesPanelState === "loading" ||
+                            emailAthletesPanelState === "empty"
+                              ? "border-border bg-muted/40"
+                              : "border-destructive/60 bg-destructive/10"
+                          }`}
+                        >
+                          <p className="font-semibold">
+                            {ATHLETE_EMAIL_STATE_MESSAGES[emailAthletesPanelState]}
+                          </p>
+                          {emailAthletesPanelState === "error" && (
+                            <>
+                              <p>
+                                O carregamento falhou. Tente novamente para validar as fichas antes
+                                do envio.
+                              </p>
+                              <details className="text-xs text-foreground break-words">
+                                <summary className="cursor-pointer underline">
+                                  Detalhes técnicos
+                                </summary>
+                                <p className="mt-2">
+                                  {emailAthletesError ||
+                                    "A resposta não incluiu todas as atletas selecionadas."}
+                                </p>
+                              </details>
+                              <button
+                                type="button"
+                                onClick={retryEmailAthletes}
+                                disabled={emailAthletesLoading}
+                                className="min-h-[44px] rounded-md border border-border bg-background px-3 py-2 font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+                              >
+                                Tentar novamente
+                              </button>
+                            </>
+                          )}
+                          {emailAthletesPanelState === "missing" &&
+                            missingAthleteFields.map((entry) => (
                               <p key={entry.athleteId}>
                                 <a
                                   className="underline font-semibold"
@@ -2354,7 +2363,7 @@ function MailerPage() {
                                 : {entry.fields.join(" / ")}
                               </p>
                             ))}
-                          </div>
+                        </div>
                       )}
                       {sendMode === "multi" &&
                         emailAthletesReady &&
@@ -2737,4 +2746,3 @@ function MailerPage() {
     </ProtectedPage>
   );
 }
-

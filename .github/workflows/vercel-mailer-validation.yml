@@ -50,12 +50,6 @@ jobs:
             git diff --exit-code -- bun.lock
           fi
 
-      - name: Prepare hotfix formatting diff
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-19-mailer-achievements-created-at'
-        run: |
-          bunx prettier --write src/lib/email/athlete-email-data.server.ts src/lib/email/athlete-email-data.server.test.ts src/lib/email/athlete-email-quality.ts src/lib/email/athlete-email-quality.test.ts src/lib/email/schema-integrity.test.ts src/routes/_authenticated/admin/mailer.tsx
-          git diff -- src/lib/email/athlete-email-data.server.ts src/lib/email/athlete-email-data.server.test.ts src/lib/email/athlete-email-quality.ts src/lib/email/athlete-email-quality.test.ts src/lib/email/schema-integrity.test.ts src/routes/_authenticated/admin/mailer.tsx
-
       - name: Format changed TypeScript files with project Prettier
         if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-16-vercel-mailer-reliability'
         run: |

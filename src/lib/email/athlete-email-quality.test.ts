@@ -34,7 +34,9 @@ describe("Mailer athlete validation panel", () => {
       missingFieldCount: 2,
     });
     expect(state).toBe("error");
-    expect(ATHLETE_EMAIL_STATE_MESSAGES[state]).toBe("Não foi possível carregar os dados das atletas");
+    expect(ATHLETE_EMAIL_STATE_MESSAGES[state]).toBe(
+      "Não foi possível carregar os dados das atletas",
+    );
     expect(ATHLETE_EMAIL_STATE_MESSAGES[state]).not.toMatch(/created_at|obrigatórios/);
   });
 
@@ -61,7 +63,11 @@ describe("Mailer athlete validation panel", () => {
   });
 
   it("requests a selection when empty and preserves the catalog exemption", () => {
-    expect(getAthleteEmailPanelState({ ...ready, requestedCount: 0, receivedCount: 0 })).toBe("empty");
-    expect(getAthleteEmailPanelState({ ...ready, mode: "catalog", loading: true, requestedCount: 0 })).toBe("ready");
+    expect(getAthleteEmailPanelState({ ...ready, requestedCount: 0, receivedCount: 0 })).toBe(
+      "empty",
+    );
+    expect(
+      getAthleteEmailPanelState({ ...ready, mode: "catalog", loading: true, requestedCount: 0 }),
+    ).toBe("ready");
   });
 });

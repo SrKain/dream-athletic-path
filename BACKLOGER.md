@@ -1112,6 +1112,8 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Plano:** `think/2026-10-19-1754-hotfix-achievements-created-at.md`.
 - **Diagnóstico comprovado:** o loader ordena achievements por created_at; migrations e consulta somente leitura ao information_schema do projeto teamgoteam confirmam achieved_on e ausência de created_at. image_url, medal e achievement_type também não existem nessa relação no banco consultado; não são necessários ao select mínimo do hotfix.
 - **Decisões planejadas:** achieved_on descendente com nulos ao final e desempate por id; falhas de conquistas registradas de forma estruturada e fallback null; consultas essenciais permanecem fatais; retry do carregamento com mensagens próprias por causa; sem migration.
-- **Status:** `[PENDENTE]` — hotfix implementado e auditoria concluída; aguardando validação Bun 1.3.14 no GitHub Actions. Testes manuais de navegador ainda não executados.
+- **Status:** `[CONCLUÍDO]` — hotfix e auditoria implementados; CI `39300420381` aprovado (Bun 1.3.14, frozen install, typecheck, lint, 217/217 testes e build). PR #7. Validação do commit final sem etapa auxiliar de formatação em acompanhamento; aceitação manual em navegador autenticado não executada.
 - **Implementação:** loader e estados/retry do painel corrigidos, testes de schema/loader/lógica adicionados e CERNE.md atualizado. bun.lock, package.json, fila, idempotência, Reply-To, textos canônicos e layout preservados; nenhuma migration ou envio real.
 
+
+- **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
