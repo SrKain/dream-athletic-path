@@ -1097,4 +1097,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Plano:** `think/2026-10-19-0931-campos-obrigatorios-card-mailer.md`.
 - **Pedido:** unificar dados do Mailer nos envios individual, multi e em fila e previews; restabelecer ABOUT HER e WHY SHE COULD FIT YOUR PROGRAM; completar Quick Facts, remover repetições, preservar HTML seguro, texto puro e validação de obrigatoriedade dupla UI/servidor; testes e Bun 1.3.14.
 - **Implementação:** carregador em lote `athlete-email-data.server.ts`, validador puro `athlete-email-quality.ts`, proteção de campanhas, previews pelo servidor, card completo e plain-text; testes Vitest. Sem migration, alterações de orquestração ou de dependências.
-- **Status:** `[PENDENTE — VALIDAÇÃO CI/TESTES]` (atualizar após evidência de execução).
+- **Status:** `[CONCLUÍDO — CI APROVADO]`.
+- **Validação:** GitHub Actions run `39256913678`, Bun 1.3.14: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint` (0 erros, 11 avisos existentes), `bun run test` (200/200) e `bun run build` aprovados. Sem modificações de `bun.lock`/`package.json`; sem envio real de campanha.
+- **Revisão visual:** Position/Height/From removidos de Quick Facts por já aparecerem no cabeçalho; foto + tabela responsiva mantidas.
+
