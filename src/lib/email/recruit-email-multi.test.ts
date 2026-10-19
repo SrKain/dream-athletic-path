@@ -327,7 +327,7 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(singleSize).toBeLessThan(102400);
       expect(size).toBeLessThan(singleSize * eightAthletes.length);
       expect(res.html.match(/>QUICK FACTS</g)).toHaveLength(8);
-      for (const athlete of eightAthletes) expect(res.html).toContain(athlete.name.toUpperCase());
+      for (const athlete of eightAthletes) expect(res.html).toContain(athlete.name);
     });
   });
 
@@ -412,7 +412,9 @@ describe("Approved Quick Facts parity across preview and compatibility templates
     );
     assertAnaQuickFacts(
       legacyMulti.html,
-      generateMultiAthletePlainText({ athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }] }),
+      generateMultiAthletePlainText({
+        athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }],
+      }),
       2,
     );
   });
