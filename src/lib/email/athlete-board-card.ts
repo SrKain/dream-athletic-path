@@ -10,10 +10,12 @@
  *  - Todo dado é escapado.
  *  - Seção sem dados é omitida por inteiro (nunca "N/A").
  */
-import { cmToFeetAndInches, formatGpa } from "@/lib/units";
+import { formatGpa } from "@/lib/units";
 import { parseYoutubeId } from "@/lib/youtube";
 import { EMAIL_ASSETS, EMAIL_BASE_URL, EMAIL_COLORS } from "./email-brand";
 import { escapeHtml } from "./email-layout";
+import { formatBoardHeight, getAthleteQuickFacts } from "./athlete-quick-facts";
+export { formatBoardHeight } from "./athlete-quick-facts";
 import { appendMailerUtmParams } from "./mailer-metrics-quality";
 import {
   buildInterestedMailtoUrl,
@@ -42,12 +44,6 @@ const C = EMAIL_COLORS;
 function clean(value: unknown): string {
   if (value === null || value === undefined) return "";
   return String(value).trim();
-}
-
-export function formatBoardHeight(heightCm?: number | null): string {
-  if (!heightCm || heightCm <= 0) return "";
-  const imperial = cmToFeetAndInches(heightCm);
-  return imperial ? `${imperial.feet}'${imperial.inches}" (${heightCm} cm)` : `${heightCm} cm`;
 }
 
 export interface BoardStatItem {
@@ -183,35 +179,7 @@ function icon(url: string, alt: string): string {
 }
 
 function renderQuickFacts(athlete: RecruitEmailAthlete): string {
-  const rows: Array<{ icon?: string; flag?: string; label: string; value: string }> = [];
-  const gpa = formatGpa(athlete.gpa == null ? null : Number(athlete.gpa.toFixed(1)));
-  if (gpa) rows.push({ icon: EMAIL_ASSETS.icons.gradCap, label: "GPA", value: gpa });
-  const school = clean(athlete.currentSchool);
-  if (school)
-    rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Current School", value: school });
-  const status = clean(athlete.athleteStatus);
-  if (status) rows.push({ icon: EMAIL_ASSETS.icons.arrowGold, label: "Status", value: status });
-  const available = clean(athlete.seekingOpportunities);
-  if (available) rows.push({ icon: EMAIL_ASSETS.icons.film, label: "Available", value: available });
-  const major = clean(athlete.courseOfInterest);
-  if (major)
-    rows.push({ icon: EMAIL_ASSETS.icons.academic, label: "Intended Major", value: major });
-  const graduation =
-    clean(athlete.highSchoolGraduation) ||
-    (athlete.graduationYear ? String(athlete.graduationYear) : "");
-  if (graduation)
-    rows.push({
-      icon: EMAIL_ASSETS.icons.gradCap,
-      label: "High School Graduation",
-      value: graduation,
-    });
-  const collegeStart = clean(athlete.collegeStartDate);
-  if (collegeStart)
-    rows.push({
-      icon: EMAIL_ASSETS.icons.academic,
-      label: "College Start Date",
-      value: collegeStart,
-    });
+  const rows = getAthleteQuickFacts(athlete);
 
   if (rows.length === 0) return "";
 
@@ -220,7 +188,7 @@ function renderQuickFacts(athlete: RecruitEmailAthlete): string {
       (r, i) => `
       <tr>
         <td width="24" valign="middle" style="padding:7px 0;${i ? `border-top:1px solid ${C.lineDivider};` : ""}font-size:15px;line-height:16px;">${r.flag ? escapeHtml(r.flag) : r.icon ? icon(r.icon, r.label) : ""}</td>
-        <td valign="middle" style="padding:7px 8px;${i ? `border-top:1px solid ${C.lineDivider};` : ""}font-family:${FONT};font-size:11px;letter-spacing:0.6px;color:${C.textMuted};text-transform:uppercase;white-space:nowrap;">${escapeHtml(r.label)}</td>
+        <td valign="middle" style="padding:7px 8px;${i ? `border-top:1px solid ${C.lineDivider};` : ""}font-family:${FONT};font-size:12px;letter-spacing:0.6px;color:${C.textMuted};text-transform:uppercase;white-space:nowrap;">${escapeHtml(r.label)}</td>
         <td valign="middle" style="padding:7px 0;${i ? `border-top:1px solid ${C.lineDivider};` : ""}font-family:${FONT};font-size:13px;color:${C.textDark};">${escapeHtml(r.value)}</td>
       </tr>`,
     )
@@ -456,3 +424,4 @@ export function renderAthleteBoardCard(
     ${renderActions(urls)}
   </table>`;
 }
+

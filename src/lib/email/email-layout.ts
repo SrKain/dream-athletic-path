@@ -1,12 +1,10 @@
+import { renderAthleteBoardCard } from "./athlete-board-card";
 import {
   EMAIL_BASE_URL,
   EMAIL_ASSETS,
   EMAIL_COLORS,
   EMAIL_SIGNATURE,
-  getCountryAlpha3,
 } from "./email-brand";
-import { formatHeightImperial, formatGpa } from "@/lib/units";
-import { youtubeWatchUrl } from "@/lib/youtube";
 
 /**
  * Sanitiza strings para HTML seguro prevenindo quebras de renderização e XSS.
@@ -34,6 +32,7 @@ export interface EmailCardAthlete {
   sportName?: string | null;
   heightCm?: number | null;
   nationality?: string | null;
+  countryFlag?: string | null;
   highSchoolGraduation?: string | null;
   graduationYear?: number | null;
   aboutHer?: string | null;
@@ -454,250 +453,36 @@ export function renderFeaturedHeader(params?: { title?: string; rightNote?: stri
   </tr>`;
 }
 
-/**
- * E) CARD DO ATLETA:
- * Fundo #f3f6f1, borda 1px #e3e9dc, cantos arredondados (~12px), padding ~10px.
- * 1. Linha superior: sequencial "01" à esquerda; Alpha-3 ("BRA") + bandeira PNG circular à direita.
- * 2. Foto proporção ~1.22:1 (cover, cantos arredondados).
- * 3. Etiqueta da posição sobreposta na base da foto (#084323, branco bold).
- * 4. Nome em CAIXA ALTA bold (#084323, ~15px).
- * 5. 5 linhas de atributos com ícones: altura, Class of, GPA (1 decimal), destaque/conquista, financeiro (omitido se vazio).
- * 6. Botão pill #084323 largura total: play circular + WATCH HIGHLIGHTS + seta dourada →.
- */
+/** Compatibility adapter: always use the approved athlete board card. */
 export function renderAthleteCard(
   athlete: EmailCardAthlete,
   index: number,
   isSingleMode = false,
 ): string {
-  const safeName = escapeHtml(
-    (athlete.athleteName || "").trim().toUpperCase() || "ATHLETE PROSPECT",
-  );
-  const safeSlug = escapeHtml((athlete.athleteSlug || "").trim());
-  const formattedIndex = String(index + 1).padStart(2, "0");
-
-  const profileUrl = safeSlug
-    ? `${EMAIL_BASE_URL}/athlete/${encodeURIComponent(athlete.athleteSlug)}`
-    : EMAIL_BASE_URL;
-
-  // Link do botão WATCH HIGHLIGHTS / VIEW FULL PROFILE
-  let watchHighlightsUrl = profileUrl;
-  let hasValidHighlight = false;
-  if (athlete.highlightVideoUrl && athlete.highlightVideoUrl.trim().length > 0) {
-    const parsed = youtubeWatchUrl(athlete.highlightVideoUrl);
-    if (parsed) {
-      watchHighlightsUrl = parsed;
-      hasValidHighlight = true;
-    } else if (athlete.highlightVideoUrl.trim().startsWith("http")) {
-      watchHighlightsUrl = athlete.highlightVideoUrl.trim();
-      hasValidHighlight = true;
-    }
-  }
-
-  const buttonLabel = hasValidHighlight ? "WATCH HIGHLIGHTS" : "VIEW FULL PROFILE";
-
-  // País
-  const alpha3 = getCountryAlpha3(athlete.nationality);
-  const flagUrl = EMAIL_ASSETS.flagUrl(alpha3);
-
-  // Posição
-  const positionText = escapeHtml(
-    (athlete.positionName || athlete.sportName || "PROSPECT").toUpperCase(),
-  );
-
-  // Altura
-  const heightImperial = formatHeightImperial(athlete.heightCm);
-  const heightText = heightImperial
-    ? athlete.heightCm
-      ? `${heightImperial} (${athlete.heightCm} cm)`
-      : heightImperial
-    : athlete.heightCm
-      ? `${athlete.heightCm} cm`
-      : "Profile Film";
-
-  // Graduação
-  const gradYear = athlete.highSchoolGraduation
-    ? `Class of ${escapeHtml(athlete.highSchoolGraduation)}`
-    : athlete.graduationYear
-      ? `Class of ${athlete.graduationYear}`
-      : "Class of 2027";
-
-  // GPA
-  const gpaFormatted = formatGpa(athlete.gpa);
-  const gpaText = gpaFormatted ? `GPA: ${gpaFormatted}` : "GPA: Verified on Profile";
-
-  // Destaque / Conquista (fallback para achievement ou omitir)
-  const highlightLine =
-    athlete.highlightNote && athlete.highlightNote.trim().length > 0
-      ? athlete.highlightNote.trim()
-      : athlete.achievementTitle && athlete.achievementTitle.trim().length > 0
-        ? athlete.achievementTitle.trim()
-        : null;
-
-  // Badge Transfer (Status diferente de High School e Graduate Transfer)
-  const isTransfer =
-    athlete.athleteStatus &&
-    ["Freshman", "Sophomore", "Junior", "Senior", "Transfer"].includes(athlete.athleteStatus);
-
-  // Foto
-  const photoUrl = athlete.photoUrl
-    ? athlete.photoUrl
-    : `${EMAIL_BASE_URL}/email/flags/default.png`;
-
-  return `
-  <!-- CARD ${formattedIndex}: ${safeName} -->
-  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:${EMAIL_COLORS.cardBg};border:1px solid ${EMAIL_COLORS.cardBorder};border-radius:12px;overflow:hidden;margin-bottom:12px;">
-    <!-- Top Row: Index + Country Flag & Alpha3 -->
-    <tr>
-      <td style="padding:10px 10px 6px 10px;">
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
-          <tr>
-            <td align="left" valign="middle">
-              <span style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};letter-spacing:0.5px;">
-                ${formattedIndex}
-              </span>
-              ${
-                isTransfer
-                  ? `<span style="display:inline-block;margin-left:6px;background-color:${EMAIL_COLORS.badgeGreenBg};color:${EMAIL_COLORS.badgeGreenText};font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:0.8px;">TRANSFER</span>`
-                  : ""
-              }
-            </td>
-            <td align="right" valign="middle">
-              <table role="presentation" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td valign="middle" style="padding-right:5px;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;color:${EMAIL_COLORS.textDark};letter-spacing:0.5px;">
-                    ${escapeHtml(alpha3)}
-                  </td>
-                  <td valign="middle">
-                    <img src="${flagUrl}" alt="${escapeHtml(alpha3)}" width="18" height="18" style="width:18px;height:18px;border-radius:50%;display:block;border:1px solid ${EMAIL_COLORS.cardBorder};" />
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-
-    <!-- Athlete Photo with Position Badge Attached -->
-    <tr>
-      <td style="padding:0 10px 8px 10px;" align="center">
-        <div style="position:relative;width:100%;border-radius:8px;overflow:hidden;background-color:#084323;">
-          <a href="${profileUrl}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
-            <img src="${photoUrl}" alt="${safeName}" width="${isSingleMode ? "320" : "196"}" height="${isSingleMode ? "260" : "160"}" style="width:100%;max-width:${isSingleMode ? "340px" : "210px"};height:${isSingleMode ? "240px" : "154px"};object-fit:cover;display:block;border-radius:6px;" />
-          </a>
-          <!-- Position Badge glued to bottom-left -->
-          <div style="background-color:${EMAIL_COLORS.darkGreenPrimary};color:#ffffff;padding:4px 8px;font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;text-align:left;">
-            ${positionText}
-          </div>
-        </div>
-      </td>
-    </tr>
-
-    <!-- Athlete Name -->
-    <tr>
-      <td style="padding:0 10px 8px 10px;" align="left">
-        <a href="${profileUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
-          <div style="font-family:Arial,Helvetica,sans-serif;font-size:${isSingleMode ? "17px" : "13.5px"};font-weight:900;color:${EMAIL_COLORS.darkGreenPrimary};line-height:1.25;letter-spacing:-0.2px;text-transform:uppercase;min-height:34px;">
-            ${safeName}
-          </div>
-        </a>
-      </td>
-    </tr>
-
-    <!-- 5 Rows of Details -->
-    <tr>
-      <td style="padding:0 10px 10px 10px;" align="left">
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
-          <!-- Row 1: Height -->
-          <tr>
-            <td width="20" valign="middle" style="padding-bottom:5px;">
-              <img src="${EMAIL_ASSETS.icons.height}" alt="Height" width="14" height="14" style="width:14px;height:14px;display:block;border:0;" />
-            </td>
-            <td valign="middle" style="padding-left:6px;padding-bottom:5px;font-size:11px;font-weight:700;color:${EMAIL_COLORS.textDark};">
-              ${escapeHtml(heightText)}
-            </td>
-          </tr>
-
-          <!-- Row 2: Graduation -->
-          <tr>
-            <td width="20" valign="middle" style="padding-bottom:5px;">
-              <img src="${EMAIL_ASSETS.icons.gradCap}" alt="Class" width="14" height="14" style="width:14px;height:14px;display:block;border:0;" />
-            </td>
-            <td valign="middle" style="padding-left:6px;padding-bottom:5px;font-size:11px;font-weight:700;color:${EMAIL_COLORS.textDark};">
-              ${escapeHtml(gradYear)}
-            </td>
-          </tr>
-
-          <!-- Row 3: GPA -->
-          <tr>
-            <td width="20" valign="middle" style="padding-bottom:5px;">
-              <img src="${EMAIL_ASSETS.icons.stats}" alt="GPA" width="14" height="14" style="width:14px;height:14px;display:block;border:0;" />
-            </td>
-            <td valign="middle" style="padding-left:6px;padding-bottom:5px;font-size:11px;font-weight:700;color:${EMAIL_COLORS.textDark};">
-              ${escapeHtml(gpaText)}
-            </td>
-          </tr>
-
-          <!-- Row 4: Highlight Hook (if exists) -->
-          ${
-            highlightLine
-              ? `
-          <tr>
-            <td width="20" valign="top" style="padding-bottom:5px;padding-top:1px;">
-              <img src="${EMAIL_ASSETS.icons.star}" alt="Highlight" width="14" height="14" style="width:14px;height:14px;display:block;border:0;" />
-            </td>
-            <td valign="top" style="padding-left:6px;padding-bottom:5px;font-size:10.5px;line-height:1.3;font-style:italic;color:${EMAIL_COLORS.textMuted};">
-              ${escapeHtml(highlightLine)}
-            </td>
-          </tr>`
-              : ""
-          }
-
-          <!-- Row 5: Financial (omitted if empty, per user approval) -->
-          ${
-            athlete.budget && athlete.budget.trim().length > 0
-              ? `
-          <tr>
-            <td width="20" valign="middle" style="padding-bottom:5px;">
-              <img src="${EMAIL_ASSETS.icons.dollar}" alt="Financial" width="14" height="14" style="width:14px;height:14px;display:block;border:0;" />
-            </td>
-            <td valign="middle" style="padding-left:6px;padding-bottom:5px;font-size:11px;font-weight:700;color:${EMAIL_COLORS.textDark};">
-              Financial: ${escapeHtml(athlete.budget)}
-            </td>
-          </tr>`
-              : ""
-          }
-        </table>
-      </td>
-    </tr>
-
-    <!-- Bottom Action Button: WATCH HIGHLIGHTS / VIEW FULL PROFILE -->
-    <tr>
-      <td style="padding:0 10px 12px 10px;">
-        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
-          <tr>
-            <td align="center" bgcolor="${EMAIL_COLORS.darkGreenPrimary}" style="background-color:${EMAIL_COLORS.darkGreenPrimary};border-radius:24px;padding:9px 12px;">
-              <a href="${watchHighlightsUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:block;">
-                <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center">
-                  <tr>
-                    <td valign="middle" style="padding-right:6px;">
-                      <img src="${EMAIL_ASSETS.icons.playCircle}" alt="Play" width="18" height="18" style="width:18px;height:18px;display:block;border:0;" />
-                    </td>
-                    <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:900;color:#ffffff;letter-spacing:1px;text-transform:uppercase;">
-                      ${buttonLabel}
-                    </td>
-                    <td valign="middle" style="padding-left:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:900;color:${EMAIL_COLORS.goldPrimary};">
-                      &rarr;
-                    </td>
-                  </tr>
-                </table>
-              </a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>`;
+  return renderAthleteBoardCard({
+    id: athlete.athleteId || athlete.athleteSlug,
+    name: athlete.athleteName,
+    slug: athlete.athleteSlug,
+    photoUrl: athlete.photoUrl,
+    positionEn: athlete.positionName,
+    heightCm: athlete.heightCm,
+    countryEn: athlete.nationality,
+    countryFlag: athlete.countryFlag,
+    gpa: athlete.gpa,
+    athleteStatus: athlete.athleteStatus,
+    currentSchool: athlete.currentSchool,
+    seekingOpportunities: athlete.seekingOpportunities,
+    courseOfInterest: athlete.courseOfInterest,
+    highSchoolGraduation: athlete.highSchoolGraduation,
+    graduationYear: athlete.graduationYear,
+    collegeStartDate: athlete.collegeStartDate,
+    aboutHer: athlete.aboutHer,
+    stats: athlete.stats,
+    videos: athlete.videos,
+    highlightVideoUrl: athlete.highlightVideoUrl,
+    highlightNote: athlete.highlightNote || athlete.achievementTitle,
+    teamContribution: athlete.teamContribution,
+  });
 }
 
 /**
@@ -1017,3 +802,4 @@ export function renderLegalFooter(params: { recipientEmail?: string | null }): s
     </td>
   </tr>`;
 }
+

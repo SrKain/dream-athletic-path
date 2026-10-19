@@ -6,7 +6,7 @@
 - Base confirmada: main @ 8a6c315ed98522040313b3bf33aed58a09b052d8 (merge PR #7).
 - Branch: fix/2026-10-19-mailer-quick-facts.
 - Aprovação: execução explicitamente autorizada no prompt; plano registrado antes das alterações de código.
-- Status: planejamento apresentado para revisão; implementação pausada conforme pedido mais recente do solicitante.
+- Status: aprovado, em execução.
 
 ## 1. Diagnóstico e objetivo
 
@@ -67,3 +67,4 @@ O ambiente local não possui Bun e seu proxy estava inacessível na tarefa anter
 O preview atual é calculado a partir da seleção/dados atuais; novo carregamento usa o renderer atualizado. A fila persiste snapshots HTML/texto em mailer_queue.payload: itens já enfileirados manterão o conteúdo antigo, inclusive após este deploy. Envios realizados não serão alterados e não haverá reprocessamento automático. Para novo layout, criar nova campanha após publicar a correção.
 
 Entregar branch/PR com commits claros, HTML de exemplo, comparação das oito linhas, resultados individuais dos comandos e registro dos adaptadores legados encontrados. Manter catálogo institucional separado, pois não possui card de atleta.
+

@@ -1117,6 +1117,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 
 - **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
+- **Decisões planejadas:** achieved_on descendente com nulos ao final e desempate por id; falhas de conquistas registradas de forma estruturada e fallback null; consultas essenciais permanecem fatais; retry do carregamento com mensagens próprias por causa; sem migration.
+- **Status:** `[CONCLUÍDO]` — hotfix e auditoria implementados; CI `39300420381` aprovado (Bun 1.3.14, frozen install, typecheck, lint, 217/217 testes e build). PR #7. Validação do commit final sem etapa auxiliar de formatação em acompanhamento; aceitação manual em navegador autenticado não executada.
+- **Implementação:** loader e estados/retry do painel corrigidos, testes de schema/loader/lógica adicionados e CERNE.md atualizado. bun.lock, package.json, fila, idempotência, Reply-To, textos canônicos e layout preservados; nenhuma migration ou envio real.
+
+
+- **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
 
 
 ## TASK-101 — 2026-10-19 18:31 UTC — Plano de alinhamento dos Quick Facts do Mailer
@@ -1128,7 +1134,8 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Plano:** think/2026-10-19-1831-quick-facts-mailer.md.
 - **Diagnóstico:** renderQuickFacts removeu POSITION/HEIGHT/FROM, adicionou graduação/início e arredondou GPA; dois renderizadores legados ainda produzem cards distintos; texto pessoal e legado não compartilham a mesma tabela de fatos.
 - **Decisões:** definição única QUICK_FACTS_ROWS para HTML/texto, oito linhas condicionais na ordem aprovada, GPA real e strings numéricas tratadas, labels 12px, bandeira com fallback globe, adaptadores legados delegando ao card canônico. Contraste medido 6.0823:1; cores preservadas.
-- **Instrução mais recente:** solicitante pediu a apresentação do plano. Implementação preliminar local foi preservada em stash; nenhuma correção de código foi publicada na branch ou na main.
-- **Status:** `[PENDENTE]` — plano salvo e apresentado; execução e cinco validações Bun pendentes.
+- **Instrução mais recente:** solicitante aprovou expressamente a execução integral em 2026-10-19.
+- **Status:** `[PENDENTE]` — implementação aprovada em validação; oito fatos e adaptadores unificados, testes e exemplo adicionados.
 - **Restrições:** sem alterar bun.lock/package.json, loader, fila, idempotência, Reply-To, textos canônicos, outras seções ou ações do card. Sem migration ou envio real. CERNE.md será atualizado na implementação.
 - **Fila/cache:** snapshots já enfileirados permanecem com HTML/texto originais; sem reprocessar ou alterar envios anteriores.
+

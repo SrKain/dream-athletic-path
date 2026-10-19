@@ -19,6 +19,8 @@ import {
   type RecruitEmailData,
 } from "./recruit-email-template";
 import { renderCatalogEmail } from "./recruit-email-catalog-template";
+import { ANA_CAROLINA, ANA_EMAIL_DATA } from "./__fixtures__/ana-carolina";
+import { assertAnaQuickFacts } from "./__fixtures__/assert-quick-facts";
 import { EMAIL_COLORS } from "./email-brand";
 
 describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () => {
@@ -123,7 +125,7 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       );
     });
 
-    it("renders athlete card with photo, name, specs, TRANSFER badge and 4 buttons", () => {
+    it("delegates the legacy card to the approved board and its existing actions", () => {
       const cardHtml = renderAthleteCard(athlete1, {
         appUrl: "https://portfolio.goteamgoagency.com",
         coachName: "Smith",
@@ -133,10 +135,10 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(cardHtml).toContain("Mariana Silva");
       expect(cardHtml).toContain("Setter");
       expect(cardHtml).toContain("TRANSFER");
-      expect(cardHtml).toContain("WATCH FILM");
-      expect(cardHtml).toContain("I'M INTERESTED");
+      expect(cardHtml).toContain("WATCH HER IN ACTION");
+      expect(cardHtml).toContain("RECRUIT NOW");
       expect(cardHtml).toContain("FULL PROFILE");
-      expect(cardHtml).toContain("Not a fit");
+      expect(cardHtml).toContain("NOT A FIT");
       expect(cardHtml).toContain("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     });
 
@@ -224,7 +226,7 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
       expect(singleText).toContain("Hi Coach Smith,");
       expect(singleText).toContain("PROSPECT: Mariana Silva");
       expect(singleText).toContain(
-        "SPECS: Setter · 6'1\" (185 cm) · Class of 2027 · GPA 3.85 · 🇧🇷 Brazil",
+        "POSITION: Setter\nHEIGHT: 6'1\" (185 cm)\nGPA: 3.85",
       );
       expect(singleText).toContain("WATCH FILM: https://www.youtube.com/watch?v=dQw4w9WgXcQ");
       expect(singleText).toContain("NOT A FIT:");
@@ -386,5 +388,18 @@ describe("5-Second Scan Email Redesign Suite (Athletes First, Text Last)", () =>
         expect(true).toBe(true);
       }
     });
+  });
+});
+
+
+
+describe("Approved Quick Facts parity across preview and compatibility templates", () => {
+  it("emits the same ordered facts once per card in HTML and text", () => {
+    const single = renderRecruitEmail(ANA_EMAIL_DATA);
+    const multi = renderMultiLegacy({ athletes: [ANA_EMAIL_DATA, { ...ANA_EMAIL_DATA, athleteId: "second" }] });
+    const legacySingle = renderSingleAthleteRecruitEmail({ athlete: ANA_CAROLINA });
+    const legacyMulti = renderMultiAthleteRecruitEmail({ athletes: [ANA_CAROLINA, { ...ANA_CAROLINA, id: "second" }] });
+    for (const result of [single, legacySingle]) assertAnaQuickFacts(result.html, result.text);
+    for (const result of [multi, legacyMulti]) assertAnaQuickFacts(result.html, result.text, 2);
   });
 });

@@ -58,6 +58,12 @@ jobs:
             src/lib/email/mailer-queue.test.ts \
             src/routes/_authenticated/admin/mailer.tsx
 
+      - name: Format approved Quick Facts files for patch review
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-19-mailer-quick-facts'
+        run: |
+          bunx prettier --write src/lib/email/athlete-quick-facts.ts src/lib/email/athlete-board-card.ts src/lib/email/athlete-board-card.test.ts src/lib/email/recruit-email.ts src/lib/email/email-layout.ts src/lib/email/personal-email-renderer.ts src/lib/email/recruit-email-multi.test.ts src/lib/email/recruit-email-send.test.ts src/lib/email/mailer-queue.test.ts src/lib/email/__fixtures__/*.ts scripts/render-mailer-quick-facts-preview.ts
+          git diff -- src/lib/email scripts/render-mailer-quick-facts-preview.ts
+
       - name: Typecheck
         run: bun run typecheck
 

@@ -1,3 +1,5 @@
+import { renderAthleteBoardCard } from "./athlete-board-card";
+import { renderQuickFactsPlainText } from "./athlete-quick-facts";
 import { buildCoachGreeting, resolveEmailSubject } from "./email-personalization";
 import { cmToFeetAndInches, formatGpa } from "@/lib/units";
 import { EMAIL_ASSETS, EMAIL_BASE_URL, EMAIL_COLORS, EMAIL_SIGNATURE } from "./email-brand";
@@ -169,9 +171,7 @@ export function buildNotAFitUrl(
 }
 
 /**
- * Renderiza uma ficha individual de atleta em tabela HTML de largura total (680px max).
- * Desktop: Foto à esquerda, specs e 4 botões de 44px à direita.
- * Mobile: Foto e botões empilham verticalmente.
+ * Compatibility entry point: all athlete cards use the approved board renderer.
  */
 export function renderAthleteCard(
   athlete: RecruitEmailAthlete,
@@ -184,119 +184,7 @@ export function renderAthleteCard(
     campaignId?: string | null;
   } = {},
 ): string {
-  const baseUrl = options.appUrl || EMAIL_BASE_URL;
-  const rawProfileUrl =
-    athlete.profileUrl || `${baseUrl}/athlete/${encodeURIComponent(athlete.slug)}`;
-  const profileUrl = appendMailerUtmParams(rawProfileUrl, {
-    appUrl: baseUrl,
-    campaignId: options.campaignId,
-    content: `full_profile_${athlete.slug}`,
-  });
-  const rawVideoUrl =
-    athlete.highlightVideoUrl && athlete.highlightVideoUrl.trim()
-      ? athlete.highlightVideoUrl.trim()
-      : rawProfileUrl;
-  const videoUrl = appendMailerUtmParams(rawVideoUrl, {
-    appUrl: baseUrl,
-    campaignId: options.campaignId,
-    content: `watch_film_${athlete.slug}`,
-  });
-  const interestedMailto = buildInterestedMailtoUrl(athlete, options.coachName);
-  const notAFitUrl = buildNotAFitUrl(athlete.id, {
-    ...options,
-    athleteName: athlete.name,
-    position: athlete.positionEn,
-  });
-
-  const specs = buildAthleteSpecsLine(athlete);
-  const showTransferBadge = isTransferEligible(athlete.athleteStatus);
-  const photoUrl =
-    athlete.photoUrl && athlete.photoUrl.trim()
-      ? athlete.photoUrl.trim()
-      : `${baseUrl}/favicon.ico`;
-
-  return `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 16px; background-color: ${EMAIL_COLORS.cardBg}; border: 1px solid ${EMAIL_COLORS.cardBorder}; border-radius: 12px; overflow: hidden;">
-      <tr>
-        <td style="padding: 16px 18px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <!-- Foto da Atleta (Esquerda no desktop) -->
-              <td class="stack-column athlete-photo-cell" width="110" valign="top" style="padding-right: 16px;">
-                <a href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block;">
-                  <img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(athlete.name)}" width="110" height="138" style="display: block; width: 110px; height: 138px; object-fit: cover; border-radius: 8px; border: 1px solid ${EMAIL_COLORS.cardBorder}; background-color: ${EMAIL_COLORS.cardBg};" />
-                </a>
-              </td>
-
-              <!-- Dados e Ações (Direita no desktop) -->
-              <td class="stack-column athlete-info-cell" valign="top">
-                <!-- Nome e Badge Transfer -->
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td>
-                      <a href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: 800; color: ${EMAIL_COLORS.textDark}; line-height: 1.25; text-transform: uppercase;">
-                        ${escapeHtml(athlete.name)}
-                      </a>
-                      ${
-                        showTransferBadge
-                          ? `<span style="display: inline-block; padding: 2px 6px; font-family: Arial, Helvetica, sans-serif; font-size: 10px; font-weight: 800; color: ${EMAIL_COLORS.badgeGoldText}; background-color: ${EMAIL_COLORS.badgeGoldBg}; border: 1px solid ${EMAIL_COLORS.badgeGoldBorder}; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; vertical-align: middle;">TRANSFER</span>`
-                          : ""
-                      }
-                    </td>
-                  </tr>
-                </table>
-
-                <!-- Linha de Specs em Destaque -->
-                ${
-                  specs
-                    ? `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; font-weight: 700; color: ${EMAIL_COLORS.darkGreenPrimary}; line-height: 1.4; margin-top: 4px; margin-bottom: 6px;">
-                        ${escapeHtml(specs)}
-                      </div>`
-                    : ""
-                }
-
-                <!-- Nota / Destaque Opcional -->
-                ${
-                  athlete.highlightNote && athlete.highlightNote.trim()
-                    ? `<div class="highlight-note" style="font-family: Arial, Helvetica, sans-serif; font-size: 11.5px; color: ${EMAIL_COLORS.textMuted}; line-height: 1.4; margin-bottom: 10px; font-style: italic;">
-                        ${escapeHtml(athlete.highlightNote.trim())}
-                      </div>`
-                    : ""
-                }
-
-                <!-- 4 Botões de Ação Rápida (Touch Area >= 44px) -->
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top: 8px;">
-                  <tr>
-                    <td>
-                      <!-- 1. WATCH FILM -->
-                      <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action btn-watch-film" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 16px; background-color: ${EMAIL_COLORS.goldPrimary}; color: ${EMAIL_COLORS.darkGreenPrimary}; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-right: 6px; margin-bottom: 6px; box-sizing: border-box;">
-                        WATCH FILM →
-                      </a>
-
-                      <!-- 2. I'M INTERESTED -->
-                      <a href="${escapeHtml(interestedMailto)}" class="btn-action btn-interested" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 16px; background-color: ${EMAIL_COLORS.darkGreenPrimary}; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 0.6px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-right: 6px; margin-bottom: 6px; box-sizing: border-box;">
-                        I'M INTERESTED
-                      </a>
-
-                      <!-- 3. FULL PROFILE -->
-                      <a href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action btn-profile" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 14px; background-color: ${EMAIL_COLORS.buttonSecondaryBg}; color: ${EMAIL_COLORS.darkGreenPrimary}; border: 1px solid ${EMAIL_COLORS.buttonSecondaryBorder}; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; text-decoration: none; border-radius: 24px; text-align: center; margin-right: 6px; margin-bottom: 6px; box-sizing: border-box;">
-                        FULL PROFILE
-                      </a>
-
-                      <!-- 4. NOT A FIT -->
-                      <a href="${escapeHtml(notAFitUrl)}" target="_blank" rel="noopener noreferrer" class="btn-action btn-not-fit" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 8px; background-color: transparent; color: ${EMAIL_COLORS.textMuted}; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 700; text-decoration: underline; text-align: center; margin-bottom: 6px; box-sizing: border-box;">
-                        Not a fit
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  `;
+  return renderAthleteBoardCard(athlete, options);
 }
 
 /**
@@ -701,8 +589,7 @@ export function generateRecruitEmailPlainText(options: RecruitEmailRenderOptions
     buildCoachGreeting(options.coachLastName),
     "",
     `PROSPECT: ${athlete.name}`,
-    `SPECS: ${buildAthleteSpecsLine(athlete)}`,
-    athlete.seekingOpportunities ? `AVAILABLE: ${athlete.seekingOpportunities}` : null,
+    renderQuickFactsPlainText(athlete),
     athlete.highlightNote ? `NOTE: ${athlete.highlightNote}` : null,
     athlete.aboutHer?.trim() ? `ABOUT HER\n${athlete.aboutHer.trim()}` : null,
     athlete.teamContribution?.trim()
@@ -742,8 +629,7 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
     const videoUrl = ath.highlightVideoUrl || profileUrl;
     return [
       `${i + 1}. ${ath.name}`,
-      `   Specs: ${buildAthleteSpecsLine(ath)}`,
-      ath.seekingOpportunities ? `   Available: ${ath.seekingOpportunities}` : null,
+      renderQuickFactsPlainText(ath),
       ath.aboutHer?.trim() ? `   ABOUT HER\n${ath.aboutHer.trim()}` : null,
       ath.teamContribution?.trim()
         ? `   WHY SHE COULD FIT YOUR PROGRAM\n${ath.teamContribution.trim()}`
@@ -780,3 +666,4 @@ export function generateMultiAthletePlainText(options: RecruitEmailRenderOptions
 
   return lines.join("\n");
 }
+
