@@ -22,6 +22,8 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+export type EmailStatValue = string | number | boolean | null | EmailStatValue[] | { [key: string]: EmailStatValue };
+
 export interface EmailCardAthlete {
   athleteId?: string | null;
   athleteName: string;
@@ -44,7 +46,7 @@ export interface EmailCardAthlete {
   collegeStartDate?: string | null;
   seekingOpportunities?: string | null;
   currentSchool?: string | null;
-  stats?: Record<string, unknown> | null;
+  stats?: Record<string, EmailStatValue> | null;
   teamContribution?: string | null;
   videos?: Array<{ url: string; title?: string | null; kind?: string | null }> | null;
 }
