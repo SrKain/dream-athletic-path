@@ -437,7 +437,9 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const multiPayload = Array.from(mockQueue.values()).find(
         (item) => item.campaign_id === multi.campaignId,
       )?.payload;
-      expect(multiPayload?.html.match(/Full professional biography for the athlete\./g)).toHaveLength(2);
+      expect(
+        multiPayload?.html.match(/Full professional biography for the athlete\./g),
+      ).toHaveLength(2);
       expect(multiPayload?.html.match(/WHY SHE COULD FIT YOUR PROGRAM/g)).toHaveLength(2);
       expect(multiPayload?.text.match(/ABOUT HER/g)).toHaveLength(2);
     });
