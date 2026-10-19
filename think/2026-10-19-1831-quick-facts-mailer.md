@@ -6,7 +6,7 @@
 - Base confirmada: main @ 8a6c315ed98522040313b3bf33aed58a09b052d8 (merge PR #7).
 - Branch: fix/2026-10-19-mailer-quick-facts.
 - Aprovação: execução explicitamente autorizada no prompt; plano registrado antes das alterações de código.
-- Status: aprovado, em execução.
+- Status: planejamento apresentado para revisão; implementação pausada conforme pedido mais recente do solicitante.
 
 ## 1. Diagnóstico e objetivo
 
