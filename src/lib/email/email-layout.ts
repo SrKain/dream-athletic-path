@@ -33,6 +33,7 @@ export interface EmailCardAthlete {
   nationality?: string | null;
   highSchoolGraduation?: string | null;
   graduationYear?: number | null;
+  aboutHer?: string | null;
   gpa?: number | null;
   athleteStatus?: string | null;
   highlightNote?: string | null;
