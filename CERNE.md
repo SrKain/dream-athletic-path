@@ -1383,3 +1383,5 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Restrições preservadas:** sem SQL/migration; `bun.lock` e `package.json` intocados; sem alterações na orquestração browser-driven, micro-lotes, idempotência, métricas, Reply-To ou textos de RECRUIT/NOT A FIT. HTML usa tabelas, estilos inline e `escapeHtml`, sem SVG.
 - **Testes:** `src/lib/email/athlete-board-card.test.ts` cobre títulos, conteúdo real, escape, parágrafos, quick facts únicos, fallback, badge, paridade visual e versões texto, além do validador. `recruit-email-send.test.ts` adapta os fixtures ao carregador unificado.
 - **Validação operacional:** registrar resultados de Bun 1.3.14 / `bun install --frozen-lockfile`, typecheck, lint, test e build a partir de GitHub Actions após publicação do PR. O carregamento de dados não executa envios reais a coaches durante os testes.
+
+- **Resultado final de CI:** run `39256913678` aprovado com Bun 1.3.14, frozen-lockfile, typecheck, ESLint (0 erros; 11 avisos preexistentes), 200/200 Vitest e build. A revisão visual solicitada restringe-se à ausência intencional de Position/Height/From da tabela.
