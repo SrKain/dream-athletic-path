@@ -6,7 +6,7 @@
 - Base confirmada: main @ 8a6c315ed98522040313b3bf33aed58a09b052d8 (merge PR #7).
 - Branch: fix/2026-10-19-mailer-quick-facts.
 - Aprovação: execução explicitamente autorizada no prompt; plano registrado antes das alterações de código.
-- Status: aprovado, em execução.
+- Status: concluído; aprovação explícita reiterada pelo solicitante e execução finalizada no PR #8.
 
 ## 1. Diagnóstico e objetivo
 
@@ -68,3 +68,14 @@ O preview atual é calculado a partir da seleção/dados atuais; novo carregamen
 
 Entregar branch/PR com commits claros, HTML de exemplo, comparação das oito linhas, resultados individuais dos comandos e registro dos adaptadores legados encontrados. Manter catálogo institucional separado, pois não possui card de atleta.
 
+
+
+## 7. Resultado da execução
+
+- Oito fatos compartilhados entre HTML e texto; GPA sem arredondamento; rótulos 12px e contraste 6.08:1.
+- Dois adaptadores legados unificados; catálogo sem atletas permanece separado. `renderAthleteGrid` é um contêiner sem uso nos canais auditados.
+- Campos futuros preservados no loader/tipos. Diff confirma nenhuma alteração em fila, idempotência, Reply-To, dependências ou funções das outras seções/ações do card canônico.
+- Testes antigos do card compacto foram ajustados ao card completo: oito fichas aparecem uma vez cada, crescimento linear; aviso de peso no Mailer preservado (90 KiB, possível corte do Gmail perto de 102 KiB).
+- Bun 1.3.14, CI 39307599456 / 39307568704: frozen install PASS; typecheck PASS; lint PASS (0 erros, 11 avisos preexistentes); test PASS (232/232 em 27 arquivos); build PASS.
+- HTML/texto gerados pelo script puro; capturas desktop/mobile reais revisadas. A comparação linha a linha está em docs/email-previews/README.md; referência textual do pedido, pois não foi anexado print. Escola quebra em duas linhas no mobile, sem corte dos fatos.
+- Etapas auxiliares temporárias de formatação/captura removidas do workflow antes da entrega; workflow final igual à base. Nenhum envio real, alteração de snapshot existente ou reprocessamento.

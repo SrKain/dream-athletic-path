@@ -58,25 +58,6 @@ jobs:
             src/lib/email/mailer-queue.test.ts \
             src/routes/_authenticated/admin/mailer.tsx
 
-      - name: Capture approved Quick Facts preview
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/2026-10-19-mailer-quick-facts'
-        run: |
-          bun scripts/render-mailer-quick-facts-preview.ts
-          python3 - <<'PYTHON'
-          from pathlib import Path
-          p = Path('docs/email-previews/ana-carolina-quick-facts.html')
-          html = p.read_text().replace('https://portfolio.goteamgoagency.com/email/', Path('public/email').resolve().as_uri() + '/')
-          Path('/tmp/ana-preview.html').write_text(html)
-          PYTHON
-          google-chrome --headless --no-sandbox --disable-gpu --screenshot=/tmp/ana-desktop.png --window-size=1100,1450 file:///tmp/ana-preview.html
-          google-chrome --headless --no-sandbox --disable-gpu --screenshot=/tmp/ana-mobile.png --window-size=390,1800 file:///tmp/ana-preview.html
-          python3 - <<'PYTHON'
-          import base64
-          from pathlib import Path
-          for name in ['desktop', 'mobile']:
-              print('QF_' + name.upper() + '_PNG=' + base64.b64encode(Path('/tmp/ana-' + name + '.png').read_bytes()).decode())
-          PYTHON
-
       - name: Typecheck
         run: bun run typecheck
 

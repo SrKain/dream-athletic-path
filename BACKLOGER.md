@@ -1129,7 +1129,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Diagnóstico:** renderQuickFacts removeu POSITION/HEIGHT/FROM, adicionou graduação/início e arredondou GPA; dois renderizadores legados ainda produzem cards distintos; texto pessoal e legado não compartilham a mesma tabela de fatos.
 - **Decisões:** definição única QUICK_FACTS_ROWS para HTML/texto, oito linhas condicionais na ordem aprovada, GPA real e strings numéricas tratadas, labels 12px, bandeira com fallback globe, adaptadores legados delegando ao card canônico. Contraste medido 6.0823:1; cores preservadas.
 - **Instrução mais recente:** solicitante aprovou expressamente a execução integral em 2026-10-19.
-- **Status:** `[PENDENTE]` — implementação aprovada em validação; oito fatos e adaptadores unificados, testes e exemplo adicionados.
+- **Status:** `[CONCLUÍDO]` — PR #8, oito fatos e adaptadores unificados; 232/232 testes em 27 arquivos, instalação frozen, typecheck, lint (0 erros/11 avisos preexistentes) e build aprovados com Bun 1.3.14. CI 39307599456 e 39307568704; capturas desktop/mobile revisadas, HTML/texto e comparação em docs/email-previews.
 - **Restrições:** sem alterar bun.lock/package.json, loader, fila, idempotência, Reply-To, textos canônicos, outras seções ou ações do card. Sem migration ou envio real. CERNE.md atualizado com o contrato compartilhado e a política de snapshots.
 - **Fila/cache:** snapshots já enfileirados permanecem com HTML/texto originais; sem reprocessar ou alterar envios anteriores.
-
