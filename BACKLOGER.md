@@ -1132,3 +1132,14 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[CONCLUÍDO]` — PR #8, oito fatos e adaptadores unificados; 232/232 testes em 27 arquivos, instalação frozen, typecheck, lint (0 erros/11 avisos preexistentes) e build aprovados com Bun 1.3.14. CI 39307599456 e 39307568704; capturas desktop/mobile revisadas, HTML/texto e comparação em docs/email-previews.
 - **Restrições:** sem alterar bun.lock/package.json, loader, fila, idempotência, Reply-To, textos canônicos, outras seções ou ações do card. Sem migration ou envio real. CERNE.md atualizado com o contrato compartilhado e a política de snapshots.
 - **Fila/cache:** snapshots já enfileirados permanecem com HTML/texto originais; sem reprocessar ou alterar envios anteriores.
+
+## TASK-102 — 2026-10-20 10:28 (America/Sao_Paulo) — Diagnóstico de integridade do Mailer: preview, seleção de atletas e conteúdo efetivamente enviado
+
+- **Solicitante:** Usuário Humano (responsável pelo Dream Athletic Path).
+- **Executor:** ChatGPT, GitHub conectado + inspeção somente leitura no Supabase teamgoteam.
+- **Status:** `[PENDENTE]` — diagnóstico documentado e plano entregue; correção depende de aprovação humana explícita.
+- **Solicitação:** localizar causas de envio com saudação/assinatura mas sem card da atleta exibida no preview, bem como desaparecimento de textos editados, incluindo assunto, hook, headline e corpo; apresentar solução definitiva.
+- **Evidência:** campanha single de 2026-10-20 09:49 (Brasília) marcou envio aceito pelo Resend, mas o HTML persistido na fila não contém card/Quick Facts/CTA, embora inclua o ID da atleta; outra campanha anterior contém cards completos.
+- **Causas no código:** blocos `composerBlocks` desatualizados após trocar atleta; `renderPersonalEmail` descarta IDs de cards sem falhar; `resolveLegacyBodyBlocks` ignora Hook/Introduction quando recebe blocos; validação no enfileiramento não checa integridade do HTML/texto final; catálogo não propaga headline/hook como o formulário promete. Discrepância específica do assunto permanece pendente de teste controlado.
+- **Plano:** `think/2026-10-20-1028-integridade-preview-envio-mailer.md`.
+- **Alterações nesta sessão:** apenas documentação (`think/` e este registro). Sem alterações de código, migrations, banco, filas, reenvio ou e-mails reais.
