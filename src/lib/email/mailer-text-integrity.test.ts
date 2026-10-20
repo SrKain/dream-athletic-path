@@ -80,7 +80,7 @@ describe("TASK-105 — Mailer personalized text contract", () => {
     });
     expect(blocks.at(-1)).toEqual({ type: "text", content: "Let me know what you think." });
     const rendered = renderRecruitEmail({ ...ANA_EMAIL_DATA, ...coach, blocks });
-    expect(rendered.html).toContain("I hope you're doing well.");
+    expect(rendered.html).toContain("I hope you&#39;re doing well.");
     expect(rendered.text).toContain("Let me know what you think.");
     expect(rendered.subject).toBeTruthy();
   });
