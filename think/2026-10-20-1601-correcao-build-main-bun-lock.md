@@ -1,0 +1,12 @@
+# Plano aprovado — Recuperação da build Vercel diretamente na main (20/10/2026)
+
+- **Data:** 2026-10-20, America/Sao_Paulo.
+- **Repositório:** `SrKain/dream-athletic-path`, branch `main`.
+- **Diagnóstico:** o commit `6d192c3375fac4bbee1a3016bcfbe5706ba5a728` alterou `bun.lock` para `@lovable.dev/vite-tanstack-config@2.13.1` e `nitro@3.0.260610-beta` (`^3.0.260610-beta` no workspace), embora `package.json` exija `2.25.3` e `3.0.260603-beta`. O deploy Vercel deste commit falhou e o commit anterior `3aa3ae9` estava verde.
+- **Risco técnico:** `vercel.json` executa `bun install --frozen-lockfile`. A incompatibilidade entre manifesto e lockfile bloqueia a instalação. O erro exato do job Vercel ainda não foi lido; tratar a incompatibilidade como causa mais provável até confirmação na CI.
+- **Aprovação:** usuário aprovou o plano de correção e determinou **entrega direta na main, sem branch e sem pull request** (2026-10-20).
+- **Escopo restrito:** sincronizar `bun.lock` com `package.json` usando **exclusivamente Bun 1.3.14**, validar pipeline de qualidade e recuperar Vercel. Preservar o código da TASK-103, demais dependências e as versões seguras do TanStack. Não usar workaround inseguro, nem alterar `vercel.json` ou migrations.
+- **Estratégia de execução:** como Bun 1.3.14 não está instalado no ambiente do agente, publicar temporariamente um workflow GitHub Actions específico de recuperação, acionado apenas pela adição do próprio arquivo à `main`. Ele usa `oven-sh/setup-bun@v2` fixado em Bun 1.3.14, executa `bun install`, `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test`, `bun run build` e somente após aprovação cria commit com o `bun.lock` gerado diretamente na `main`. Não reescrever histórico. Conferir status e commit final. Em caso de falha, registrar qual etapa falhou, sem presumir sucesso.
+- **Governança:** `AGENTS.md`, `README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md` e planos anteriores preservados. Registrar esta solicitação em `BACKLOGER.md` e registrar a intervenção no `CERNE.md`. O workflow temporário deve ser removido após a execução; evoluir o CI existente para validar push na `main` sem mutações automáticas de lockfile.
+- **Validação de aceite:** Bun 1.3.14; frozen lock; typecheck, lint, Vitest e build aprovados; `package.json` sem alterações; `bun.lock` sincronizado; Vercel success no SHA final; teste funcional do Mailer sem envio real.
+- **Status:** [APROVADO PELO USUÁRIO — EXECUÇÃO NA MAIN AUTORIZADA].
