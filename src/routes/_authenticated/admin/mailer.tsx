@@ -67,7 +67,7 @@ import {
   ATHLETE_EMAIL_STATE_MESSAGES,
 } from "@/lib/email/athlete-email-quality";
 import type { EmailBlock } from "@/lib/email/personal-email-renderer";
-import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
+import { composeEmailBlocks, getEmailBlockText, reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
 import type {
   University,
   UniversityCoach,
@@ -983,8 +983,7 @@ function MailerPage() {
     try {
       assertEmailIntegrity({
         expectedOpeningText: finalBlocks[1]?.type === "text" ? finalBlocks[1].content : null,
-        expectedClosingText: finalBlocks[finalBlocks.length - 1]?.type === "text"
-          ? finalBlocks[finalBlocks.length - 1].content : null,
+        expectedClosingText: getEmailBlockText(finalBlocks[finalBlocks.length - 1]),
         mode: sendMode === "single" ? "single_athlete" : "multi_athlete",
         expectedAthleteIds: activeComposerAthleteIds,
         renderedAthleteIds: previewEmail.renderedAthleteIds,

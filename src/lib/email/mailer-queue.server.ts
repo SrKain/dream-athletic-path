@@ -11,7 +11,7 @@ import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import { getSuppressedEmailSet, type SendMailerInput } from "./recruit-email.server";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
-import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
+import { composeEmailBlocks, getEmailBlockText, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
@@ -345,8 +345,7 @@ export async function enqueueCampaignDispatches(
           renderedAthleteIds: renderResult.renderedAthleteIds,
           missingAthleteIds: renderResult.missingAthleteIds,
           expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-          expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
-            ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
+          expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
           html: renderResult.html,
           text: renderResult.text,
         });
@@ -402,8 +401,7 @@ export async function enqueueCampaignDispatches(
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
             expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
-              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
+            expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
             html: renderResult.html,
             text: renderResult.text,
           });

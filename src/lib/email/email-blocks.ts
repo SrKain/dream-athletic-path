@@ -113,6 +113,11 @@ export function reconcileEmailBlocks(
   return reconciled;
 }
 
+/** Leitura tipada de slots de texto de blocos discriminados. */
+export function getEmailBlockText(block: EmailBlock | undefined): string | null {
+  return block?.type === "text" ? block.content : null;
+}
+
 export interface ComposeEmailBlocksOptions {
   opening?: string | null;
   closing?: string | null;

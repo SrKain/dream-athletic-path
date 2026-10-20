@@ -17,7 +17,7 @@ import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality"
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
-import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
+import { composeEmailBlocks, getEmailBlockText, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 
 export interface MailerRecipient {
   coachId?: string | null;
@@ -638,8 +638,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
             expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
-              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
+            expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
             html: renderResult.html,
             text: renderResult.text,
           });
@@ -697,8 +696,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
             expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
-              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
+            expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
             html: renderResult.html,
             text: renderResult.text,
           });
