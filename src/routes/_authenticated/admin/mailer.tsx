@@ -67,7 +67,12 @@ import {
   ATHLETE_EMAIL_STATE_MESSAGES,
 } from "@/lib/email/athlete-email-quality";
 import type { EmailBlock } from "@/lib/email/personal-email-renderer";
-import { composeEmailBlocks, getEmailBlockText, reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
+import {
+  composeEmailBlocks,
+  getEmailBlockText,
+  reconcileEmailBlocks,
+  assertEmailIntegrity,
+} from "@/lib/email/email-blocks";
 import type {
   University,
   UniversityCoach,
@@ -804,7 +809,7 @@ function MailerPage() {
     if (sendMode === "catalog" || activeComposerAthleteIds.length === 0) return [];
     const cardOrder = reconcileEmailBlocks(composerBlocks, activeComposerAthleteIds)
       .filter((block) => block.type === "athlete")
-      .map((block) => block.type === "athlete" ? block.athleteId : "");
+      .map((block) => (block.type === "athlete" ? block.athleteId : ""));
     return composeEmailBlocks({
       opening: customHook,
       closing: customIntroduction,
@@ -997,7 +1002,14 @@ function MailerPage() {
         ? err.message
         : "Inconsistência de integridade detectada no preview.";
     }
-  }, [activeComposerAthleteIds, emailAthletesError, emailAthletesLoading, finalBlocks, previewEmail, sendMode]);
+  }, [
+    activeComposerAthleteIds,
+    emailAthletesError,
+    emailAthletesLoading,
+    finalBlocks,
+    previewEmail,
+    sendMode,
+  ]);
 
   const selectedEmailData = useMemo(
     () =>
@@ -1834,7 +1846,9 @@ function MailerPage() {
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
-                          <p className="text-xs text-muted-foreground">Aparece logo após a saudação, antes dos cards.</p>
+                          <p className="text-xs text-muted-foreground">
+                            Aparece logo após a saudação, antes dos cards.
+                          </p>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -1848,7 +1862,9 @@ function MailerPage() {
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
-                        <p className="text-xs text-muted-foreground">Aparece depois dos cards, antes da assinatura.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Aparece depois dos cards, antes da assinatura.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1950,7 +1966,9 @@ function MailerPage() {
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
-                          <p className="text-xs text-muted-foreground">Aparece logo após a saudação, antes dos cards.</p>
+                          <p className="text-xs text-muted-foreground">
+                            Aparece logo após a saudação, antes dos cards.
+                          </p>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -1964,7 +1982,9 @@ function MailerPage() {
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
-                        <p className="text-xs text-muted-foreground">Aparece depois dos cards, antes da assinatura.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Aparece depois dos cards, antes da assinatura.
+                        </p>
                       </div>
                     </div>
                   </div>

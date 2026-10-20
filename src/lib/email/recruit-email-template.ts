@@ -9,10 +9,7 @@ import {
   type RecruitEmailRenderOptions,
 } from "./recruit-email";
 import { EMAIL_BASE_URL, EMAIL_SIGNATURE } from "./email-brand";
-import {
-  renderPersonalEmail,
-  type EmailBlock,
-} from "./personal-email-renderer";
+import { renderPersonalEmail, type EmailBlock } from "./personal-email-renderer";
 import {
   renderSignature,
   renderFeedbackBlock,
@@ -149,8 +146,10 @@ function resolveLegacyBodyBlocks(
   if (data.blocks?.length && !data.customHook?.trim() && !data.customIntroduction?.trim()) {
     return data.blocks;
   }
-  const cardOrder = data.blocks?.filter((block) => block.type === "athlete")
-    .map((block) => (block.type === "athlete" ? block.athleteId : "")) || [];
+  const cardOrder =
+    data.blocks
+      ?.filter((block) => block.type === "athlete")
+      .map((block) => (block.type === "athlete" ? block.athleteId : "")) || [];
   return composeEmailBlocks({
     opening: data.customHook,
     closing: data.customIntroduction,

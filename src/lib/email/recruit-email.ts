@@ -487,7 +487,8 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
     "Go Team Go — Active US College Recruiting Portfolio",
   );
   const preheader = "Explore our active verified international college prospects roster.";
-  const headline = options.headlineText?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS";
+  const headline =
+    options.headlineText?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS";
   const hook = options.catalogHookText?.trim() || "";
 
   const greetingLine = buildCoachGreeting(options.coachLastName);

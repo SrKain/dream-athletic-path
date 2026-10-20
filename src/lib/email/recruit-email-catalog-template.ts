@@ -51,7 +51,8 @@ export function generateCatalogPlainText(data: CatalogEmailData): string {
 export function renderCatalogEmail(data: CatalogEmailData = {}) {
   const portfolioUrl = EMAIL_BASE_URL;
 
-  const intro = data.customMessage?.trim() ||
+  const intro =
+    data.customMessage?.trim() ||
     "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.";
 
   const result = renderCatalogRecruitEmail({

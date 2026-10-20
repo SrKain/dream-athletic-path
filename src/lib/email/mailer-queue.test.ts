@@ -426,7 +426,11 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("uses canonical form texts and keeps preview == queued payload for one recipient", async () => {
       const admin = createMockAdminClient();
       const recipient = { name: "Coach Taylor", lastName: "Taylor", email: "taylor@college.edu" };
-      const opts = { subject: "ASSUNTO-789", hook: "TEXTO-ABERTURA-123", introduction: "TEXTO-FECHAMENTO-456" };
+      const opts = {
+        subject: "ASSUNTO-789",
+        hook: "TEXTO-ABERTURA-123",
+        introduction: "TEXTO-FECHAMENTO-456",
+      };
       const maliciousClientBlocks = [
         { type: "text" as const, content: "OLD-STALE-TEXT" },
         { type: "athlete" as const, athleteId: first },
@@ -434,12 +438,20 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       ];
       for (const mode of ["single_athlete", "multi_athlete"] as const) {
         const ids = mode === "single_athlete" ? [first] : [first, second];
-        const result = await enqueueCampaignDispatches({
-          mode, athleteIds: ids, recipients: [recipient], customOptions: opts,
-          blocks: maliciousClientBlocks,
-        }, admin);
+        const result = await enqueueCampaignDispatches(
+          {
+            mode,
+            athleteIds: ids,
+            recipients: [recipient],
+            customOptions: opts,
+            blocks: maliciousClientBlocks,
+          },
+          admin,
+        );
         expect(result.success).toBe(true);
-        const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === result.campaignId);
+        const queued = Array.from(mockQueue.values()).find(
+          (row) => row.campaign_id === result.campaignId,
+        );
         const payload = queued?.payload;
         expect(queued.subject).toBe("ASSUNTO-789");
         expect(queued.subject).toBe("ASSUNTO-789");
@@ -450,15 +462,24 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
           expect(body).not.toContain("OLD-CLOSING");
         }
         const data = await loadAthletesEmailData(ids, admin);
-        const blocks = composeEmailBlocks({ opening: opts.hook, closing: opts.introduction, athleteIds: ids });
+        const blocks = composeEmailBlocks({
+          opening: opts.hook,
+          closing: opts.introduction,
+          athleteIds: ids,
+        });
         const shared = {
-          recipientEmail: recipient.email, coachName: recipient.name, coachLastName: recipient.lastName,
-          customSubject: opts.subject, blocks, campaignId: result.campaignId,
+          recipientEmail: recipient.email,
+          coachName: recipient.name,
+          coachLastName: recipient.lastName,
+          customSubject: opts.subject,
+          blocks,
+          campaignId: result.campaignId,
           logoUrl: "https://example.com/logo.png",
         };
-        const preview = mode === "single_athlete"
-          ? renderRecruitEmail({ ...data[0], ...shared })
-          : renderMultiAthleteRecruitEmail({ athletes: data, ...shared });
+        const preview =
+          mode === "single_athlete"
+            ? renderRecruitEmail({ ...data[0], ...shared })
+            : renderMultiAthleteRecruitEmail({ athletes: data, ...shared });
         expect(payload.html).toBe(preview.html);
         expect(payload.text).toBe(preview.text);
         expect(queued.subject).toBe(preview.subject);
@@ -469,19 +490,34 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("catalog isolates message and matches the queued snapshot", async () => {
       const admin = createMockAdminClient();
       const recipient = { name: "Coach Taylor", lastName: "Taylor", email: "taylor@college.edu" };
-      const result = await enqueueCampaignDispatches({
-        mode: "catalog", recipients: [recipient], customOptions: {
-          subject: "ASSUNTO-789", headline: "HEADLINE-1", hook: "HOOK-2",
-          message: "MESSAGE-3", introduction: "SHOULD-NOT-LEAK",
+      const result = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [recipient],
+          customOptions: {
+            subject: "ASSUNTO-789",
+            headline: "HEADLINE-1",
+            hook: "HOOK-2",
+            message: "MESSAGE-3",
+            introduction: "SHOULD-NOT-LEAK",
+          },
         },
-      }, admin);
+        admin,
+      );
       expect(result.success).toBe(true);
-      const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === result.campaignId);
+      const queued = Array.from(mockQueue.values()).find(
+        (row) => row.campaign_id === result.campaignId,
+      );
       const payload = queued?.payload;
       const preview = renderCatalogEmail({
-        coachName: recipient.name, coachLastName: recipient.lastName, recipientEmail: recipient.email,
-        customSubject: "ASSUNTO-789", customHeadline: "HEADLINE-1",
-        customHook: "HOOK-2", customMessage: "MESSAGE-3", campaignId: result.campaignId,
+        coachName: recipient.name,
+        coachLastName: recipient.lastName,
+        recipientEmail: recipient.email,
+        customSubject: "ASSUNTO-789",
+        customHeadline: "HEADLINE-1",
+        customHook: "HOOK-2",
+        customMessage: "MESSAGE-3",
+        campaignId: result.campaignId,
         logoUrl: "https://example.com/logo.png",
       });
       expect(payload.html).toBe(preview.html);

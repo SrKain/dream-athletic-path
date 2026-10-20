@@ -127,18 +127,25 @@ export interface ComposeEmailBlocksOptions {
 
 /** Composição canônica: slots textuais somente dos campos e ordem apenas de cards. */
 export function composeEmailBlocks({
-  opening, closing, athleteIds, cardOrder = [],
+  opening,
+  closing,
+  athleteIds,
+  cardOrder = [],
 }: ComposeEmailBlocksOptions): EmailBlock[] {
   const ids = [...new Set(athleteIds.filter((id) => typeof id === "string" && id.trim()))];
-  const defaultOpening = ids.length > 1
-    ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
-    : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
-  return buildFixedEmailBlocks({
-    greeting: buildCoachGreeting(null),
-    introduction: opening?.trim() || defaultOpening,
-    athleteOrder: cardOrder,
-    closing: closing?.trim() || "Let me know what you think.",
-  }, ids);
+  const defaultOpening =
+    ids.length > 1
+      ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
+      : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
+  return buildFixedEmailBlocks(
+    {
+      greeting: buildCoachGreeting(null),
+      introduction: opening?.trim() || defaultOpening,
+      athleteOrder: cardOrder,
+      closing: closing?.trim() || "Let me know what you think.",
+    },
+    ids,
+  );
 }
 
 /**
@@ -171,11 +178,17 @@ export function assertEmailIntegrity(options: AssertEmailIntegrityOptions): void
     ["message", options.expectedMessage],
   ] as const;
   for (const [field, value] of effectiveTextFields) {
-    const lines = (value || "").replace(/\r\n?/g, "\n").trim().split("\n")
-      .map((line) => line.trim()).filter(Boolean);
+    const lines = (value || "")
+      .replace(/\r\n?/g, "\n")
+      .trim()
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
     for (const line of lines) {
       if (!html.includes(escapeHtml(line)) || !text.includes(line)) {
-        throw new Error(`Email integrity failure: Missing effective ${field} text in HTML or plain text.`);
+        throw new Error(
+          `Email integrity failure: Missing effective ${field} text in HTML or plain text.`,
+        );
       }
     }
   }

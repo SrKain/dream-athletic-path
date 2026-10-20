@@ -17,7 +17,12 @@ import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality"
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
-import { composeEmailBlocks, getEmailBlockText, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
+import {
+  composeEmailBlocks,
+  getEmailBlockText,
+  reconcileEmailBlocks,
+  assertEmailIntegrity,
+} from "./email-blocks";
 
 export interface MailerRecipient {
   coachId?: string | null;
@@ -577,10 +582,14 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
         assertEmailIntegrity({
           mode: "catalog",
-          html, text,
-          expectedHeadline: headline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
+          html,
+          text,
+          expectedHeadline:
+            headline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
           expectedHook: customOptions?.hook,
-          expectedMessage: message?.trim() || "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
+          expectedMessage:
+            message?.trim() ||
+            "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
         });
 
         messagesToSend.push({
@@ -607,10 +616,12 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       );
       const cardOrder = reconcileEmailBlocks(emailBlocks, loadedAthleteIds)
         .filter((block) => block.type === "athlete")
-        .map((block) => block.type === "athlete" ? block.athleteId : "");
+        .map((block) => (block.type === "athlete" ? block.athleteId : ""));
       const reconciledBlocks = composeEmailBlocks({
-        opening: customOptions?.hook, closing: customOptions?.introduction,
-        athleteIds: loadedAthleteIds, cardOrder,
+        opening: customOptions?.hook,
+        closing: customOptions?.introduction,
+        athleteIds: loadedAthleteIds,
+        cardOrder,
       });
 
       if (loadedAthletes.length > 0) {
@@ -637,7 +648,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             expectedAthleteIds: loadedAthleteIds,
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
-            expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+            expectedOpeningText:
+              reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
             expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
             html: renderResult.html,
             text: renderResult.text,
@@ -669,7 +681,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       for (const emailData of loadedAthletes) {
         const athId = emailData.athleteId!;
         const reconciledBlocks = composeEmailBlocks({
-          opening: customOptions?.hook, closing: customOptions?.introduction, athleteIds: [athId],
+          opening: customOptions?.hook,
+          closing: customOptions?.introduction,
+          athleteIds: [athId],
         });
 
         for (const rec of activeRecipients) {
@@ -695,7 +709,8 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             expectedAthleteIds: [athId],
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
-            expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+            expectedOpeningText:
+              reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
             expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
             html: renderResult.html,
             text: renderResult.text,
