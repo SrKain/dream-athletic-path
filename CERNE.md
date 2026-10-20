@@ -1408,3 +1408,32 @@ O módulo `athlete-quick-facts.ts` define `QUICK_FACTS_ROWS`, fonte única e ord
 Admin/diálogo individual, envio individual/multi e novos enfileiramentos usam os templates comuns. A fila conserva snapshots HTML/texto em `mailer_queue.payload`; itens antigos não são reprocessados nem atualizados. Após deploy, gerar novo preview/campanha para o layout novo.
 
 Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.ts`; saída `docs/email-previews/ana-carolina-quick-facts.html` e `.txt`. Valores dos oito fatos fornecidos pelo solicitante; bio/fit ilustrativos e nenhuma foto pessoal inventada. Testes cobrem ordem, precisão, omissão, bandeira/fallback, escape, contraste e paridade dos payloads. Validação completa com Bun 1.3.14 aprovada no CI (runs 39307599456 e 39307568704): frozen install, typecheck, lint (0 erros/11 avisos preexistentes), 232/232 testes em 27 arquivos e build. Capturas Chromium desktop/mobile revisadas em docs/email-previews. PR #8.
+
+## Atualização 2026-10-20 — Correção Definitiva da Seleção de Atletas, Preview e Envio do Mailer (TASK-103)
+
+- **Plano de Solução Aprovado:** `think/2026-10-20-1530-correcao-definitiva-selecao-atleta-preview-mailer.md` e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Diagnóstico & Causa Raiz:** O efeito anterior no Mailer criava os blocos de composer apenas na primeira carga e nunca os atualizava após a troca de atleta (`if (prev.length > 0) return prev`). Ao selecionar uma atleta diferente (B), os blocos continuavam apontando para (A); o renderizador pessoal não encontrava A na lista carregada `[B]`, omitia silenciosamente o card e gerava um e-mail enfileirado com texto/saudação mas sem o card de atleta.
+- **Reconciliação Determinística de Blocos (`src/lib/email/email-blocks.ts`):**
+  - Implementada a função pura `reconcileEmailBlocks(prevBlocks, athleteIds)`:
+    - Preserva integralmente blocos de texto customizados (saudação, hook, comentários da agência, fechamento).
+    - Remove blocos de atletas desmarcados.
+    - No modo single, substitui diretamente o ID da atleta anterior pelo novo no mesmo índice do array de blocos.
+    - No modo multi, insere novas atletas antes do bloco de fechamento final (ou ao final se não houver texto final).
+- **Contrato de Integridade Estrito (`assertEmailIntegrity`):**
+  - Valida se `renderedAthleteIds` coincide exatamente com `expectedAthleteIds` e `missingAthleteIds.length === 0`.
+  - Verifica a presença obrigatória dos marcadores estruturais do card no HTML (`QUICK FACTS` e `VIEW FULL PROFILE`) para qualquer envio com atletas.
+  - Rejeita e lança exceção descritiva caso haja qualquer inconsistência.
+- **Exposição de Metadados nos Renderizadores (`recruit-email-template.ts`):**
+  - `renderRecruitEmail` e `renderMultiAthleteRecruitEmail` retornam `expectedAthleteIds`, `renderedAthleteIds` e `missingAthleteIds`.
+- **Integridade Visual e Trava de Disparo na UI (`src/routes/_authenticated/admin/mailer.tsx`):**
+  - `finalBlocks` derivado via `useMemo` garante que a renderização do preview utilize sempre blocos sincronizados com a seleção atual.
+  - `previewIntegrityError` exibe um banner de alerta no preview (`role="alert"`) detalhando qualquer inconsistência.
+  - O botão `Disparar Mailer` é desabilitado caso `previewIntegrityError` seja verdadeiro ou a integridade falhe, impossibilitando disparos de e-mails vazios.
+- **Validação no Servidor e Cancelamento de Fila (`mailer-queue.server.ts` & `recruit-email.server.ts`):**
+  - `enqueueMailerCampaignServerFn` e `sendRecruitEmailToCoaches` reconciliam os blocos recebidos com `loadedAthleteIds` e executam `assertEmailIntegrity` antes de persistir no banco ou despachar.
+  - `sanitizePendingQueueItemsMissingCards`: rotina de higienização que busca itens pendentes ou em retry na fila (`mailer_queue`) cujos payloads não contenham o card e os cancela automaticamente com status `cancelled`, `last_error: 'cancelled_missing_card'` e `error_code: 'INTEGRITY_MISSING_CARD'`.
+- **Testes & Cobertura:**
+  - `src/lib/email/email-blocks.test.ts`: 11 testes unitários cobrindo todos os cenários de reconciliação (single, multi, troca de atleta, preservação de texto, asserções de integridade).
+  - Suíte completa de testes: 28 arquivos, 243 testes unitários aprovados (100% de sucesso).
+- **Governança:** `bun.lock` e `package.json` estritamente preservados; zero erros de lint; compilação de produção via `compile_applet` concluída com sucesso.
+

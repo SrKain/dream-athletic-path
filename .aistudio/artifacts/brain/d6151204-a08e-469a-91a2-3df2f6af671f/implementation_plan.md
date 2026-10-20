@@ -1,99 +1,111 @@
-# Mailer: Browser-Orchestrated Queue Architecture & Vercel Cron Decoupling
+# Mailer — Correção Definitiva da Seleção de Atletas, Preview e Envio (TASK-103)
 
-A robust architectural refactor of the recruiting Mailer module in Dream Athletic Path to eliminate Vercel Cron deployment blocks on the Hobby plan by transferring dispatch orchestration to the authenticated browser, while strictly preserving backend security, rate limiting, and recent Codex PR #2 email customizations.
+Garante que a seleção de qualquer atleta no Mailer (individual ou múltiplo) reflita instantaneamente no preview e no e-mail disparado através de reconciliação síncrona de blocos, validação *fail-closed* no cliente e servidor, e cancelamento de itens pendentes sem card.
 
-## User Review & Critical Decisions
+---
+
+### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The browser will now act as the dispatch orchestrator. It triggers short, authenticated micro-batches (2 emails per second), awaits completion before triggering the next cycle, and pauses during the global 60-second cooldown window every 150 emails. No Cron jobs or third-party scheduling services are required.
+> As seguintes decisões foram confirmadas diretamente pelo usuário e orientam a implementação:
 
-- **Confirmed Decision 1**: Dispatch cadence will be 2 emails per micro-batch cycle with an interval of approximately 1 second.
-- **Confirmed Decision 2**: If the tab is backgrounded, dispatch continues and a discrete alert informs the admin to keep the tab open for uninterrupted throughput.
-- **Confirmed Decision 3**: Strict individual item dispatch with server-side idempotency (`${campaignId}:${recipientEmail}`) to prevent duplicate sends if connections drop.
-- **Confirmed Decision 4**: All recent Codex PR #2 features (custom subject per mode, coach surname greetings, personal composer blocks, "NOT A FIT" mailto, "VIEW FULL PROFILE", "Available" field) remain fully intact.
-
----
-
-## 1. Overview & Core Concept
-
-- **What It Does**: Resolves Vercel deploy errors caused by per-minute Cron jobs on the Hobby plan by removing cron dependencies. The browser orchestrates dispatch via chained short Server Function calls.
-- **Target Audience**: Agency Administrators managing recruiting campaigns for college coaches.
-- **Key Value**: Free-tier compliance (zero Vercel Hobby or Supabase add-on costs), zero serverless function timeouts, atomic concurrency control against duplicate dispatches, and seamless pause/resume capabilities.
+- **Decisão 1 (Escopo dos Campos de Introdução - C7):** Confirmado foco exclusivo na correção do card e integridade (C1–C6). A unificação de `customIntroduction`/`customHook` permanece alocada na **TASK-102** para evitar sobreposição de escopo.
+- **Decisão 2 (Fila Existente de Disparos):** Confirmado que itens atualmente pendentes ou em retry na tabela `mailer_queue` cujo snapshot HTML não contenha o card da atleta (`QUICK FACTS`) serão cancelados preventivamente com status explicativo (`cancelled_missing_card`).
+- **Decisão 3 (Aviso de Integridade na Interface):** Confirmado banner de alerta visível no container de preview caso haja qualquer inconsistência entre atletas selecionadas e cards renderizados, desabilitando o botão de envio.
 
 ---
 
-## 2. User Experience & Visual Design
+### 1. Overview & Core Concept
 
-- **Key User Flows**:
-  1. _Campaign Creation_: Admin selects athletes, filters, edits email blocks/subject in `/admin/mailer`, and clicks "Send Emails". The campaign is enqueued atomically.
-  2. _Live Orchestration_: The browser automatically starts the dispatch loop. The Live Campaign Monitor shows real-time progress (sent, pending, failed, ETA, batch).
-  3. _Cooldown Window_: Upon reaching 150 emails in a 60-second window, the orchestrator pauses, displaying a dynamic countdown badge. Dispatches resume automatically when the window opens.
-  4. _Tab Guidance_: A discrete, elegant banner reminds the admin: _"Keep this browser tab open during sending. Progress is continuously persisted and can be paused or resumed anytime."_
-  5. _Session Interruption & Recovery_: If the browser is closed or connection drops, unspent items remain safely stored as `pending` in Supabase. Reopening `/admin/mailer` identifies the active campaign and offers a one-click "Resume" action.
+- **O que faz:** Elimina o bug onde a troca de atleta no Mailer preservava internamente os blocos da primeira atleta carregada, provocando disparos sem o card de perfil. Implementa reconciliação de blocos determinística, paridade estrita entre preview e envio, e proteção de ponta a ponta (*fail-closed*).
+- **Público-alvo:** Administradores da agência de intercâmbio esportivo ao criar campanhas personalizadas para coaches universitários.
+- **Valor entregue:** Segurança absoluta de que o coach receberá as estatísticas, foto, ficha de recrutamento (`Quick Facts`) e link do perfil da atleta selecionada, sem risco de disparos com e-mails vazios.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+### 2. User Experience & Visual Design
 
-- **Decision 1: Browser-Orchestrated Micro-Batches vs. Background Server Workers**
-  - _Chosen Approach_: Browser triggers `processMailerMicroBatchServerFn({ campaignId, batchSize: 2 })` sequentially with a ~1s cadence.
-  - _Why_: Vercel Hobby serverless functions have a 10-15s maximum execution limit and kill un-awaited background tasks on response termination. Short 2-email bursts complete in ~500ms, eliminating timeout risks.
-  - _Alternatives Considered_: Vercel Cron (blocked by Hobby tier), Supabase Edge Functions with cron (requires paid/external setup).
-- **Decision 2: Transactional Row-Level Locking (`FOR UPDATE SKIP LOCKED`)**
-  - _Chosen Approach_: Rely exclusively on PostgreSQL `claim_mailer_queue_batch` RPC. If the RPC fails, fail safely without un-locked fallback.
-  - _Why_: Prevents race conditions and double-sends even when multiple browser tabs or admins are active.
-- **Decision 3: Complete Preservation of Codex PR #2**
-  - _Chosen Approach_: Retain all existing templates, canonical block structures (`EmailBlock[]`), and coach preference drawers without modification.
-  - _Why_: Preserves production-tested customizations already merged into `main`.
+#### Fluxo do Usuário
+1. O administrador acessa `/admin/mailer` e seleciona uma atleta no modo individual (ou múltiplas atletas no modo multi).
+2. O editor do Mailer e o painel de preview atualizam instantaneamente, exibindo os dados e o card completo da(s) atleta(s) selecionada(s).
+3. Qualquer edição feita pelo usuário nos blocos de texto (introdução, fechamento, saudações) é preservada intacta durante a troca de atletas.
+4. Se por qualquer anomalia houver divergência entre a seleção e o conteúdo renderizado, um banner de alerta surge no topo do preview informando a pendência e travando a confirmação de envio.
+5. No modal de confirmação, o administrador revisa os atletas confirmados e o assunto final antes de disparar.
+
+#### Identidade Visual & Diretrizes (UI&UX.md e SaaS Dashboard)
+- **Banner de Integridade no Preview:** Container discreto com borda hairline suave (`border border-amber-200 bg-amber-50/70 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200`), ícone semafórico de aviso e texto explicativo, sem pills decorativas ou cantos exagerados.
+- **Botão de Envio:** Estado desabilitado com cursor `not-allowed`, mantendo contraste e acessibilidade legível.
+- **Tipografia:** Números e métricas de atletas usando algarismos tabulares (`tabular-nums font-mono`), títulos concisos e textos explicativos em tom institucional.
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+### 3. Key Product Decisions & Trade-Offs
 
-```text
+- **Decisão 1: Reconciliação Pura (`reconcileEmailBlocks`) vs. Recriação do Zero:**
+  - *Abordagem escolhida:* Reconciliação funcional pura. Mantém todos os blocos de texto editados e apenas sincroniza os blocos do tipo `athlete`.
+  - *Motivo:* Permite que o usuário troque de atleta sem perder textos personalizados que digitou.
+- **Decisão 2: Servidor Autoritativo (*Fail-Closed*) vs. Confiança no Navegador:**
+  - *Abordagem escolhida:* O servidor em `mailer-queue.server.ts` e `recruit-email.server.ts` reexecuta a reconciliação e valida com `assertEmailIntegrity` antes de persistir na fila.
+  - *Motivo:* Mesmo que o cliente envie blocos corrompidos ou desatualizados, o servidor impede a gravação e bloqueia o acionamento do Resend.
+- **Decisão 3: Saneamento Preventivo da Fila:**
+  - *Abordagem escolhida:* Identificar e cancelar itens pendentes que não possuem o card (`QUICK FACTS`).
+  - *Motivo:* Impede que disparos incompletos previamente agendados atinjam os coaches.
+
+---
+
+### 4. Technical Architecture & Data Strategy
+
+```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   ADMIN BROWSER (/admin/mailer)                        │
+│                        Admin Mailer (/admin/mailer)                    │
 │                                                                        │
-│  [ Start / Resume ] ──► [ Enqueue Campaign ] ──► campaignId            │
-│           │                                                            │
-│           ▼                                                            │
-│  [ Chained setTimeout Loop (~1.0s) ] ◄─── (await previous response)    │
-│           │                                                            │
-│           ├─── If running: call processMailerMicroBatchServerFn (2/tick)│
-│           ├─── If cooldown: wait cooldownRemainingSec (60s countdown)  │
-│           └─── If completed / paused: stop loop                        │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ HTTP POST (requireAgency)
-                                    ▼
+│   ┌───────────────────────────┐      ┌──────────────────────────────┐  │
+│   │ activeComposerAthleteIds  │      │   composerBlocks (textos)    │  │
+│   └─────────────┬─────────────┘      └──────────────┬───────────────┘  │
+│                 │                                   │                  │
+│                 ▼                                   ▼                  │
+│            ┌─────────────────────────────────────────────┐             │
+│            │   reconcileEmailBlocks(blocks, athleteIds)  │             │
+│            └──────────────────────┬──────────────────────┘             │
+│                                   │                                    │
+│                                   ▼                                    │
+│                             finalBlocks                                │
+│                     ┌─────────────┴─────────────┐                      │
+│                     ▼                           ▼                      │
+│            ┌─────────────────┐         ┌───────────────────┐           │
+│            │ Preview Display │         │  handleSendMailer │           │
+│            └─────────────────┘         └─────────┬─────────┘           │
+└──────────────────────────────────────────────────┼─────────────────────┘
+                                                   │
+                                                   ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                      VERCEL SERVERLESS FUNCTION                        │
+│                Backend Fail-Closed (mailer-queue.server.ts)            │
 │                                                                        │
-│  1. Validate agency admin session                                      │
-│  2. Check global rate limit (mailer_rate_limits)                       │
-│  3. Claim 2 items: RPC claim_mailer_queue_batch (FOR UPDATE SKIP LOCKED)│
-│  4. For each item:                                                     │
-│       - Verify idempotency / provider_message_id                       │
-│       - Send via Resend SDK (emails.send)                              │
-│       - Record provider_id in mailer_queue ('sent') & recruit_email_logs│
-│  5. Atomically update mailer_campaigns counters                        │
-│  6. Return progress & cooldown status                                  │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-                     ┌──────────────────────────────┐
-                     │         SUPABASE DB          │
-                     │  - mailer_campaigns          │
-                     │  - mailer_queue              │
-                     │  - mailer_rate_limits        │
-                     │  - recruit_email_logs        │
-                     └──────────────────────────────┘
+│   1. reconcileEmailBlocks(input.blocks, loadedAthleteIds)              │
+│   2. renderPersonalEmail(...)                                          │
+│   3. assertEmailIntegrity({ expected, rendered, html, text })          │
+│                                                                        │
+│         │                                        │                     │
+│    [Integridade OK]                        [Inconsistência]            │
+│         │                                        │                     │
+│         ▼                                        ▼                     │
+│   mailer_queue INSERT                      Abortar (0 inserts,         │
+│   Status: pending                          0 chamadas Resend)          │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Components to Update:
-
-1. `vercel.json`: Remove `crons` array.
-2. `src/server.ts`: Remove deprecated `/api/cron/process-mailer-queue` and `/api/mailer/process-queue` routes.
-3. `src/lib/email/mailer-queue.server.ts`: Adapt queue worker for micro-batches (batchSize = 2), eliminate un-locked fallback, and remove fire-and-forget background ticks.
-4. `src/lib/email/recruit-email.functions.ts`: Export authenticated `processMailerMicroBatchServerFn` with `requireAgency`.
-5. `src/routes/_authenticated/admin/mailer.tsx`: Implement browser orchestrator loop with `useRef`, visibility detection, cooldown countdown, and recovery.
-6. Test suites: Update unit tests for micro-batches, mock fixtures, and validate full build (`bun run validate`).
+#### Módulos e Componentes Envolvidos:
+1. `src/lib/email/email-blocks.ts` (novo módulo):
+   - `reconcileEmailBlocks(prev: EmailBlock[], athleteIds: string[]): EmailBlock[]`
+   - `assertEmailIntegrity(options: EmailIntegrityOptions): void`
+2. `src/routes/_authenticated/admin/mailer.tsx`:
+   - Remoção do `useEffect` com guarda `prev.length > 0`.
+   - Derivação síncrona de `finalBlocks` via `useMemo`.
+   - Banner de integridade no preview e validação pré-envio.
+3. `src/lib/email/recruit-email-template.ts`:
+   - Exposição dos metadados de integridade (`expectedAthleteIds`, `renderedAthleteIds`, `missingAthleteIds`).
+4. `src/lib/email/mailer-queue.server.ts` & `src/lib/email/recruit-email.server.ts`:
+   - Validação autoritativa *fail-closed* antes de persistir ou disparar.
+   - Rotina de cancelamento para itens pendentes sem card (`QUICK FACTS`).
+5. `src/lib/email/email-blocks.test.ts` (novo conjunto de testes):
+   - Teste de regressão do bug, alternância A→B, multi-atleta, textos preservados e validação *fail-closed*.

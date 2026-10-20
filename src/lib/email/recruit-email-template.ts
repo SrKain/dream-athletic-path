@@ -217,6 +217,9 @@ export function renderRecruitEmail(data: RecruitEmailData) {
     html: personal.html,
     text: personal.text,
     profileUrl,
+    expectedAthleteIds: [athlete.id],
+    renderedAthleteIds: personal.renderedAthleteIds,
+    missingAthleteIds: personal.missingAthleteIds,
   };
 }
 
@@ -283,5 +286,8 @@ export function renderMultiAthleteRecruitEmail(data: MultiAthleteEmailData) {
     subject: result.subject,
     html: personal.html,
     text: personal.text,
+    expectedAthleteIds: athletes.map((a) => a.id),
+    renderedAthleteIds: personal.renderedAthleteIds,
+    missingAthleteIds: personal.missingAthleteIds,
   };
 }

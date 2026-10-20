@@ -1143,3 +1143,23 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Causas no código:** blocos `composerBlocks` desatualizados após trocar atleta; `renderPersonalEmail` descarta IDs de cards sem falhar; `resolveLegacyBodyBlocks` ignora Hook/Introduction quando recebe blocos; validação no enfileiramento não checa integridade do HTML/texto final; catálogo não propaga headline/hook como o formulário promete. Discrepância específica do assunto permanece pendente de teste controlado.
 - **Plano:** `think/2026-10-20-1028-integridade-preview-envio-mailer.md`.
 - **Alterações nesta sessão:** apenas documentação (`think/` e este registro). Sem alterações de código, migrations, banco, filas, reenvio ou e-mails reais.
+
+
+## TASK-103 — 2026-10-20 15:30 (America/Sao_Paulo) — Correção definitiva da seleção de atletas, preview e integridade de disparo no Mailer
+
+- **Solicitante:** Kauan (Usuário Humano).
+- **Executor:** Antigravity AI (AI Studio).
+- **Data/hora:** 2026-10-20 15:30 (America/Sao_Paulo).
+- **Aprovação humana prévia:** Obtida em 2026-10-20 via perguntas de escopo (foco estrito no bug do card, banner de alerta com bloqueio de envio e cancelamento automático de pendências corrompidas na fila) e aprovação explícita do plano.
+- **Planos associados:** `think/2026-10-20-1530-correcao-definitiva-selecao-atleta-preview-mailer.md` e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Pedido:** Garantir que ao disparar para atletas diferentes, o Mailer sempre carregue o preview da atleta selecionada e realize o disparo com o card completo correspondente. Bloquear envios com divergência e cancelar preventivamente itens pendentes sem card.
+- **Implementação:**
+  1. Criação de `src/lib/email/email-blocks.ts` com a função pura `reconcileEmailBlocks` que reconcilia blocos preservando textos personalizados e sincronizando IDs de atletas de forma determinística;
+  2. Implementação do validador fail-closed `assertEmailIntegrity` que verifica correspondência estrita entre atletas esperadas e renderizadas, bem como presença dos marcadores do card (`QUICK FACTS` e `VIEW FULL PROFILE`);
+  3. Atualização dos templates em `recruit-email-template.ts` para expor `expectedAthleteIds`, `renderedAthleteIds` e `missingAthleteIds`;
+  4. Refatoração em `src/routes/_authenticated/admin/mailer.tsx` com `finalBlocks` memoizado e sincronização de estado, banner de alerta `role="alert"` em caso de divergência no preview e bloqueio reativo do botão `Disparar Mailer`;
+  5. Reforço de segurança em `mailer-queue.server.ts` e `recruit-email.server.ts` com validação de integridade no enfileiramento e rotina `sanitizePendingQueueItemsMissingCards` para cancelar itens corrompidos na fila (`mailer_queue`);
+  6. Criação de `src/lib/email/email-blocks.test.ts` com 11 testes unitários.
+- **Status:** `[CONCLUÍDO]`
+- **Validação:** 243 testes unitários aprovados em 28 arquivos (Vitest), ESLint 0 erros (11 warnings preexistentes), `compile_applet` verde com build de produção validado. `bun.lock` e `package.json` intactos.
+

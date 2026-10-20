@@ -17,6 +17,7 @@ import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality"
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
+import { reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 
 export interface MailerRecipient {
   coachId?: string | null;
@@ -552,133 +553,175 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
   const messagesToSend: PreparedMessage[] = [];
 
-  if (mode === "catalog") {
-    const headline = customOptions?.headline || catalogOptions?.customHeadline;
-    const message =
-      customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
+  try {
+    if (mode === "catalog") {
+      const headline = customOptions?.headline || catalogOptions?.customHeadline;
+      const message =
+        customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
 
-    for (const rec of activeRecipients) {
-      const { subject, html, text } = renderCatalogEmail({
-        coachName: rec.name,
-        coachLastName: rec.lastName,
-        customSubject: customOptions?.subject,
-        institutionName: rec.universityName,
-        customHeadline: headline,
-        customMessage: message,
-        customGreeting: customOptions?.greeting,
-        customIntroduction: customOptions?.introduction,
-        customHook: customOptions?.hook,
-        recipientEmail: rec.email,
-        coachId: rec.coachId,
-        logoUrl,
-        heroBackgroundUrl,
-        campaignId,
-      });
-
-      messagesToSend.push({
-        to: rec.email,
-        subject,
-        html,
-        text,
-        athleteId: null,
-        athleteIds: [],
-        coachId: rec.coachId ?? null,
-        recipientEmail: rec.email,
-        recipientName: rec.name,
-        universityName: rec.universityName ?? null,
-        emailType: "catalog_general",
-        tags: buildResendMailerTags({
+      for (const rec of activeRecipients) {
+        const { subject, html, text } = renderCatalogEmail({
+          coachName: rec.name,
+          coachLastName: rec.lastName,
+          customSubject: customOptions?.subject,
+          institutionName: rec.universityName,
+          customHeadline: headline,
+          customMessage: message,
+          customGreeting: customOptions?.greeting,
+          customIntroduction: customOptions?.introduction,
+          customHook: customOptions?.hook,
+          recipientEmail: rec.email,
+          coachId: rec.coachId,
+          logoUrl,
+          heroBackgroundUrl,
           campaignId,
+        });
+
+        assertEmailIntegrity({
+          mode: "catalog",
+          html,
+          text,
+        });
+
+        messagesToSend.push({
+          to: rec.email,
+          subject,
+          html,
+          text,
+          athleteId: null,
+          athleteIds: [],
+          coachId: rec.coachId ?? null,
+          recipientEmail: rec.email,
+          recipientName: rec.name,
+          universityName: rec.universityName ?? null,
           emailType: "catalog_general",
-        }),
-      });
-    }
-  } else if (mode === "multi_athlete") {
-    const loadedAthleteIds = filterValidUuids(
-      loadedAthletes.map((a) => a.athleteId).filter((id): id is string => Boolean(id)),
-    );
-
-    if (loadedAthletes.length > 0) {
-      for (const rec of activeRecipients) {
-        const { subject, html, text } = renderMultiAthleteRecruitEmail({
-          athletes: loadedAthletes,
-          coachName: rec.name,
-          coachLastName: rec.lastName,
-          customSubject: customOptions?.subject,
-          institutionName: rec.universityName,
-          recipientEmail: rec.email,
-          coachId: rec.coachId,
-          customGreeting: customOptions?.greeting,
-          customIntroduction: customOptions?.introduction,
-          customHook: customOptions?.hook,
-          blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
-          logoUrl,
-          heroBackgroundUrl,
-          campaignId,
-        });
-
-        messagesToSend.push({
-          to: rec.email,
-          subject,
-          html,
-          text,
-          athleteId: loadedAthletes[0]?.athleteId ?? null,
-          athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
-          coachId: rec.coachId ?? null,
-          recipientEmail: rec.email,
-          recipientName: rec.name,
-          universityName: rec.universityName ?? null,
-          emailType: "athlete_teaser_multi",
           tags: buildResendMailerTags({
             campaignId,
+            emailType: "catalog_general",
+          }),
+        });
+      }
+    } else if (mode === "multi_athlete") {
+      const loadedAthleteIds = filterValidUuids(
+        loadedAthletes.map((a) => a.athleteId).filter((id): id is string => Boolean(id)),
+      );
+      const reconciledBlocks = reconcileEmailBlocks(emailBlocks, loadedAthleteIds);
+
+      if (loadedAthletes.length > 0) {
+        for (const rec of activeRecipients) {
+          const renderResult = renderMultiAthleteRecruitEmail({
+            athletes: loadedAthletes,
+            coachName: rec.name,
+            coachLastName: rec.lastName,
+            customSubject: customOptions?.subject,
+            institutionName: rec.universityName,
+            recipientEmail: rec.email,
+            coachId: rec.coachId,
+            customGreeting: customOptions?.greeting,
+            customIntroduction: customOptions?.introduction,
+            customHook: customOptions?.hook,
+            blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
+            logoUrl,
+            heroBackgroundUrl,
+            campaignId,
+          });
+
+          assertEmailIntegrity({
+            mode: "multi_athlete",
+            expectedAthleteIds: loadedAthleteIds,
+            renderedAthleteIds: renderResult.renderedAthleteIds,
+            missingAthleteIds: renderResult.missingAthleteIds,
+            html: renderResult.html,
+            text: renderResult.text,
+          });
+
+          const { subject, html, text } = renderResult;
+
+          messagesToSend.push({
+            to: rec.email,
+            subject,
+            html,
+            text,
+            athleteId: loadedAthletes[0]?.athleteId ?? null,
+            athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
+            coachId: rec.coachId ?? null,
+            recipientEmail: rec.email,
+            recipientName: rec.name,
+            universityName: rec.universityName ?? null,
             emailType: "athlete_teaser_multi",
-          }),
-        });
+            tags: buildResendMailerTags({
+              campaignId,
+              emailType: "athlete_teaser_multi",
+            }),
+          });
+        }
       }
-    }
-  } else {
-    // single_athlete
-    for (const emailData of loadedAthletes) {
-      const athId = emailData.athleteId!;
+    } else {
+      // single_athlete
+      for (const emailData of loadedAthletes) {
+        const athId = emailData.athleteId!;
+        const reconciledBlocks = reconcileEmailBlocks(emailBlocks, [athId]);
 
-      for (const rec of activeRecipients) {
-        const { subject, html, text } = renderRecruitEmail({
-          ...emailData,
-          recipientEmail: rec.email,
-          coachId: rec.coachId,
-          coachName: rec.name,
-          coachLastName: rec.lastName,
-          customSubject: customOptions?.subject,
-          institutionName: rec.universityName,
-          customGreeting: customOptions?.greeting,
-          customIntroduction: customOptions?.introduction,
-          customHook: customOptions?.hook,
-          blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
-          logoUrl,
-          heroBackgroundUrl,
-          campaignId,
-        });
-
-        messagesToSend.push({
-          to: rec.email,
-          subject,
-          html,
-          text,
-          athleteId: athId,
-          athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
-          coachId: rec.coachId ?? null,
-          recipientEmail: rec.email,
-          recipientName: rec.name,
-          universityName: rec.universityName ?? null,
-          emailType: "athlete_teaser",
-          tags: buildResendMailerTags({
+        for (const rec of activeRecipients) {
+          const renderResult = renderRecruitEmail({
+            ...emailData,
+            recipientEmail: rec.email,
+            coachId: rec.coachId,
+            coachName: rec.name,
+            coachLastName: rec.lastName,
+            customSubject: customOptions?.subject,
+            institutionName: rec.universityName,
+            customGreeting: customOptions?.greeting,
+            customIntroduction: customOptions?.introduction,
+            customHook: customOptions?.hook,
+            blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
+            logoUrl,
+            heroBackgroundUrl,
             campaignId,
-            emailType: "athlete_teaser",
+          });
+
+          assertEmailIntegrity({
+            mode: "single_athlete",
+            expectedAthleteIds: [athId],
+            renderedAthleteIds: renderResult.renderedAthleteIds,
+            missingAthleteIds: renderResult.missingAthleteIds,
+            html: renderResult.html,
+            text: renderResult.text,
+          });
+
+          const { subject, html, text } = renderResult;
+
+          messagesToSend.push({
+            to: rec.email,
+            subject,
+            html,
+            text,
             athleteId: athId,
-          }),
-        });
+            athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
+            coachId: rec.coachId ?? null,
+            recipientEmail: rec.email,
+            recipientName: rec.name,
+            universityName: rec.universityName ?? null,
+            emailType: "athlete_teaser",
+            tags: buildResendMailerTags({
+              campaignId,
+              emailType: "athlete_teaser",
+              athleteId: athId,
+            }),
+          });
+        }
       }
     }
+  } catch (error) {
+    return {
+      success: false,
+      campaignId,
+      totalSent: 0,
+      totalFailed: 0,
+      totalSuppressed: suppressedRecipients.length,
+      message:
+        error instanceof Error ? error.message : "Failed email integrity check before dispatching.",
+    };
   }
 
   // Registrar a campanha em `mailer_campaigns` antes do disparo

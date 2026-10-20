@@ -71,6 +71,7 @@ import {
   sanitizeEmailBlocks,
   type EmailBlock,
 } from "@/lib/email/personal-email-renderer";
+import { reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
 import type {
   University,
   UniversityCoach,
@@ -802,17 +803,21 @@ function MailerPage() {
     };
   }, [activeComposerAthleteIds, emailAthletesRetry]);
 
+  // Blocos finais reconciliados de forma pura e determinística com a seleção atual
+  const finalBlocks = useMemo(() => {
+    if (sendMode === "catalog") return [];
+    if (activeComposerAthleteIds.length === 0) return [];
+    return sanitizeEmailBlocks(reconcileEmailBlocks(composerBlocks, activeComposerAthleteIds));
+  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
+
+  // Sincroniza o estado interno do composer preservando blocos de texto
   useEffect(() => {
     if (sendMode === "catalog") return;
     if (activeComposerAthleteIds.length === 0) {
       setComposerBlocks([]);
       return;
     }
-
-    setComposerBlocks((prev) => {
-      if (prev.length > 0) return prev;
-      return buildDefaultEmailBlocks(activeComposerAthleteIds);
-    });
+    setComposerBlocks((prev) => reconcileEmailBlocks(prev, activeComposerAthleteIds));
   }, [activeComposerAthleteIds, sendMode]);
 
   function addComposerTextBlock() {
@@ -859,12 +864,8 @@ function MailerPage() {
 
   const composerPreviewBlocks = useMemo(() => {
     if (sendMode === "catalog") return [];
-    return sanitizeEmailBlocks(
-      composerBlocks.length > 0
-        ? composerBlocks
-        : buildDefaultEmailBlocks(activeComposerAthleteIds),
-    );
-  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
+    return finalBlocks;
+  }, [finalBlocks, sendMode]);
 
   // Gera HTML de Preview dinâmico
   const previewCoach = useMemo(
@@ -880,7 +881,7 @@ function MailerPage() {
     const heroBackgroundUrl = visualSettings?.hero_background_url ?? null;
 
     if (sendMode === "catalog") {
-      const { html, subject } = renderCatalogEmail({
+      const res = renderCatalogEmail({
         coachName: previewCoach?.name || "Coach Smith",
         coachLastName: previewLastName,
         customSubject,
@@ -894,7 +895,14 @@ function MailerPage() {
         logoUrl,
         heroBackgroundUrl,
       });
-      return { html, subject };
+      return {
+        html: res.html,
+        subject: res.subject,
+        text: res.text || "",
+        expectedAthleteIds: [] as string[],
+        renderedAthleteIds: [] as string[],
+        missingAthleteIds: [] as string[],
+      };
     }
 
     if (sendMode === "multi") {
@@ -910,10 +918,14 @@ function MailerPage() {
         return {
           html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa das atletas para o preview.</p>",
           subject: "",
+          text: "",
+          expectedAthleteIds: activeComposerAthleteIds,
+          renderedAthleteIds: [] as string[],
+          missingAthleteIds: [] as string[],
         };
       }
 
-      const { html, subject } = renderMultiAthleteRecruitEmail({
+      const res = renderMultiAthleteRecruitEmail({
         athletes: targets,
         coachName: previewCoach?.name || "Coach Smith",
         coachLastName: previewLastName,
@@ -926,7 +938,14 @@ function MailerPage() {
         logoUrl,
         heroBackgroundUrl,
       });
-      return { html, subject };
+      return {
+        html: res.html,
+        subject: res.subject,
+        text: res.text,
+        expectedAthleteIds: res.expectedAthleteIds,
+        renderedAthleteIds: res.renderedAthleteIds,
+        missingAthleteIds: res.missingAthleteIds,
+      };
     }
 
     // single mode
@@ -934,6 +953,10 @@ function MailerPage() {
       return {
         html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Nenhum atleta selecionado.</p>",
         subject: "",
+        text: "",
+        expectedAthleteIds: [] as string[],
+        renderedAthleteIds: [] as string[],
+        missingAthleteIds: [] as string[],
       };
     }
 
@@ -944,9 +967,13 @@ function MailerPage() {
       return {
         html: "<p style='font-family:sans-serif;padding:20px;text-align:center;'>Carregando ficha completa da atleta para o preview.</p>",
         subject: "",
+        text: "",
+        expectedAthleteIds: [currentSingleAthlete.id],
+        renderedAthleteIds: [] as string[],
+        missingAthleteIds: [] as string[],
       };
     }
-    const { html, subject } = renderRecruitEmail({
+    const res = renderRecruitEmail({
       ...selectedData,
       coachName: previewCoach?.name || "Coach Smith",
       coachLastName: previewLastName,
@@ -958,7 +985,15 @@ function MailerPage() {
       logoUrl,
       heroBackgroundUrl,
     });
-    return { html, subject };
+    return {
+      html: res.html,
+      subject: res.subject,
+      text: res.text,
+      profileUrl: res.profileUrl,
+      expectedAthleteIds: res.expectedAthleteIds,
+      renderedAthleteIds: res.renderedAthleteIds,
+      missingAthleteIds: res.missingAthleteIds,
+    };
   }, [
     sendMode,
     currentSingleAthlete,
@@ -976,6 +1011,29 @@ function MailerPage() {
     composerPreviewBlocks,
     visualSettings,
   ]);
+
+  const previewIntegrityError = useMemo(() => {
+    if (sendMode === "catalog") return null;
+    if (activeComposerAthleteIds.length === 0) return "Nenhum atleta selecionado.";
+    if (emailAthletesLoading) return null;
+    if (emailAthletesError) return emailAthletesError;
+    if (!previewEmail?.html) return "Preview não gerado.";
+    try {
+      assertEmailIntegrity({
+        mode: sendMode === "single" ? "single_athlete" : "multi_athlete",
+        expectedAthleteIds: activeComposerAthleteIds,
+        renderedAthleteIds: previewEmail.renderedAthleteIds,
+        missingAthleteIds: previewEmail.missingAthleteIds,
+        html: previewEmail.html,
+        text: previewEmail.text || "",
+      });
+      return null;
+    } catch (err) {
+      return err instanceof Error
+        ? err.message
+        : "Inconsistência de integridade detectada no preview.";
+    }
+  }, [activeComposerAthleteIds, emailAthletesError, emailAthletesLoading, previewEmail, sendMode]);
 
   const selectedEmailData = useMemo(
     () =>
@@ -1099,20 +1157,17 @@ function MailerPage() {
       return;
     }
 
-    let targetAthleteIds: string[] = [];
-    if (sendMode === "single") {
-      if (!selectedAthleteId) {
-        toast.error("Selecione um atleta.");
-        return;
-      }
-      targetAthleteIds = [selectedAthleteId];
-    } else if (sendMode === "multi") {
-      if (selectedMultiAthleteIds.size === 0) {
-        toast.error("Selecione ao menos um atleta.");
-        return;
-      }
-      targetAthleteIds = Array.from(selectedMultiAthleteIds);
+    if (sendMode !== "catalog" && activeComposerAthleteIds.length === 0) {
+      toast.error(sendMode === "single" ? "Selecione um atleta." : "Selecione ao menos um atleta.");
+      return;
     }
+
+    if (previewIntegrityError) {
+      toast.error(`Envio bloqueado por integridade: ${previewIntegrityError}`);
+      return;
+    }
+
+    const targetAthleteIds = activeComposerAthleteIds;
 
     setIsSending(true);
 
@@ -1143,28 +1198,14 @@ function MailerPage() {
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
           },
-          blocks:
-            sendMode === "catalog"
-              ? []
-              : sanitizeEmailBlocks(
-                  composerBlocks.length
-                    ? composerBlocks
-                    : buildDefaultEmailBlocks(targetAthleteIds),
-                ),
+          blocks: sendMode === "catalog" ? [] : finalBlocks,
           customOptions: {
             subject: customSubject || undefined,
             introduction: customIntroduction || undefined,
             hook: customHook || undefined,
             headline: catalogHeadline || undefined,
             message: catalogMessage || undefined,
-            blocks:
-              sendMode === "catalog"
-                ? []
-                : sanitizeEmailBlocks(
-                    composerBlocks.length
-                      ? composerBlocks
-                      : buildDefaultEmailBlocks(targetAthleteIds),
-                  ),
+            blocks: sendMode === "catalog" ? [] : finalBlocks,
           },
           catalogOptions: {
             customHeadline: catalogHeadline,
@@ -2263,6 +2304,20 @@ function MailerPage() {
                           : "Prévia com Coach Smith (exemplo). A saudação usa o sobrenome de cada destinatário."}
                       </p>
                     </div>
+
+                    {previewIntegrityError && (
+                      <div
+                        role="alert"
+                        className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-semibold">Aviso de Integridade do Card</p>
+                          <p>{previewIntegrityError}</p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="rounded-xl border border-border bg-[#f8faf5] p-1 shadow-inner h-[460px] overflow-hidden">
                       <iframe
                         title="Email Preview"
@@ -2379,7 +2434,8 @@ function MailerPage() {
                           !emailAthletesReady ||
                           missingAthleteFields.length > 0 ||
                           activeSelectedRecipients.length === 0 ||
-                          (sendMode === "multi" && selectedMultiAthleteIds.size === 0)
+                          (sendMode === "multi" && selectedMultiAthleteIds.size === 0) ||
+                          Boolean(previewIntegrityError)
                         }
                         onClick={() => setConfirmModalOpen(true)}
                         className="w-full py-2.5 px-4 rounded-lg bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
@@ -2703,11 +2759,30 @@ function MailerPage() {
                     <span>{suppressedSelectedCount} (serão pulados)</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Assunto:</span>
+                  <span
+                    className="font-semibold text-foreground truncate max-w-[220px]"
+                    title={previewEmail.subject}
+                  >
+                    {previewEmail.subject || "(Padrão)"}
+                  </span>
+                </div>
                 <div className="flex justify-between pt-1 border-t border-border/40 font-bold">
                   <span>Total de E-mails a Disparar:</span>
                   <span className="text-primary text-sm">{totalCalculatedDispatches}</span>
                 </div>
               </div>
+
+              {previewIntegrityError && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200"
+                >
+                  <p className="font-semibold">Envio bloqueado por integridade:</p>
+                  <p>{previewIntegrityError}</p>
+                </div>
+              )}
 
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Cada e-mail incluirá automaticamente o rodapé com link de feedback de interesse e
@@ -2725,7 +2800,12 @@ function MailerPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={isSending || !emailAthletesReady || missingAthleteFields.length > 0}
+                  disabled={
+                    isSending ||
+                    !emailAthletesReady ||
+                    missingAthleteFields.length > 0 ||
+                    Boolean(previewIntegrityError)
+                  }
                   onClick={handleSendMailer}
                   className={buttonClass}
                 >

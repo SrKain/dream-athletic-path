@@ -11,6 +11,7 @@ import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import { getSuppressedEmailSet, type SendMailerInput } from "./recruit-email.server";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
+import { reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
@@ -262,93 +263,61 @@ export async function enqueueCampaignDispatches(
   const catalogOptions = input.catalogOptions;
   const emailBlocks = input.blocks || [];
 
-  if (mode === "catalog") {
-    const headline = customOptions?.headline || catalogOptions?.customHeadline;
-    const message =
-      customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
-
-    for (const rec of activeRecipients) {
-      const { subject, html, text } = renderCatalogEmail({
-        coachName: rec.name,
-        coachLastName: rec.lastName,
-        customSubject: customOptions?.subject,
-        institutionName: rec.universityName,
-        customHeadline: headline,
-        customMessage: message,
-        customGreeting: customOptions?.greeting,
-        customIntroduction: customOptions?.introduction,
-        customHook: customOptions?.hook,
-        recipientEmail: rec.email,
-        coachId: rec.coachId,
-        logoUrl,
-        heroBackgroundUrl,
-        campaignId,
-      });
-
-      queueItemsToInsert.push({
-        coachId: rec.coachId ?? null,
-        recipientEmail: rec.email,
-        recipientName: rec.name,
-        universityName: rec.universityName ?? null,
-        emailType: "catalog_general",
-        subject,
-        html,
-        text,
-        athleteId: null,
-        athleteIds: [],
-        tags: buildResendMailerTags({
-          campaignId,
-          emailType: "catalog_general",
-        }),
-      });
-    }
-  } else if (mode === "multi_athlete") {
-    const loadedAthletes = loadedAthleteData;
-    const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
-
-    for (const rec of activeRecipients) {
-      const { subject, html, text } = renderMultiAthleteRecruitEmail({
-        athletes: loadedAthletes,
-        recipientEmail: rec.email,
-        coachId: rec.coachId,
-        coachName: rec.name,
-        coachLastName: rec.lastName,
-        customSubject: customOptions?.subject,
-        institutionName: rec.universityName,
-        customGreeting: customOptions?.greeting,
-        customIntroduction: customOptions?.introduction,
-        customHook: customOptions?.hook,
-        blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
-        logoUrl,
-        heroBackgroundUrl,
-        campaignId,
-      });
-
-      queueItemsToInsert.push({
-        coachId: rec.coachId ?? null,
-        recipientEmail: rec.email,
-        recipientName: rec.name,
-        universityName: rec.universityName ?? null,
-        emailType: "athlete_teaser_multi",
-        subject,
-        html,
-        text,
-        athleteId: loadedAthletes[0]?.athleteId ?? null,
-        athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
-        tags: buildResendMailerTags({
-          campaignId,
-          emailType: "athlete_teaser_multi",
-        }),
-      });
-    }
-  } else {
-    // single_athlete
-    for (const singleData of loadedAthleteData) {
-      const athId = singleData.athleteId!;
+  try {
+    if (mode === "catalog") {
+      const headline = customOptions?.headline || catalogOptions?.customHeadline;
+      const message =
+        customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
 
       for (const rec of activeRecipients) {
-        const { subject, html, text } = renderRecruitEmail({
-          ...singleData,
+        const { subject, html, text } = renderCatalogEmail({
+          coachName: rec.name,
+          coachLastName: rec.lastName,
+          customSubject: customOptions?.subject,
+          institutionName: rec.universityName,
+          customHeadline: headline,
+          customMessage: message,
+          customGreeting: customOptions?.greeting,
+          customIntroduction: customOptions?.introduction,
+          customHook: customOptions?.hook,
+          recipientEmail: rec.email,
+          coachId: rec.coachId,
+          logoUrl,
+          heroBackgroundUrl,
+          campaignId,
+        });
+
+        assertEmailIntegrity({
+          mode: "catalog",
+          html,
+          text,
+        });
+
+        queueItemsToInsert.push({
+          coachId: rec.coachId ?? null,
+          recipientEmail: rec.email,
+          recipientName: rec.name,
+          universityName: rec.universityName ?? null,
+          emailType: "catalog_general",
+          subject,
+          html,
+          text,
+          athleteId: null,
+          athleteIds: [],
+          tags: buildResendMailerTags({
+            campaignId,
+            emailType: "catalog_general",
+          }),
+        });
+      }
+    } else if (mode === "multi_athlete") {
+      const loadedAthletes = loadedAthleteData;
+      const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
+      const reconciledBlocks = reconcileEmailBlocks(emailBlocks, loadedAthleteIds);
+
+      for (const rec of activeRecipients) {
+        const renderResult = renderMultiAthleteRecruitEmail({
+          athletes: loadedAthletes,
           recipientEmail: rec.email,
           coachId: rec.coachId,
           coachName: rec.name,
@@ -358,31 +327,108 @@ export async function enqueueCampaignDispatches(
           customGreeting: customOptions?.greeting,
           customIntroduction: customOptions?.introduction,
           customHook: customOptions?.hook,
-          blocks: emailBlocks.length > 0 ? emailBlocks : undefined,
+          blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
           logoUrl,
           heroBackgroundUrl,
           campaignId,
         });
+
+        assertEmailIntegrity({
+          mode: "multi_athlete",
+          expectedAthleteIds: loadedAthleteIds,
+          renderedAthleteIds: renderResult.renderedAthleteIds,
+          missingAthleteIds: renderResult.missingAthleteIds,
+          html: renderResult.html,
+          text: renderResult.text,
+        });
+
+        const { subject, html, text } = renderResult;
 
         queueItemsToInsert.push({
           coachId: rec.coachId ?? null,
           recipientEmail: rec.email,
           recipientName: rec.name,
           universityName: rec.universityName ?? null,
-          emailType: "athlete_teaser",
+          emailType: "athlete_teaser_multi",
           subject,
           html,
           text,
-          athleteId: athId,
-          athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
+          athleteId: loadedAthletes[0]?.athleteId ?? null,
+          athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
           tags: buildResendMailerTags({
             campaignId,
-            emailType: "athlete_teaser",
-            athleteId: athId,
+            emailType: "athlete_teaser_multi",
           }),
         });
       }
+    } else {
+      // single_athlete
+      for (const singleData of loadedAthleteData) {
+        const athId = singleData.athleteId!;
+        const reconciledBlocks = reconcileEmailBlocks(emailBlocks, [athId]);
+
+        for (const rec of activeRecipients) {
+          const renderResult = renderRecruitEmail({
+            ...singleData,
+            recipientEmail: rec.email,
+            coachId: rec.coachId,
+            coachName: rec.name,
+            coachLastName: rec.lastName,
+            customSubject: customOptions?.subject,
+            institutionName: rec.universityName,
+            customGreeting: customOptions?.greeting,
+            customIntroduction: customOptions?.introduction,
+            customHook: customOptions?.hook,
+            blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
+            logoUrl,
+            heroBackgroundUrl,
+            campaignId,
+          });
+
+          assertEmailIntegrity({
+            mode: "single_athlete",
+            expectedAthleteIds: [athId],
+            renderedAthleteIds: renderResult.renderedAthleteIds,
+            missingAthleteIds: renderResult.missingAthleteIds,
+            html: renderResult.html,
+            text: renderResult.text,
+          });
+
+          const { subject, html, text } = renderResult;
+
+          queueItemsToInsert.push({
+            coachId: rec.coachId ?? null,
+            recipientEmail: rec.email,
+            recipientName: rec.name,
+            universityName: rec.universityName ?? null,
+            emailType: "athlete_teaser",
+            subject,
+            html,
+            text,
+            athleteId: athId,
+            athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
+            tags: buildResendMailerTags({
+              campaignId,
+              emailType: "athlete_teaser",
+              athleteId: athId,
+            }),
+          });
+        }
+      }
     }
+  } catch (error) {
+    return {
+      success: false,
+      campaignId,
+      totalRecipients: input.recipients.length,
+      totalEnqueued: 0,
+      totalSuppressed: suppressedRecipients.length,
+      totalBatches: 0,
+      batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+      status: "failed",
+      message:
+        error instanceof Error ? error.message : "Failed email integrity check before enqueueing.",
+    };
   }
 
   const campaignSubject =
@@ -541,6 +587,66 @@ export async function enqueueCampaignDispatches(
 }
 
 /**
+ * Cancela preventivamente itens da fila pendentes ou em retry que estejam corrompidos
+ * (sem o card de atleta / QUICK FACTS no payload HTML).
+ */
+export async function sanitizePendingQueueItemsMissingCards(
+  campaignId?: string,
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<number> {
+  const admin = customAdmin || getAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = admin
+    .from("mailer_queue")
+    .select("id, payload, email_type")
+    .in("status", ["pending", "retry"]);
+
+  if (typeof query.neq === "function") {
+    query = query.neq("email_type", "catalog_general");
+  }
+
+  if (campaignId && UUID_REGEX.test(campaignId.trim())) {
+    if (typeof query.eq === "function") {
+      query = query.eq("campaign_id", campaignId.trim());
+    }
+  }
+
+  const { data: items, error } = await query;
+  if (error || !items) return 0;
+
+  const corruptedIds: string[] = [];
+  for (const item of items) {
+    if (item.email_type === "catalog_general") continue;
+    const payload = (item.payload || {}) as { html?: string };
+    if (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE")) {
+      corruptedIds.push(item.id);
+    }
+  }
+
+  if (corruptedIds.length === 0) return 0;
+
+  const { error: updateError } = await admin
+    .from("mailer_queue")
+    .update({
+      status: "cancelled",
+      last_error: "cancelled_missing_card",
+      error_code: "INTEGRITY_MISSING_CARD",
+      processed_at: new Date().toISOString(),
+    })
+    .in("id", corruptedIds);
+
+  if (updateError) {
+    console.error("[mailer-queue] Failed to cancel corrupted queue items:", updateError);
+    return 0;
+  }
+
+  console.info(
+    `[mailer-queue] Cancelled ${corruptedIds.length} corrupted queue items missing athlete cards.`,
+  );
+  return corruptedIds.length;
+}
+
+/**
  * Worker autenticado de execução de micro-lote (até 2 e-mails) acionado pelo navegador.
  * Garante:
  * 1. campaignId obrigatório e restrição de escopo SQL sem mistura de campanhas.
@@ -571,6 +677,13 @@ export async function processMailerQueue(
   const workerId = options?.workerId || `browser-${crypto.randomBytes(4).toString("hex")}`;
   const maxBatchSize = Math.min(2, Math.max(1, Number(options?.maxBatchSize) || 2));
   const now = new Date();
+
+  // Saneamento preventivo: cancela itens na fila sem card antes de processar
+  try {
+    await sanitizePendingQueueItemsMissingCards(campaignId, admin);
+  } catch (err) {
+    console.error("[mailer-queue] Error during queue card sanitation:", err);
+  }
 
   // An unavailable/missing lease must never permit dispatching.
   const controllerId = options.clientId?.trim() || workerId;
@@ -869,6 +982,27 @@ export async function processMailerQueue(
       athleteId?: string | null;
       athleteIds?: string[];
     };
+
+    // Validação fail-closed no momento do envio: cancela item corrompido sem acionar Resend
+    if (
+      item.email_type !== "catalog_general" &&
+      (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE"))
+    ) {
+      console.warn(`[mailer-queue] Item ${item.id} cancelled: missing athlete card in payload.`);
+      await admin
+        .from("mailer_queue")
+        .update({
+          status: "cancelled",
+          last_error: "cancelled_missing_card",
+          error_code: "INTEGRITY_MISSING_CARD",
+          reserved_by: null,
+          reservation_expires_at: null,
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+      failedCount++;
+      continue;
+    }
 
     try {
       if (!resendClient || !resendConfig.isConfigured) {
