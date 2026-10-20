@@ -66,12 +66,8 @@ import {
   getAthleteEmailPanelState,
   ATHLETE_EMAIL_STATE_MESSAGES,
 } from "@/lib/email/athlete-email-quality";
-import {
-  buildDefaultEmailBlocks,
-  sanitizeEmailBlocks,
-  type EmailBlock,
-} from "@/lib/email/personal-email-renderer";
-import { reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
+import type { EmailBlock } from "@/lib/email/personal-email-renderer";
+import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "@/lib/email/email-blocks";
 import type {
   University,
   UniversityCoach,
@@ -803,12 +799,19 @@ function MailerPage() {
     };
   }, [activeComposerAthleteIds, emailAthletesRetry]);
 
-  // Blocos finais reconciliados de forma pura e determinística com a seleção atual
+  // O composer conserva apenas a ordem dos cards; textos são derivados dos campos visíveis.
   const finalBlocks = useMemo(() => {
-    if (sendMode === "catalog") return [];
-    if (activeComposerAthleteIds.length === 0) return [];
-    return sanitizeEmailBlocks(reconcileEmailBlocks(composerBlocks, activeComposerAthleteIds));
-  }, [activeComposerAthleteIds, composerBlocks, sendMode]);
+    if (sendMode === "catalog" || activeComposerAthleteIds.length === 0) return [];
+    const cardOrder = reconcileEmailBlocks(composerBlocks, activeComposerAthleteIds)
+      .filter((block) => block.type === "athlete")
+      .map((block) => block.type === "athlete" ? block.athleteId : "");
+    return composeEmailBlocks({
+      opening: customHook,
+      closing: customIntroduction,
+      athleteIds: activeComposerAthleteIds,
+      cardOrder,
+    });
+  }, [activeComposerAthleteIds, composerBlocks, customHook, customIntroduction, sendMode]);
 
   // Sincroniza o estado interno do composer preservando blocos de texto
   useEffect(() => {
@@ -820,47 +823,7 @@ function MailerPage() {
     setComposerBlocks((prev) => reconcileEmailBlocks(prev, activeComposerAthleteIds));
   }, [activeComposerAthleteIds, sendMode]);
 
-  function addComposerTextBlock() {
-    setComposerBlocks((prev) => [
-      ...prev,
-      {
-        type: "text",
-        content: "I’d love to share more about this athlete and the fit for your recruiting needs.",
-      },
-    ]);
-  }
-
-  function insertComposerAthleteBlock(athleteId: string) {
-    setComposerBlocks((prev) => [
-      ...prev,
-      {
-        type: "athlete",
-        athleteId,
-      },
-    ]);
-  }
-
-  function updateComposerTextBlock(index: number, value: string) {
-    setComposerBlocks((prev) =>
-      prev.map((block, blockIndex) =>
-        blockIndex === index && block.type === "text" ? { ...block, content: value } : block,
-      ),
-    );
-  }
-
-  function moveComposerBlock(index: number, direction: -1 | 1) {
-    setComposerBlocks((prev) => {
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const copy = [...prev];
-      [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
-      return copy;
-    });
-  }
-
-  function removeComposerBlock(index: number) {
-    setComposerBlocks((prev) => prev.filter((_, blockIndex) => blockIndex !== index));
-  }
+  // Editores de blocos mortos removidos: a UI usa somente os campos visíveis.
 
   const composerPreviewBlocks = useMemo(() => {
     if (sendMode === "catalog") return [];
@@ -889,9 +852,8 @@ function MailerPage() {
         customHeadline: catalogHeadline,
         customMessage: catalogMessage,
 
-        customIntroduction: customIntroduction || null,
         customHook: customHook || null,
-        recipientEmail: "coach@example.edu",
+        recipientEmail: previewCoach?.email || "coach@example.edu",
         logoUrl,
         heroBackgroundUrl,
       });
@@ -931,7 +893,7 @@ function MailerPage() {
         coachLastName: previewLastName,
         customSubject,
         institutionName: "University Athletics",
-        recipientEmail: "coach@example.edu",
+        recipientEmail: previewCoach?.email || "coach@example.edu",
         customIntroduction: customIntroduction || null,
         customHook: customHook || null,
         blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
@@ -978,7 +940,7 @@ function MailerPage() {
       coachName: previewCoach?.name || "Coach Smith",
       coachLastName: previewLastName,
       customSubject,
-      recipientEmail: "coach@example.edu",
+      recipientEmail: previewCoach?.email || "coach@example.edu",
       customIntroduction: customIntroduction || null,
       customHook: customHook || null,
       blocks: composerPreviewBlocks.length > 0 ? composerPreviewBlocks : undefined,
@@ -1020,6 +982,9 @@ function MailerPage() {
     if (!previewEmail?.html) return "Preview não gerado.";
     try {
       assertEmailIntegrity({
+        expectedOpeningText: finalBlocks[1]?.type === "text" ? finalBlocks[1].content : null,
+        expectedClosingText: finalBlocks[finalBlocks.length - 1]?.type === "text"
+          ? finalBlocks[finalBlocks.length - 1].content : null,
         mode: sendMode === "single" ? "single_athlete" : "multi_athlete",
         expectedAthleteIds: activeComposerAthleteIds,
         renderedAthleteIds: previewEmail.renderedAthleteIds,
@@ -1033,7 +998,7 @@ function MailerPage() {
         ? err.message
         : "Inconsistência de integridade detectada no preview.";
     }
-  }, [activeComposerAthleteIds, emailAthletesError, emailAthletesLoading, previewEmail, sendMode]);
+  }, [activeComposerAthleteIds, emailAthletesError, emailAthletesLoading, finalBlocks, previewEmail, sendMode]);
 
   const selectedEmailData = useMemo(
     () =>
@@ -1870,6 +1835,7 @@ function MailerPage() {
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
+                          <p className="text-xs text-muted-foreground">Aparece logo após a saudação, antes dos cards.</p>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -1883,6 +1849,7 @@ function MailerPage() {
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
+                        <p className="text-xs text-muted-foreground">Aparece depois dos cards, antes da assinatura.</p>
                       </div>
                     </div>
                   </div>
@@ -1984,6 +1951,7 @@ function MailerPage() {
                             onChange={(e) => setCustomHook(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           />
+                          <p className="text-xs text-muted-foreground">Aparece logo após a saudação, antes dos cards.</p>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -1997,6 +1965,7 @@ function MailerPage() {
                           onChange={(e) => setCustomIntroduction(e.target.value)}
                           className="w-full p-2.5 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
+                        <p className="text-xs text-muted-foreground">Aparece depois dos cards, antes da assinatura.</p>
                       </div>
                     </div>
                   </div>

@@ -5,6 +5,7 @@ import {
   type EmailBlock,
 } from "./personal-email-renderer";
 import { escapeHtml } from "./email-layout";
+import { buildCoachGreeting } from "./email-personalization";
 
 export type { EmailBlock };
 
@@ -112,6 +113,29 @@ export function reconcileEmailBlocks(
   return reconciled;
 }
 
+export interface ComposeEmailBlocksOptions {
+  opening?: string | null;
+  closing?: string | null;
+  athleteIds: string[];
+  cardOrder?: string[];
+}
+
+/** Composição canônica: slots textuais somente dos campos e ordem apenas de cards. */
+export function composeEmailBlocks({
+  opening, closing, athleteIds, cardOrder = [],
+}: ComposeEmailBlocksOptions): EmailBlock[] {
+  const ids = [...new Set(athleteIds.filter((id) => typeof id === "string" && id.trim()))];
+  const defaultOpening = ids.length > 1
+    ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
+    : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
+  return buildFixedEmailBlocks({
+    greeting: buildCoachGreeting(null),
+    introduction: opening?.trim() || defaultOpening,
+    athleteOrder: cardOrder,
+    closing: closing?.trim() || "Let me know what you think.",
+  }, ids);
+}
+
 /**
  * Validação rigorosa de integridade (fail-closed) para preview e disparo do Mailer.
  * Lança erro explícito se o e-mail não puder garantir que os cards renderizados
@@ -134,8 +158,24 @@ export function assertEmailIntegrity(options: AssertEmailIntegrityOptions): void
     throw new Error("Email integrity failure: Generated plain text is empty.");
   }
 
+  const effectiveTextFields = [
+    ["opening", options.expectedOpeningText],
+    ["closing", options.expectedClosingText],
+    ["headline", options.expectedHeadline],
+    ["hook", options.expectedHook],
+    ["message", options.expectedMessage],
+  ] as const;
+  for (const [field, value] of effectiveTextFields) {
+    const lines = (value || "").replace(/\r\n?/g, "\n").trim().split("\n")
+      .map((line) => line.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (!html.includes(escapeHtml(line)) || !text.includes(line)) {
+        throw new Error(`Email integrity failure: Missing effective ${field} text in HTML or plain text.`);
+      }
+    }
+  }
+
   if (mode === "catalog") {
-    // No modo catálogo não deve haver cards de atletas
     return;
   }
 

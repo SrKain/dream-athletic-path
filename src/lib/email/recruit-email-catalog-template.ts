@@ -10,7 +10,6 @@ export interface CatalogEmailData {
   customHeadline?: string | null;
   customMessage?: string | null;
   customGreeting?: string | null;
-  customIntroduction?: string | null;
   customHook?: string | null;
   recipientEmail?: string | null;
   coachId?: string | null;
@@ -25,16 +24,16 @@ export function generateCatalogPlainText(data: CatalogEmailData): string {
   const lines = [
     buildCoachGreeting(data.coachLastName),
     "",
-    "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
+    data.customHeadline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
+    ...(data.customHook?.trim() ? [data.customHook.trim()] : []),
     "",
     "QUICK ACTIONS:",
     `- View Full Portfolio: ${portfolioUrl}`,
     `- Request Athletes by Position: Reply to this email or contact ${EMAIL_SIGNATURE.email}`,
     "",
     "ABOUT GO TEAM GO AGENCY",
-    data.customIntroduction ||
-      data.customMessage ||
-      "Go Team Go connects verified international volleyball prospects with US college programs.",
+    data.customMessage?.trim() ||
+      "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
     "",
     "---",
     `${EMAIL_SIGNATURE.name}`,
@@ -52,9 +51,7 @@ export function generateCatalogPlainText(data: CatalogEmailData): string {
 export function renderCatalogEmail(data: CatalogEmailData = {}) {
   const portfolioUrl = EMAIL_BASE_URL;
 
-  const intro =
-    data.customIntroduction?.trim() ||
-    data.customMessage?.trim() ||
+  const intro = data.customMessage?.trim() ||
     "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.";
 
   const result = renderCatalogRecruitEmail({
@@ -64,6 +61,8 @@ export function renderCatalogEmail(data: CatalogEmailData = {}) {
     customSubject: resolveEmailSubject(data.customSubject, data.customHeadline || ""),
     greetingText: buildCoachGreeting(data.coachLastName),
     introductionText: intro,
+    headlineText: data.customHeadline?.trim(),
+    catalogHookText: data.customHook?.trim(),
     agencyLogoUrl: data.logoUrl || undefined,
     appUrl: EMAIL_BASE_URL,
     campaignId: data.campaignId,

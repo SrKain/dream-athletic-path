@@ -53,6 +53,8 @@ export interface RecruitEmailRenderOptions {
   greetingText?: string;
   introductionText?: string;
   hookText?: string;
+  headlineText?: string;
+  catalogHookText?: string;
   sportName?: string;
   gradYear?: number | string;
   athletes?: RecruitEmailAthlete[];
@@ -485,6 +487,8 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
     "Go Team Go — Active US College Recruiting Portfolio",
   );
   const preheader = "Explore our active verified international college prospects roster.";
+  const headline = options.headlineText?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS";
+  const hook = options.catalogHookText?.trim() || "";
 
   const greetingLine = buildCoachGreeting(options.coachLastName);
 
@@ -531,6 +535,14 @@ export function renderCatalogRecruitEmail(options: RecruitEmailRenderOptions): {
     <tr>
       <td style="padding: 0;">
         ${renderGreetingLine(greetingLine)}
+      </td>
+    </tr>
+
+    <!-- Catalog editorial slots -->
+    <tr>
+      <td style="padding:8px 24px 12px 24px;background-color:${EMAIL_COLORS.white};">
+        <h1 style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.25;color:${EMAIL_COLORS.darkGreenPrimary};">${escapeHtml(headline)}</h1>
+        ${hook ? `<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:${EMAIL_COLORS.textDark};">${escapeHtml(hook)}</p>` : ""}
       </td>
     </tr>
 

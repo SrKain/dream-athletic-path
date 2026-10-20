@@ -11,7 +11,7 @@ import { renderCatalogEmail } from "./recruit-email-catalog-template";
 import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality";
 import { getSuppressedEmailSet, type SendMailerInput } from "./recruit-email.server";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
-import { reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
+import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
@@ -266,8 +266,7 @@ export async function enqueueCampaignDispatches(
   try {
     if (mode === "catalog") {
       const headline = customOptions?.headline || catalogOptions?.customHeadline;
-      const message =
-        customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
+      const message = customOptions?.message ?? catalogOptions?.customMessage;
 
       for (const rec of activeRecipients) {
         const { subject, html, text } = renderCatalogEmail({
@@ -278,7 +277,6 @@ export async function enqueueCampaignDispatches(
           customHeadline: headline,
           customMessage: message,
           customGreeting: customOptions?.greeting,
-          customIntroduction: customOptions?.introduction,
           customHook: customOptions?.hook,
           recipientEmail: rec.email,
           coachId: rec.coachId,
@@ -289,8 +287,10 @@ export async function enqueueCampaignDispatches(
 
         assertEmailIntegrity({
           mode: "catalog",
-          html,
-          text,
+          html, text,
+          expectedHeadline: headline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
+          expectedHook: customOptions?.hook,
+          expectedMessage: message?.trim() || "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
         });
 
         queueItemsToInsert.push({
@@ -313,7 +313,13 @@ export async function enqueueCampaignDispatches(
     } else if (mode === "multi_athlete") {
       const loadedAthletes = loadedAthleteData;
       const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
-      const reconciledBlocks = reconcileEmailBlocks(emailBlocks, loadedAthleteIds);
+      const cardOrder = reconcileEmailBlocks(emailBlocks, loadedAthleteIds)
+        .filter((block) => block.type === "athlete")
+        .map((block) => block.type === "athlete" ? block.athleteId : "");
+      const reconciledBlocks = composeEmailBlocks({
+        opening: customOptions?.hook, closing: customOptions?.introduction,
+        athleteIds: loadedAthleteIds, cardOrder,
+      });
 
       for (const rec of activeRecipients) {
         const renderResult = renderMultiAthleteRecruitEmail({
@@ -338,6 +344,9 @@ export async function enqueueCampaignDispatches(
           expectedAthleteIds: loadedAthleteIds,
           renderedAthleteIds: renderResult.renderedAthleteIds,
           missingAthleteIds: renderResult.missingAthleteIds,
+          expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+          expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
+            ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
           html: renderResult.html,
           text: renderResult.text,
         });
@@ -365,7 +374,9 @@ export async function enqueueCampaignDispatches(
       // single_athlete
       for (const singleData of loadedAthleteData) {
         const athId = singleData.athleteId!;
-        const reconciledBlocks = reconcileEmailBlocks(emailBlocks, [athId]);
+        const reconciledBlocks = composeEmailBlocks({
+          opening: customOptions?.hook, closing: customOptions?.introduction, athleteIds: [athId],
+        });
 
         for (const rec of activeRecipients) {
           const renderResult = renderRecruitEmail({
@@ -390,6 +401,9 @@ export async function enqueueCampaignDispatches(
             expectedAthleteIds: [athId],
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
+            expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
+              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
             html: renderResult.html,
             text: renderResult.text,
           });

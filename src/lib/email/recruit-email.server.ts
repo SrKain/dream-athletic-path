@@ -17,7 +17,7 @@ import { buildResendMailerTags, type ResendTag } from "./mailer-metrics-quality"
 import type { CoachInterestSignal, InterestSignalReason, SuppressionType } from "@/types/db";
 import { EMAIL_SIGNATURE } from "./email-brand";
 import { loadAthletesEmailData, assertAthleteEmailFields } from "./athlete-email-data.server";
-import { reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
+import { composeEmailBlocks, reconcileEmailBlocks, assertEmailIntegrity } from "./email-blocks";
 
 export interface MailerRecipient {
   coachId?: string | null;
@@ -556,8 +556,7 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
   try {
     if (mode === "catalog") {
       const headline = customOptions?.headline || catalogOptions?.customHeadline;
-      const message =
-        customOptions?.message || customOptions?.introduction || catalogOptions?.customMessage;
+      const message = customOptions?.message ?? catalogOptions?.customMessage;
 
       for (const rec of activeRecipients) {
         const { subject, html, text } = renderCatalogEmail({
@@ -568,7 +567,6 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
           customHeadline: headline,
           customMessage: message,
           customGreeting: customOptions?.greeting,
-          customIntroduction: customOptions?.introduction,
           customHook: customOptions?.hook,
           recipientEmail: rec.email,
           coachId: rec.coachId,
@@ -579,8 +577,10 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
 
         assertEmailIntegrity({
           mode: "catalog",
-          html,
-          text,
+          html, text,
+          expectedHeadline: headline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
+          expectedHook: customOptions?.hook,
+          expectedMessage: message?.trim() || "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
         });
 
         messagesToSend.push({
@@ -605,7 +605,13 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       const loadedAthleteIds = filterValidUuids(
         loadedAthletes.map((a) => a.athleteId).filter((id): id is string => Boolean(id)),
       );
-      const reconciledBlocks = reconcileEmailBlocks(emailBlocks, loadedAthleteIds);
+      const cardOrder = reconcileEmailBlocks(emailBlocks, loadedAthleteIds)
+        .filter((block) => block.type === "athlete")
+        .map((block) => block.type === "athlete" ? block.athleteId : "");
+      const reconciledBlocks = composeEmailBlocks({
+        opening: customOptions?.hook, closing: customOptions?.introduction,
+        athleteIds: loadedAthleteIds, cardOrder,
+      });
 
       if (loadedAthletes.length > 0) {
         for (const rec of activeRecipients) {
@@ -631,6 +637,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             expectedAthleteIds: loadedAthleteIds,
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
+            expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
+              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
             html: renderResult.html,
             text: renderResult.text,
           });
@@ -660,7 +669,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
       // single_athlete
       for (const emailData of loadedAthletes) {
         const athId = emailData.athleteId!;
-        const reconciledBlocks = reconcileEmailBlocks(emailBlocks, [athId]);
+        const reconciledBlocks = composeEmailBlocks({
+          opening: customOptions?.hook, closing: customOptions?.introduction, athleteIds: [athId],
+        });
 
         for (const rec of activeRecipients) {
           const renderResult = renderRecruitEmail({
@@ -685,6 +696,9 @@ export async function sendMailerEmails(input: SendMailerInput): Promise<SendMail
             expectedAthleteIds: [athId],
             renderedAthleteIds: renderResult.renderedAthleteIds,
             missingAthleteIds: renderResult.missingAthleteIds,
+            expectedOpeningText: reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
+            expectedClosingText: reconciledBlocks[reconciledBlocks.length - 1]?.type === "text"
+              ? reconciledBlocks[reconciledBlocks.length - 1].content : null,
             html: renderResult.html,
             text: renderResult.text,
           });

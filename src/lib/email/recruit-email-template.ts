@@ -1,4 +1,4 @@
-import { buildCoachGreeting } from "./email-personalization";
+import { composeEmailBlocks } from "./email-blocks";
 import {
   renderSingleAthleteRecruitEmail,
   renderMultiAthleteRecruitEmail as renderMultiAthleteRecruitEmailNew,
@@ -10,8 +10,6 @@ import {
 } from "./recruit-email";
 import { EMAIL_BASE_URL, EMAIL_SIGNATURE } from "./email-brand";
 import {
-  buildDefaultEmailBlocks,
-  buildFixedEmailBlocks,
   renderPersonalEmail,
   type EmailBlock,
 } from "./personal-email-renderer";
@@ -143,36 +141,22 @@ export function generateRecruitEmailPlainText(data: RecruitEmailData): string {
 /**
  * Renderiza e-mail individual de um único atleta ("ATHLETE SPOTLIGHT" - Redesenho Leitura em 5 Segundos).
  */
-function buildLegacyGreetingText(data: RecruitEmailData | MultiAthleteEmailData) {
-  return buildCoachGreeting(data.coachLastName);
-}
-
 function resolveLegacyBodyBlocks(
   data: RecruitEmailData | MultiAthleteEmailData,
   athleteIds: string[],
-) {
-  if (data.blocks?.length) return data.blocks;
-
-  const defaults = buildDefaultEmailBlocks(athleteIds);
-  const greeting = (data.customGreeting || buildLegacyGreetingText(data) || "").trim();
-  const hook = (data.customHook || "").trim();
-  const intro = (data.customIntroduction || "").trim();
-  const defaultIntro =
-    athleteIds.length > 1
-      ? "I hope you're doing well. I selected a few athletes I believe could be a good fit for your program."
-      : "I hope you're doing well. I found an athlete who I believe could be a great fit for what you're currently looking for.";
-
-  return buildFixedEmailBlocks(
-    {
-      greeting:
-        greeting ||
-        (defaults[0]?.type === "text" ? defaults[0].content.split("\n\n")[0] : "Hi Coach,"),
-      introduction: intro || defaultIntro,
-      athleteOrder: athleteIds,
-      closing: hook || "Let me know what you think.",
-    },
+): EmailBlock[] {
+  // Legado sem campos continua usando blocos originais. Com campos, slots do formulário prevalecem.
+  if (data.blocks?.length && !data.customHook?.trim() && !data.customIntroduction?.trim()) {
+    return data.blocks;
+  }
+  const cardOrder = data.blocks?.filter((block) => block.type === "athlete")
+    .map((block) => (block.type === "athlete" ? block.athleteId : "")) || [];
+  return composeEmailBlocks({
+    opening: data.customHook,
+    closing: data.customIntroduction,
     athleteIds,
-  );
+    cardOrder,
+  });
 }
 
 export function renderRecruitEmail(data: RecruitEmailData) {

@@ -11,6 +11,10 @@ import {
 import type { SendMailerInput } from "./recruit-email.server";
 
 import { assertAnaQuickFacts } from "./__fixtures__/assert-quick-facts";
+import { loadAthletesEmailData } from "./athlete-email-data.server";
+import { composeEmailBlocks } from "./email-blocks";
+import { renderRecruitEmail, renderMultiAthleteRecruitEmail } from "./recruit-email-template";
+import { renderCatalogEmail } from "./recruit-email-catalog-template";
 
 // Mocks do Supabase e Resend
 const mockCampaigns = new Map<string, any>();
@@ -418,6 +422,80 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     const first = "110e8400-e29b-41d4-a716-446655440001";
     const second = "220e8400-e29b-41d4-a716-446655440002";
     const recipients = [{ name: "Coach Taylor", email: "taylor@college.edu" }];
+
+    it("uses canonical form texts and keeps preview == queued payload for one recipient", async () => {
+      const admin = createMockAdminClient();
+      const recipient = { name: "Coach Taylor", lastName: "Taylor", email: "taylor@college.edu" };
+      const opts = { subject: "ASSUNTO-789", hook: "TEXTO-ABERTURA-123", introduction: "TEXTO-FECHAMENTO-456" };
+      const maliciousClientBlocks = [
+        { type: "text" as const, content: "OLD-STALE-TEXT" },
+        { type: "athlete" as const, athleteId: first },
+        { type: "text" as const, content: "OLD-CLOSING" },
+      ];
+      for (const mode of ["single_athlete", "multi_athlete"] as const) {
+        const ids = mode === "single_athlete" ? [first] : [first, second];
+        const result = await enqueueCampaignDispatches({
+          mode, athleteIds: ids, recipients: [recipient], customOptions: opts,
+          blocks: maliciousClientBlocks,
+        }, admin);
+        expect(result.success).toBe(true);
+        const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === result.campaignId);
+        const payload = queued?.payload;
+        expect(queued.subject).toBe("ASSUNTO-789");
+        expect(queued.subject).toBe("ASSUNTO-789");
+        for (const body of [payload.html, payload.text]) {
+          expect(body).toContain("TEXTO-ABERTURA-123");
+          expect(body).toContain("TEXTO-FECHAMENTO-456");
+          expect(body).not.toContain("OLD-STALE-TEXT");
+          expect(body).not.toContain("OLD-CLOSING");
+        }
+        const data = await loadAthletesEmailData(ids, admin);
+        const blocks = composeEmailBlocks({ opening: opts.hook, closing: opts.introduction, athleteIds: ids });
+        const shared = {
+          recipientEmail: recipient.email, coachName: recipient.name, coachLastName: recipient.lastName,
+          customSubject: opts.subject, blocks, campaignId: result.campaignId,
+          logoUrl: "https://example.com/logo.png",
+        };
+        const preview = mode === "single_athlete"
+          ? renderRecruitEmail({ ...data[0], ...shared })
+          : renderMultiAthleteRecruitEmail({ athletes: data, ...shared });
+        expect(payload.html).toBe(preview.html);
+        expect(payload.text).toBe(preview.text);
+        expect(queued.subject).toBe(preview.subject);
+      }
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it("catalog isolates message and matches the queued snapshot", async () => {
+      const admin = createMockAdminClient();
+      const recipient = { name: "Coach Taylor", lastName: "Taylor", email: "taylor@college.edu" };
+      const result = await enqueueCampaignDispatches({
+        mode: "catalog", recipients: [recipient], customOptions: {
+          subject: "ASSUNTO-789", headline: "HEADLINE-1", hook: "HOOK-2",
+          message: "MESSAGE-3", introduction: "SHOULD-NOT-LEAK",
+        },
+      }, admin);
+      expect(result.success).toBe(true);
+      const queued = Array.from(mockQueue.values()).find((row) => row.campaign_id === result.campaignId);
+      const payload = queued?.payload;
+      const preview = renderCatalogEmail({
+        coachName: recipient.name, coachLastName: recipient.lastName, recipientEmail: recipient.email,
+        customSubject: "ASSUNTO-789", customHeadline: "HEADLINE-1",
+        customHook: "HOOK-2", customMessage: "MESSAGE-3", campaignId: result.campaignId,
+        logoUrl: "https://example.com/logo.png",
+      });
+      expect(payload.html).toBe(preview.html);
+      expect(payload.text).toBe(preview.text);
+      expect(queued.subject).toBe(preview.subject);
+      expect(queued.subject).toBe("ASSUNTO-789");
+      for (const body of [payload.html, payload.text]) {
+        expect(body).toContain("HEADLINE-1");
+        expect(body).toContain("HOOK-2");
+        expect(body).toContain("MESSAGE-3");
+        expect(body).not.toContain("SHOULD-NOT-LEAK");
+      }
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
 
     it("queues complete HTML and text in single- and multi-athlete modes", async () => {
       const client = createMockAdminClient();

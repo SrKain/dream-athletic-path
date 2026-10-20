@@ -1182,3 +1182,15 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Correção:** `bun.lock` restaurado byte a byte a partir de `3aa3ae9` (Bun 1.3.14 validado no CI anteriormente), blob SHA `11e32ea0199fd8ea03742194d7e92136aa0ed513`. `package.json` permanece idêntico (blob SHA `868f6434b581f681611b76689623de2ee9a2b9b1`).
 - **Prevenção:** CI atualizado em `0dfbfc8` para pushes na main e PRs; valida frozen lockfile, diff, typecheck, lint, testes e build; etapas legadas de alteração automática removidas.
 - **Limites:** build Vercel aprovado no SHA de correção. Não foram obtidos logs/resultados completos do novo pipeline do GitHub Actions neste atendimento; acompanhar o pipeline e o deploy do último commit documental separadamente. Sem envio real no Mailer.
+
+
+## TASK-105 — 2026-10-20 (America/Sao_Paulo) — Textos personalizados do Mailer e paridade preview/envio
+
+- **Solicitante:** Kauan (Usuário Humano).
+- **Executor:** Codex (execução assistida via GitHub conectado).
+- **Aprovação:** usuário aprovou explicitamente a execução neste chat.
+- **Solicitação:** corrigir textos digitados ignorados na abertura, fechamento e catálogo; garantir posições dos slots, escape HTML e integridade fail-closed; preservar TASK-103, assinatura, links obrigatórios e operação da fila.
+- **Plano:** `think/2026-10-20-1238-correcao-textos-personalizados-mailer.md`.
+- **Implementação:** composição canônica `composeEmailBlocks`, reconciliação restrita a cards, servidor autoritativo nos caminhos de fila/envio, headline/hook/mensagem de catálogo, testes de regressão e documentação viva `CERNE.md`.
+- **Hotfix associado:** restauração do `bun.lock` validado pela TASK-104 (blob `11e32ea0199fd8ea03742194d7e92136aa0ed513`) porque o HEAD anterior havia reintroduzido incompatibilidade com `package.json`.
+- **Estado inicial:** `[PENDENTE]` até CI, frozen lockfile, typecheck, lint, Vitest e build serem verdes. O teste manual com destinatário autorizado é etapa separada; nenhum email real será enviado nesta execução.
