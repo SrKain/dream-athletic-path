@@ -1444,3 +1444,14 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Estratégia de execução aprovada:** entrega na `main`, sem branch/PR. Como o ambiente do agente não dispõe de Bun, usar GitHub Actions com Bun 1.3.14 para executar `bun install`, revalidar com `--frozen-lockfile` e executar typecheck, lint, Vitest e build antes de commitar somente `bun.lock`.
 - **Impacto:** sem alteração funcional do Mailer/TASK-103, de `package.json`, banco, URLs ou regras do Vercel. Sem uso de flags de bypass de vulnerabilidade.
 - **Governança:** plano `think/2026-10-20-1601-correcao-build-main-bun-lock.md`; BACKLOGER TASK-104. Adicionar proteção de CI sobre push na `main` e retirar workflow de recuperação temporário após a conclusão. Confirmar status Vercel success no commit final antes de considerar o deploy validado.
+
+
+### Resultado da TASK-104 — Recuperação da build / CI (2026-10-20)
+
+- **Hotfix efetivo:** restaurado `bun.lock` **byte a byte** a partir do commit `3aa3ae94a0ad82b974a68f8838977ac7f1ade969`, cuja instalação frozen, testes e build tinham sido aprovados previamente com Bun 1.3.14. O SHA do blob restaurado é `11e32ea0199fd8ea03742194d7e92136aa0ed513`. `package.json` tem o mesmo blob SHA `868f6434b581f681611b76689623de2ee9a2b9b1` antes e depois da restauração.
+- **Commit de hotfix na main:** `891edd192e58837514e842a4701981c8db68998c` (`fix(build): restore previously validated Bun 1.3.14 lockfile`).
+- **Deploy da Vercel:** status `success` confirmado especificamente para o commit `891edd1` (deployment `4BpamX21wGj5sLd5eZkqJyCbWLgs`). Não confundir com a confirmação de todos os commits documentais posteriores.
+- **CI preventivo:** workflow `.github/workflows/vercel-mailer-validation.yml` atualizado em `0dfbfc866cb0e7c3f3aaa353a5466b9014b0b5cb`: CI passa a executar em `push main`, `push fix/**` e PR para `main`; `contents: read`; `bun install --frozen-lockfile`, `git diff --exit-code -- package.json bun.lock`, typecheck, lint, test, build; removidos passos legados de regeneração, formatação e commit automáticos.
+- **Execução temporária:** `.github/workflows/repair-bun-lock-main-2026-10-20.yml` foi usada como preparação da tentativa de regeneração remota, depois removida por `affa3df31e1413a768d9d7fb794433706bdc4b2f`. A correção efetiva foi a restauração do lockfile anteriormente produzido/validado pelo Bun 1.3.14, não uma execução Bun no ambiente local atual.
+- **Integridade:** nenhuma modificação em `package.json`, `vercel.json`, aplicações, dados, migrations ou serviços do Mailer. TASK-103 preservada.
+- **Limites da validação:** status de produção da Vercel confirmado no SHA de correção; os checks GitHub Actions e deploy do último commit de documentação devem ser acompanhados separadamente, sem alegar que passaram na ausência de logs/status.
