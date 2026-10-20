@@ -1163,3 +1163,14 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[CONCLUÍDO]`
 - **Validação:** 243 testes unitários aprovados em 28 arquivos (Vitest), ESLint 0 erros (11 warnings preexistentes), `compile_applet` verde com build de produção validado. `bun.lock` e `package.json` intactos.
 
+
+## TASK-104 — 2026-10-20 16:01 (America/Sao_Paulo) — Recuperação da build da Vercel com entrega direta na main
+
+- **Solicitante:** usuário humano.
+- **Executor:** ChatGPT via GitHub Actions/GitHub conectado.
+- **Solicitação:** identificar e corrigir o bloqueio da build, publicando diretamente na `main`, sem branch/PR.
+- **Aprovação:** usuário aprovou explicitamente a correção e determinou entrega direta à `main`.
+- **Causa provável evidenciada:** `bun.lock` no commit `6d192c3` regrediu as versões do Lovable TanStack config e Nitro em desacordo com `package.json` e `bun install --frozen-lockfile`. Commit anterior aprovado pela Vercel.
+- **Plano:** `think/2026-10-20-1601-correcao-build-main-bun-lock.md`.
+- **Preservação:** não reverter nem alterar a implementação TASK-103; não mudar `package.json` nem configurações Vercel; não enviar e-mails reais.
+- **Status:** [PENDENTE — BUILD E DEPLOY A VALIDAR].
