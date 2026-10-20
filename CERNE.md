@@ -1437,3 +1437,10 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
   - Suíte completa de testes: 28 arquivos, 243 testes unitários aprovados (100% de sucesso).
 - **Governança:** `bun.lock` e `package.json` estritamente preservados; zero erros de lint; compilação de produção via `compile_applet` concluída com sucesso.
 
+
+## 2026-10-20 — Hotfix de build Vercel / Bun direto na main (TASK-104)
+
+- **Falha:** o commit `6d192c3` alterou as entradas raiz de `bun.lock` para `@lovable.dev/vite-tanstack-config@2.13.1` e `nitro@^3.0.260610-beta`, em contradição ao `package.json` (`2.25.3` e `3.0.260603-beta`). Esse commit tem status Vercel failure; `3aa3ae9` tem status success.
+- **Estratégia de execução aprovada:** entrega na `main`, sem branch/PR. Como o ambiente do agente não dispõe de Bun, usar GitHub Actions com Bun 1.3.14 para executar `bun install`, revalidar com `--frozen-lockfile` e executar typecheck, lint, Vitest e build antes de commitar somente `bun.lock`.
+- **Impacto:** sem alteração funcional do Mailer/TASK-103, de `package.json`, banco, URLs ou regras do Vercel. Sem uso de flags de bypass de vulnerabilidade.
+- **Governança:** plano `think/2026-10-20-1601-correcao-build-main-bun-lock.md`; BACKLOGER TASK-104. Adicionar proteção de CI sobre push na `main` e retirar workflow de recuperação temporário após a conclusão. Confirmar status Vercel success no commit final antes de considerar o deploy validado.
