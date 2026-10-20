@@ -1173,4 +1173,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Causa provável evidenciada:** `bun.lock` no commit `6d192c3` regrediu as versões do Lovable TanStack config e Nitro em desacordo com `package.json` e `bun install --frozen-lockfile`. Commit anterior aprovado pela Vercel.
 - **Plano:** `think/2026-10-20-1601-correcao-build-main-bun-lock.md`.
 - **Preservação:** não reverter nem alterar a implementação TASK-103; não mudar `package.json` nem configurações Vercel; não enviar e-mails reais.
-- **Status:** [PENDENTE — BUILD E DEPLOY A VALIDAR].
+- **Status:** [CONCLUÍDO — HOTFIX ENTREGUE E DEPLOY VERCEL DO COMMIT DE CORREÇÃO APROVADO].
+
+
+### Conclusão TASK-104 — 2026-10-20
+
+- **Status:** [CONCLUÍDO] — hotfix do lockfile entregue diretamente na `main`, sem branch/PR; deploy da Vercel comprovadamente `success` no SHA `891edd192e58837514e842a4701981c8db68998c`.
+- **Correção:** `bun.lock` restaurado byte a byte a partir de `3aa3ae9` (Bun 1.3.14 validado no CI anteriormente), blob SHA `11e32ea0199fd8ea03742194d7e92136aa0ed513`. `package.json` permanece idêntico (blob SHA `868f6434b581f681611b76689623de2ee9a2b9b1`).
+- **Prevenção:** CI atualizado em `0dfbfc8` para pushes na main e PRs; valida frozen lockfile, diff, typecheck, lint, testes e build; etapas legadas de alteração automática removidas.
+- **Limites:** build Vercel aprovado no SHA de correção. Não foram obtidos logs/resultados completos do novo pipeline do GitHub Actions neste atendimento; acompanhar o pipeline e o deploy do último commit documental separadamente. Sem envio real no Mailer.
