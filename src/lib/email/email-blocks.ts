@@ -1,8 +1,10 @@
 import {
   buildDefaultEmailBlocks,
+  buildFixedEmailBlocks,
   sanitizeEmailBlocks,
   type EmailBlock,
 } from "./personal-email-renderer";
+import { escapeHtml } from "./email-layout";
 
 export type { EmailBlock };
 
@@ -13,6 +15,11 @@ export interface AssertEmailIntegrityOptions {
   missingAthleteIds?: string[];
   html: string;
   text: string;
+  expectedOpeningText?: string | null;
+  expectedClosingText?: string | null;
+  expectedHeadline?: string | null;
+  expectedHook?: string | null;
+  expectedMessage?: string | null;
 }
 
 /**
