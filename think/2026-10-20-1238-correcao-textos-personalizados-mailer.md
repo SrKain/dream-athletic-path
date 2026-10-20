@@ -5,7 +5,7 @@
 - **Solicitante:** Kauan (Usuário Humano)
 - **Executor:** Codex / AI Studio Build
 - **Tarefa no BACKLOGER:** **TASK-105** (Correção de textos personalizados no Mailer: preview, enfileiramento e catálogo)
-- **Estado:** **APROVADO PELO USUÁRIO — IMPLEMENTAÇÃO EM VALIDAÇÃO**
+- **Estado:** **IMPLEMENTAÇÃO CONCLUÍDA — CI VERDE; SMOKE MANUAL CONTROLADO PENDENTE**
 
 ---
 
@@ -95,3 +95,6 @@ Criar/estender testes cobrindo os 8 cenários obrigatórios:
 
 ## Aprovação e execução (20/10/2026)
 O usuário autorizou explicitamente a execução da TASK-105. Implantação como commit de avanço na `main`, sem reescrever histórico. O escopo mantém os mecanismos de fila intactos. Reversão exclusivamente do `bun.lock` ao blob da TASK-104 para reparar a falha `--frozen-lockfile` herdada do commit `95aa1c7`; não há atualização nem instalação de dependências no source. O status de conclusão dependerá do CI.
+
+### Aceite automatizado
+Bun 1.3.14: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test` (253/253) e `bun run build` aprovados no commit `353d952431f2984ea127023a8c416472b9a28146`. Nenhum envio real foi realizado. CI restaurado às regras originais, workflow temporário removido.

@@ -1467,3 +1467,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Segurança:** escape de HTML do usuário mantido. Assinatura, unsubscribe, not-a-fit e links do catálogo preservados. Fila, métricas, regras de supressão, rate limit e retries não sofreram mudança funcional.
 - **Testes:** `mailer-text-integrity.test.ts` valida slots, troca de atletas, fallback, escaping e falha de integridade; `mailer-queue.test.ts` inclui comparação entre HTML/texto enfileirado e renderer do preview para o mesmo destinatário/contexto de campanha. Smoke real somente com destinatário próprio autorizado.
 - **Build:** o commit anterior `95aa1c7` regrediu `bun.lock`; o arquivo foi restaurado ao blob validado `11e32ea0199fd8ea03742194d7e92136aa0ed513` da TASK-104, sem alterar `package.json`.
+
+- **Aceite automatizado (TASK-105):** run GitHub Actions do commit `353d952431f2984ea127023a8c416472b9a28146` confirmou `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test` (253 testes) e `bun run build` bem-sucedidos com Bun 1.3.14. Smoke de recebimento depende de destinatário interno controlado e autorizado, não executado neste atendimento.
