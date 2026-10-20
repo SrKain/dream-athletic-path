@@ -45,7 +45,7 @@ jobs:
           git diff --check
 
       - name: Apply TASK-105 Prettier (temporary)
-        if: github.event_name == 'push' && github.event.head_commit.message == 'chore(mailer): format TASK-105 files'
+        if: "github.event_name == 'push' && github.event.head_commit.message == 'chore(mailer): format TASK-105 files'"
         run: |
           bunx prettier --write src/lib/email/email-blocks.ts src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/lib/email/mailer-text-integrity.test.ts src/lib/email/recruit-email-catalog-template.ts src/lib/email/recruit-email-template.ts src/lib/email/recruit-email.server.ts src/lib/email/recruit-email.ts src/routes/_authenticated/admin/mailer.tsx
           git diff --check
