@@ -4,7 +4,7 @@
 - **Repositório:** `SrKain/dream-athletic-path`, branch de referência `main`.
 - **Solicitante:** usuário humano, responsável pelo projeto.
 - **Executor da auditoria:** ChatGPT com GitHub e Supabase conectados.
-- **Estado:** **DIAGNÓSTICO CONCLUÍDO; IMPLEMENTAÇÃO PENDENTE DE APROVAÇÃO HUMANA EXPLÍCITA**.
+- **Estado:** **APROVADO PELO SOLICITANTE; EM IMPLEMENTAÇÃO**.
 - **Escopo da presente sessão:** leitura, inspeção estática e SQL somente leitura; sem modificações de código, dependências, banco, fila, campanhas ou disparos de e-mails.
 
 ## 1. Contexto, governança e evidência observada
@@ -85,3 +85,14 @@ Nenhuma migration ou alteração de dependência antecipada.
 ## 7. Resultado desta sessão
 
 Conexão ao GitHub confirmada; código, documentos e histórico de Mailer auditados; evidência somente leitura em `mailer_campaigns` e `mailer_queue` comprova e-mail aceito pelo Resend com conteúdo principal não renderizado. Plano salvo para revisão e execução posterior autorizada.
+
+
+## 8. Plano aprovado para execução — 2026-10-20
+
+Aprovação explícita: “Implement the proposed plan.” Branch `fix/2026-10-20-mailer-composition-integrity`, base `3aa3ae9`.
+
+Decisões confirmadas: todos os modos (individual, multi e catálogo). Atletas: saudação automática → chamada → cards → texto institucional → assinatura. Catálogo: saudação → headline → chamada → ações → mensagem → assinatura. Campos vazios usam os padrões do modo; assunto independente da headline.
+
+Implementar rascunho tipado/versionado por modo; blocos derivados da seleção, preservando textos e ordem. Trocas rápidas invalidam resultados antigos. Preparação autenticada de preview no servidor retorna conteúdo, integridade e fingerprint dos dados/rascunho/personalização/versão. Enfileiramento e envio direto usam a mesma preparação, conferem fingerprint quando originados da nova UI e validam todas as mensagens antes de qualquer gravação/envio. Adaptadores legados rejeitam referências ausentes/duplicadas/conflitantes, nunca descartam conteúdo silenciosamente. Não alterar snapshots existentes.
+
+Cobrir A→B→C, multi A+B→B+C, seleção total, troca de modo preservando rascunhos, textos e assunto, catálogo, dois sobrenomes, erro/carregamento, seleção inválida, XSS, limites e versão desatualizada. Testes simulam provider e banco; sem envio real. Executar Bun 1.3.14 frozen install, typecheck, lint, test e build. Atualizar CERNE/BACKLOGER, entregar PR e exemplos HTML/texto. Preservar dependências, migrations, layout dos cards, textos canônicos, Reply-To e orquestração/idempotência.

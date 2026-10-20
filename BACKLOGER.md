@@ -1137,7 +1137,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 - **Solicitante:** Usuário Humano (responsável pelo Dream Athletic Path).
 - **Executor:** ChatGPT, GitHub conectado + inspeção somente leitura no Supabase teamgoteam.
-- **Status:** `[PENDENTE]` — diagnóstico documentado e plano entregue; correção depende de aprovação humana explícita.
+- **Status:** `[PENDENTE]` — plano aprovado explicitamente pelo solicitante em 2026-10-20; implementação em andamento na branch fix/2026-10-20-mailer-composition-integrity.
 - **Solicitação:** localizar causas de envio com saudação/assinatura mas sem card da atleta exibida no preview, bem como desaparecimento de textos editados, incluindo assunto, hook, headline e corpo; apresentar solução definitiva.
 - **Evidência:** campanha single de 2026-10-20 09:49 (Brasília) marcou envio aceito pelo Resend, mas o HTML persistido na fila não contém card/Quick Facts/CTA, embora inclua o ID da atleta; outra campanha anterior contém cards completos.
 - **Causas no código:** blocos `composerBlocks` desatualizados após trocar atleta; `renderPersonalEmail` descarta IDs de cards sem falhar; `resolveLegacyBodyBlocks` ignora Hook/Introduction quando recebe blocos; validação no enfileiramento não checa integridade do HTML/texto final; catálogo não propaga headline/hook como o formulário promete. Discrepância específica do assunto permanece pendente de teste controlado.
