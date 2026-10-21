@@ -1194,3 +1194,15 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Implementação:** composição canônica `composeEmailBlocks`, reconciliação restrita a cards, servidor autoritativo nos caminhos de fila/envio, headline/hook/mensagem de catálogo, testes de regressão e documentação viva `CERNE.md`.
 - **Hotfix associado:** restauração do `bun.lock` validado pela TASK-104 (blob `11e32ea0199fd8ea03742194d7e92136aa0ed513`) porque o HEAD anterior havia reintroduzido incompatibilidade com `package.json`.
 - **Status:** `[CONCLUÍDO]` — validação automatizada aprovada no commit `353d952431f2984ea127023a8c416472b9a28146`: Bun 1.3.14, `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint` (0 erros), `bun run test` (253/253), `bun run build` verdes. Link do CI: https://github.com/SrKain/dream-athletic-path/actions/runs/39491581237. Smoke manual com destinatário controlado ainda não realizado (nenhum envio real).
+
+## TASK-106 — 2026-10-21 00:12 (America/Sao_Paulo) — Mailer em rajadas de 300 e leitura integral de universidades/coaches
+
+- **Solicitante:** usuário humano responsável pelo projeto dream-athletic-path.
+- **Executor:** ChatGPT via GitHub conectado.
+- **Status:** [PENDENTE] — plano publicado, aguardando aprovação humana prévia e explícita para implementação.
+- **Solicitação — Parte 1:** substituir os micro-lotes de 2 e-mails e cooldown de 60s por rajadas de até 300 mensagens com pausa configurável de 1s após a resposta de cada rajada; utilizar Resend Batch API com chunks de até 100, idempotência e fallback seguro; preservar lease por aba, supressões, validação fail-closed do card, pausa/cancelamento, rate limit global, tratamento de 429 e consistência transacional da persistência; migration incremental 0027 respeitando segurança de 0026; UI com progresso/ritmo/ETA e testes extensivos.
+- **Solicitação — Parte 2:** corrigir leituras não paginadas de public.universities/public.coaches sujeitas ao teto de 1.000 linhas do PostgREST (universidades/coaches, Mailer, diálogo e importador), suportar as 1.332 universidades e 3.395 contatos JSONB relatados, aperfeiçoar deduplicação e relatório de importação, entregar SQL somente leitura para localizar duplicados, com testes. Sem reimportar nem alterar dados já salvos.
+- **Plano:** think/2026-10-21-0012-mailer-rajadas-300-paginacao-universidades-coaches.md.
+- **Repositório / branch:** SrKain/dream-athletic-path / main.
+- **Estado desta etapa:** foram lidos os documentos de governança e os 83 arquivos Markdown de think/, auditados os pontos de código relevantes e criado exclusivamente o plano documental. Nenhuma alteração de código, migration, banco, CERNE.md, package.json ou bun.lock; nenhum teste, script ou envio real foi executado.
+- **Próxima etapa (somente após aprovação explícita):** implementar ambas as partes, validar Bun 1.3.14 com typecheck/lint/test/build usando mocks sem e-mails reais, atualizar CERNE.md e encerrar este registro com resultados e status [CONCLUÍDO] apenas se comprovados.
