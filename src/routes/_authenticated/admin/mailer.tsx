@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { buttonClass, secondaryButtonClass } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
+import { asQueryResult, fetchAllUniversities } from "@/lib/universities-fetch";
 import {
   sendMailerServerFn,
   enqueueMailerCampaignServerFn,
@@ -276,7 +277,7 @@ function MailerPage() {
           .eq("is_public", true)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
-        supabase.from("universities").select("*").order("name", { ascending: true }),
+        asQueryResult(fetchAllUniversities<University>(supabase, "id,name,city,state,league,is_hbcu,budget_level,toefl_level,coaches,source_url")),
         getSuppressedEmailsServerFn().catch(() => []),
         getMailerHistoryServerFn().catch(() => []),
         getActiveInterestSignalsServerFn().catch(() => []),
