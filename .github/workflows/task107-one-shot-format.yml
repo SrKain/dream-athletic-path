@@ -1,0 +1,56 @@
+name: TASK-107 one-shot source formatting
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  format-once:
+    if: github.event.head_commit.message == 'ci(TASK-107): run one-shot prettier formatting'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Restore locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Format TASK-107 source and tests only
+        run: |
+          ./node_modules/.bin/prettier --write \
+            src/components/coaches/*.tsx \
+            src/components/mailer/*.tsx \
+            src/lib/coach-directory*.ts \
+            src/lib/email/mailer-health.ts \
+            src/lib/email/mailer-history.server.ts \
+            src/lib/email/mailer-history.test.ts \
+            src/lib/email/mailer-queue.server.ts \
+            src/lib/email/mailer-runner.server.ts \
+            src/lib/email/mailer-runner.test.ts \
+            src/lib/email/mailer-worker-auth.ts \
+            src/lib/email/mailer-worker-auth.test.ts \
+            src/lib/email/recruit-email.functions.ts \
+            src/routes/_authenticated/admin/mailer.tsx \
+            src/routes/_authenticated/admin/universities.tsx \
+            src/server.ts
+          git diff --exit-code -- package.json bun.lock
+      - name: Commit formatted code directly to main
+        run: |
+          git add src/components/coaches src/components/mailer src/lib/coach-directory*.ts \
+            src/lib/email/mailer-health.ts src/lib/email/mailer-history.server.ts \
+            src/lib/email/mailer-history.test.ts src/lib/email/mailer-queue.server.ts \
+            src/lib/email/mailer-runner.server.ts src/lib/email/mailer-runner.test.ts \
+            src/lib/email/mailer-worker-auth.ts src/lib/email/mailer-worker-auth.test.ts \
+            src/lib/email/recruit-email.functions.ts \
+            src/routes/_authenticated/admin/mailer.tsx \
+            src/routes/_authenticated/admin/universities.tsx src/server.ts
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'style(TASK-107): apply project Prettier formatting'
+            git push origin HEAD:main
+          fi
