@@ -1511,3 +1511,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - A interface canônica `CampaignProgress` de `src/types/db.ts` foi alinhada à resposta do serviço: `estimatedRemainingSeconds: number | null`. Incluídos testes de worker para ausência de candidatos, exclusão de quarentena/não optados, execução de apenas uma rajada e falha de leitura sem disparo externo.
 
 - **Validação incremental:** formatação pontual dos novos testes e labels da Fase 1 para conformidade Prettier/ESLint, sem atualização de dependências ou mudanças de semântica.
+
+- **Painel operacional:** adicionada seleção autenticada, somente leitura, das 20 campanhas mais recentes, ordenadas por `created_at DESC, id DESC`. Pode abrir campanhas `completed`, `paused` e `running` após refresh/troca de dispositivo sem iniciar nenhum disparo. A leitura usa serviço dedicado e `requireAgency` no endpoint.

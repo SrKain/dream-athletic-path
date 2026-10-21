@@ -60,6 +60,7 @@ import {
   getCampaignRecipientsServerFn,
   triggerCampaignWorkerServerFn,
   getMailerCampaignOrchestrationModeServerFn,
+  getRecentMailerCampaignsServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { BudgetMultiSelect } from "@/components/mailer/budget-multi-select";
 import { MailerHistorySection } from "@/components/mailer/mailer-history-section";
@@ -271,6 +272,9 @@ function MailerPage() {
 
   // Fila Inteligente: Estado de Monitoramento em Tempo Real e Operações
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const [recentCampaigns, setRecentCampaigns] = useState<
+    Array<{ id: string; subject: string; status: string; createdAt: string }>
+  >([]);
   // null until server confirms ownership; never race a scheduled worker from the browser.
   const [orchestrationMode, setOrchestrationMode] = useState<{
     campaignId: string;
@@ -678,6 +682,19 @@ function MailerPage() {
     },
     [activeCampaignId, orchestrationMode],
   );
+
+  // Select among recent campaigns without claiming ownership or triggering email.
+  const refreshRecentCampaigns = React.useCallback(async () => {
+    try {
+      setRecentCampaigns(await getRecentMailerCampaignsServerFn());
+    } catch {
+      // A failed read must not start a send or replace the selected campaign.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshRecentCampaigns();
+  }, [refreshRecentCampaigns]);
 
   // Authoritative server ownership must be resolved BEFORE browser ticks start.
   useEffect(() => {
@@ -1347,6 +1364,7 @@ function MailerPage() {
         setIsAnotherTabActive(false);
         setCooldownRemaining(null);
         setActiveCampaignId(res.campaignId);
+        void refreshRecentCampaigns();
 
         // Atualizar progresso imediatamente
         const initialProg = await getCampaignQueueProgressServerFn({
@@ -1645,6 +1663,45 @@ function MailerPage() {
                 Metrics
               </button>
             </div>
+          </div>
+
+          {/* Read-only persisted campaign selector, including completed/paused campaigns. */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-border bg-card p-3">
+            <label htmlFor="mailer-campaign-selector" className="text-xs font-semibold text-foreground">
+              Campanha monitorada
+            </label>
+            <select
+              id="mailer-campaign-selector"
+              className="flex-1 min-h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+              value={activeCampaignId || ""}
+              onChange={(event) => {
+                const chosenId = event.target.value || null;
+                setActiveCampaignId(chosenId);
+                setCampaignProgress(null);
+                if (chosenId) {
+                  void getCampaignQueueProgressServerFn({ data: { campaignId: chosenId } })
+                    .then((progress) => setCampaignProgress(progress))
+                    .catch(() => toast.error("Não foi possível carregar a campanha selecionada."));
+                }
+              }}
+            >
+              <option value="">Selecione uma campanha</option>
+              {activeCampaignId && !recentCampaigns.some((c) => c.id === activeCampaignId) && (
+                <option value={activeCampaignId}>Campanha atual ({activeCampaignId.slice(0, 8)})</option>
+              )}
+              {recentCampaigns.map((campaign) => (
+                <option value={campaign.id} key={campaign.id}>
+                  {campaign.subject} · {campaign.status} · {campaign.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => void refreshRecentCampaigns()}
+              className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted"
+            >
+              Atualizar lista
+            </button>
           </div>
 
           {/* LIVE CAMPAIGN MONITOR */}

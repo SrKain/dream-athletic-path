@@ -1,6 +1,6 @@
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import { processMailerQueue, QUEUE_CONFIG, type ProcessQueueResult } from "./mailer-queue.server";
-import type { MailerQueueStatus } from "@/types/db";
+import type { MailerQueueStatus, MailerCampaignStatus } from "@/types/db";
 import {
   deriveCampaignSubstate,
   type MailerSubstate,
@@ -137,6 +137,37 @@ export async function reconcileCampaignIncident(
       "Antes de liberar, é necessária reconciliação operacional, por destinatário, " +
       "com evidência do provedor e auditoria em transação autorizada.",
   };
+}
+
+export interface RecentMailerCampaign {
+  id: string;
+  subject: string;
+  status: MailerCampaignStatus;
+  createdAt: string;
+  totalRecipients: number;
+  sentCount: number;
+}
+
+/** A read-only, bounded selector for restoring any recent campaign on another device. */
+export async function getRecentMailerCampaigns(
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<RecentMailerCampaign[]> {
+  const admin = customAdmin || getAdminClient();
+  const { data, error } = await admin
+    .from("mailer_campaigns")
+    .select("id,subject,status,created_at,total_recipients,sent_count")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(20);
+  if (error) throw new Error("Unable to load recent mailer campaigns.");
+  return (data || []).map((row) => ({
+    id: row.id,
+    subject: row.subject || "Campanha sem assunto",
+    status: row.status as MailerCampaignStatus,
+    createdAt: row.created_at,
+    totalRecipients: Number(row.total_recipients) || 0,
+    sentCount: Number(row.sent_count) || 0,
+  }));
 }
 
 export interface CampaignRecipientRow {

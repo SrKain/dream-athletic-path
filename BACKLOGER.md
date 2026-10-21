@@ -1238,3 +1238,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **TASK-107 / Fase 1:** tipos `CampaignProgress` alinhados ao ETA nullable e testes negativos do selecionador de campanhas adicionados. Revalidar CI Bun 1.3.14 no SHA.
 
 - **TASK-107 / Fase 1:** estilo dos testes/UI consolidado; aguardando CI do SHA final, status [PENDENTE] até verificação.
+
+- **TASK-107 / Fase 1 — UX operacional:** consulta de campanhas recentes e seletor de monitoramento com atualização sob demanda, independente de posse do worker, sem mudanças no banco. CI pendente.

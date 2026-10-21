@@ -288,6 +288,14 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
     };
   });
 
+// 19a. Histórico operacional recente, limitado e exclusivo da agência.
+export const getRecentMailerCampaignsServerFn = createServerFn({ method: "GET" })
+  .middleware([requireAgency])
+  .handler(async () => {
+    const { getRecentMailerCampaigns } = await import("./mailer-runner.server");
+    return getRecentMailerCampaigns();
+  });
+
 // 19b. Retorna a autoridade de orquestração da campanha atual (somente leitura).
 export const getMailerCampaignOrchestrationModeServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])

@@ -4,7 +4,7 @@ import {
   deriveCampaignSubstate,
   type CampaignHealthSummary,
 } from "./mailer-health";
-import { reconcileCampaignIncident, runNextEligibleCampaignBurst } from "./mailer-runner.server";
+import { getRecentMailerCampaigns, reconcileCampaignIncident, runNextEligibleCampaignBurst } from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
   it("derives completed substate when status is completed", () => {
@@ -254,5 +254,33 @@ describe("TASK-107 server worker candidate isolation", () => {
       runNextEligibleCampaignBurst(mockAdmin([], { message: "DB unavailable" }), mockExecute),
     ).rejects.toThrow("Unable to read eligible");
     expect(mockExecute).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("TASK-107 recent campaign read model", () => {
+  it("preserves bounded server pagination and never dispatches email", async () => {
+    const limit = vi.fn().mockResolvedValue({
+      data: [{
+        id: "camp-1",
+        subject: "Test campaign",
+        status: "paused",
+        created_at: "2026-10-21T10:00:00Z",
+        total_recipients: 200,
+        sent_count: 70,
+      }],
+      error: null,
+    });
+    const order = vi.fn().mockReturnValue({ limit });
+    const admin = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ order }),
+      }),
+    } as unknown as NonNullable<Parameters<typeof getRecentMailerCampaigns>[0]>;
+    const result = await getRecentMailerCampaigns(admin);
+    expect(result).toHaveLength(1);
+    expect(result[0].sentCount).toBe(70);
+    expect(limit).toHaveBeenCalledWith(20);
+    expect(admin.from).toHaveBeenCalledWith("mailer_campaigns");
   });
 });
