@@ -972,15 +972,12 @@ export async function getCampaignQueueProgress(
       const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
       const remainingItems = pending + processing;
-      const remainingMicroBatches = Math.ceil(remainingItems / 2);
-      const activeSeconds = remainingMicroBatches * 1.5;
-      const itemsInCurrentBatch = sent % 150;
-      const itemsToNextPause = 150 - itemsInCurrentBatch;
-      const remainingPauses =
-        remainingItems > itemsToNextPause
-          ? Math.floor((remainingItems - itemsToNextPause) / 150) + 1
-          : 0;
-      const estimatedRemainingSeconds = Math.round(activeSeconds + remainingPauses * 60);
+      const remainingBursts = Math.ceil(remainingItems / Math.max(1, Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE));
+      const elapsed = s.started_at ? (Date.now() - new Date(String(s.started_at)).getTime()) / 1000 : 0;
+      const priorBursts = Math.max(1, (Number(s.current_batch) || 1) - 1);
+      const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
+      const estimatedRemainingSeconds = Math.ceil(remainingBursts * secondsPerBurst +
+        Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS / 1000);
 
       return {
         campaignId: String(s.campaign_id),
@@ -995,7 +992,7 @@ export async function getCampaignQueueProgress(
         cancelledCount: cancelled,
         currentBatch: Number(s.current_batch) || 1,
         totalBatches: Number(s.total_batches) || 1,
-        batchSize: Number(s.batch_size) || 150,
+        batchSize: Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE,
         percentComplete,
         nextBatchAt: (s.next_batch_at as string) || null,
         startedAt: (s.started_at as string) || null,
@@ -1064,15 +1061,12 @@ export async function getCampaignQueueProgress(
   const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
   const remainingItems = pending + processing;
-  const remainingMicroBatches = Math.ceil(remainingItems / 2);
-  const activeSeconds = remainingMicroBatches * 1.5;
-  const itemsInCurrentBatch = sent % 150;
-  const itemsToNextPause = 150 - itemsInCurrentBatch;
-  const remainingPauses =
-    remainingItems > itemsToNextPause
-      ? Math.floor((remainingItems - itemsToNextPause) / 150) + 1
-      : 0;
-  const estimatedRemainingSeconds = Math.round(activeSeconds + remainingPauses * 60);
+  const remainingBursts = Math.ceil(remainingItems / Math.max(1, campaign.batch_size || QUEUE_CONFIG.BURST_SIZE));
+  const elapsed = campaign.started_at ? (Date.now() - new Date(campaign.started_at).getTime()) / 1000 : 0;
+  const priorBursts = Math.max(1, (campaign.current_batch || 1) - 1);
+  const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
+  const estimatedRemainingSeconds = Math.ceil(remainingBursts * secondsPerBurst +
+    Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS / 1000);
 
   return {
     campaignId: campaign.id,
@@ -1087,7 +1081,7 @@ export async function getCampaignQueueProgress(
     cancelledCount: cancelled,
     currentBatch: campaign.current_batch || 1,
     totalBatches: campaign.total_batches || 1,
-    batchSize: campaign.batch_size || 150,
+    batchSize: campaign.batch_size || QUEUE_CONFIG.BURST_SIZE,
     percentComplete,
     nextBatchAt: campaign.next_batch_at,
     startedAt: campaign.started_at,
