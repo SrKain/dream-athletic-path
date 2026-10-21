@@ -224,3 +224,22 @@ export function deriveCampaignSubstate(
     requiresReconciliation: false,
   };
 }
+
+/** An ETA without repeated successful bursts is not evidence-based. */
+export function canEstimateMailerEta(options: {
+  status: MailerCampaignStatus;
+  sentCount: number;
+  currentBatch: number;
+  nextBatchAt?: string | null;
+  lastError?: string | null;
+}): boolean {
+  if (options.status !== "running" || options.sentCount <= 0 || options.currentBatch < 3)
+    return false;
+  if (/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(options.lastError || ""))
+    return false;
+  if (options.nextBatchAt) {
+    const next = Date.parse(options.nextBatchAt);
+    if (!Number.isFinite(next) || next > Date.now()) return false;
+  }
+  return true;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { deriveCampaignSubstate, type CampaignHealthSummary } from "./mailer-health";
+import { canEstimateMailerEta, deriveCampaignSubstate, type CampaignHealthSummary } from "./mailer-health";
 import { reconcileCampaignIncident } from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
@@ -139,5 +139,18 @@ describe("Mailer Incident Reconciliation Suite", () => {
     expect(res.success).toBe(false);
     expect(res.message).toContain("Quarentena preservada");
     expect(updateSpy).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("TASK-107 honest ETA", () => {
+  it("never guesses without sample or while paused/quarantined/cooldown", () => {
+    expect(canEstimateMailerEta({ status: "running", sentCount: 1, currentBatch: 2 })).toBe(false);
+    expect(canEstimateMailerEta({ status: "paused", sentCount: 300, currentBatch: 10 })).toBe(false);
+    expect(canEstimateMailerEta({ status: "running", sentCount: 300, currentBatch: 4,
+      lastError: "Manual reconciliation required" })).toBe(false);
+    expect(canEstimateMailerEta({ status: "running", sentCount: 300, currentBatch: 4,
+      nextBatchAt: new Date(Date.now() + 60000).toISOString() })).toBe(false);
+    expect(canEstimateMailerEta({ status: "running", sentCount: 600, currentBatch: 4 })).toBe(true);
   });
 });

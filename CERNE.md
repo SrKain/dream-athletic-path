@@ -1505,3 +1505,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 
 - **Correção do kill switch:** ao identificar o modo de uma campanha, o servidor lê sempre `mailer_campaigns.filters.serverOrchestration` (inclusive quando as flags de infraestrutura estão desligadas). Assim, desligar `MAILER_SEND_ENABLED` não entrega implicitamente a campanha ao navegador.
 - Formatação automática temporária via Bun 1.3.14/Prettier aplicada no commit `de9e3da`; removido o workflow one-shot após uso. Mocks de testes ajustados para tipos concretos, sem `any`; CI a confirmar.
+
+- **Dashboard da TASK-107 (ETA e transparência):** ETA somente com amostra mínima de duas rajadas, campanha `running`, sem cooldown ou quarentena; retorna `null` nos demais casos. UI exibe estimativa indisponível em vez de segundos falsos, distingue aceite pelo Resend de entrega e informa quando o controle é do servidor versus navegador. Controles de worker manual e liberação de incidente permanecem desabilitados até rollout auditado.

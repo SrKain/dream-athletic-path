@@ -1735,13 +1735,13 @@ function MailerPage() {
                   {campaignProgress.status === "running" && (
                     <button
                       type="button"
-                      disabled={isTriggeringWorker}
+                      disabled
                       onClick={handleTriggerWorker}
-                      title="Acionar execução em background no servidor"
+                      title="Disponível somente após ativação autorizada do scheduler"
                       className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Zap className="w-3 h-3" />
-                      {isTriggeringWorker ? "Acionando..." : "Worker Servidor"}
+                      {isTriggeringWorker ? "Aguardando..." : "Worker via Scheduler"}
                     </button>
                   )}
                   {campaignProgress.status === "running" && (
@@ -1804,17 +1804,18 @@ function MailerPage() {
                   <p className="text-xs leading-relaxed">
                     O provedor Resend respondeu com status ambíguo ou timeout de rede durante a
                     última rajada. Para garantir que nenhum coach receba e-mails duplicados, a
-                    automação foi suspensa preventivamente. Verifique o painel do Resend e
-                    reconcilie o lote para autorizar a continuidade dos envios.
+                    automação foi suspensa preventivamente. Cada destinatário precisa de
+                    evidência do Resend antes de uma reconciliação autorizada e auditável.
                   </p>
                   <div className="pt-1">
                     <button
                       type="button"
-                      onClick={() => setReconcileModalOpen(true)}
-                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition cursor-pointer shadow-sm flex items-center gap-1.5"
+                      disabled
+                      title="Requer auditoria por destinatário e autorização operacional."
+                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs opacity-60 cursor-not-allowed shadow-sm flex items-center gap-1.5"
                     >
                       <Shield className="w-3.5 h-3.5" />
-                      Reconciliar Incidente com Justificativa
+                      Reconciliação bloqueada até auditoria
                     </button>
                   </div>
                 </div>
@@ -1825,10 +1826,12 @@ function MailerPage() {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary shrink-0" />
                   <span>
-                    <strong className="text-foreground">Aba do Navegador:</strong> Mantenha esta aba
-                    aberta e o dispositivo ativo durante o envio da campanha. O progresso é
-                    persistido a cada rajada no banco de dados e você pode pausar ou retomar a
-                    qualquer momento.
+                    <strong className="text-foreground">Execução:</strong>{" "}
+                    {orchestrationMode?.campaignId !== activeCampaignId
+                      ? "Validando executor antes de permitir disparos."
+                      : orchestrationMode.serverOrchestrated
+                        ? "Servidor controla as rajadas. A aba pode ser fechada; aqui são mostrados somente dados persistidos."
+                        : "Campanha legada: mantenha esta aba e o dispositivo ativos durante os disparos."}
                   </span>
                 </div>
                 {isTabHidden && (
@@ -1867,13 +1870,19 @@ function MailerPage() {
                   <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails
                 </span>
                 <span>
-                  Ritmo: <strong className="text-foreground">{sendRate.toFixed(1)}</strong>{" "}
-                  e-mails/s
+                  Ritmo:{" "}
+                  <strong className="text-foreground">
+                    {orchestrationMode?.serverOrchestrated
+                      ? "Controlado pelo servidor"
+                      : `${sendRate.toFixed(1)} e-mails/s`}
+                  </strong>
                 </span>
                 <span>
                   Tempo restante estimado:{" "}
                   <strong className="text-foreground">
-                    {campaignProgress.estimatedRemainingSeconds}s
+                    {campaignProgress.estimatedRemainingSeconds === null
+                      ? "Indisponível"
+                      : `${campaignProgress.estimatedRemainingSeconds}s`}
                   </strong>
                 </span>
               </div>
@@ -1896,7 +1905,7 @@ function MailerPage() {
 
                 <div className="bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 rounded-xl p-2.5 text-center">
                   <div className="text-[11px] text-emerald-900 dark:text-emerald-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Enviados
+                    <CheckCircle2 className="w-3 h-3" /> Aceitos Resend
                   </div>
                   <div className="text-base font-black text-emerald-950 dark:text-emerald-100 mt-0.5">
                     {campaignProgress.sentCount}
@@ -1958,11 +1967,11 @@ function MailerPage() {
                       ? campaignProgress.failedCount > 0
                         ? `Processamento concluído com ${campaignProgress.failedCount} falha(s).`
                         : "Todos os e-mails foram processados com sucesso."
-                      : campaignProgress.estimatedRemainingSeconds > 0
+                      : (campaignProgress.estimatedRemainingSeconds ?? 0) > 0
                         ? `Tempo estimado para conclusão: ~${Math.ceil(
-                            campaignProgress.estimatedRemainingSeconds / 60,
+                            (campaignProgress.estimatedRemainingSeconds ?? 0) / 60,
                           )} min`
-                        : "Finalizando processamento..."}
+                        : "Estimativa indisponível até o ritmo estabilizar."}
                   </span>
                 </div>
                 {campaignProgress.nextBatchAt &&

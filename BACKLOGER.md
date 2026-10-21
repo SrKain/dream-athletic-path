@@ -1232,3 +1232,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - Formatação one-shot: sintaxe YAML do guard corrigida; execução automática pendente de confirmação dos jobs.
 
 - **TASK-107 / Fase 1 — endurecimento de segurança:** correção do modo persistido da campanha independente do kill switch, tipagem de mocks e remoção de workflow temporário após formatação. Critérios de CI/aceite ainda sujeitos à pipeline do próximo SHA.
+
+- **TASK-107 / Fase 1 — dashboard:** ETA honesto e indisponível quando não há amostra/saúde; aceites do Resend separados de entregas, orientação de aba condicionada ao executor, desbloqueio de incidentes indisponível. CI final pendente.

@@ -26,7 +26,7 @@ import {
   nextBurstSize,
 } from "./mailer-burst";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
-import { deriveCampaignSubstate } from "./mailer-health";
+import { canEstimateMailerEta, deriveCampaignSubstate } from "./mailer-health";
 import { isMailerWorkerEnabled } from "./mailer-worker-auth";
 
 function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
@@ -88,7 +88,7 @@ export interface CampaignProgress {
   nextBatchAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
-  estimatedRemainingSeconds: number;
+  estimatedRemainingSeconds: number | null;
   lastError: string | null;
   substate?: string;
   substateLabel?: string;
@@ -1179,10 +1179,18 @@ export async function getCampaignQueueProgress(
         : 0;
       const priorBursts = Math.max(1, (Number(s.current_batch) || 1) - 1);
       const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
-      const estimatedRemainingSeconds = Math.ceil(
-        remainingBursts * secondsPerBurst +
-          (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
-      );
+      const estimatedRemainingSeconds = canEstimateMailerEta({
+        status: s.status as MailerCampaignStatus,
+        sentCount: sent,
+        currentBatch: Number(s.current_batch) || 1,
+        nextBatchAt: (s.next_batch_at as string) || null,
+        lastError: (s.last_error as string) || null,
+      })
+        ? Math.ceil(
+            remainingBursts * secondsPerBurst +
+              (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
+          )
+        : null;
 
       const health = deriveCampaignSubstate(
         {
@@ -1290,10 +1298,18 @@ export async function getCampaignQueueProgress(
     : 0;
   const priorBursts = Math.max(1, (campaign.current_batch || 1) - 1);
   const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
-  const estimatedRemainingSeconds = Math.ceil(
-    remainingBursts * secondsPerBurst +
-      (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
-  );
+  const estimatedRemainingSeconds = canEstimateMailerEta({
+    status: campaign.status as MailerCampaignStatus,
+    sentCount: sent,
+    currentBatch: Number(campaign.current_batch) || 1,
+    nextBatchAt: campaign.next_batch_at,
+    lastError: campaign.last_error,
+  })
+    ? Math.ceil(
+        remainingBursts * secondsPerBurst +
+          (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
+      )
+    : null;
 
   const fallbackHealth = deriveCampaignSubstate(
     {
