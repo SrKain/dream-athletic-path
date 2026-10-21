@@ -105,13 +105,15 @@ vi.mock("@/lib/supabase/clients.server", () => ({
         };
       }
       if (table === "universities") {
-        return { select: () => {
-          const chain = {
-            order: () => chain,
-            range: () => Promise.resolve({ data: [], error: null }),
-          };
-          return chain;
-        } };
+        return {
+          select: () => {
+            const chain = {
+              order: () => chain,
+              range: () => Promise.resolve({ data: [], error: null }),
+            };
+            return chain;
+          },
+        };
       }
       if (table === "coaches") {
         return {
