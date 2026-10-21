@@ -833,7 +833,7 @@ function UniversitiesPage() {
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
               <div>
                 Mostrando <strong className="text-foreground">{filteredUniversities.length}</strong>{" "}
-                de {universities.length} universidades
+                de {universities.length} universidades · {universities.reduce((count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0), 0)} coaches cadastrados
               </div>
               {(filterState !== "all" ||
                 filterLeague !== "all" ||
