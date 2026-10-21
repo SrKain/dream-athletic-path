@@ -19,7 +19,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Format only TASK-106 source and tests
         run: |
-          bunx prettier --write src/lib/universities-fetch.ts src/lib/universities-fetch.test.ts src/lib/universities-import.ts src/lib/universities-import.test.ts src/lib/email/mailer-burst.ts src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/lib/email/recruit-email.server.ts src/lib/email/recruit-email.functions.ts src/routes/_authenticated/admin/universities.tsx src/routes/_authenticated/admin/coaches.tsx src/routes/_authenticated/admin/mailer.tsx src/components/send-recruit-email-dialog.tsx
+          bunx prettier --write src/lib/universities-fetch.ts src/lib/universities-fetch.test.ts src/lib/universities-import.ts src/lib/universities-import.test.ts src/lib/email/mailer-burst.ts src/lib/email/mailer-burst.test.ts src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/lib/email/recruit-email.server.ts src/lib/email/recruit-email-send.test.ts src/lib/email/recruit-email.functions.ts src/routes/_authenticated/admin/universities.tsx src/routes/_authenticated/admin/coaches.tsx src/routes/_authenticated/admin/mailer.tsx src/components/send-recruit-email-dialog.tsx
           git diff --check
           git diff --exit-code -- package.json bun.lock
       - name: Commit formatter changes (no send, no data changes)
