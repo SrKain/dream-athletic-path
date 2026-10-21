@@ -1593,7 +1593,7 @@ function MailerPage() {
                 <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">{rateLimitNotice}</p>
               )}
 
-              {/* Grid de Métricas da Fila */
+              {/* Grid de Métricas da Fila */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
                 <div className="bg-muted/40 border border-border/60 rounded-xl p-2.5 text-center">
                   <div className="text-[11px] text-muted-foreground uppercase font-bold flex items-center justify-center gap-1">
