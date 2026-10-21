@@ -27,6 +27,7 @@ let failQueueInsertOnCall = 0;
 let queueInsertCalls = 0;
 let failSentPersistence = false;
 let failLease = false;
+let migrationReady = true;
 const mockRateLimit = {
   id: "global_resend_limit",
   locked_until: null as string | null,
@@ -329,7 +330,7 @@ function createMockAdminClient() {
       };
     },
     rpc: vi.fn(async (fnName: string, args: any) => {
-      if (fnName === "mailer_burst_ready") return { data: true, error: null };
+      if (fnName === "mailer_burst_ready") return { data: migrationReady, error: null };
       if (fnName === "recover_stale_mailer_queue_reservations") {
         return { data: 0, error: null };
       }
@@ -463,6 +464,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     queueInsertCalls = 0;
     failSentPersistence = false;
     failLease = false;
+    migrationReady = true;
     mockRateLimit.locked_until = null;
     mockResendBatchSend.mockReset();
     mockResendBatchSend.mockImplementation(async (messages: Array<{ to: string[] }>) => ({
@@ -923,6 +925,17 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(result.message).toContain("Manual reconciliation");
       expect(mockResendSend).not.toHaveBeenCalled();
       expect(mockLogs.filter((l) => l.status === "sent")).toHaveLength(0);
+    });
+
+    it("does not call Resend until migration 0027 is installed", async () => {
+      const { admin, campaign } = await enqueueCatalog(10);
+      migrationReady = false;
+      const res = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      expect(res.processed).toBe(0);
+      expect(res.message).toContain("migration 0027");
+      expect(mockResendBatchSend).not.toHaveBeenCalled();
+      expect(mockResendSend).not.toHaveBeenCalled();
+      expect(Array.from(mockQueue.values()).every((row) => row.status === "pending")).toBe(true);
     });
 
     it("blocks sending when another tab owns the lease", async () => {
