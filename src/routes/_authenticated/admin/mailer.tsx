@@ -244,6 +244,11 @@ function MailerPage() {
   const isOrchestratorActiveRef = React.useRef(false);
   const isProcessingTickRef = React.useRef(false);
   const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const burstSizeRef = React.useRef(300);
+  const burstPauseRef = React.useRef(1000);
+  const lastBurstAtRef = React.useRef<number | null>(null);
+  const [sendRate, setSendRate] = useState(0);
+  const [rateLimitNotice, setRateLimitNotice] = useState<string | null>(null);
 
   // Carregar dados iniciais
   async function loadInitialData() {
@@ -473,7 +478,7 @@ function MailerPage() {
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // 4. Orquestrador do Navegador: Disparo sequencial de micro-lotes de até 2 e-mails
+  // 4. Orquestrador do Navegador: rajadas sequenciais de até 300 (chunks de 100 no servidor)
   const triggerOrchestratorTick = React.useCallback(
     (delayMs: number = 1000) => {
       if (tickTimeoutRef.current) {
@@ -505,12 +510,21 @@ function MailerPage() {
           const res = await processMailerMicroBatchServerFn({
             data: {
               campaignId: activeCampaignId,
-              batchSize: 2,
+              batchSize: burstSizeRef.current,
               clientId: tabIdRef.current,
             },
           });
 
           if (isUnmountedRef.current || !isOrchestratorActiveRef.current) return;
+
+          if (res.effectiveBurstSize) burstSizeRef.current = res.effectiveBurstSize;
+          if (res.burstPauseMs) burstPauseRef.current = res.burstPauseMs;
+          if (res.rateLimited) setRateLimitNotice(res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`);
+          const tickNow = Date.now();
+          if (res.sent > 0 && lastBurstAtRef.current) {
+            setSendRate(res.sent / Math.max(1, (tickNow - lastBurstAtRef.current) / 1000));
+          }
+          lastBurstAtRef.current = tickNow;
 
           if (res.controllerConflict) {
             setIsAnotherTabActive(true);
@@ -576,16 +590,16 @@ function MailerPage() {
 
           if (res.cooldownActive && res.cooldownRemainingSec && res.cooldownRemainingSec > 0) {
             setCooldownRemaining(res.cooldownRemainingSec);
-            // Aguardar janela de cooldown antes do próximo micro-lote (+ 1s de margem segura)
+            // O cronômetro do provedor é autoritativo.
             triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 1000);
             return;
           }
 
           setCooldownRemaining(null);
 
-          // Próximo micro-lote de até 2 e-mails: aguardar pelo menos 1 segundo
+          // A pausa começa após o término da resposta anterior.
           if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
-            triggerOrchestratorTick(1000);
+            triggerOrchestratorTick(burstPauseRef.current);
           }
         } catch (err) {
           console.error("[mailer] Error during browser orchestrator micro-tick:", err);
@@ -1536,7 +1550,7 @@ function MailerPage() {
                   <span>
                     <strong className="text-foreground">Aba do Navegador:</strong> Mantenha esta aba
                     aberta e o dispositivo ativo durante o envio da campanha. O progresso é
-                    persistido a cada micro-lote no banco de dados e você pode pausar ou retomar a
+                    persistido a cada rajada no banco de dados e você pode pausar ou retomar a
                     qualquer momento.
                   </span>
                 </div>
@@ -1570,7 +1584,16 @@ function MailerPage() {
                 </div>
               </div>
 
-              {/* Grid de Métricas da Fila */}
+              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground" role="status">
+                <span>Rajada atual: <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails</span>
+                <span>Ritmo: <strong className="text-foreground">{sendRate.toFixed(1)}</strong> e-mails/s</span>
+                <span>Tempo restante estimado: <strong className="text-foreground">{campaignProgress.estimatedRemainingSeconds}s</strong></span>
+              </div>
+              {rateLimitNotice && (
+                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">{rateLimitNotice}</p>
+              )}
+
+              {/* Grid de Métricas da Fila */
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
                 <div className="bg-muted/40 border border-border/60 rounded-xl p-2.5 text-center">
                   <div className="text-[11px] text-muted-foreground uppercase font-bold flex items-center justify-center gap-1">
