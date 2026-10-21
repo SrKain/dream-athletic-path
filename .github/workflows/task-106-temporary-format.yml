@@ -1,0 +1,31 @@
+name: TASK-106 temporary Prettier normalization
+on:
+  push:
+    branches:
+      - feat/2026-10-21-mailer-bursts-universities-pagination
+permissions:
+  contents: write
+jobs:
+  normalize:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Format only TASK-106 source and tests
+        run: |
+          bunx prettier --write src/lib/universities-fetch.ts src/lib/universities-fetch.test.ts src/lib/universities-import.ts src/lib/universities-import.test.ts src/lib/email/mailer-burst.ts src/lib/email/mailer-queue.server.ts src/lib/email/mailer-queue.test.ts src/lib/email/recruit-email.server.ts src/lib/email/recruit-email.functions.ts src/routes/_authenticated/admin/universities.tsx src/routes/_authenticated/admin/coaches.tsx src/routes/_authenticated/admin/mailer.tsx src/components/send-recruit-email-dialog.tsx
+          git diff --check
+          git diff --exit-code -- package.json bun.lock
+      - name: Commit formatter changes (no send, no data changes)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib src/routes/_authenticated/admin/universities.tsx src/routes/_authenticated/admin/coaches.tsx src/routes/_authenticated/admin/mailer.tsx src/components/send-recruit-email-dialog.tsx
+          git diff --cached --quiet || git commit -m "style: aplicar Prettier nas alterações TASK-106"
+          git push
