@@ -120,47 +120,26 @@ describe("Mailer Incident Reconciliation Suite", () => {
     expect(res.message).toContain("no mínimo 5 caracteres");
   });
 
-  it("updates campaign to paused and records audit trail when reconciled", async () => {
-    const updateSpy = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
-
+  it("keeps ambiguous incidents quarantined without mutating campaign rows", async () => {
+    const updateSpy = vi.fn();
     const mockAdmin = {
-      from: vi.fn((table: string) => {
-        if (table === "mailer_campaigns") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: {
-                    id: "camp-1",
-                    status: "running",
-                    last_error: "Manual reconciliation required: ambiguous response",
-                  },
-                  error: null,
-                }),
-              }),
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: "camp-1", status: "paused", last_error: "Manual reconciliation required" },
+              error: null,
             }),
-            update: updateSpy,
-          };
-        }
-        return {};
-      }),
+          })),
+        })),
+        update: updateSpy,
+      })),
     } as any;
-
     const res = await reconcileCampaignIncident(
-      "camp-1",
-      "Verificado no painel do Resend que os 5 e-mails não foram entregues. Seguro retomar.",
-      "kauan@gtg.com",
-      mockAdmin,
+      "camp-1", "Analisado no provedor, ainda incerto.", "admin", mockAdmin,
     );
-
-    expect(res.success).toBe(true);
-    expect(updateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "paused",
-        next_batch_at: null,
-      }),
-    );
+    expect(res.success).toBe(false);
+    expect(res.message).toContain("Quarentena preservada");
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 });

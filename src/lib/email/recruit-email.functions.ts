@@ -206,7 +206,7 @@ export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
     return cancelCampaign(data.campaignId);
   });
 
-// 15. Processamento Autenticado de Micro-Lote da Fila (Orquestrado pelo Navegador da Agência)
+// 15. Processamento legado autenticado de micro-lote (mantido apenas para campanhas não migradas)
 export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string; batchSize?: number; clientId?: string }) => {
@@ -279,14 +279,15 @@ export const reconcileCampaignIncidentServerFn = createServerFn({ method: "POST"
     return reconcileCampaignIncident(data.campaignId, data.adminNotes, userEmail);
   });
 
-// 19. Gatilho de Execução do Worker do Servidor (Requer agência)
+// 19. Endpoint legado desabilitado: somente o agendador protegido pode executar o worker
 export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
-    const { triggerServerCampaignWorker } = await import("./mailer-runner.server");
-    triggerServerCampaignWorker(data.campaignId);
-    return { success: true };
+    // Legacy UI endpoint cannot start a detached worker safely.
+    // It is deliberately disabled, even for administrators.
+    void data;
+    return { success: false, message: "Worker requer agendador protegido e autorização operacional." };
   });
 
 // 20. Histórico de Envios Paginado no Servidor (Requer agência)

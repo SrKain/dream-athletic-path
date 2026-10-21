@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { generateSitemapXml } from "./lib/sitemap";
 import { processResendWebhook } from "./lib/email/resend-webhook.server";
 import { processScheduledEmails } from "./lib/email/email.server";
+import { verifyMailerWorkerRequest } from "./lib/email/mailer-worker-auth";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -115,6 +116,20 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      // Deliberately not configured in Vercel/Supabase: a scheduler must be
+      // provisioned separately after operational authorization.
+      if (url.pathname === "/api/mailer/worker") {
+        const auth = verifyMailerWorkerRequest(request);
+        const status = auth === "disabled" ? 503 : auth === "unauthorized" ? 401 : 200;
+        const headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+        if (status !== 200)
+          return new Response(JSON.stringify({ error: status === 503 ? "disabled" : "unauthorized" }), { status, headers });
+        if (request.method !== "POST")
+          return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers });
+        const { runNextEligibleCampaignBurst } = await import("./lib/email/mailer-runner.server");
+        const result = await runNextEligibleCampaignBurst();
+        return new Response(JSON.stringify(result), { status: 200, headers });
+      }
       if (url.pathname === "/sitemap.xml") {
         const xml = await generateSitemapXml();
         return new Response(xml, {

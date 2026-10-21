@@ -1222,3 +1222,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 
 - **Autorização humana 21/10/2026:** Fase 1 da TASK-107 explicitamente aprovada para correção de CI e resiliência P0 com commit direto na main, sem PR/branch. Vedados disparos reais, alterações de registros de produção e ativação de infraestrutura. **Status: [PENDENTE — FASE 1 EM EXECUÇÃO]**.
 - **Marco de recuperação de CI:** restaurado o `bun.lock` canônico do commit validado `69843f9` (blob `11e32ea0199fd8ea03742194d7e92136aa0ed513`), sem modificar `package.json`; CI posterior pendente de verificação. Demais etapas e aceite da TASK-107 permanecem pendentes.
+
+- **TASK-107 / Fase 1 — marco de segurança:** endpoint de worker com três gates, opt-in apenas para campanhas novas, retirada do fire-and-forget e proteção fail-closed de reconciliação/recuperação insegura. Não foi acionado nenhum envio nem habilitada infraestrutura. **Status: [PENDENTE — validações e rollout não concluídos]**.

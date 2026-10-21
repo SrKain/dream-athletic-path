@@ -27,6 +27,7 @@ import {
 } from "./mailer-burst";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 import { deriveCampaignSubstate } from "./mailer-health";
+import { isMailerWorkerEnabled } from "./mailer-worker-auth";
 
 function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name];
@@ -500,7 +501,12 @@ export async function enqueueCampaignDispatches(
     subject: campaignSubject,
     athlete_ids: validUuidAthleteIds,
     recipients_count: activeRecipients.length,
-    filters: input.filters ?? {},
+    // Only new campaigns created while both operational gates are enabled opt in.
+    // Never trust browser-submitted flags or enroll existing campaigns implicitly.
+    filters: {
+      ...(input.filters ?? {}),
+      serverOrchestration: isMailerWorkerEnabled(),
+    },
     status: initialStatus,
     total_recipients: activeRecipients.length,
     sent_count: 0,
@@ -652,14 +658,8 @@ export async function enqueueCampaignDispatches(
       };
     }
 
-    // Trigger durable background worker on server
-    import("./mailer-runner.server")
-      .then((m) => {
-        m.triggerServerCampaignWorker(campaignId, admin);
-      })
-      .catch((err) => {
-        console.warn("[mailer-queue] Failed to trigger background worker:", err);
-      });
+    // Dispatch is scheduler-owned when opted in; never launch a detached
+    // promise from a serverless request. Legacy campaigns keep their UI flow.
   }
 
   return {
@@ -855,7 +855,8 @@ export async function processMailerQueue(
       });
     }
     // Recovery is only needed when there is no claimable work, not once per burst.
-    if (progress.processingCount > 0) await admin.rpc("recover_stale_mailer_queue_reservations");
+    // Fail closed. Expired processing rows might have been accepted by Resend;
+    // recovering them blindly can duplicate mail after the idempotency window.
     return empty({
       progress,
       campaignStatus: "running",
@@ -1390,13 +1391,8 @@ export async function resumeCampaign(
 
   if (error) return { success: false, message: error.message };
 
-  import("./mailer-runner.server")
-    .then((m) => {
-      m.triggerServerCampaignWorker(campaignId, admin);
-    })
-    .catch((err) => {
-      console.warn("[mailer-queue] Failed to trigger background worker on resume:", err);
-    });
+  // A durable scheduler performs the next due burst for opted-in campaigns.
+  // No fire-and-forget work is started from this request.
 
   return { success: true };
 }

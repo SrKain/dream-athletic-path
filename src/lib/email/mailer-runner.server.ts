@@ -1,12 +1,10 @@
-import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import {
   processMailerQueue,
-  getCampaignQueueProgress,
   QUEUE_CONFIG,
-  type CampaignProgress,
+  type ProcessQueueResult,
 } from "./mailer-queue.server";
-import type { MailerCampaignStatus, MailerQueueStatus } from "@/types/db";
+import type { MailerQueueStatus } from "@/types/db";
 import {
   deriveCampaignSubstate,
   type MailerSubstate,
@@ -29,153 +27,116 @@ export interface CampaignHealth {
   nextAttemptAt: string | null;
 }
 
+export type WorkerOutcome =
+  | { status: "idle"; batchesExecuted: 0; totalSent: 0 }
+  | {
+      status: "processed" | "blocked";
+      campaignId: string;
+      batchesExecuted: number;
+      totalSent: number;
+      reason: string | null;
+    };
+
 /**
- * Executa o loop de trabalhador do servidor de forma durável e limitada por tempo (time budget).
- * Projetado para ser executado sem depender de conexão do navegador aberta.
+ * One awaited, bounded invocation. A trusted external scheduler may call it again.
+ * No detached promises or in-process timers: a serverless process can disappear
+ * immediately after returning its HTTP response.
+ *
+ * Existing campaigns are never enrolled automatically. Only server-opted-in
+ * campaigns with a due batch, running state and no quarantine are candidates.
  */
-export async function runCampaignWorkerLoop(
-  campaignId: string,
-  maxDurationMs: number = 25_000,
+export async function runNextEligibleCampaignBurst(
   customAdmin?: ReturnType<typeof getAdminClient>,
-): Promise<{
-  batchesExecuted: number;
-  totalSent: number;
-  completed: boolean;
-  stoppedReason?: string;
-}> {
+  executeBurst: typeof processMailerQueue = processMailerQueue,
+  now: Date = new Date(),
+): Promise<WorkerOutcome> {
   const admin = customAdmin || getAdminClient();
-  const startTime = Date.now();
-  let batchesExecuted = 0;
-  let totalSent = 0;
-  const workerId = `server-worker-${crypto.randomBytes(4).toString("hex")}`;
+  const { data, error } = await admin
+    .from("mailer_campaigns")
+    .select("id,status,last_error,filters,next_batch_at")
+    .eq("status", "running")
+    .contains("filters", { serverOrchestration: true })
+    .lte("next_batch_at", now.toISOString())
+    .order("next_batch_at", { ascending: true })
+    .limit(10);
 
-  while (Date.now() - startTime < maxDurationMs) {
-    const result = await processMailerQueue({
-      campaignId,
-      workerId,
-      clientId: workerId,
-      maxBatchSize: QUEUE_CONFIG.BURST_SIZE,
-      customAdmin: admin,
-    });
+  if (error) throw new Error("Unable to read eligible mailer campaigns.");
+  const candidates = (data || []) as Array<{
+    id: string;
+    status: string;
+    last_error: string | null;
+    filters: Record<string, unknown> | null;
+  }>;
+  const next = candidates.find(
+    (c) =>
+      c.status === "running" &&
+      c.filters?.serverOrchestration === true &&
+      !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+        c.last_error || "",
+      ),
+  );
 
-    batchesExecuted++;
-    totalSent += result.sent;
-
-    if (result.campaignCompleted || result.campaignStatus === "completed") {
-      return { batchesExecuted, totalSent, completed: true };
-    }
-
-    if (
-      result.campaignStatus === "paused" ||
-      result.campaignStatus === "cancelled" ||
-      result.campaignStatus === "failed"
-    ) {
-      return {
-        batchesExecuted,
-        totalSent,
-        completed: false,
-        stoppedReason: result.message || `Status changed to ${result.campaignStatus}`,
-      };
-    }
-
-    if (result.controllerConflict) {
-      return {
-        batchesExecuted,
-        totalSent,
-        completed: false,
-        stoppedReason: "Controller conflict with another active worker",
-      };
-    }
-
-    if (result.rateLimited || result.cooldownActive) {
-      // Cooldown ativo, não adiantar tentar de novo neste loop
-      return {
-        batchesExecuted,
-        totalSent,
-        completed: false,
-        stoppedReason: `Cooldown active (${result.cooldownRemainingSec || 1}s remaining)`,
-      };
-    }
-
-    if (result.processed === 0) {
-      // Nenhum item disponível no momento
-      break;
-    }
-
-    // Pequena pausa entre rajadas para respeitar taxa do provedor
-    const pauseMs = result.burstPauseMs || QUEUE_CONFIG.BURST_PAUSE_MS;
-    if (Date.now() - startTime + pauseMs >= maxDurationMs) {
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, pauseMs));
-  }
-
-  return { batchesExecuted, totalSent, completed: false };
+  if (!next) return { status: "idle", batchesExecuted: 0, totalSent: 0 };
+  // Leases and queue claims inside TASK-106 remain the only send authority.
+  const result: ProcessQueueResult = await executeBurst({
+    campaignId: next.id,
+    maxBatchSize: QUEUE_CONFIG.BURST_SIZE,
+    workerId: `scheduled-${crypto.randomUUID()}`,
+    clientId: `scheduler-${next.id}`,
+    customAdmin: admin,
+  });
+  const blocked =
+    (result.processed === 0 &&
+      !result.cooldownActive &&
+      !result.controllerConflict &&
+      !result.campaignCompleted) ||
+    result.campaignStatus === "paused";
+  return {
+    status: blocked ? "blocked" : "processed",
+    campaignId: next.id,
+    batchesExecuted: 1,
+    totalSent: result.sent,
+    reason: result.message || null,
+  };
 }
 
 /**
- * Dispara o worker do servidor em segundo plano de forma desvinculada (fire-and-forget seguro).
- */
-export function triggerServerCampaignWorker(
-  campaignId: string,
-  customAdmin?: ReturnType<typeof getAdminClient>,
-): void {
-  if (!campaignId || typeof campaignId !== "string") return;
-
-  // Executa de forma assíncrona desacoplada da requisição HTTP
-  setTimeout(() => {
-    runCampaignWorkerLoop(campaignId, 25_000, customAdmin).catch((err) => {
-      console.error(`[mailer-runner] Background worker error for ${campaignId}:`, err);
-    });
-  }, 100);
-}
-
-/**
- * Reconcilia manualmente uma campanha presa em quarentena (reconciliation_required).
- * Permite ao administrador revisar e limpar a trava de segurança sem disparos acidentais.
+ * Incident review intentionally does not clear quarantine or mutate queue rows.
+ * A note from a person does NOT prove whether Resend accepted a request.
+ * Controlled row-level reconciliation, audit records and a new authorized RPC
+ * are prerequisites to any subsequent resume. No silent state transitions.
  */
 export async function reconcileCampaignIncident(
   campaignId: string,
   adminNotes: string,
-  actorUserId?: string,
+  _actorUserId?: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<{ success: boolean; message: string }> {
-  const sanitizedNotes = (adminNotes || "").trim();
-  if (sanitizedNotes.length < 5) {
+  if ((adminNotes || "").trim().length < 5) {
     return {
       success: false,
       message: "É obrigatório fornecer uma nota explicativa da reconciliação com no mínimo 5 caracteres.",
     };
   }
-
   const admin = customAdmin || getAdminClient();
-
-  const { data: campaign, error: readError } = await admin
+  const { data: campaign, error } = await admin
     .from("mailer_campaigns")
-    .select("id, status, last_error")
+    .select("id,status,last_error")
     .eq("id", campaignId)
     .maybeSingle();
-
-  // Registra auditoria da reconciliação e define status como paused seguro
-  const auditMessage = `[Reconciliado por ${actorUserId || "admin"} em ${new Date().toISOString()}]: ${sanitizedNotes}`;
-
-  const { error: updateError } = await admin
-    .from("mailer_campaigns")
-    .update({
-      status: "paused",
-      last_error: auditMessage,
-      paused_at: new Date().toISOString(),
-      next_batch_at: null,
-    })
-    .eq("id", campaignId);
-
-  if (updateError) {
-    return { success: false, message: updateError.message };
+  if (error || !campaign)
+    return { success: false, message: "Não foi possível consultar a campanha." };
+  if (!/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+    campaign.last_error || "",
+  )) {
+    return { success: false, message: "A campanha não possui incidente ambíguo a reconciliar." };
   }
-
   return {
-    success: true,
-    message: "Incidente reconciliado com sucesso. A campanha foi alterada para 'Pausada' e pode ser retomada com segurança.",
+    success: false,
+    message:
+      "Quarentena preservada. A anotação não comprova aceitação/rejeição pelo Resend. " +
+      "Antes de liberar, é necessária reconciliação operacional, por destinatário, " +
+      "com evidência do provedor e auditoria em transação autorizada.",
   };
 }
 
