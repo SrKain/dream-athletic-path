@@ -1427,7 +1427,7 @@ function UniversitiesPage() {
                 </div>
               )}
 
-              {/* Upload Zone & Template Download */
+              {/* Upload Zone & Template Download */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border border-dashed border-border bg-muted/20">
                 <div>
                   <div className="text-xs font-semibold text-foreground">
