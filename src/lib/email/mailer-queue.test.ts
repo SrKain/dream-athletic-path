@@ -177,14 +177,17 @@ function createMockAdminClient() {
                   return createQueryChain(filtered);
                 }),
                 neq: vi.fn((col: string, value: any) =>
-                  createQueryChain(currentMatches.filter((q) => q[col] !== value))),
+                  createQueryChain(currentMatches.filter((q) => q[col] !== value)),
+                ),
                 order: vi.fn(() => createQueryChain(currentMatches)),
                 range: vi.fn(async (from: number, to: number) => ({
-                  data: currentMatches.slice(from, to + 1), error: null,
+                  data: currentMatches.slice(from, to + 1),
+                  error: null,
                 })),
                 limit: vi.fn(async (lim: number) => ({
                   data: opts?.head ? null : currentMatches.slice(0, lim),
-                  count: Math.min(currentMatches.length, lim), error: null,
+                  count: Math.min(currentMatches.length, lim),
+                  error: null,
                 })),
               };
               return chain;
