@@ -33,10 +33,7 @@ const mockRateLimit = {
   dispatches_in_window: 0,
 };
 
-const mockResendBatchSend = vi.fn(async (messages: Array<{ to: string[] }>) => ({
-  data: { data: messages.map((_, i) => ({ id: `resend_batch_${i}` })) },
-  error: null,
-}));
+const mockResendBatchSend = vi.fn();
 
 const mockResendSend = vi.fn().mockResolvedValue({
   data: { id: "resend_test_msg_id" },
