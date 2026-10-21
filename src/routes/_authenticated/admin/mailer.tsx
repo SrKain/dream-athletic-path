@@ -1375,6 +1375,9 @@ function MailerPage() {
                 Dispare e-mails de recrutamento esportivo para coaches universitários com
                 rastreamento, templates unificados multi-atleta e feedback de interesse.
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {universities.length} universidades · {universities.reduce((count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0), 0)} coaches cadastrados
+              </p>
             </div>
 
             {/* Upper Tabs: Create Send | History | Metrics */}
@@ -1671,7 +1674,7 @@ function MailerPage() {
                       : campaignProgress.estimatedRemainingSeconds > 0
                         ? `Tempo estimado para conclusão: ~${Math.ceil(
                             campaignProgress.estimatedRemainingSeconds / 60,
-                          )} min (150 e-mails / 60s)`
+                          )} min`
                         : "Finalizando processamento..."}
                   </span>
                 </div>
