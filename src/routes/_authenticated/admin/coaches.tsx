@@ -325,7 +325,7 @@ function CoachesPage() {
             </select>
           </div>
 
-          <Panel title={`University coaches · ${visibleCoaches.length}`}>
+          <Panel title={`University coaches · ${visibleCoaches.length} de ${coaches.length} (em ${universities.length} universidades)`}>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading coaches…
