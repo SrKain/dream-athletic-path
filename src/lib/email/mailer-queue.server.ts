@@ -18,15 +18,26 @@ import {
   assertEmailIntegrity,
 } from "./email-blocks";
 import { EMAIL_SIGNATURE } from "./email-brand";
+import { chunkIdempotencyKey, getRetryAfterSeconds, isRateLimitError, isAmbiguousProviderError, nextBurstSize } from "./mailer-burst";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
+function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    console.warn(`[mailer-queue] Invalid ${name}; using safe default.`);
+    return fallback;
+  }
+  return value;
+}
+
 export const QUEUE_CONFIG = {
-  DEFAULT_BATCH_SIZE: 150,
-  DEFAULT_MICRO_BATCH_SIZE: 2,
-  PAUSE_BETWEEN_BATCHES_SEC: 60,
-  ITEM_SPACING_MS: 0,
+  BURST_SIZE: boundedEnvInt("MAILER_BURST_SIZE", 300, 1, 300),
+  BURST_PAUSE_MS: boundedEnvInt("MAILER_BURST_PAUSE_MS", 1000, 1000, 60000),
   MAX_ATTEMPTS: 3,
-  LOCK_DURATION_SEC: 120,
+  LOCK_DURATION_SEC: 360,
+  LEASE_DURATION_SEC: 360,
 } as const;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -95,6 +106,8 @@ export interface ProcessQueueResult {
   progress?: CampaignProgress | null;
   message?: string;
   controllerConflict?: boolean;
+  effectiveBurstSize?: number;
+  burstPauseMs?: number;
 }
 
 /**
@@ -133,7 +146,7 @@ export async function enqueueCampaignDispatches(
         totalEnqueued: 0,
         totalSuppressed: 0,
         totalBatches: 0,
-        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        batchSize: QUEUE_CONFIG.BURST_SIZE,
         status: "failed",
         message: error instanceof Error ? error.message : "Failed to validate athlete fields.",
       };
@@ -189,7 +202,7 @@ export async function enqueueCampaignDispatches(
         totalEnqueued: 0,
         totalSuppressed: suppressedRecipients.length,
         totalBatches: 0,
-        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        batchSize: QUEUE_CONFIG.BURST_SIZE,
         status: "failed",
         message: "Não foi possível validar os contatos da campanha. Tente novamente.",
       };
@@ -235,7 +248,7 @@ export async function enqueueCampaignDispatches(
     await admin.from("recruit_email_logs").insert(suppressedLogs);
   }
 
-  const batchSize = QUEUE_CONFIG.DEFAULT_BATCH_SIZE;
+  const batchSize = QUEUE_CONFIG.BURST_SIZE;
   const totalBatches = Math.max(1, Math.ceil(activeRecipients.length / batchSize));
 
   // 3. Obter configurações visuais
@@ -451,7 +464,7 @@ export async function enqueueCampaignDispatches(
       totalEnqueued: 0,
       totalSuppressed: suppressedRecipients.length,
       totalBatches: 0,
-      batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+      batchSize: QUEUE_CONFIG.BURST_SIZE,
       status: "failed",
       message:
         error instanceof Error ? error.message : "Failed email integrity check before enqueueing.",
@@ -485,8 +498,8 @@ export async function enqueueCampaignDispatches(
     current_batch: 1,
     total_batches: totalBatches,
     batch_size: batchSize,
-    delay_between_batches_sec: QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC,
-    delay_between_items_ms: QUEUE_CONFIG.ITEM_SPACING_MS,
+    delay_between_batches_sec: QUEUE_CONFIG.BURST_PAUSE_MS / 1000,
+    delay_between_items_ms: 0,
     started_at: now,
     next_batch_at: now,
   });
@@ -573,6 +586,7 @@ export async function enqueueCampaignDispatches(
     }
   }
 
+  // Integrity verified while rendering/enqueueing; no additional pre-send database scan.
   // Only activate the campaign after every queue chunk has been persisted.
   if (queueItemsToInsert.length > 0) {
     const { error: activationError } = await admin
@@ -1243,7 +1257,7 @@ export async function processMailerQueue(
     nextBatchTime = null;
   } else if (crossedBatchMilestone) {
     cooldownActive = true;
-    cooldownRemainingSec = QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC;
+    cooldownRemainingSec = QUEUE_CONFIG.BURST_PAUSE_MS / 1000;
     nextBatchTime = new Date(Date.now() + cooldownRemainingSec * 1000).toISOString();
   }
 
