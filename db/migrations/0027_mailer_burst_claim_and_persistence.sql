@@ -110,6 +110,10 @@ BEGIN
         error_code = r.error_code,
         last_error = r.error_message,
         next_retry_at = r.next_retry_at,
+        -- Provider throttling does not consume a delivery attempt. Otherwise
+        -- three 429s would strand a retry row permanently above max_attempts.
+        attempts = CASE WHEN r.status = 'retry' AND r.error_code = '429'
+                        THEN GREATEST(0, q.attempts - 1) ELSE q.attempts END,
         processed_at = CASE WHEN r.status IN ('sent','failed','cancelled')
                             THEN v_now ELSE NULL END,
         reserved_by = NULL, reserved_at = NULL, reservation_expires_at = NULL
