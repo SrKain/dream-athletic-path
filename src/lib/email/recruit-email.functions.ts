@@ -215,7 +215,8 @@ export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" }
     }
     return {
       campaignId: data.campaignId.trim(),
-      batchSize: Math.min(300, Math.max(1, Number(data.batchSize) || 300)),
+      batchSize: Number.isSafeInteger(Number(data.batchSize)) && Number(data.batchSize) > 0
+        ? Math.min(300, Number(data.batchSize)) : 300,
       clientId: typeof data.clientId === "string" ? data.clientId.trim() : undefined,
     };
   })
