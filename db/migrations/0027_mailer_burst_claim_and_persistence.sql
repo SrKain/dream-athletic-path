@@ -176,7 +176,7 @@ BEGIN
          completed_at = CASE WHEN c.status NOT IN ('cancelled','paused','failed')
                                   AND v_remaining = 0 THEN v_now ELSE c.completed_at END,
          next_batch_at = CASE WHEN c.status <> 'running' OR v_remaining = 0 THEN NULL
-                              ELSE v_now + (v_pause * interval '1 millisecond') END
+                              ELSE clock_timestamp() + (v_pause * interval '1 millisecond') END
   WHERE c.id = p_campaign_id;
 
   RETURN jsonb_build_object('updated',v_updated,'logs',v_logs,
