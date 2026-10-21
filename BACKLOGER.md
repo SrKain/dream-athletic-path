@@ -1228,3 +1228,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **TASK-107 / Fase 1 — isolamento da interface:** executor identificado em leitura autenticada antes de disparos; campanhas atribuídas ao servidor atualizam apenas progresso via polling; falha de verificação não inicia envios. CI final ainda pendente.
 
 - **TASK-107 / Fase 1:** formatter one-shot preparado para reparar estilo dos arquivos da implementação parcial com dependências congeladas. A formatação não implica aprovação do CI; testes, typecheck e build ainda precisam ser aprovados após o commit formatado.
+
+- Formatação one-shot: sintaxe YAML do guard corrigida; execução automática pendente de confirmação dos jobs.

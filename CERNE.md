@@ -1500,3 +1500,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - A UI do Mailer agora consulta o modo efetivo de cada campanha via server function protegida (`getMailerCampaignOrchestrationModeServerFn`) **antes** de permitir ticks legados. Campanhas `serverOrchestration=true` recebem somente polling de progresso a cada 10s, sem comando de envio pelo navegador; se a consulta falhar, o cliente bloqueia disparos (fail closed). Campanhas legadas podem seguir o comportamento atual até rollout controlado.
 
 - **Formatação reproduzível:** workflow temporário one-shot na GitHub Actions executa o Prettier já presente no projeto com Bun 1.3.14 e publica a formatação diretamente na main (sem alterar dependências), para corrigir erros `prettier/prettier` introduzidos na implementação parcial; será removido depois e a pipeline de validação será reexecutada.
+
+- O primeiro workflow one-shot falhou na validação YAML por `:` no escalar `if`; expressão substituída por `startsWith(...)` para validação do GitHub Actions.
