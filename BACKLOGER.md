@@ -1240,3 +1240,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **TASK-107 / Fase 1:** estilo dos testes/UI consolidado; aguardando CI do SHA final, status [PENDENTE] até verificação.
 
 - **TASK-107 / Fase 1 — UX operacional:** consulta de campanhas recentes e seletor de monitoramento com atualização sob demanda, independente de posse do worker, sem mudanças no banco. CI pendente.
+
+- **TASK-107 / Fase 1:** alinhamento final de mock de paginação de campanhas recentes e estilos da UI; validação completa ainda depende do próximo CI.

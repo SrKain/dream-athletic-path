@@ -1667,7 +1667,10 @@ function MailerPage() {
 
           {/* Read-only persisted campaign selector, including completed/paused campaigns. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl border border-border bg-card p-3">
-            <label htmlFor="mailer-campaign-selector" className="text-xs font-semibold text-foreground">
+            <label
+              htmlFor="mailer-campaign-selector"
+              className="text-xs font-semibold text-foreground"
+            >
               Campanha monitorada
             </label>
             <select
@@ -1687,7 +1690,9 @@ function MailerPage() {
             >
               <option value="">Selecione uma campanha</option>
               {activeCampaignId && !recentCampaigns.some((c) => c.id === activeCampaignId) && (
-                <option value={activeCampaignId}>Campanha atual ({activeCampaignId.slice(0, 8)})</option>
+                <option value={activeCampaignId}>
+                  Campanha atual ({activeCampaignId.slice(0, 8)})
+                </option>
               )}
               {recentCampaigns.map((campaign) => (
                 <option value={campaign.id} key={campaign.id}>

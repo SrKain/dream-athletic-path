@@ -1513,3 +1513,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Validação incremental:** formatação pontual dos novos testes e labels da Fase 1 para conformidade Prettier/ESLint, sem atualização de dependências ou mudanças de semântica.
 
 - **Painel operacional:** adicionada seleção autenticada, somente leitura, das 20 campanhas mais recentes, ordenadas por `created_at DESC, id DESC`. Pode abrir campanhas `completed`, `paused` e `running` após refresh/troca de dispositivo sem iniciar nenhum disparo. A leitura usa serviço dedicado e `requireAgency` no endpoint.
+
+- **Testes de consulta recente:** mock atualizado para modelar `order(...).order(...).limit(20)` conforme contrato PostgREST real; rótulos UI com formatação Prettier. Segurança e retornos inalterados.

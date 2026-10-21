@@ -4,7 +4,11 @@ import {
   deriveCampaignSubstate,
   type CampaignHealthSummary,
 } from "./mailer-health";
-import { getRecentMailerCampaigns, reconcileCampaignIncident, runNextEligibleCampaignBurst } from "./mailer-runner.server";
+import {
+  getRecentMailerCampaigns,
+  reconcileCampaignIncident,
+  runNextEligibleCampaignBurst,
+} from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
   it("derives completed substate when status is completed", () => {
@@ -257,21 +261,24 @@ describe("TASK-107 server worker candidate isolation", () => {
   });
 });
 
-
 describe("TASK-107 recent campaign read model", () => {
   it("preserves bounded server pagination and never dispatches email", async () => {
     const limit = vi.fn().mockResolvedValue({
-      data: [{
-        id: "camp-1",
-        subject: "Test campaign",
-        status: "paused",
-        created_at: "2026-10-21T10:00:00Z",
-        total_recipients: 200,
-        sent_count: 70,
-      }],
+      data: [
+        {
+          id: "camp-1",
+          subject: "Test campaign",
+          status: "paused",
+          created_at: "2026-10-21T10:00:00Z",
+          total_recipients: 200,
+          sent_count: 70,
+        },
+      ],
       error: null,
     });
-    const order = vi.fn().mockReturnValue({ limit });
+    const order = vi.fn();
+    const ordered = { order, limit };
+    order.mockReturnValue(ordered);
     const admin = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({ order }),
