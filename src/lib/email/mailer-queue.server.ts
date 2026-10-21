@@ -599,12 +599,25 @@ export async function enqueueCampaignDispatches(
       await sanitizePendingQueueItemsMissingCards(campaignId, admin);
     } catch (error) {
       const message = `Queue integrity scan failed: ${error instanceof Error ? error.message : String(error)}`;
-      await admin.from("mailer_campaigns").update({
-        status: "failed", last_error: message, completed_at: new Date().toISOString(),
-      }).eq("id", campaignId);
-      return { success: false, campaignId, totalRecipients: input.recipients.length,
-        totalEnqueued: 0, totalSuppressed: suppressedRecipients.length,
-        totalBatches, batchSize, status: "failed", message };
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          status: "failed",
+          last_error: message,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", campaignId);
+      return {
+        success: false,
+        campaignId,
+        totalRecipients: input.recipients.length,
+        totalEnqueued: 0,
+        totalSuppressed: suppressedRecipients.length,
+        totalBatches,
+        batchSize,
+        status: "failed",
+        message,
+      };
     }
   }
   // Only activate the campaign after every queue chunk has been persisted.
@@ -655,20 +668,25 @@ export async function sanitizePendingQueueItemsMissingCards(
   campaignId?: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<number> {
-  if (!campaignId || !UUID_REGEX.test(campaignId.trim())) throw new Error("Invalid campaign for sanitation.");
+  if (!campaignId || !UUID_REGEX.test(campaignId.trim()))
+    throw new Error("Invalid campaign for sanitation.");
   const admin = customAdmin || getAdminClient();
   const corruptedIds: string[] = [];
   // Read all pages BEFORE updating any rows: changing status during offset
   // pagination would otherwise skip rows in subsequent pages.
   for (let from = 0; ; from += 1000) {
-    const { data: items, error } = await admin.from("mailer_queue")
+    const { data: items, error } = await admin
+      .from("mailer_queue")
       .select("id,payload,email_type")
       .eq("campaign_id", campaignId)
       .in("status", ["pending", "retry"])
       .neq("email_type", "catalog_general")
       .order("id", { ascending: true })
       .range(from, from + 999);
-    if (error || !items) throw new Error(`Cannot inspect campaign cards at offset ${from}: ${error?.message || "missing page"}`);
+    if (error || !items)
+      throw new Error(
+        `Cannot inspect campaign cards at offset ${from}: ${error?.message || "missing page"}`,
+      );
     for (const item of items) {
       const payload = (item.payload || {}) as { html?: string };
       if (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE")) {
@@ -678,11 +696,15 @@ export async function sanitizePendingQueueItemsMissingCards(
     if (items.length < 1000) break;
   }
   for (let i = 0; i < corruptedIds.length; i += 100) {
-    const { error } = await admin.from("mailer_queue").update({
-      status: "cancelled", last_error: "cancelled_missing_card",
-      error_code: "INTEGRITY_MISSING_CARD",
-      processed_at: new Date().toISOString(),
-    }).in("id", corruptedIds.slice(i, i + 100));
+    const { error } = await admin
+      .from("mailer_queue")
+      .update({
+        status: "cancelled",
+        last_error: "cancelled_missing_card",
+        error_code: "INTEGRITY_MISSING_CARD",
+        processed_at: new Date().toISOString(),
+      })
+      .in("id", corruptedIds.slice(i, i + 100));
     if (error) throw new Error(`Cannot quarantine corrupted cards: ${error.message}`);
   }
   return corruptedIds.length;
