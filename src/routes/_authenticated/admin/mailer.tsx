@@ -1804,8 +1804,8 @@ function MailerPage() {
                   <p className="text-xs leading-relaxed">
                     O provedor Resend respondeu com status ambíguo ou timeout de rede durante a
                     última rajada. Para garantir que nenhum coach receba e-mails duplicados, a
-                    automação foi suspensa preventivamente. Cada destinatário precisa de
-                    evidência do Resend antes de uma reconciliação autorizada e auditável.
+                    automação foi suspensa preventivamente. Cada destinatário precisa de evidência
+                    do Resend antes de uma reconciliação autorizada e auditável.
                   </p>
                   <div className="pt-1">
                     <button

@@ -1509,3 +1509,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Dashboard da TASK-107 (ETA e transparência):** ETA somente com amostra mínima de duas rajadas, campanha `running`, sem cooldown ou quarentena; retorna `null` nos demais casos. UI exibe estimativa indisponível em vez de segundos falsos, distingue aceite pelo Resend de entrega e informa quando o controle é do servidor versus navegador. Controles de worker manual e liberação de incidente permanecem desabilitados até rollout auditado.
 
 - A interface canônica `CampaignProgress` de `src/types/db.ts` foi alinhada à resposta do serviço: `estimatedRemainingSeconds: number | null`. Incluídos testes de worker para ausência de candidatos, exclusão de quarentena/não optados, execução de apenas uma rajada e falha de leitura sem disparo externo.
+
+- **Validação incremental:** formatação pontual dos novos testes e labels da Fase 1 para conformidade Prettier/ESLint, sem atualização de dependências ou mudanças de semântica.

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { canEstimateMailerEta, deriveCampaignSubstate, type CampaignHealthSummary } from "./mailer-health";
+import {
+  canEstimateMailerEta,
+  deriveCampaignSubstate,
+  type CampaignHealthSummary,
+} from "./mailer-health";
 import { reconcileCampaignIncident, runNextEligibleCampaignBurst } from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
@@ -142,19 +146,30 @@ describe("Mailer Incident Reconciliation Suite", () => {
   });
 });
 
-
 describe("TASK-107 honest ETA", () => {
   it("never guesses without sample or while paused/quarantined/cooldown", () => {
-    expect(canEstimateMailerEta({ status: "running", sentCount: 1, currentBatch: 2 })).toBe(false);
-    expect(canEstimateMailerEta({ status: "paused", sentCount: 300, currentBatch: 10 })).toBe(false);
-    expect(canEstimateMailerEta({ status: "running", sentCount: 300, currentBatch: 4,
-      lastError: "Manual reconciliation required" })).toBe(false);
-    expect(canEstimateMailerEta({ status: "running", sentCount: 300, currentBatch: 4,
-      nextBatchAt: new Date(Date.now() + 60000).toISOString() })).toBe(false);
-    expect(canEstimateMailerEta({ status: "running", sentCount: 600, currentBatch: 4 })).toBe(true);
+    const firstBatch = canEstimateMailerEta({ status: "running", sentCount: 1, currentBatch: 2 });
+    const paused = canEstimateMailerEta({ status: "paused", sentCount: 300, currentBatch: 10 });
+    const quarantine = canEstimateMailerEta({
+      status: "running",
+      sentCount: 300,
+      currentBatch: 4,
+      lastError: "Manual reconciliation required",
+    });
+    const cooldown = canEstimateMailerEta({
+      status: "running",
+      sentCount: 300,
+      currentBatch: 4,
+      nextBatchAt: new Date(Date.now() + 60000).toISOString(),
+    });
+    const healthy = canEstimateMailerEta({ status: "running", sentCount: 600, currentBatch: 4 });
+    expect(firstBatch).toBe(false);
+    expect(paused).toBe(false);
+    expect(quarantine).toBe(false);
+    expect(cooldown).toBe(false);
+    expect(healthy).toBe(true);
   });
 });
-
 
 describe("TASK-107 server worker candidate isolation", () => {
   const mockAdmin = (campaigns: unknown[], error: unknown = null) => {
@@ -212,12 +227,14 @@ describe("TASK-107 server worker candidate isolation", () => {
   it("executes at most one bounded burst for the first eligible campaign", async () => {
     mockExecute.mockClear();
     const result = await runNextEligibleCampaignBurst(
-      mockAdmin([{
-        id: "healthy",
-        status: "running",
-        last_error: null,
-        filters: { serverOrchestration: true },
-      }]),
+      mockAdmin([
+        {
+          id: "healthy",
+          status: "running",
+          last_error: null,
+          filters: { serverOrchestration: true },
+        },
+      ]),
       mockExecute,
     );
     expect(result.status).toBe("processed");
@@ -233,8 +250,9 @@ describe("TASK-107 server worker candidate isolation", () => {
 
   it("fails closed if campaign eligibility query fails", async () => {
     mockExecute.mockClear();
-    await expect(runNextEligibleCampaignBurst(mockAdmin([], { message: "DB unavailable" }), mockExecute))
-      .rejects.toThrow("Unable to read eligible");
+    await expect(
+      runNextEligibleCampaignBurst(mockAdmin([], { message: "DB unavailable" }), mockExecute),
+    ).rejects.toThrow("Unable to read eligible");
     expect(mockExecute).not.toHaveBeenCalled();
   });
 });

@@ -235,7 +235,11 @@ export function canEstimateMailerEta(options: {
 }): boolean {
   if (options.status !== "running" || options.sentCount <= 0 || options.currentBatch < 3)
     return false;
-  if (/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(options.lastError || ""))
+  if (
+    /manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+      options.lastError || "",
+    )
+  )
     return false;
   if (options.nextBatchAt) {
     const next = Date.parse(options.nextBatchAt);
