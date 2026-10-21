@@ -189,7 +189,7 @@ $$;
 -- Deployment gate: the worker checks this BEFORE contacting Resend.
 CREATE OR REPLACE FUNCTION public.mailer_burst_ready()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $ SELECT true $;
+AS 'SELECT true';
 REVOKE ALL ON FUNCTION public.mailer_burst_ready()
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mailer_burst_ready()

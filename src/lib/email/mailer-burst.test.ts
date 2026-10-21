@@ -29,10 +29,13 @@ describe("Mailer burst safeguards", () => {
 
   it("does not regress the PostgreSQL 0027 readiness function delimiter", () => {
     const sql = readFileSync(
-      new URL("../../../db/migrations/0027_mailer_burst_claim_and_persistence.sql", import.meta.url),
+      new URL(
+        "../../../db/migrations/0027_mailer_burst_claim_and_persistence.sql",
+        import.meta.url,
+      ),
       "utf8",
     );
-    expect(sql).toContain("AS $ SELECT true $;");
+    expect(sql).toContain("AS 'SELECT true';");
     expect(sql).not.toContain("AS $ SELECT true $;");
   });
 
