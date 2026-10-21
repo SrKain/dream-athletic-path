@@ -220,7 +220,9 @@ export function CoachProfileDrawer({
           data: { email: coach.email, suppressionType: type },
         });
         if (res?.success) {
-          toast.success(`Comunicação configurada como: ${type === "temporary_6m" ? "Pausa de 6 meses" : "Bloqueio permanente"}`);
+          toast.success(
+            `Comunicação configurada como: ${type === "temporary_6m" ? "Pausa de 6 meses" : "Bloqueio permanente"}`,
+          );
         } else {
           toast.error(res?.message || "Não foi possível atualizar o bloqueio.");
         }
@@ -279,7 +281,8 @@ export function CoachProfileDrawer({
                 <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300 col-span-full">
                   <Building2 className="w-4 h-4 text-neutral-400 shrink-0" />
                   <span>
-                    {coach?.universityName} {coach?.universityState ? `(${coach.universityState})` : ""}
+                    {coach?.universityName}{" "}
+                    {coach?.universityState ? `(${coach.universityState})` : ""}
                     {coach?.universityLeague ? ` · ${coach.universityLeague}` : ""}
                   </span>
                 </div>
@@ -451,9 +454,7 @@ export function CoachProfileDrawer({
                               Posição: <span className="font-medium">{sig.position}</span>
                             </p>
                           )}
-                          {sig.notes && (
-                            <p className="text-neutral-500 italic">"{sig.notes}"</p>
-                          )}
+                          {sig.notes && <p className="text-neutral-500 italic">"{sig.notes}"</p>}
                           <p className="text-[10px] text-neutral-400">
                             Expira em: {new Date(sig.expires_at).toLocaleDateString("pt-BR")}
                           </p>
@@ -495,7 +496,8 @@ export function CoachProfileDrawer({
                     const isOpened = event.eventType === "opened";
                     const isClicked = event.eventType === "clicked";
                     const isBounced = event.eventType === "bounced";
-                    const isBot = event.details?.includes("bot") || event.details?.includes("Automated");
+                    const isBot =
+                      event.details?.includes("bot") || event.details?.includes("Automated");
 
                     return (
                       <div key={idx} className="relative pl-7 text-xs space-y-0.5">

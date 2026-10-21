@@ -823,286 +823,291 @@ function UniversitiesPage() {
             <>
               {/* Search & Multifaceted Filters */}
               <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Buscar por universidade, cidade, estado, coach ou e-mail..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por universidade, cidade, estado, coach ou e-mail..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {/* Estado */}
+                    <select
+                      value={filterState}
+                      onChange={(e) => setFilterState(e.target.value)}
+                      className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    >
+                      <option value="all">Estado: Todos</option>
+                      {US_STATES.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Liga */}
+                    <select
+                      value={filterLeague}
+                      onChange={(e) => setFilterLeague(e.target.value)}
+                      className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    >
+                      <option value="all">Liga: Todas</option>
+                      {LEAGUES.map((lg) => (
+                        <option key={lg} value={lg}>
+                          {lg}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* HBCU */}
+                    <select
+                      value={filterHbcu}
+                      onChange={(e) => setFilterHbcu(e.target.value)}
+                      className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    >
+                      <option value="all">HBCU: Todos</option>
+                      <option value="hbcu">Apenas HBCU</option>
+                      <option value="non_hbcu">Não HBCU</option>
+                    </select>
+
+                    {/* Budget */}
+                    <select
+                      value={filterBudget}
+                      onChange={(e) => setFilterBudget(e.target.value)}
+                      className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    >
+                      <option value="all">Budget: Todos</option>
+                      {BUDGET_LEVELS.map((b) => (
+                        <option key={b} value={b}>
+                          ${b}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* TOEFL */}
+                    <select
+                      value={filterToefl}
+                      onChange={(e) => setFilterToefl(e.target.value)}
+                      className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    >
+                      <option value="all">TOEFL: Todos</option>
+                      {TOEFL_LEVELS.map((t) => (
+                        <option key={t} value={t}>
+                          TOEFL {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Badges / Contadores */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
+                  <div>
+                    Mostrando{" "}
+                    <strong className="text-foreground">{filteredUniversities.length}</strong> de{" "}
+                    {universities.length} universidades ·{" "}
+                    {universities.reduce(
+                      (count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0),
+                      0,
+                    )}{" "}
+                    coaches cadastrados
+                  </div>
+                  {(filterState !== "all" ||
+                    filterLeague !== "all" ||
+                    filterHbcu !== "all" ||
+                    filterBudget !== "all" ||
+                    filterToefl !== "all" ||
+                    search) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setFilterState("all");
+                        setFilterLeague("all");
+                        setFilterHbcu("all");
+                        setFilterBudget("all");
+                        setFilterToefl("all");
+                      }}
+                      className="text-primary hover:underline cursor-pointer"
+                    >
+                      Limpar todos os filtros
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {/* Estado */}
-                <select
-                  value={filterState}
-                  onChange={(e) => setFilterState(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-                >
-                  <option value="all">Estado: Todos</option>
-                  {US_STATES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Liga */}
-                <select
-                  value={filterLeague}
-                  onChange={(e) => setFilterLeague(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-                >
-                  <option value="all">Liga: Todas</option>
-                  {LEAGUES.map((lg) => (
-                    <option key={lg} value={lg}>
-                      {lg}
-                    </option>
-                  ))}
-                </select>
-
-                {/* HBCU */}
-                <select
-                  value={filterHbcu}
-                  onChange={(e) => setFilterHbcu(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-                >
-                  <option value="all">HBCU: Todos</option>
-                  <option value="hbcu">Apenas HBCU</option>
-                  <option value="non_hbcu">Não HBCU</option>
-                </select>
-
-                {/* Budget */}
-                <select
-                  value={filterBudget}
-                  onChange={(e) => setFilterBudget(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-                >
-                  <option value="all">Budget: Todos</option>
-                  {BUDGET_LEVELS.map((b) => (
-                    <option key={b} value={b}>
-                      ${b}
-                    </option>
-                  ))}
-                </select>
-
-                {/* TOEFL */}
-                <select
-                  value={filterToefl}
-                  onChange={(e) => setFilterToefl(e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-                >
-                  <option value="all">TOEFL: Todos</option>
-                  {TOEFL_LEVELS.map((t) => (
-                    <option key={t} value={t}>
-                      TOEFL {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Badges / Contadores */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-              <div>
-                Mostrando <strong className="text-foreground">{filteredUniversities.length}</strong>{" "}
-                de {universities.length} universidades ·{" "}
-                {universities.reduce(
-                  (count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0),
-                  0,
-                )}{" "}
-                coaches cadastrados
-              </div>
-              {(filterState !== "all" ||
-                filterLeague !== "all" ||
-                filterHbcu !== "all" ||
-                filterBudget !== "all" ||
-                filterToefl !== "all" ||
-                search) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setFilterState("all");
-                    setFilterLeague("all");
-                    setFilterHbcu("all");
-                    setFilterBudget("all");
-                    setFilterToefl("all");
-                  }}
-                  className="text-primary hover:underline cursor-pointer"
-                >
-                  Limpar todos os filtros
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Table / List */}
-          {loading ? (
-            <div className="p-12 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-              <p className="text-sm text-muted-foreground mt-2">Carregando universidades...</p>
-            </div>
-          ) : filteredUniversities.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-border rounded-xl bg-card/40">
-              <Building2 className="w-12 h-12 text-muted-foreground/60 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-foreground">
-                Nenhuma universidade encontrada
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                Cadastre manualmente ou importe uma planilha com a lista de universidades e coaches
-                parceiros.
-              </p>
-              <button type="button" onClick={openCreateModal} className={buttonClass}>
-                Cadastrar Universidade
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                      <th className="py-3 px-4">Universidade / Local</th>
-                      <th className="py-3 px-4">Liga / Categoria</th>
-                      <th className="py-3 px-4">Requisitos (Budget / TOEFL)</th>
-                      <th className="py-3 px-4">Coaches Vinculados</th>
-                      <th className="py-3 px-4 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredUniversities.map((uni) => {
-                      const coachesCount = Array.isArray(uni.coaches) ? uni.coaches.length : 0;
-                      const historyCount = Array.isArray(uni.history) ? uni.history.length : 0;
-
-                      return (
-                        <tr key={uni.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-foreground flex items-center gap-1.5">
-                              {uni.name}
-                              {uni.source_url && (
-                                <a
-                                  href={uni.source_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-muted-foreground hover:text-primary transition-colors"
-                                  title="Ver site / fonte da universidade"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {uni.city}, {uni.state}
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {uni.league ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">
-                                  {uni.league}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                              {uni.is_hbcu && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-800/50">
-                                  HBCU
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-4">
-                            <div className="flex flex-col gap-1">
-                              <div className="text-xs text-foreground flex items-center gap-1">
-                                <span className="text-muted-foreground text-[11px]">Budget:</span>
-                                {uni.budget_level ? (
-                                  <span className="font-medium">${uni.budget_level}</span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </div>
-                              <div className="text-xs text-foreground flex items-center gap-1">
-                                <span className="text-muted-foreground text-[11px]">TOEFL:</span>
-                                {uni.toefl_level ? (
-                                  <span className="font-medium">{uni.toefl_level}</span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                  coachesCount > 0
-                                    ? "bg-primary/10 text-primary border border-primary/20"
-                                    : "bg-muted text-muted-foreground border border-border"
-                                }`}
-                              >
-                                <Users className="w-3.5 h-3.5" />
-                                {coachesCount} {coachesCount === 1 ? "coach" : "coaches"}
-                              </span>
-
-                              {historyCount > 0 && (
-                                <span
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-muted/60 text-muted-foreground"
-                                  title={`${historyCount} eventos no histórico`}
-                                >
-                                  <History className="w-3 h-3" />
-                                  {historyCount}
-                                </span>
-                              )}
-                            </div>
-
-                            {coachesCount > 0 && (
-                              <div className="text-[11px] text-muted-foreground mt-1 truncate max-w-xs">
-                                {uni.coaches
-                                  .map((c) => `${c.first_name} ${c.last_name || ""}`.trim())
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(uni)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                                title="Editar universidade"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeletingUni(uni)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                                title="Excluir universidade"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
+              {/* Table / List */}
+              {loading ? (
+                <div className="p-12 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                  <p className="text-sm text-muted-foreground mt-2">Carregando universidades...</p>
+                </div>
+              ) : filteredUniversities.length === 0 ? (
+                <div className="p-12 text-center border border-dashed border-border rounded-xl bg-card/40">
+                  <Building2 className="w-12 h-12 text-muted-foreground/60 mx-auto mb-3" />
+                  <h3 className="text-base font-semibold text-foreground">
+                    Nenhuma universidade encontrada
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                    Cadastre manualmente ou importe uma planilha com a lista de universidades e
+                    coaches parceiros.
+                  </p>
+                  <button type="button" onClick={openCreateModal} className={buttonClass}>
+                    Cadastrar Universidade
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="py-3 px-4">Universidade / Local</th>
+                          <th className="py-3 px-4">Liga / Categoria</th>
+                          <th className="py-3 px-4">Requisitos (Budget / TOEFL)</th>
+                          <th className="py-3 px-4">Coaches Vinculados</th>
+                          <th className="py-3 px-4 text-right">Ações</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredUniversities.map((uni) => {
+                          const coachesCount = Array.isArray(uni.coaches) ? uni.coaches.length : 0;
+                          const historyCount = Array.isArray(uni.history) ? uni.history.length : 0;
+
+                          return (
+                            <tr key={uni.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                  {uni.name}
+                                  {uni.source_url && (
+                                    <a
+                                      href={uni.source_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-muted-foreground hover:text-primary transition-colors"
+                                      title="Ver site / fonte da universidade"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {uni.city}, {uni.state}
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {uni.league ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">
+                                      {uni.league}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                  {uni.is_hbcu && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/40 text-amber-400 border border-amber-800/50">
+                                      HBCU
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col gap-1">
+                                  <div className="text-xs text-foreground flex items-center gap-1">
+                                    <span className="text-muted-foreground text-[11px]">
+                                      Budget:
+                                    </span>
+                                    {uni.budget_level ? (
+                                      <span className="font-medium">${uni.budget_level}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-foreground flex items-center gap-1">
+                                    <span className="text-muted-foreground text-[11px]">
+                                      TOEFL:
+                                    </span>
+                                    {uni.toefl_level ? (
+                                      <span className="font-medium">{uni.toefl_level}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                      coachesCount > 0
+                                        ? "bg-primary/10 text-primary border border-primary/20"
+                                        : "bg-muted text-muted-foreground border border-border"
+                                    }`}
+                                  >
+                                    <Users className="w-3.5 h-3.5" />
+                                    {coachesCount} {coachesCount === 1 ? "coach" : "coaches"}
+                                  </span>
+
+                                  {historyCount > 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-muted/60 text-muted-foreground"
+                                      title={`${historyCount} eventos no histórico`}
+                                    >
+                                      <History className="w-3 h-3" />
+                                      {historyCount}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {coachesCount > 0 && (
+                                  <div className="text-[11px] text-muted-foreground mt-1 truncate max-w-xs">
+                                    {uni.coaches
+                                      .map((c) => `${c.first_name} ${c.last_name || ""}`.trim())
+                                      .filter(Boolean)
+                                      .join(", ")}
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditModal(uni)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    title="Editar universidade"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingUni(uni)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                    title="Excluir universidade"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
-    </div>
+        </div>
 
         {/* MODAL / DRAWER: CREATE / EDIT UNIVERSITY */}
         {isFormOpen && (

@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DollarSign, Check, ChevronDown, X } from "lucide-react";
 import { BUDGET_LEVELS } from "@/lib/universities-constants";
 import type { UniversityBudgetLevel } from "@/types/db";
@@ -21,11 +17,7 @@ const BUDGET_LABELS: Record<UniversityBudgetLevel, string> = {
   "10000+": "$10,000+ / ano",
 };
 
-export function BudgetMultiSelect({
-  selected,
-  onChange,
-  className = "",
-}: BudgetMultiSelectProps) {
+export function BudgetMultiSelect({ selected, onChange, className = "" }: BudgetMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
   function toggleLevel(level: UniversityBudgetLevel) {

@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  deriveCampaignSubstate,
-  type CampaignHealthSummary,
-} from "./mailer-health";
+import { deriveCampaignSubstate, type CampaignHealthSummary } from "./mailer-health";
 import { reconcileCampaignIncident } from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
@@ -54,20 +51,14 @@ describe("Mailer Health & Substate Derivation Suite", () => {
   });
 
   it("derives waiting_lease when controller conflict is flagged", () => {
-    const health = deriveCampaignSubstate(
-      { status: "running" },
-      { controllerConflict: true },
-    );
+    const health = deriveCampaignSubstate({ status: "running" }, { controllerConflict: true });
     expect(health.substate).toBe("waiting_lease");
     expect(health.canResume).toBe(false);
     expect(health.canPause).toBe(true);
   });
 
   it("derives waiting_retry when cooldown or rate limit is active", () => {
-    const health = deriveCampaignSubstate(
-      { status: "running" },
-      { cooldownActive: true },
-    );
+    const health = deriveCampaignSubstate({ status: "running" }, { cooldownActive: true });
     expect(health.substate).toBe("waiting_retry");
     expect(health.canResume).toBe(false);
     expect(health.canPause).toBe(true);
@@ -127,7 +118,11 @@ describe("Mailer Incident Reconciliation Suite", () => {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             maybeSingle: vi.fn().mockResolvedValue({
-              data: { id: "camp-1", status: "paused", last_error: "Manual reconciliation required" },
+              data: {
+                id: "camp-1",
+                status: "paused",
+                last_error: "Manual reconciliation required",
+              },
               error: null,
             }),
           })),
@@ -136,7 +131,10 @@ describe("Mailer Incident Reconciliation Suite", () => {
       })),
     } as any;
     const res = await reconcileCampaignIncident(
-      "camp-1", "Analisado no provedor, ainda incerto.", "admin", mockAdmin,
+      "camp-1",
+      "Analisado no provedor, ainda incerto.",
+      "admin",
+      mockAdmin,
     );
     expect(res.success).toBe(false);
     expect(res.message).toContain("Quarentena preservada");

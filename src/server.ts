@@ -121,11 +121,20 @@ export default {
       if (url.pathname === "/api/mailer/worker") {
         const auth = verifyMailerWorkerRequest(request);
         const status = auth === "disabled" ? 503 : auth === "unauthorized" ? 401 : 200;
-        const headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+        const headers = {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+        };
         if (status !== 200)
-          return new Response(JSON.stringify({ error: status === 503 ? "disabled" : "unauthorized" }), { status, headers });
+          return new Response(
+            JSON.stringify({ error: status === 503 ? "disabled" : "unauthorized" }),
+            { status, headers },
+          );
         if (request.method !== "POST")
-          return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers });
+          return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+            status: 405,
+            headers,
+          });
         const { runNextEligibleCampaignBurst } = await import("./lib/email/mailer-runner.server");
         const result = await runNextEligibleCampaignBurst();
         return new Response(JSON.stringify(result), { status: 200, headers });

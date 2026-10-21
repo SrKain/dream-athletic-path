@@ -1,9 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/clients.server";
-import type {
-  UniversityLeague,
-  UniversityBudgetLevel,
-  UniversityToeflLevel,
-} from "@/types/db";
+import type { UniversityLeague, UniversityBudgetLevel, UniversityToeflLevel } from "@/types/db";
 
 export interface MailerHistoryFilterOptions {
   page?: number;
@@ -75,9 +71,7 @@ export async function getPaginatedMailerHistory(
 ): Promise<PaginatedMailerHistoryResult> {
   const admin = customAdmin || getAdminClient();
   const page = Math.max(1, Number(options.page) || 1);
-  const pageSize = [25, 50, 100].includes(Number(options.pageSize))
-    ? Number(options.pageSize)
-    : 25;
+  const pageSize = [25, 50, 100].includes(Number(options.pageSize)) ? Number(options.pageSize) : 25;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -204,11 +198,7 @@ export async function getPaginatedMailerHistory(
 
   // Mapear universidades dos logs para enriquecer características com proveniência honesta
   const distinctUniversityNames = Array.from(
-    new Set(
-      rawLogs
-        .map((l) => l.university_name?.trim())
-        .filter((n): n is string => Boolean(n)),
-    ),
+    new Set(rawLogs.map((l) => l.university_name?.trim()).filter((n): n is string => Boolean(n))),
   );
 
   const universityCharacteristicsMap = new Map<

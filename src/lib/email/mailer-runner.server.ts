@@ -1,9 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/clients.server";
-import {
-  processMailerQueue,
-  QUEUE_CONFIG,
-  type ProcessQueueResult,
-} from "./mailer-queue.server";
+import { processMailerQueue, QUEUE_CONFIG, type ProcessQueueResult } from "./mailer-queue.server";
 import type { MailerQueueStatus } from "@/types/db";
 import {
   deriveCampaignSubstate,
@@ -115,7 +111,8 @@ export async function reconcileCampaignIncident(
   if ((adminNotes || "").trim().length < 5) {
     return {
       success: false,
-      message: "É obrigatório fornecer uma nota explicativa da reconciliação com no mínimo 5 caracteres.",
+      message:
+        "É obrigatório fornecer uma nota explicativa da reconciliação com no mínimo 5 caracteres.",
     };
   }
   const admin = customAdmin || getAdminClient();
@@ -126,9 +123,11 @@ export async function reconcileCampaignIncident(
     .maybeSingle();
   if (error || !campaign)
     return { success: false, message: "Não foi possível consultar a campanha." };
-  if (!/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
-    campaign.last_error || "",
-  )) {
+  if (
+    !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+      campaign.last_error || "",
+    )
+  ) {
     return { success: false, message: "A campanha não possui incidente ambíguo a reconciliar." };
   }
   return {

@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  updateUniversityCoachAtomic,
-  deleteUniversityCoachAtomic,
-} from "./coach-directory.server";
+import { updateUniversityCoachAtomic, deleteUniversityCoachAtomic } from "./coach-directory.server";
 
 describe("Coach Directory Atomic Operations Suite", () => {
   it("updates existing coach in universities.coaches without wiping other coaches", async () => {

@@ -5,10 +5,7 @@ import type { UniversityCoach } from "@/types/db";
 export const saveUniversityCoachServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator(
-    (data: {
-      universityId: string;
-      coach: Partial<UniversityCoach> & { email: string };
-    }) => data,
+    (data: { universityId: string; coach: Partial<UniversityCoach> & { email: string } }) => data,
   )
   .handler(async ({ data }) => {
     const { updateUniversityCoachAtomic } = await import("./coach-directory.server");
@@ -17,12 +14,7 @@ export const saveUniversityCoachServerFn = createServerFn({ method: "POST" })
 
 export const deleteUniversityCoachServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
-  .inputValidator(
-    (data: {
-      universityId: string;
-      coachIdOrEmail: string;
-    }) => data,
-  )
+  .inputValidator((data: { universityId: string; coachIdOrEmail: string }) => data)
   .handler(async ({ data }) => {
     const { deleteUniversityCoachAtomic } = await import("./coach-directory.server");
     return deleteUniversityCoachAtomic(data.universityId, data.coachIdOrEmail);

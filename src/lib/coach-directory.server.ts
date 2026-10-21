@@ -53,9 +53,7 @@ export async function updateUniversityCoachAtomic(
 
   let updatedCoach: UniversityCoach;
   const existingIndex = currentCoaches.findIndex(
-    (c) =>
-      (coachData.id && c.id === coachData.id) ||
-      c.email.toLowerCase().trim() === cleanEmail,
+    (c) => (coachData.id && c.id === coachData.id) || c.email.toLowerCase().trim() === cleanEmail,
   );
 
   if (existingIndex >= 0) {

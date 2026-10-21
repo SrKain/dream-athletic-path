@@ -1184,15 +1184,18 @@ export async function getCampaignQueueProgress(
           (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
       );
 
-      const health = deriveCampaignSubstate({
-        status: s.status as MailerCampaignStatus,
-        last_error: (s.last_error as string) || null,
-        next_batch_at: (s.next_batch_at as string) || null,
-        started_at: (s.started_at as string) || null,
-      }, {
-        pendingCount: pending,
-        processingCount: processing,
-      });
+      const health = deriveCampaignSubstate(
+        {
+          status: s.status as MailerCampaignStatus,
+          last_error: (s.last_error as string) || null,
+          next_batch_at: (s.next_batch_at as string) || null,
+          started_at: (s.started_at as string) || null,
+        },
+        {
+          pendingCount: pending,
+          processingCount: processing,
+        },
+      );
 
       return {
         campaignId: String(s.campaign_id),
@@ -1292,15 +1295,18 @@ export async function getCampaignQueueProgress(
       (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
   );
 
-  const fallbackHealth = deriveCampaignSubstate({
-    status: campaign.status as MailerCampaignStatus,
-    last_error: campaign.last_error,
-    next_batch_at: campaign.next_batch_at,
-    started_at: campaign.started_at,
-  }, {
-    pendingCount: pending,
-    processingCount: processing,
-  });
+  const fallbackHealth = deriveCampaignSubstate(
+    {
+      status: campaign.status as MailerCampaignStatus,
+      last_error: campaign.last_error,
+      next_batch_at: campaign.next_batch_at,
+      started_at: campaign.started_at,
+    },
+    {
+      pendingCount: pending,
+      processingCount: processing,
+    },
+  );
 
   return {
     campaignId: campaign.id,

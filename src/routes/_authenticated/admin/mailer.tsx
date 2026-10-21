@@ -540,9 +540,13 @@ function MailerPage() {
         tickTimeoutRef.current = null;
       }
 
-      if (!isOrchestratorActiveRef.current || isUnmountedRef.current ||
-          orchestrationMode?.campaignId !== activeCampaignId ||
-          orchestrationMode.serverOrchestrated) return;
+      if (
+        !isOrchestratorActiveRef.current ||
+        isUnmountedRef.current ||
+        orchestrationMode?.campaignId !== activeCampaignId ||
+        orchestrationMode.serverOrchestrated
+      )
+        return;
 
       tickTimeoutRef.current = setTimeout(async () => {
         if (
@@ -696,25 +700,38 @@ function MailerPage() {
             serverOrchestrated: true,
           });
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeCampaignId]);
 
   // In server mode polling is READ ONLY. A page refresh never starts a batch.
   useEffect(() => {
-    if (!activeCampaignId || orchestrationMode?.campaignId !== activeCampaignId ||
-        !orchestrationMode.serverOrchestrated) return;
+    if (
+      !activeCampaignId ||
+      orchestrationMode?.campaignId !== activeCampaignId ||
+      !orchestrationMode.serverOrchestrated
+    )
+      return;
     let cancelled = false;
     const refresh = async () => {
       try {
-        const progress = await getCampaignQueueProgressServerFn({ data: { campaignId: activeCampaignId } });
+        const progress = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
         if (!cancelled && progress) setCampaignProgress(progress);
       } catch {
         // Previous state remains visible until next successful poll.
       }
     };
     void refresh();
-    const timer = setInterval(() => { void refresh(); }, 10000);
-    return () => { cancelled = true; clearInterval(timer); };
+    const timer = setInterval(() => {
+      void refresh();
+    }, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [activeCampaignId, orchestrationMode]);
 
   // 5. Iniciar ou pausar orquestrador conforme o estado da campanha
@@ -1785,10 +1802,10 @@ function MailerPage() {
                     <span>Disparos Pausados por Quarentena Anti-Duplicação</span>
                   </div>
                   <p className="text-xs leading-relaxed">
-                    O provedor Resend respondeu com status ambíguo ou timeout de rede durante a última
-                    rajada. Para garantir que nenhum coach receba e-mails duplicados, a automação foi
-                    suspensa preventivamente. Verifique o painel do Resend e reconcilie o lote para
-                    autorizar a continuidade dos envios.
+                    O provedor Resend respondeu com status ambíguo ou timeout de rede durante a
+                    última rajada. Para garantir que nenhum coach receba e-mails duplicados, a
+                    automação foi suspensa preventivamente. Verifique o painel do Resend e
+                    reconcilie o lote para autorizar a continuidade dos envios.
                   </p>
                   <div className="pt-1">
                     <button
@@ -1990,10 +2007,14 @@ function MailerPage() {
                         >
                           <option value="all">Todos ({campaignProgress.totalRecipients})</option>
                           <option value="pending">Na Fila ({campaignProgress.pendingCount})</option>
-                          <option value="processing">Em Curso ({campaignProgress.processingCount})</option>
+                          <option value="processing">
+                            Em Curso ({campaignProgress.processingCount})
+                          </option>
                           <option value="sent">Enviados ({campaignProgress.sentCount})</option>
                           <option value="failed">Falhas ({campaignProgress.failedCount})</option>
-                          <option value="suppressed">Suprimidos ({campaignProgress.suppressedCount})</option>
+                          <option value="suppressed">
+                            Suprimidos ({campaignProgress.suppressedCount})
+                          </option>
                         </select>
                       </div>
                       <button

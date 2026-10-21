@@ -97,9 +97,7 @@ export function CoachFormDialog({
 
       if (res?.success) {
         toast.success(
-          form.id
-            ? "Treinador atualizado com sucesso."
-            : "Treinador cadastrado com sucesso.",
+          form.id ? "Treinador atualizado com sucesso." : "Treinador cadastrado com sucesso.",
         );
         onOpenChange(false);
         onSuccess();

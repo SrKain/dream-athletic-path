@@ -252,12 +252,7 @@ export const getAthletesEmailDataServerFn = createServerFn({ method: "POST" })
 export const getCampaignRecipientsServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator(
-    (data: {
-      campaignId: string;
-      page?: number;
-      pageSize?: number;
-      statusFilter?: string;
-    }) => data,
+    (data: { campaignId: string; page?: number; pageSize?: number; statusFilter?: string }) => data,
   )
   .handler(async ({ data }) => {
     const { getCampaignRecipients } = await import("./mailer-runner.server");
@@ -287,7 +282,10 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
     // Legacy UI endpoint cannot start a detached worker safely.
     // It is deliberately disabled, even for administrators.
     void data;
-    return { success: false, message: "Worker requer agendador protegido e autorização operacional." };
+    return {
+      success: false,
+      message: "Worker requer agendador protegido e autorização operacional.",
+    };
   });
 
 // 19b. Retorna a autoridade de orquestração da campanha atual (somente leitura).
@@ -332,5 +330,3 @@ export const getPaginatedMailerHistoryServerFn = createServerFn({ method: "POST"
     const { getPaginatedMailerHistory } = await import("./mailer-history.server");
     return getPaginatedMailerHistory(data);
   });
-
-

@@ -162,7 +162,11 @@ export function CoachDirectoryTable({
 
   async function handleDelete(coach: FlatCoachRow) {
     const name = `${coach.first_name || ""} ${coach.last_name || ""}`.trim() || coach.email;
-    if (!window.confirm(`Tem certeza que deseja remover o treinador ${name} da ${coach.universityName}?`)) {
+    if (
+      !window.confirm(
+        `Tem certeza que deseja remover o treinador ${name} da ${coach.universityName}?`,
+      )
+    ) {
       return;
     }
 

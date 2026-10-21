@@ -130,7 +130,8 @@ export function deriveCampaignSubstate(
     return {
       substate: "waiting_retry",
       label: "Aguardando Rate Limit (429)",
-      description: "Resend solicitou redução de taxa temporária; o próximo lote prosseguirá em breve.",
+      description:
+        "Resend solicitou redução de taxa temporária; o próximo lote prosseguirá em breve.",
       isHealthy: true,
       canResume: false,
       canPause: true,
