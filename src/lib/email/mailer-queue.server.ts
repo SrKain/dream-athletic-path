@@ -18,15 +18,32 @@ import {
   assertEmailIntegrity,
 } from "./email-blocks";
 import { EMAIL_SIGNATURE } from "./email-brand";
+import {
+  chunkIdempotencyKey,
+  getRetryAfterSeconds,
+  isRateLimitError,
+  isAmbiguousProviderError,
+  nextBurstSize,
+} from "./mailer-burst";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 
+function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    console.warn(`[mailer-queue] Invalid ${name}; using safe default.`);
+    return fallback;
+  }
+  return value;
+}
+
 export const QUEUE_CONFIG = {
-  DEFAULT_BATCH_SIZE: 150,
-  DEFAULT_MICRO_BATCH_SIZE: 2,
-  PAUSE_BETWEEN_BATCHES_SEC: 60,
-  ITEM_SPACING_MS: 0,
+  BURST_SIZE: boundedEnvInt("MAILER_BURST_SIZE", 300, 1, 300),
+  BURST_PAUSE_MS: boundedEnvInt("MAILER_BURST_PAUSE_MS", 1000, 1000, 60000),
   MAX_ATTEMPTS: 3,
-  LOCK_DURATION_SEC: 120,
+  LOCK_DURATION_SEC: 360,
+  LEASE_DURATION_SEC: 360,
 } as const;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -95,6 +112,8 @@ export interface ProcessQueueResult {
   progress?: CampaignProgress | null;
   message?: string;
   controllerConflict?: boolean;
+  effectiveBurstSize?: number;
+  burstPauseMs?: number;
 }
 
 /**
@@ -133,7 +152,7 @@ export async function enqueueCampaignDispatches(
         totalEnqueued: 0,
         totalSuppressed: 0,
         totalBatches: 0,
-        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        batchSize: QUEUE_CONFIG.BURST_SIZE,
         status: "failed",
         message: error instanceof Error ? error.message : "Failed to validate athlete fields.",
       };
@@ -189,7 +208,7 @@ export async function enqueueCampaignDispatches(
         totalEnqueued: 0,
         totalSuppressed: suppressedRecipients.length,
         totalBatches: 0,
-        batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+        batchSize: QUEUE_CONFIG.BURST_SIZE,
         status: "failed",
         message: "Não foi possível validar os contatos da campanha. Tente novamente.",
       };
@@ -235,7 +254,7 @@ export async function enqueueCampaignDispatches(
     await admin.from("recruit_email_logs").insert(suppressedLogs);
   }
 
-  const batchSize = QUEUE_CONFIG.DEFAULT_BATCH_SIZE;
+  const batchSize = QUEUE_CONFIG.BURST_SIZE;
   const totalBatches = Math.max(1, Math.ceil(activeRecipients.length / batchSize));
 
   // 3. Obter configurações visuais
@@ -451,7 +470,7 @@ export async function enqueueCampaignDispatches(
       totalEnqueued: 0,
       totalSuppressed: suppressedRecipients.length,
       totalBatches: 0,
-      batchSize: QUEUE_CONFIG.DEFAULT_BATCH_SIZE,
+      batchSize: QUEUE_CONFIG.BURST_SIZE,
       status: "failed",
       message:
         error instanceof Error ? error.message : "Failed email integrity check before enqueueing.",
@@ -485,8 +504,8 @@ export async function enqueueCampaignDispatches(
     current_batch: 1,
     total_batches: totalBatches,
     batch_size: batchSize,
-    delay_between_batches_sec: QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC,
-    delay_between_items_ms: QUEUE_CONFIG.ITEM_SPACING_MS,
+    delay_between_batches_sec: QUEUE_CONFIG.BURST_PAUSE_MS / 1000,
+    delay_between_items_ms: 0,
     started_at: now,
     next_batch_at: now,
   });
@@ -573,6 +592,34 @@ export async function enqueueCampaignDispatches(
     }
   }
 
+  // Sanitation occurs ONCE at queue creation, not on every browser tick.
+  // New snapshots were already rendered/validated; this also catches corrupted rows.
+  if (queueItemsToInsert.length > 0 && mode !== "catalog") {
+    try {
+      await sanitizePendingQueueItemsMissingCards(campaignId, admin);
+    } catch (error) {
+      const message = `Queue integrity scan failed: ${error instanceof Error ? error.message : String(error)}`;
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          status: "failed",
+          last_error: message,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", campaignId);
+      return {
+        success: false,
+        campaignId,
+        totalRecipients: input.recipients.length,
+        totalEnqueued: 0,
+        totalSuppressed: suppressedRecipients.length,
+        totalBatches,
+        batchSize,
+        status: "failed",
+        message,
+      };
+    }
+  }
   // Only activate the campaign after every queue chunk has been persisted.
   if (queueItemsToInsert.length > 0) {
     const { error: activationError } = await admin
@@ -621,671 +668,460 @@ export async function sanitizePendingQueueItemsMissingCards(
   campaignId?: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<number> {
+  if (!campaignId || !UUID_REGEX.test(campaignId.trim()))
+    throw new Error("Invalid campaign for sanitation.");
   const admin = customAdmin || getAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = admin
-    .from("mailer_queue")
-    .select("id, payload, email_type")
-    .in("status", ["pending", "retry"]);
-
-  if (typeof query.neq === "function") {
-    query = query.neq("email_type", "catalog_general");
-  }
-
-  if (campaignId && UUID_REGEX.test(campaignId.trim())) {
-    if (typeof query.eq === "function") {
-      query = query.eq("campaign_id", campaignId.trim());
-    }
-  }
-
-  const { data: items, error } = await query;
-  if (error || !items) return 0;
-
   const corruptedIds: string[] = [];
-  for (const item of items) {
-    if (item.email_type === "catalog_general") continue;
-    const payload = (item.payload || {}) as { html?: string };
-    if (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE")) {
-      corruptedIds.push(item.id);
+  // Read all pages BEFORE updating any rows: changing status during offset
+  // pagination would otherwise skip rows in subsequent pages.
+  for (let from = 0; ; from += 1000) {
+    const { data: items, error } = await admin
+      .from("mailer_queue")
+      .select("id,payload,email_type")
+      .eq("campaign_id", campaignId)
+      .in("status", ["pending", "retry"])
+      .neq("email_type", "catalog_general")
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error || !items)
+      throw new Error(
+        `Cannot inspect campaign cards at offset ${from}: ${error?.message || "missing page"}`,
+      );
+    for (const item of items) {
+      const payload = (item.payload || {}) as { html?: string };
+      if (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE")) {
+        corruptedIds.push(item.id);
+      }
     }
+    if (items.length < 1000) break;
   }
-
-  if (corruptedIds.length === 0) return 0;
-
-  const { error: updateError } = await admin
-    .from("mailer_queue")
-    .update({
-      status: "cancelled",
-      last_error: "cancelled_missing_card",
-      error_code: "INTEGRITY_MISSING_CARD",
-      processed_at: new Date().toISOString(),
-    })
-    .in("id", corruptedIds);
-
-  if (updateError) {
-    console.error("[mailer-queue] Failed to cancel corrupted queue items:", updateError);
-    return 0;
+  for (let i = 0; i < corruptedIds.length; i += 100) {
+    const { error } = await admin
+      .from("mailer_queue")
+      .update({
+        status: "cancelled",
+        last_error: "cancelled_missing_card",
+        error_code: "INTEGRITY_MISSING_CARD",
+        processed_at: new Date().toISOString(),
+      })
+      .in("id", corruptedIds.slice(i, i + 100));
+    if (error) throw new Error(`Cannot quarantine corrupted cards: ${error.message}`);
   }
-
-  console.info(
-    `[mailer-queue] Cancelled ${corruptedIds.length} corrupted queue items missing athlete cards.`,
-  );
   return corruptedIds.length;
 }
 
-/**
- * Worker autenticado de execução de micro-lote (até 2 e-mails) acionado pelo navegador.
- * Garante:
- * 1. campaignId obrigatório e restrição de escopo SQL sem mistura de campanhas.
- * 2. maxBatchSize estritamente limitado a no máximo 2.
- * 3. Validação de lease de sessão/aba controladora.
- * 4. Reply-To institucional unificado (contact@goteamgoagency.com).
- * 5. Cabeçalhos oficiais de idempotência (Idempotency-Key e X-Entity-Ref-ID).
- * 6. Eliminação de sleeps na função serverless (a espera de 1s ocorre no cliente).
- * 7. Retorno do progresso consolidado na resposta (evitando polling duplo).
- */
+/** Executes one bounded, campaign-scoped burst. No Resend call may be made by a test. */
 export async function processMailerQueue(
   options: ProcessQueueOptions,
 ): Promise<ProcessQueueResult> {
   const admin = options?.customAdmin || getAdminClient();
+  const campaignId = options?.campaignId?.trim();
+  const empty = (extra: Partial<ProcessQueueResult> = {}): ProcessQueueResult => ({
+    processed: 0,
+    sent: 0,
+    failed: 0,
+    retried: 0,
+    rateLimited: false,
+    effectiveBurstSize: QUEUE_CONFIG.BURST_SIZE,
+    burstPauseMs: QUEUE_CONFIG.BURST_PAUSE_MS,
+    activeCampaignId: campaignId,
+    ...extra,
+  });
+  if (!campaignId || !UUID_REGEX.test(campaignId))
+    return empty({ message: "Valid campaignId is required." });
 
-  if (!options?.campaignId || !UUID_REGEX.test(options.campaignId.trim())) {
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      message: "Valid campaignId is required.",
-    };
+  const workerId = options?.workerId || `browser-${crypto.randomBytes(8).toString("hex")}`;
+  const controllerId = options?.clientId?.trim() || workerId;
+  const requestedSize = Math.max(
+    1,
+    Math.min(
+      QUEUE_CONFIG.BURST_SIZE,
+      Math.floor(Number(options?.maxBatchSize) || QUEUE_CONFIG.BURST_SIZE),
+    ),
+  );
+
+  // Lease must be acquired before ANY provider work. Long enough for a full burst/fallback.
+  const lease = await admin.rpc("acquire_mailer_campaign_lease", {
+    p_campaign_id: campaignId,
+    p_controller_id: controllerId,
+    p_lease_seconds: QUEUE_CONFIG.LEASE_DURATION_SEC,
+  });
+  if (lease.error || lease.data !== true) {
+    return empty({
+      controllerConflict: lease.data === false && !lease.error,
+      message: lease.error?.message || "Another tab controls this campaign.",
+    });
   }
 
-  const campaignId = options.campaignId.trim();
-  const workerId = options?.workerId || `browser-${crypto.randomBytes(4).toString("hex")}`;
-  const maxBatchSize = Math.min(2, Math.max(1, Number(options?.maxBatchSize) || 2));
-  const now = new Date();
-
-  // Saneamento preventivo: cancela itens na fila sem card antes de processar
-  try {
-    await sanitizePendingQueueItemsMissingCards(campaignId, admin);
-  } catch (err) {
-    console.error("[mailer-queue] Error during queue card sanitation:", err);
+  const { data: campaign, error: campaignError } = await admin
+    .from("mailer_campaigns")
+    .select("id,status,batch_size,next_batch_at,total_recipients")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (campaignError || !campaign)
+    return empty({ message: campaignError?.message || "Campaign not found." });
+  const effectiveSize = Math.min(
+    requestedSize,
+    Math.max(1, Number(campaign.batch_size) || QUEUE_CONFIG.BURST_SIZE),
+  );
+  const stopped = ["paused", "cancelled", "completed", "failed"].includes(campaign.status);
+  if (stopped) {
+    return empty({
+      effectiveBurstSize: effectiveSize,
+      campaignStatus: campaign.status,
+      campaignCompleted: campaign.status === "completed",
+      progress: await getCampaignQueueProgress(campaignId, admin),
+    });
   }
 
-  // An unavailable/missing lease must never permit dispatching.
-  const controllerId = options.clientId?.trim() || workerId;
-  try {
-    const { data: leaseAcquired, error: leaseErr } = await admin.rpc(
-      "acquire_mailer_campaign_lease",
-      {
-        p_campaign_id: campaignId,
-        p_controller_id: controllerId,
-        p_lease_seconds: 15,
-      },
-    );
-    if (leaseErr || leaseAcquired !== true) {
-      return {
-        processed: 0,
-        sent: 0,
-        failed: 0,
-        retried: 0,
-        rateLimited: false,
-        activeCampaignId: campaignId,
-        controllerConflict: leaseAcquired === false && !leaseErr,
-        message: leaseErr
-          ? `Campaign lease unavailable: ${leaseErr.message}`
-          : "Another session controls the campaign, or its lease cannot be acquired.",
-      };
-    }
-  } catch (err) {
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      activeCampaignId: campaignId,
-      message: `Campaign lease request failed: ${err instanceof Error ? err.message : "unknown error"}`,
-    };
+  // Never touch Resend until the atomic-completion migration is installed.
+  const readiness = await admin.rpc("mailer_burst_ready");
+  if (readiness.error || readiness.data !== true) {
+    return empty({
+      effectiveBurstSize: effectiveSize,
+      message: "Mailer migration 0027 is not available. No email was sent.",
+    });
   }
 
-  // 2. Recuperar itens órfãos expirados (stale processing)
-  try {
-    await admin.rpc("recover_stale_mailer_queue_reservations");
-  } catch {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    await admin
-      .from("mailer_queue")
-      .update({
-        status: "retry",
-        reserved_by: null,
-        reserved_at: null,
-        reservation_expires_at: null,
-        next_retry_at: new Date(Date.now() + 30 * 1000).toISOString(),
-        last_error: "Recovered stale reservation",
-      })
-      .eq("status", "processing")
-      .lt("reservation_expires_at", fiveMinutesAgo);
-  }
-
-  // 3. Verificar limite global do provedor (mailer_rate_limits)
-  const { data: rateLimit } = await admin
+  const { data: limit, error: limitError } = await admin
     .from("mailer_rate_limits")
     .select("locked_until")
     .eq("id", "global_resend_limit")
     .maybeSingle();
-
-  if (rateLimit?.locked_until && new Date(rateLimit.locked_until) > now) {
-    const lockWaitSec = Math.ceil(
-      (new Date(rateLimit.locked_until).getTime() - now.getTime()) / 1000,
-    );
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: true,
+  if (limitError)
+    return empty({ message: `Cannot verify provider rate limit: ${limitError.message}` });
+  const now = Date.now();
+  const notBefore = Math.max(
+    limit?.locked_until ? new Date(limit.locked_until).getTime() : 0,
+    campaign.next_batch_at ? new Date(campaign.next_batch_at).getTime() : 0,
+  );
+  if (notBefore > now) {
+    const wait = Math.ceil((notBefore - now) / 1000);
+    return empty({
+      effectiveBurstSize: effectiveSize,
+      rateLimited: !!limit?.locked_until && new Date(limit.locked_until).getTime() > now,
       cooldownActive: true,
-      cooldownRemainingSec: lockWaitSec,
-      activeCampaignId: campaignId,
-      message: `Global rate limit active until ${rateLimit.locked_until}`,
-    };
-  }
-
-  // 4. Buscar a campanha em execução
-  const { data: specificCamp, error: campErr } = await admin
-    .from("mailer_campaigns")
-    .select("*")
-    .eq("id", campaignId)
-    .maybeSingle();
-
-  if (campErr || !specificCamp) {
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      message: campErr?.message || "Campaign not found.",
-    };
-  }
-
-  const activeCampaign = specificCamp as MailerCampaign;
-
-  if (
-    activeCampaign.status === "paused" ||
-    activeCampaign.status === "cancelled" ||
-    activeCampaign.status === "completed"
-  ) {
-    const progress = await getCampaignQueueProgress(campaignId, admin);
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      campaignCompleted: activeCampaign.status === "completed",
-      campaignStatus: activeCampaign.status,
-      activeCampaignId: activeCampaign.id,
-      progress,
-      message: `Campaign is in state: ${activeCampaign.status}`,
-    };
-  }
-
-  // 5. Verificar se a janela de cooldown está ativa (sem permissão para cliente burlar)
-  if (activeCampaign.next_batch_at && new Date(activeCampaign.next_batch_at) > now) {
-    const waitSeconds = Math.ceil(
-      (new Date(activeCampaign.next_batch_at).getTime() - now.getTime()) / 1000,
-    );
-    const progress = await getCampaignQueueProgress(campaignId, admin);
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      cooldownActive: true,
-      cooldownRemainingSec: waitSeconds,
-      activeCampaignId: activeCampaign.id,
-      campaignStatus: "running",
-      progress,
-      message: `Waiting for cooldown window (${waitSeconds}s remaining).`,
-    };
-  }
-
-  // 6. Reservar atomicamente itens da fila ESCOPADOS para esta campanha via RPC com SKIP LOCKED
-  let claimedItems: MailerQueueItem[] = [];
-
-  try {
-    const { data: rpcClaimed, error: rpcErr } = await admin.rpc("claim_mailer_queue_batch", {
-      p_worker_id: workerId,
-      p_batch_size: maxBatchSize,
-      p_lock_duration_sec: QUEUE_CONFIG.LOCK_DURATION_SEC,
-      p_campaign_id: campaignId,
+      cooldownRemainingSec: wait,
+      campaignStatus: campaign.status,
     });
-
-    if (rpcErr) {
-      console.error("[mailer-queue] RPC claim_mailer_queue_batch returned error:", rpcErr.message);
-      return {
-        processed: 0,
-        sent: 0,
-        failed: 0,
-        retried: 0,
-        rateLimited: false,
-        activeCampaignId: activeCampaign.id,
-        message: `Reservation error: ${rpcErr.message}`,
-      };
-    }
-
-    if (rpcClaimed && Array.isArray(rpcClaimed)) {
-      claimedItems = rpcClaimed as MailerQueueItem[];
-    }
-  } catch (err) {
-    console.error("[mailer-queue] Exception invoking claim_mailer_queue_batch:", err);
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      activeCampaignId: activeCampaign.id,
-      message: "Exception during atomic reservation.",
-    };
   }
 
-  // 7. Se nenhum item foi reservado, verificar se a campanha já concluiu
-  if (claimedItems.length === 0) {
-    const { count: pendingCount, error: countErr } = await admin
-      .from("mailer_queue")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", activeCampaign.id)
-      .in("status", ["pending", "processing", "retry"]);
-
-    if (countErr) {
-      return {
-        processed: 0,
-        sent: 0,
-        failed: 0,
-        retried: 0,
-        rateLimited: false,
-        activeCampaignId: activeCampaign.id,
-        message: `Error verifying queue completion: ${countErr.message}`,
-      };
-    }
-
-    if (!pendingCount || pendingCount === 0) {
-      await admin
+  const claim = await admin.rpc("claim_mailer_queue_batch", {
+    p_worker_id: workerId,
+    p_batch_size: effectiveSize,
+    p_lock_duration_sec: QUEUE_CONFIG.LOCK_DURATION_SEC,
+    p_campaign_id: campaignId,
+  });
+  if (claim.error || !Array.isArray(claim.data)) {
+    return empty({
+      effectiveBurstSize: effectiveSize,
+      message: claim.error?.message || "Invalid queue reservation.",
+    });
+  }
+  const items = claim.data as MailerQueueItem[];
+  if (!items.length) {
+    const progress = await getCampaignQueueProgress(campaignId, admin);
+    if (!progress) return empty({ message: "Could not read campaign progress." });
+    if (progress.pendingCount + progress.processingCount === 0) {
+      const { error } = await admin
         .from("mailer_campaigns")
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
           next_batch_at: null,
         })
-        .eq("id", activeCampaign.id);
-
-      const progress = await getCampaignQueueProgress(activeCampaign.id, admin);
-
-      return {
-        processed: 0,
-        sent: 0,
-        failed: 0,
-        retried: 0,
-        rateLimited: false,
-        campaignCompleted: true,
+        .eq("id", campaignId)
+        .eq("status", "running");
+      if (error) return empty({ message: error.message });
+      return empty({
         campaignStatus: "completed",
-        activeCampaignId: activeCampaign.id,
-        progress,
-        message: "Campaign completed. All items processed.",
-      };
+        campaignCompleted: true,
+        progress: await getCampaignQueueProgress(campaignId, admin),
+        effectiveBurstSize: effectiveSize,
+      });
     }
-
-    const progress = await getCampaignQueueProgress(activeCampaign.id, admin);
-    return {
-      processed: 0,
-      sent: 0,
-      failed: 0,
-      retried: 0,
-      rateLimited: false,
-      activeCampaignId: activeCampaign.id,
-      campaignStatus: "running",
+    // Recovery is only needed when there is no claimable work, not once per burst.
+    if (progress.processingCount > 0) await admin.rpc("recover_stale_mailer_queue_reservations");
+    return empty({
       progress,
-      message: "No claimable items at this time.",
-    };
+      campaignStatus: "running",
+      effectiveBurstSize: effectiveSize,
+      cooldownActive: true,
+      cooldownRemainingSec: 1,
+    });
   }
 
-  // 8. Envio imediato dos itens do micro-lote via Resend com verificação de idempotência
-  const resendClient = getResendClient();
-  const resendConfig = getResendConfig();
-  const from = resendConfig.from;
-
-  let sentCount = 0;
-  let failedCount = 0;
-  let retriedCount = 0;
-  let rateLimited = false;
-
-  for (const item of claimedItems) {
-    if (rateLimited) {
-      await admin
-        .from("mailer_queue")
-        .update({
-          status: "retry",
-          reserved_by: null,
-          reserved_at: null,
-          reservation_expires_at: null,
-          next_retry_at: new Date(Date.now() + 60 * 1000).toISOString(),
-          error_code: "429_circuit_breaker",
-        })
-        .eq("id", item.id);
-      retriedCount++;
-      continue;
-    }
-
-    // Verificação de idempotência: se a mensagem já tem provider_message_id, pular envio
-    if (item.provider_message_id) {
-      const { error: confirmedError } = await admin
-        .from("mailer_queue")
-        .update({ status: "sent", reserved_by: null, reservation_expires_at: null })
-        .eq("id", item.id);
-      if (confirmedError) {
-        return {
-          processed: 0,
-          sent: sentCount,
-          failed: failedCount,
-          retried: retriedCount,
-          rateLimited: false,
-          campaignStatus: "paused",
-          activeCampaignId: campaignId,
-          message: `Unable to persist provider-confirmed delivery: ${confirmedError.message}`,
-        };
-      }
-      sentCount++;
-      continue;
-    }
-
-    const payload = (item.payload || {}) as {
+  type ResultRow = {
+    id: string;
+    status: "sent" | "retry" | "failed" | "cancelled";
+    provider_id: string | null;
+    error_code: string | null;
+    error_message: string | null;
+    next_retry_at: string | null;
+  };
+  type ReadyItem = {
+    item: MailerQueueItem;
+    payload: {
       html?: string;
       text?: string;
       tags?: ResendTag[];
-      athleteId?: string | null;
-      athleteIds?: string[];
     };
+  };
+  const results: ResultRow[] = [];
+  const ready: ReadyItem[] = [];
+  const record = (
+    item: MailerQueueItem,
+    status: ResultRow["status"],
+    providerId: string | null = null,
+    message: string | null = null,
+    code: string | null = null,
+    retryAt: string | null = null,
+  ) => {
+    results.push({
+      id: item.id,
+      status,
+      provider_id: providerId,
+      error_message: message,
+      error_code: code,
+      next_retry_at: retryAt,
+    });
+  };
+  const retry = (item: MailerQueueItem, error: string, code: string, nextAt?: string) => {
+    if (item.attempts >= item.max_attempts && code !== "429") {
+      record(item, "failed", null, error, code);
+    } else {
+      const delayMs = Math.min(300000, Math.pow(2, item.attempts || 1) * 2000);
+      record(
+        item,
+        "retry",
+        null,
+        error,
+        code,
+        nextAt || new Date(Date.now() + delayMs).toISOString(),
+      );
+    }
+  };
 
-    // Validação fail-closed no momento do envio: cancela item corrompido sem acionar Resend
-    if (
+  for (const item of items) {
+    const payload = (item.payload || {}) as ReadyItem["payload"];
+    if (item.provider_message_id) {
+      record(item, "sent", item.provider_message_id);
+    } else if (
       item.email_type !== "catalog_general" &&
       (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE"))
     ) {
-      console.warn(`[mailer-queue] Item ${item.id} cancelled: missing athlete card in payload.`);
-      await admin
-        .from("mailer_queue")
-        .update({
-          status: "cancelled",
-          last_error: "cancelled_missing_card",
-          error_code: "INTEGRITY_MISSING_CARD",
-          reserved_by: null,
-          reservation_expires_at: null,
-          processed_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
-      failedCount++;
-      continue;
+      record(item, "cancelled", null, "cancelled_missing_card", "INTEGRITY_MISSING_CARD");
+    } else if (!payload.html || !item.recipient_email) {
+      record(item, "cancelled", null, "Invalid email snapshot", "INVALID_PAYLOAD");
+    } else {
+      ready.push({ item, payload });
     }
+  }
 
-    try {
-      if (!resendClient || !resendConfig.isConfigured) {
-        throw new Error("Resend client not configured.");
-      }
+  const resendClient = getResendClient();
+  const config = getResendConfig();
+  let rateLimited = false;
+  let retryAfterSec = 0;
+  let quarantineReason: string | null = null;
 
-      const resendRes = await resendClient.emails.send(
-        {
-          from,
+  // SDK errors may expose Retry-After in different shapes; conservative 60s fallback.
+  const rateLimit = (error: unknown) => {
+    rateLimited = true;
+    const err = error as {
+      retryAfter?: string | number;
+      headers?: { get?: (name: string) => string | null };
+      message?: string;
+    };
+    retryAfterSec = Math.max(
+      retryAfterSec,
+      getRetryAfterSeconds(
+        err?.headers?.get?.("retry-after") ??
+          err?.retryAfter ??
+          err?.message?.match(/retry.after[^0-9]*(\\d+)/i)?.[1],
+        60,
+      ),
+    );
+  };
+
+  if (!resendClient || !config.isConfigured) {
+    for (const { item } of ready) retry(item, "Resend not configured", "CONFIG_ERROR");
+  } else {
+    const sorted = [...ready].sort((a, b) =>
+      a.item.idempotency_key.localeCompare(b.item.idempotency_key),
+    );
+    const chunks: ReadyItem[][] = [];
+    for (let i = 0; i < sorted.length; i += 100) chunks.push(sorted.slice(i, i + 100));
+
+    await Promise.all(
+      chunks.map(async (chunk) => {
+        const payload = chunk.map(({ item, payload: body }) => ({
+          from: config.from,
           to: [item.recipient_email],
           subject: item.subject,
-          html: payload.html || "",
-          text: payload.text || "",
-          replyTo: EMAIL_SIGNATURE.email, // contact@goteamgoagency.com
-          tags: payload.tags || [],
-          headers: {
-            "X-Entity-Ref-ID": item.idempotency_key,
-          },
-        },
-        { idempotencyKey: item.idempotency_key },
-      );
+          html: body.html || "",
+          text: body.text || "",
+          replyTo: EMAIL_SIGNATURE.email,
+          tags: body.tags || [],
+          headers: { "X-Entity-Ref-ID": item.idempotency_key },
+        }));
+        const key = chunkIdempotencyKey(
+          campaignId,
+          chunk.map(({ item }) => item.idempotency_key),
+        );
 
-      if (resendRes.error) {
-        throw new Error(resendRes.error.message || "Failed to send email via Resend");
-      }
-
-      const providerId = resendRes.data?.id || null;
-      const processedAt = new Date().toISOString();
-
-      // Sucesso: registrar status 'sent' e ID do provedor
-      const { error: persistError } = await admin
-        .from("mailer_queue")
-        .update({
-          status: "sent",
-          provider_message_id: providerId,
-          processed_at: processedAt,
-          reserved_by: null,
-          reservation_expires_at: null,
-          last_error: null,
-        })
-        .eq("id", item.id);
-
-      if (persistError) {
-        // The provider accepted the message. Do not retry blindly or continue this campaign.
-        const message = `Resend accepted ${item.recipient_email} (${providerId ?? "no id"}) but queue persistence failed: ${persistError.message}. Manual reconciliation required.`;
-        console.error("[mailer-queue]", message);
-        const { error: pauseError } = await admin
-          .from("mailer_campaigns")
-          .update({ status: "paused", last_error: message, next_batch_at: null })
-          .eq("id", campaignId);
-        if (pauseError)
-          console.error("[mailer-queue] Unable to pause after uncertain persistence:", pauseError);
-        return {
-          processed: 0,
-          sent: sentCount,
-          failed: failedCount,
-          retried: retriedCount,
-          rateLimited: false,
-          activeCampaignId: campaignId,
-          campaignStatus: "paused",
-          progress: await getCampaignQueueProgress(campaignId, admin),
-          message,
-        };
-      }
-
-      // Inserir log correspondente de forma resiliente
-      try {
-        await admin.from("recruit_email_logs").insert({
-          campaign_id: item.campaign_id,
-          athlete_id: payload.athleteId || null,
-          athlete_ids: payload.athleteIds || [],
-          coach_id: item.coach_id && UUID_REGEX.test(item.coach_id) ? item.coach_id : null,
-          subject: item.subject,
-          status: "sent",
-          error_message: null,
-          sent_at: processedAt,
-          email_type: item.email_type,
-          recipient_email: item.recipient_email,
-          recipient_name: item.recipient_name,
-          university_name: item.university_name,
-          provider_id: providerId,
-        });
-      } catch (logErr) {
-        console.error("[mailer-queue] Non-fatal log insertion error:", logErr);
-      }
-
-      sentCount++;
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown send error";
-      const is429 =
-        errorMessage.includes("429") ||
-        errorMessage.toLowerCase().includes("rate limit") ||
-        errorMessage.toLowerCase().includes("too many requests");
-
-      if (is429) {
-        rateLimited = true;
-        const retryAfterSec = 60;
-        const lockUntil = new Date(Date.now() + retryAfterSec * 1000).toISOString();
-
-        await admin
-          .from("mailer_rate_limits")
-          .update({
-            locked_until: lockUntil,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", "global_resend_limit");
-
-        await admin
-          .from("mailer_queue")
-          .update({
-            status: "retry",
-            next_retry_at: lockUntil,
-            last_error: errorMessage,
-            error_code: "429",
-            reserved_by: null,
-            reservation_expires_at: null,
-          })
-          .eq("id", item.id);
-
-        retriedCount++;
-      } else {
-        const nextAttempts = item.attempts || 1;
-        if (nextAttempts >= item.max_attempts) {
-          const processedAt = new Date().toISOString();
-          await admin
-            .from("mailer_queue")
-            .update({
-              status: "failed",
-              last_error: errorMessage,
-              processed_at: processedAt,
-              reserved_by: null,
-              reservation_expires_at: null,
-            })
-            .eq("id", item.id);
-
-          try {
-            await admin.from("recruit_email_logs").insert({
-              campaign_id: item.campaign_id,
-              athlete_id: payload.athleteId || null,
-              athlete_ids: payload.athleteIds || [],
-              coach_id: item.coach_id && UUID_REGEX.test(item.coach_id) ? item.coach_id : null,
-              subject: item.subject,
-              status: "failed",
-              error_message: errorMessage,
-              sent_at: processedAt,
-              email_type: item.email_type,
-              recipient_email: item.recipient_email,
-              recipient_name: item.recipient_name,
-              university_name: item.university_name,
-            });
-          } catch (logErr) {
-            console.error("[mailer-queue] Non-fatal failed log insertion error:", logErr);
+        try {
+          const response = await resendClient.batch.send(payload, { idempotencyKey: key });
+          if (response.error) throw response.error;
+          const ids = response.data?.data;
+          if (
+            !Array.isArray(ids) ||
+            ids.length !== chunk.length ||
+            ids.some((entry) => !entry?.id)
+          ) {
+            quarantineReason =
+              "Batch response did not confirm every provider message. Manual reconciliation required.";
+            for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+            return;
           }
-
-          failedCount++;
-        } else {
-          const delaySec = Math.min(300, Math.pow(2, nextAttempts) * 2 + Math.random() * 2);
-          const nextRetryAt = new Date(Date.now() + delaySec * 1000).toISOString();
-
-          await admin
-            .from("mailer_queue")
-            .update({
-              status: "retry",
-              next_retry_at: nextRetryAt,
-              last_error: errorMessage,
-              reserved_by: null,
-              reservation_expires_at: null,
-            })
-            .eq("id", item.id);
-
-          retriedCount++;
+          chunk.forEach(({ item }, i) => record(item, "sent", ids[i].id));
+          return;
+        } catch (error) {
+          if (isRateLimitError(error)) {
+            rateLimit(error);
+            for (const { item } of chunk)
+              retry(
+                item,
+                "Resend 429 rate limit",
+                "429",
+                new Date(Date.now() + retryAfterSec * 1000).toISOString(),
+              );
+            return;
+          }
+          if (isAmbiguousProviderError(error)) {
+            quarantineReason = "Ambiguous Resend batch acceptance. Manual reconciliation required.";
+            for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+            return;
+          }
+          // Explicitly rejected batch: bounded individual fallback with per-item keys.
+          for (const { item, payload: body } of chunk) {
+            if (rateLimited || quarantineReason) {
+              retry(
+                item,
+                "Dispatch suspended",
+                "429",
+                new Date(Date.now() + Math.max(1, retryAfterSec) * 1000).toISOString(),
+              );
+              continue;
+            }
+            try {
+              const individual = await resendClient.emails.send(
+                {
+                  from: config.from,
+                  to: [item.recipient_email],
+                  subject: item.subject,
+                  html: body.html || "",
+                  text: body.text || "",
+                  replyTo: EMAIL_SIGNATURE.email,
+                  tags: body.tags || [],
+                  headers: { "X-Entity-Ref-ID": item.idempotency_key },
+                },
+                { idempotencyKey: item.idempotency_key },
+              );
+              if (individual.error) throw individual.error;
+              if (!individual.data?.id) {
+                quarantineReason =
+                  "Individual provider acceptance ambiguous. Manual reconciliation required.";
+                retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+                continue;
+              }
+              record(item, "sent", individual.data.id);
+            } catch (individualError) {
+              if (isRateLimitError(individualError)) {
+                rateLimit(individualError);
+                retry(
+                  item,
+                  "Resend 429 rate limit",
+                  "429",
+                  new Date(Date.now() + retryAfterSec * 1000).toISOString(),
+                );
+              } else if (isAmbiguousProviderError(individualError)) {
+                quarantineReason =
+                  "Ambiguous individual provider acceptance. Manual reconciliation required.";
+                retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+              } else {
+                retry(
+                  item,
+                  individualError instanceof Error
+                    ? individualError.message
+                    : String((individualError as { message?: string })?.message || "Send failed"),
+                  "SEND_ERROR",
+                );
+              }
+            }
+          }
         }
-      }
-    }
+      }),
+    );
   }
 
-  // 9. Atualizar contadores da campanha e checar milestone de cooldown
-  const previousSent = activeCampaign.sent_count || 0;
-  const previousBatch = activeCampaign.current_batch || 1;
-  const newSent = previousSent + sentCount;
-  const batchThreshold = activeCampaign.batch_size || 150;
-
-  const crossedBatchMilestone =
-    batchThreshold > 0 &&
-    Math.floor(newSent / batchThreshold) > Math.floor(previousSent / batchThreshold);
-
-  const { count: remainingPending, error: remainingCountError } = await admin
-    .from("mailer_queue")
-    .select("id", { count: "exact", head: true })
-    .eq("campaign_id", activeCampaign.id)
-    .in("status", ["pending", "processing", "retry"]);
-
-  if (remainingCountError || remainingPending === null) {
-    return {
-      processed: claimedItems.length,
-      sent: sentCount,
-      failed: failedCount,
-      retried: retriedCount,
-      rateLimited,
-      activeCampaignId: campaignId,
-      message: `Unable to verify campaign completion: ${remainingCountError?.message ?? "missing count"}`,
-    };
-  }
-  const isCompleted = remainingPending === 0;
-
-  let nextBatchTime: string | null = null;
-  let cooldownActive = false;
-  let cooldownRemainingSec = 0;
-
-  if (isCompleted) {
-    nextBatchTime = null;
-  } else if (crossedBatchMilestone) {
-    cooldownActive = true;
-    cooldownRemainingSec = QUEUE_CONFIG.PAUSE_BETWEEN_BATCHES_SEC;
-    nextBatchTime = new Date(Date.now() + cooldownRemainingSec * 1000).toISOString();
-  }
-
-  const newCurrentBatch = crossedBatchMilestone ? previousBatch + 1 : previousBatch;
-
-  await admin
-    .from("mailer_campaigns")
-    .update({
-      sent_count: newSent,
-      failed_count: (activeCampaign.failed_count || 0) + failedCount,
-      current_batch: newCurrentBatch,
-      status: isCompleted ? "completed" : "running",
-      completed_at: isCompleted ? new Date().toISOString() : null,
-      next_batch_at: nextBatchTime,
-    })
-    .eq("id", activeCampaign.id);
-
-  if (crossedBatchMilestone) {
+  const reducedSize = nextBurstSize(effectiveSize, rateLimited);
+  const confirmed = results.filter((r) => r.status === "sent").length;
+  const { data: completed, error: persistenceError } = await admin.rpc("complete_mailer_burst", {
+    p_campaign_id: campaignId,
+    p_worker_id: workerId,
+    p_results: results,
+    p_next_size: reducedSize,
+    p_pause_ms: QUEUE_CONFIG.BURST_PAUSE_MS,
+    p_lock_until: rateLimited ? new Date(Date.now() + retryAfterSec * 1000).toISOString() : null,
+  });
+  if (persistenceError || !completed || Number(completed.updated) !== items.length) {
+    const message = `Resend may have accepted ${confirmed} messages, but burst persistence failed. Manual reconciliation required. ${persistenceError?.message || ""}`;
     await admin
-      .from("mailer_rate_limits")
+      .from("mailer_campaigns")
       .update({
-        last_batch_completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: "paused",
+        last_error: message,
+        next_batch_at: null,
       })
-      .eq("id", "global_resend_limit");
+      .eq("id", campaignId);
+    return empty({
+      sent: confirmed,
+      processed: items.length,
+      effectiveBurstSize: reducedSize,
+      campaignStatus: "paused",
+      message,
+    });
+  }
+  if (quarantineReason) {
+    await admin
+      .from("mailer_campaigns")
+      .update({
+        status: "paused",
+        last_error: quarantineReason,
+        next_batch_at: null,
+      })
+      .eq("id", campaignId);
   }
 
-  // Retornar progresso consolidado diretamente nesta resposta
-  const progress = await getCampaignQueueProgress(activeCampaign.id, admin);
-
+  const progress = await getCampaignQueueProgress(campaignId, admin);
+  const campaignStatus = quarantineReason ? "paused" : progress?.status;
   return {
-    processed: claimedItems.length,
-    sent: sentCount,
-    failed: failedCount,
-    retried: retriedCount,
+    processed: items.length,
+    sent: confirmed,
+    failed: results.filter((r) => r.status === "failed").length,
+    retried: results.filter((r) => r.status === "retry").length,
     rateLimited,
-    cooldownActive,
-    cooldownRemainingSec,
-    campaignCompleted: isCompleted,
-    campaignStatus: isCompleted ? "completed" : "running",
-    activeCampaignId: activeCampaign.id,
+    effectiveBurstSize: reducedSize,
+    burstPauseMs: QUEUE_CONFIG.BURST_PAUSE_MS,
+    cooldownActive: rateLimited,
+    cooldownRemainingSec: rateLimited ? retryAfterSec : undefined,
+    campaignStatus,
+    campaignCompleted: campaignStatus === "completed",
+    activeCampaignId: campaignId,
     progress,
+    message:
+      quarantineReason ||
+      (rateLimited ? `Resend 429: next burst reduced to ${reducedSize}.` : undefined),
   };
 }
 
@@ -1320,15 +1156,18 @@ export async function getCampaignQueueProgress(
       const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
       const remainingItems = pending + processing;
-      const remainingMicroBatches = Math.ceil(remainingItems / 2);
-      const activeSeconds = remainingMicroBatches * 1.5;
-      const itemsInCurrentBatch = sent % 150;
-      const itemsToNextPause = 150 - itemsInCurrentBatch;
-      const remainingPauses =
-        remainingItems > itemsToNextPause
-          ? Math.floor((remainingItems - itemsToNextPause) / 150) + 1
-          : 0;
-      const estimatedRemainingSeconds = Math.round(activeSeconds + remainingPauses * 60);
+      const remainingBursts = Math.ceil(
+        remainingItems / Math.max(1, Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE),
+      );
+      const elapsed = s.started_at
+        ? (Date.now() - new Date(String(s.started_at)).getTime()) / 1000
+        : 0;
+      const priorBursts = Math.max(1, (Number(s.current_batch) || 1) - 1);
+      const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
+      const estimatedRemainingSeconds = Math.ceil(
+        remainingBursts * secondsPerBurst +
+          (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
+      );
 
       return {
         campaignId: String(s.campaign_id),
@@ -1343,7 +1182,7 @@ export async function getCampaignQueueProgress(
         cancelledCount: cancelled,
         currentBatch: Number(s.current_batch) || 1,
         totalBatches: Number(s.total_batches) || 1,
-        batchSize: Number(s.batch_size) || 150,
+        batchSize: Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE,
         percentComplete,
         nextBatchAt: (s.next_batch_at as string) || null,
         startedAt: (s.started_at as string) || null,
@@ -1412,15 +1251,18 @@ export async function getCampaignQueueProgress(
   const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
   const remainingItems = pending + processing;
-  const remainingMicroBatches = Math.ceil(remainingItems / 2);
-  const activeSeconds = remainingMicroBatches * 1.5;
-  const itemsInCurrentBatch = sent % 150;
-  const itemsToNextPause = 150 - itemsInCurrentBatch;
-  const remainingPauses =
-    remainingItems > itemsToNextPause
-      ? Math.floor((remainingItems - itemsToNextPause) / 150) + 1
-      : 0;
-  const estimatedRemainingSeconds = Math.round(activeSeconds + remainingPauses * 60);
+  const remainingBursts = Math.ceil(
+    remainingItems / Math.max(1, campaign.batch_size || QUEUE_CONFIG.BURST_SIZE),
+  );
+  const elapsed = campaign.started_at
+    ? (Date.now() - new Date(campaign.started_at).getTime()) / 1000
+    : 0;
+  const priorBursts = Math.max(1, (campaign.current_batch || 1) - 1);
+  const secondsPerBurst = sent > 0 ? Math.max(0.5, elapsed / priorBursts) : 1.5;
+  const estimatedRemainingSeconds = Math.ceil(
+    remainingBursts * secondsPerBurst +
+      (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
+  );
 
   return {
     campaignId: campaign.id,
@@ -1435,7 +1277,7 @@ export async function getCampaignQueueProgress(
     cancelledCount: cancelled,
     currentBatch: campaign.current_batch || 1,
     totalBatches: campaign.total_batches || 1,
-    batchSize: campaign.batch_size || 150,
+    batchSize: campaign.batch_size || QUEUE_CONFIG.BURST_SIZE,
     percentComplete,
     nextBatchAt: campaign.next_batch_at,
     startedAt: campaign.started_at,

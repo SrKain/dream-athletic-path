@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { AppShell, ProtectedPage } from "@/components/app-shell";
 import { buttonClass, secondaryButtonClass } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
+import { asQueryResult, fetchAllUniversities } from "@/lib/universities-fetch";
 import {
   sendMailerServerFn,
   enqueueMailerCampaignServerFn,
@@ -243,6 +244,11 @@ function MailerPage() {
   const isOrchestratorActiveRef = React.useRef(false);
   const isProcessingTickRef = React.useRef(false);
   const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const burstSizeRef = React.useRef(300);
+  const burstPauseRef = React.useRef(1000);
+  const lastBurstAtRef = React.useRef<number | null>(null);
+  const [sendRate, setSendRate] = useState(0);
+  const [rateLimitNotice, setRateLimitNotice] = useState<string | null>(null);
 
   // Carregar dados iniciais
   async function loadInitialData() {
@@ -276,7 +282,12 @@ function MailerPage() {
           .eq("is_public", true)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
-        supabase.from("universities").select("*").order("name", { ascending: true }),
+        asQueryResult(
+          fetchAllUniversities<University>(
+            supabase,
+            "id,name,city,state,league,is_hbcu,budget_level,toefl_level,coaches,source_url",
+          ),
+        ),
         getSuppressedEmailsServerFn().catch(() => []),
         getMailerHistoryServerFn().catch(() => []),
         getActiveInterestSignalsServerFn().catch(() => []),
@@ -472,7 +483,7 @@ function MailerPage() {
     return () => clearInterval(timer);
   }, [cooldownRemaining]);
 
-  // 4. Orquestrador do Navegador: Disparo sequencial de micro-lotes de até 2 e-mails
+  // 4. Orquestrador do Navegador: rajadas sequenciais de até 300 (chunks de 100 no servidor)
   const triggerOrchestratorTick = React.useCallback(
     (delayMs: number = 1000) => {
       if (tickTimeoutRef.current) {
@@ -504,12 +515,24 @@ function MailerPage() {
           const res = await processMailerMicroBatchServerFn({
             data: {
               campaignId: activeCampaignId,
-              batchSize: 2,
+              batchSize: burstSizeRef.current,
               clientId: tabIdRef.current,
             },
           });
 
           if (isUnmountedRef.current || !isOrchestratorActiveRef.current) return;
+
+          if (res.effectiveBurstSize) burstSizeRef.current = res.effectiveBurstSize;
+          if (res.burstPauseMs) burstPauseRef.current = res.burstPauseMs;
+          if (res.rateLimited)
+            setRateLimitNotice(
+              res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`,
+            );
+          const tickNow = Date.now();
+          if (res.sent > 0 && lastBurstAtRef.current) {
+            setSendRate(res.sent / Math.max(1, (tickNow - lastBurstAtRef.current) / 1000));
+          }
+          lastBurstAtRef.current = tickNow;
 
           if (res.controllerConflict) {
             setIsAnotherTabActive(true);
@@ -552,10 +575,11 @@ function MailerPage() {
 
           if (res.campaignCompleted || res.campaignStatus === "completed") {
             isOrchestratorActiveRef.current = false;
-            const hasFailures = (res.progress?.failedCount || 0) > 0;
+            const hasFailures =
+              (res.progress?.failedCount || 0) > 0 || (res.progress?.cancelledCount || 0) > 0;
             if (hasFailures) {
               toast.warning(
-                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount} falha(s).`,
+                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount || 0} falha(s), ${res.progress?.cancelledCount || 0} cancelado(s).`,
               );
             } else {
               toast.success("Campanha de e-mails concluída com sucesso!");
@@ -575,16 +599,16 @@ function MailerPage() {
 
           if (res.cooldownActive && res.cooldownRemainingSec && res.cooldownRemainingSec > 0) {
             setCooldownRemaining(res.cooldownRemainingSec);
-            // Aguardar janela de cooldown antes do próximo micro-lote (+ 1s de margem segura)
+            // O cronômetro do provedor é autoritativo.
             triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 1000);
             return;
           }
 
           setCooldownRemaining(null);
 
-          // Próximo micro-lote de até 2 e-mails: aguardar pelo menos 1 segundo
+          // A pausa começa após o término da resposta anterior.
           if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
-            triggerOrchestratorTick(1000);
+            triggerOrchestratorTick(burstPauseRef.current);
           }
         } catch (err) {
           console.error("[mailer] Error during browser orchestrator micro-tick:", err);
@@ -1360,6 +1384,14 @@ function MailerPage() {
                 Dispare e-mails de recrutamento esportivo para coaches universitários com
                 rastreamento, templates unificados multi-atleta e feedback de interesse.
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {universities.length} universidades ·{" "}
+                {universities.reduce(
+                  (count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0),
+                  0,
+                )}{" "}
+                coaches cadastrados
+              </p>
             </div>
 
             {/* Upper Tabs: Create Send | History | Metrics */}
@@ -1535,7 +1567,7 @@ function MailerPage() {
                   <span>
                     <strong className="text-foreground">Aba do Navegador:</strong> Mantenha esta aba
                     aberta e o dispositivo ativo durante o envio da campanha. O progresso é
-                    persistido a cada micro-lote no banco de dados e você pode pausar ou retomar a
+                    persistido a cada rajada no banco de dados e você pode pausar ou retomar a
                     qualquer momento.
                   </span>
                 </div>
@@ -1568,6 +1600,28 @@ function MailerPage() {
                   />
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground" role="status">
+                <span>
+                  Rajada atual:{" "}
+                  <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails
+                </span>
+                <span>
+                  Ritmo: <strong className="text-foreground">{sendRate.toFixed(1)}</strong>{" "}
+                  e-mails/s
+                </span>
+                <span>
+                  Tempo restante estimado:{" "}
+                  <strong className="text-foreground">
+                    {campaignProgress.estimatedRemainingSeconds}s
+                  </strong>
+                </span>
+              </div>
+              {rateLimitNotice && (
+                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">
+                  {rateLimitNotice}
+                </p>
+              )}
 
               {/* Grid de Métricas da Fila */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
@@ -1647,7 +1701,7 @@ function MailerPage() {
                       : campaignProgress.estimatedRemainingSeconds > 0
                         ? `Tempo estimado para conclusão: ~${Math.ceil(
                             campaignProgress.estimatedRemainingSeconds / 60,
-                          )} min (150 e-mails / 60s)`
+                          )} min`
                         : "Finalizando processamento..."}
                   </span>
                 </div>

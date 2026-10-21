@@ -27,6 +27,7 @@ import {
 } from "@/lib/email/recruit-email.functions";
 import { findCoachFitConflicts, type CoachFitConflict } from "@/lib/email/coach-fit-conflicts";
 import { supabase } from "@/lib/supabase/client";
+import { asQueryResult, fetchAllUniversities } from "@/lib/universities-fetch";
 import type { Athlete, AthleteProfile, Coach, University } from "@/types/db";
 
 interface SendRecruitEmailDialogProps {
@@ -69,7 +70,12 @@ export function SendRecruitEmailDialog({
     setFetchError(null);
     try {
       const [coachesRes, logsRes, visualRes, emailAthleteRes] = await Promise.all([
-        supabase.from("universities").select("id,name,coaches").order("name", { ascending: true }),
+        asQueryResult(
+          fetchAllUniversities<{ id: string; name: string; coaches: University["coaches"] }>(
+            supabase,
+            "id,name,coaches",
+          ),
+        ),
         supabase
           .from("recruit_email_logs")
           .select("coach_id, sent_at, status")
