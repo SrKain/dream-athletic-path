@@ -329,6 +329,7 @@ function createMockAdminClient() {
       };
     },
     rpc: vi.fn(async (fnName: string, args: any) => {
+      if (fnName === "mailer_burst_ready") return { data: true, error: null };
       if (fnName === "recover_stale_mailer_queue_reservations") {
         return { data: 0, error: null };
       }
