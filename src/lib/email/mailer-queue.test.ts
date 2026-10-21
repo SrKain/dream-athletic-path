@@ -33,6 +33,11 @@ const mockRateLimit = {
   dispatches_in_window: 0,
 };
 
+const mockResendBatchSend = vi.fn(async (messages: Array<{ to: string[] }>) => ({
+  data: { data: messages.map((_, i) => ({ id: `resend_batch_${i}` })) },
+  error: null,
+}));
+
 const mockResendSend = vi.fn().mockResolvedValue({
   data: { id: "resend_test_msg_id" },
   error: null,
@@ -43,6 +48,7 @@ vi.mock("./resend-client.server", () => ({
     emails: {
       send: mockResendSend,
     },
+    batch: { send: mockResendBatchSend },
   }),
   getResendConfig: () => ({
     isConfigured: true,
@@ -373,8 +379,34 @@ function createMockAdminClient() {
           error: null,
         };
       }
+      if (fnName === "complete_mailer_burst") {
+        if (failSentPersistence) return { data: null, error: { message: "simulated sent persistence failure" } };
+        const camp = mockCampaigns.get(args.p_campaign_id);
+        let updated = 0;
+        for (const result of args.p_results) {
+          const q = mockQueue.get(result.id);
+          if (!q || q.reserved_by !== args.p_worker_id) continue;
+          const next = { ...q, status: result.status, provider_message_id: result.provider_id || q.provider_message_id,
+            last_error: result.error_message, next_retry_at: result.next_retry_at, reserved_by: null,
+            reservation_expires_at: null };
+          mockQueue.set(q.id, next);
+          updated++;
+          if (result.status === "sent" || result.status === "failed") {
+            mockLogs.push({ campaign_id: q.campaign_id, status: result.status,
+              recipient_email: q.recipient_email, provider_id: result.provider_id || null });
+          }
+        }
+        const rows = Array.from(mockQueue.values()).filter((q) => q.campaign_id === args.p_campaign_id);
+        const remain = rows.filter((q) => ["pending", "processing", "retry"].includes(q.status)).length;
+        Object.assign(camp, { sent_count: rows.filter((q) => q.status === "sent").length,
+          failed_count: rows.filter((q) => q.status === "failed").length,
+          batch_size: args.p_next_size, current_batch: (camp.current_batch || 1) + (remain ? 1 : 0),
+          status: remain === 0 ? "completed" : "running", next_batch_at: null });
+        if (args.p_lock_until) mockRateLimit.locked_until = args.p_lock_until;
+        return { data: { updated }, error: null };
+      }
       if (fnName === "claim_mailer_queue_batch") {
-        const batchSize = Math.min(2, Math.max(1, args.p_batch_size || 2));
+        const batchSize = Math.min(300, Math.max(1, args.p_batch_size || 300));
         const campaignId = args.p_campaign_id;
         const claimed: any[] = [];
         for (const [id, q] of mockQueue.entries()) {
@@ -411,6 +443,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     failSentPersistence = false;
     failLease = false;
     mockRateLimit.locked_until = null;
+    mockResendBatchSend.mockReset();
+    mockResendBatchSend.mockImplementation(async (messages: Array<{ to: string[] }>) => ({
+      data: { data: messages.map((_, i) => ({ id: `resend_batch_${i}` })) }, error: null,
+    }));
     mockResendSend.mockReset();
     mockResendSend.mockResolvedValue({
       data: { id: "resend_test_msg_id" },
@@ -661,7 +697,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(mockQueue.size).toBe(150);
     });
 
-    it("handles 151 recipients splitting cleanly into 2 batches (150 + 1)", async () => {
+    it("handles 151 recipients in one 300-email batch", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 151 }, (_, i) => ({
         name: `Coach ${i}`,
@@ -676,7 +712,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const result = await enqueueCampaignDispatches(input, mockAdmin);
 
       expect(result.success).toBe(true);
-      expect(result.totalBatches).toBe(2);
+      expect(result.totalBatches).toBe(1);
       expect(mockQueue.size).toBe(151);
 
       let batch1Count = 0;
@@ -685,11 +721,11 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         if (q.batch_number === 1) batch1Count++;
         if (q.batch_number === 2) batch2Count++;
       }
-      expect(batch1Count).toBe(150);
-      expect(batch2Count).toBe(1);
+      expect(batch1Count).toBe(151);
+      expect(batch2Count).toBe(0);
     });
 
-    it("handles 300 recipients into 2 batches of 150", async () => {
+    it("handles 300 recipients in 1 burst", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 300 }, (_, i) => ({
         name: `Coach ${i}`,
@@ -704,11 +740,11 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const result = await enqueueCampaignDispatches(input, mockAdmin);
 
       expect(result.success).toBe(true);
-      expect(result.totalBatches).toBe(2);
+      expect(result.totalBatches).toBe(1);
       expect(mockQueue.size).toBe(300);
     });
 
-    it("handles large campaign of 1000 recipients across 7 batches (ceil(1000/150) = 7)", async () => {
+    it("handles 1000 recipients across 4 bursts of 300", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 1000 }, (_, i) => ({
         name: `Coach ${i}`,
@@ -723,7 +759,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       const result = await enqueueCampaignDispatches(input, mockAdmin);
 
       expect(result.success).toBe(true);
-      expect(result.totalBatches).toBe(7);
+      expect(result.totalBatches).toBe(4);
       expect(mockQueue.size).toBe(1000);
     });
 
