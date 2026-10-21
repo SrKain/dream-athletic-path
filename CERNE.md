@@ -1507,3 +1507,5 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - Formatação automática temporária via Bun 1.3.14/Prettier aplicada no commit `de9e3da`; removido o workflow one-shot após uso. Mocks de testes ajustados para tipos concretos, sem `any`; CI a confirmar.
 
 - **Dashboard da TASK-107 (ETA e transparência):** ETA somente com amostra mínima de duas rajadas, campanha `running`, sem cooldown ou quarentena; retorna `null` nos demais casos. UI exibe estimativa indisponível em vez de segundos falsos, distingue aceite pelo Resend de entrega e informa quando o controle é do servidor versus navegador. Controles de worker manual e liberação de incidente permanecem desabilitados até rollout auditado.
+
+- A interface canônica `CampaignProgress` de `src/types/db.ts` foi alinhada à resposta do serviço: `estimatedRemainingSeconds: number | null`. Incluídos testes de worker para ausência de candidatos, exclusão de quarentena/não optados, execução de apenas uma rajada e falha de leitura sem disparo externo.

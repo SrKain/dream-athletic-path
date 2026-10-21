@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { canEstimateMailerEta, deriveCampaignSubstate, type CampaignHealthSummary } from "./mailer-health";
-import { reconcileCampaignIncident } from "./mailer-runner.server";
+import { reconcileCampaignIncident, runNextEligibleCampaignBurst } from "./mailer-runner.server";
 
 describe("Mailer Health & Substate Derivation Suite", () => {
   it("derives completed substate when status is completed", () => {
@@ -152,5 +152,89 @@ describe("TASK-107 honest ETA", () => {
     expect(canEstimateMailerEta({ status: "running", sentCount: 300, currentBatch: 4,
       nextBatchAt: new Date(Date.now() + 60000).toISOString() })).toBe(false);
     expect(canEstimateMailerEta({ status: "running", sentCount: 600, currentBatch: 4 })).toBe(true);
+  });
+});
+
+
+describe("TASK-107 server worker candidate isolation", () => {
+  const mockAdmin = (campaigns: unknown[], error: unknown = null) => {
+    const limit = vi.fn().mockResolvedValue({ data: campaigns, error });
+    const order = vi.fn().mockReturnValue({ limit });
+    const lte = vi.fn().mockReturnValue({ order });
+    const contains = vi.fn().mockReturnValue({ lte });
+    const eq = vi.fn().mockReturnValue({ contains });
+    return {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ eq }),
+      }),
+    } as unknown as NonNullable<Parameters<typeof runNextEligibleCampaignBurst>[0]>;
+  };
+
+  const mockExecute = vi.fn().mockResolvedValue({
+    processed: 2,
+    sent: 2,
+    failed: 0,
+    retried: 0,
+    rateLimited: false,
+    campaignStatus: "running",
+  });
+
+  it("does not send when there are no opted-in eligible campaigns", async () => {
+    mockExecute.mockClear();
+    const result = await runNextEligibleCampaignBurst(mockAdmin([]), mockExecute);
+    expect(result.status).toBe("idle");
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it("excludes quarantined and unopted campaigns even if returned by the DB", async () => {
+    mockExecute.mockClear();
+    const result = await runNextEligibleCampaignBurst(
+      mockAdmin([
+        {
+          id: "quarantined",
+          status: "running",
+          last_error: "PROVIDER_AMBIGUOUS: Manual reconciliation required",
+          filters: { serverOrchestration: true },
+        },
+        {
+          id: "unopted",
+          status: "running",
+          last_error: null,
+          filters: {},
+        },
+      ]),
+      mockExecute,
+    );
+    expect(result.status).toBe("idle");
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it("executes at most one bounded burst for the first eligible campaign", async () => {
+    mockExecute.mockClear();
+    const result = await runNextEligibleCampaignBurst(
+      mockAdmin([{
+        id: "healthy",
+        status: "running",
+        last_error: null,
+        filters: { serverOrchestration: true },
+      }]),
+      mockExecute,
+    );
+    expect(result.status).toBe("processed");
+    expect(result.totalSent).toBe(2);
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaignId: "healthy",
+        maxBatchSize: 300,
+      }),
+    );
+  });
+
+  it("fails closed if campaign eligibility query fails", async () => {
+    mockExecute.mockClear();
+    await expect(runNextEligibleCampaignBurst(mockAdmin([], { message: "DB unavailable" }), mockExecute))
+      .rejects.toThrow("Unable to read eligible");
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 });

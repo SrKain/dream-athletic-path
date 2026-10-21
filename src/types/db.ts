@@ -555,7 +555,7 @@ export interface CampaignProgress {
   nextBatchAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
-  estimatedRemainingSeconds: number;
+  estimatedRemainingSeconds: number | null;
   lastError: string | null;
   substate?: string;
   substateLabel?: string;
