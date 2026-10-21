@@ -17,15 +17,21 @@ describe("university/coaches PostgREST pagination", () => {
 
   it("rejects partial reads instead of silently hiding universities", async () => {
     const firstPage = Array.from({ length: 1000 }, (_, i) => ({ id: String(i) }));
-    await expect(fetchAllPages(async (from) => from === 0
-      ? { data: firstPage, error: null }
-      : { data: null, error: { message: "PostgREST error" } }, "universities"))
-      .rejects.toThrow("offset 1000");
+    await expect(
+      fetchAllPages(
+        async (from) =>
+          from === 0
+            ? { data: firstPage, error: null }
+            : { data: null, error: { message: "PostgREST error" } },
+        "universities",
+      ),
+    ).rejects.toThrow("offset 1000");
   });
 
   it("rejects duplicated or non-deterministic pages", async () => {
     const page = Array.from({ length: 1000 }, (_, i) => ({ id: String(i) }));
-    await expect(fetchAllPages(async () => ({ data: page, error: null }), "coaches"))
-      .rejects.toThrow("Unstable");
+    await expect(
+      fetchAllPages(async () => ({ data: page, error: null }), "coaches"),
+    ).rejects.toThrow("Unstable");
   });
 });

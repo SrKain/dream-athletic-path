@@ -84,7 +84,12 @@ function CoachesPage() {
   async function load() {
     setLoading(true);
     const [universitiesRes, legacyRes] = await Promise.all([
-      asQueryResult(fetchAllUniversities<University>(supabase, "id,name,city,state,league,source_url,is_hbcu,budget_level,toefl_level,coaches,history,created_at,updated_at")),
+      asQueryResult(
+        fetchAllUniversities<University>(
+          supabase,
+          "id,name,city,state,league,source_url,is_hbcu,budget_level,toefl_level,coaches,history,created_at,updated_at",
+        ),
+      ),
       asQueryResult(fetchAllCoaches<Coach>(supabase, "id,name,email,institution,created_at")),
     ]);
     if (universitiesRes.error)
@@ -325,7 +330,9 @@ function CoachesPage() {
             </select>
           </div>
 
-          <Panel title={`University coaches · ${visibleCoaches.length} de ${coaches.length} (em ${universities.length} universidades)`}>
+          <Panel
+            title={`University coaches · ${visibleCoaches.length} de ${coaches.length} (em ${universities.length} universidades)`}
+          >
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading coaches…

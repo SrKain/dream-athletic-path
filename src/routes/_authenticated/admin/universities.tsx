@@ -36,7 +36,12 @@ import {
 } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
 import { asQueryResult, fetchAllUniversities } from "@/lib/universities-fetch";
-import { evaluateImportUpdates, mergeCoachContacts, universityImportKey, validateUniversityState } from "@/lib/universities-import";
+import {
+  evaluateImportUpdates,
+  mergeCoachContacts,
+  universityImportKey,
+  validateUniversityState,
+} from "@/lib/universities-import";
 import {
   addCoachPreferenceSignalServerFn,
   closeCoachPreferenceSignalServerFn,
@@ -117,7 +122,10 @@ function UniversitiesPage() {
   async function loadUniversities() {
     setLoading(true);
     const { data, error } = await asQueryResult(
-      fetchAllUniversities<University>(supabase, "id,name,city,state,league,source_url,is_hbcu,budget_level,toefl_level,coaches,history,created_at,updated_at"),
+      fetchAllUniversities<University>(
+        supabase,
+        "id,name,city,state,league,source_url,is_hbcu,budget_level,toefl_level,coaches,history,created_at,updated_at",
+      ),
     );
 
     if (error) {
@@ -435,7 +443,10 @@ function UniversitiesPage() {
 
           if (!validateUniversityState(state)) {
             parsed.push({
-              universityName: uniName, city, state, status: "invalid",
+              universityName: uniName,
+              city,
+              state,
+              status: "invalid",
               reason: state ? `Invalid US state: ${state}` : "Missing US state.",
             });
             continue;
@@ -531,7 +542,10 @@ function UniversitiesPage() {
 
       // Otimização I/O: Buscar todas as universidades existentes de uma única vez
       const { data: allExisting, error: fetchErr } = await asQueryResult(
-        fetchAllUniversities<Pick<University, "id" | "name" | "state" | "coaches">>(supabase, "id,name,state,coaches"),
+        fetchAllUniversities<Pick<University, "id" | "name" | "state" | "coaches">>(
+          supabase,
+          "id,name,state,coaches",
+        ),
       );
 
       if (fetchErr) {
@@ -551,7 +565,9 @@ function UniversitiesPage() {
       }
 
       const toUpdate: { id: string; coaches: UniversityCoach[]; added: number }[] = [];
-      const skippedReasons: string[] = importRows.filter((r) => r.status === "invalid").map((r) => r.reason || "Invalid row");
+      const skippedReasons: string[] = importRows
+        .filter((r) => r.status === "invalid")
+        .map((r) => r.reason || "Invalid row");
       const toInsert: Array<{
         name: string;
         city: string;
@@ -566,7 +582,9 @@ function UniversitiesPage() {
 
       for (const [key, uniData] of uniMap.entries()) {
         if (ambiguousKeys.has(key)) {
-          skippedReasons.push(`Ambiguous existing university (name + state): ${uniData.name} / ${uniData.state}`);
+          skippedReasons.push(
+            `Ambiguous existing university (name + state): ${uniData.name} / ${uniData.state}`,
+          );
           continue;
         }
         const existing = existingMap.get(key);
@@ -618,9 +636,12 @@ function UniversitiesPage() {
         responses.forEach((response, index) => {
           if (!response.error) coachesAdded += chunk[index].added;
         });
-        failures.push(...checked.failures.map((failure) =>
-          `Update chunk ${Math.floor(i / BATCH_SIZE) + 1}, university ${chunk[failure.index].id}: ${failure.message}`,
-        ));
+        failures.push(
+          ...checked.failures.map(
+            (failure) =>
+              `Update chunk ${Math.floor(i / BATCH_SIZE) + 1}, university ${chunk[failure.index].id}: ${failure.message}`,
+          ),
+        );
       }
 
       for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
@@ -635,22 +656,30 @@ function UniversitiesPage() {
       }
 
       const skipped = skippedReasons.length;
-      const reasonCounts = Object.entries(skippedReasons.reduce<Record<string, number>>((acc, reason) => {
-        acc[reason] = (acc[reason] || 0) + 1;
-        return acc;
-      }, {})).map(([reason, count]) => `${reason}: ${count}`);
-      setImportReport([
-        `Linhas lidas: ${importRows.length}`,
-        `Universidades criadas: ${insertedCount}`,
-        `Universidades atualizadas: ${updatedCount}`,
-        `Coaches adicionados: ${coachesAdded}`,
-        `E-mails duplicados ignorados: ${duplicateEmails}`,
-        `Linhas/universidades puladas: ${skipped}`,
-        ...reasonCounts,
-        ...failures,
-      ].join("\\n"));
-      if (failures.length) toast.error(`Importação parcial: ${failures.length} falha(s). Confira o relatório.`);
-      else toast.success(`Importação concluída: ${insertedCount} criadas, ${updatedCount} atualizadas.`);
+      const reasonCounts = Object.entries(
+        skippedReasons.reduce<Record<string, number>>((acc, reason) => {
+          acc[reason] = (acc[reason] || 0) + 1;
+          return acc;
+        }, {}),
+      ).map(([reason, count]) => `${reason}: ${count}`);
+      setImportReport(
+        [
+          `Linhas lidas: ${importRows.length}`,
+          `Universidades criadas: ${insertedCount}`,
+          `Universidades atualizadas: ${updatedCount}`,
+          `Coaches adicionados: ${coachesAdded}`,
+          `E-mails duplicados ignorados: ${duplicateEmails}`,
+          `Linhas/universidades puladas: ${skipped}`,
+          ...reasonCounts,
+          ...failures,
+        ].join("\\n"),
+      );
+      if (failures.length)
+        toast.error(`Importação parcial: ${failures.length} falha(s). Confira o relatório.`);
+      else
+        toast.success(
+          `Importação concluída: ${insertedCount} criadas, ${updatedCount} atualizadas.`,
+        );
       setImportRows([]);
       setFileName(null);
       void loadUniversities();
@@ -833,7 +862,12 @@ function UniversitiesPage() {
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
               <div>
                 Mostrando <strong className="text-foreground">{filteredUniversities.length}</strong>{" "}
-                de {universities.length} universidades · {universities.reduce((count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0), 0)} coaches cadastrados
+                de {universities.length} universidades ·{" "}
+                {universities.reduce(
+                  (count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0),
+                  0,
+                )}{" "}
+                coaches cadastrados
               </div>
               {(filterState !== "all" ||
                 filterLeague !== "all" ||
@@ -1421,7 +1455,10 @@ function UniversitiesPage() {
               </div>
 
               {importReport && (
-                <div role="status" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">
+                <div
+                  role="status"
+                  className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground"
+                >
                   <div className="mb-2 font-semibold">Relatório da importação</div>
                   <pre className="whitespace-pre-wrap break-words text-xs">{importReport}</pre>
                 </div>

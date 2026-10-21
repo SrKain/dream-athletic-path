@@ -31,36 +31,30 @@ export async function fetchAllUniversities<T extends { id: string }>(
   client: SupabaseClient,
   columns: string,
 ): Promise<T[]> {
-  return fetchAllPages<T>(
-    async (from, to) => {
-      const { data, error } = await client
-        .from("universities")
-        .select(columns)
-        .order("name", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to);
-      return { data: data as unknown as T[] | null, error };
-    },
-    "universities",
-  );
+  return fetchAllPages<T>(async (from, to) => {
+    const { data, error } = await client
+      .from("universities")
+      .select(columns)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+    return { data: data as unknown as T[] | null, error };
+  }, "universities");
 }
 
 export async function fetchAllCoaches<T extends { id: string }>(
   client: SupabaseClient,
   columns: string,
 ): Promise<T[]> {
-  return fetchAllPages<T>(
-    async (from, to) => {
-      const { data, error } = await client
-        .from("coaches")
-        .select(columns)
-        .order("name", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to);
-      return { data: data as unknown as T[] | null, error };
-    },
-    "coaches",
-  );
+  return fetchAllPages<T>(async (from, to) => {
+    const { data, error } = await client
+      .from("coaches")
+      .select(columns)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+    return { data: data as unknown as T[] | null, error };
+  }, "coaches");
 }
 
 /** Match the Supabase result contract while preserving fail-closed page errors. */

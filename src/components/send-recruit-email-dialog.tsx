@@ -70,7 +70,12 @@ export function SendRecruitEmailDialog({
     setFetchError(null);
     try {
       const [coachesRes, logsRes, visualRes, emailAthleteRes] = await Promise.all([
-        asQueryResult(fetchAllUniversities<{ id: string; name: string; coaches: University["coaches"] }>(supabase, "id,name,coaches")),
+        asQueryResult(
+          fetchAllUniversities<{ id: string; name: string; coaches: University["coaches"] }>(
+            supabase,
+            "id,name,coaches",
+          ),
+        ),
         supabase
           .from("recruit_email_logs")
           .select("coach_id, sent_at, status")

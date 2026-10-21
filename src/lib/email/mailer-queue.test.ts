@@ -380,28 +380,47 @@ function createMockAdminClient() {
         };
       }
       if (fnName === "complete_mailer_burst") {
-        if (failSentPersistence) return { data: null, error: { message: "simulated sent persistence failure" } };
+        if (failSentPersistence)
+          return { data: null, error: { message: "simulated sent persistence failure" } };
         const camp = mockCampaigns.get(args.p_campaign_id);
         let updated = 0;
         for (const result of args.p_results) {
           const q = mockQueue.get(result.id);
           if (!q || q.reserved_by !== args.p_worker_id) continue;
-          const next = { ...q, status: result.status, provider_message_id: result.provider_id || q.provider_message_id,
-            last_error: result.error_message, next_retry_at: result.next_retry_at, reserved_by: null,
-            reservation_expires_at: null };
+          const next = {
+            ...q,
+            status: result.status,
+            provider_message_id: result.provider_id || q.provider_message_id,
+            last_error: result.error_message,
+            next_retry_at: result.next_retry_at,
+            reserved_by: null,
+            reservation_expires_at: null,
+          };
           mockQueue.set(q.id, next);
           updated++;
           if (result.status === "sent" || result.status === "failed") {
-            mockLogs.push({ campaign_id: q.campaign_id, status: result.status,
-              recipient_email: q.recipient_email, provider_id: result.provider_id || null });
+            mockLogs.push({
+              campaign_id: q.campaign_id,
+              status: result.status,
+              recipient_email: q.recipient_email,
+              provider_id: result.provider_id || null,
+            });
           }
         }
-        const rows = Array.from(mockQueue.values()).filter((q) => q.campaign_id === args.p_campaign_id);
-        const remain = rows.filter((q) => ["pending", "processing", "retry"].includes(q.status)).length;
-        Object.assign(camp, { sent_count: rows.filter((q) => q.status === "sent").length,
+        const rows = Array.from(mockQueue.values()).filter(
+          (q) => q.campaign_id === args.p_campaign_id,
+        );
+        const remain = rows.filter((q) =>
+          ["pending", "processing", "retry"].includes(q.status),
+        ).length;
+        Object.assign(camp, {
+          sent_count: rows.filter((q) => q.status === "sent").length,
           failed_count: rows.filter((q) => q.status === "failed").length,
-          batch_size: args.p_next_size, current_batch: (camp.current_batch || 1) + (remain ? 1 : 0),
-          status: remain === 0 ? "completed" : "running", next_batch_at: null });
+          batch_size: args.p_next_size,
+          current_batch: (camp.current_batch || 1) + (remain ? 1 : 0),
+          status: remain === 0 ? "completed" : "running",
+          next_batch_at: null,
+        });
         if (args.p_lock_until) mockRateLimit.locked_until = args.p_lock_until;
         return { data: { updated }, error: null };
       }
@@ -445,7 +464,8 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     mockRateLimit.locked_until = null;
     mockResendBatchSend.mockReset();
     mockResendBatchSend.mockImplementation(async (messages: Array<{ to: string[] }>) => ({
-      data: { data: messages.map((_, i) => ({ id: `resend_batch_${i}` })) }, error: null,
+      data: { data: messages.map((_, i) => ({ id: `resend_batch_${i}` })) },
+      error: null,
     }));
     mockResendSend.mockReset();
     mockResendSend.mockResolvedValue({
@@ -789,7 +809,8 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     async function enqueueCatalog(count: number) {
       const admin = createMockAdminClient();
       const recipients = Array.from({ length: count }, (_, i) => ({
-        name: `Coach ${i}`, email: `coach${i}@college.edu`,
+        name: `Coach ${i}`,
+        email: `coach${i}@college.edu`,
       }));
       const campaign = await enqueueCampaignDispatches({ mode: "catalog", recipients }, admin);
       expect(campaign.success).toBe(true);
@@ -797,12 +818,20 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     }
 
     it.each([
-      [10, 1], [150, 1], [300, 1], [301, 2], [799, 3], [3300, 11],
+      [10, 1],
+      [150, 1],
+      [300, 1],
+      [301, 2],
+      [799, 3],
+      [3300, 11],
     ])("dispatches %i recipients with %i bursts and no duplicates", async (size, batches) => {
       const { admin, campaign } = await enqueueCatalog(size);
       expect(campaign.totalBatches).toBe(batches);
       for (let i = 0; i < batches; i++) {
-        const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+        const result = await processMailerQueue({
+          campaignId: campaign.campaignId,
+          customAdmin: admin,
+        });
         expect(result.processed).toBe(Math.min(300, size - 300 * i));
       }
       const rows = Array.from(mockQueue.values());
@@ -817,7 +846,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
 
     it("sends three 100-item chunks concurrently within one burst", async () => {
       const { admin, campaign } = await enqueueCatalog(300);
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.sent).toBe(300);
       expect(mockResendBatchSend).toHaveBeenCalledTimes(3);
       for (const [payload, options] of mockResendBatchSend.mock.calls) {
@@ -826,32 +858,48 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         expect(payload[0].replyTo).toBe("contact@goteamgoagency.com");
         expect(payload[0].headers["X-Entity-Ref-ID"]).toMatch(/^[a-f0-9]{64}$/);
       }
-      expect(admin.rpc).toHaveBeenCalledWith("complete_mailer_burst", expect.objectContaining({
-        p_campaign_id: campaign.campaignId,
-        p_results: expect.arrayContaining([expect.objectContaining({ status: "sent" })]),
-      }));
+      expect(admin.rpc).toHaveBeenCalledWith(
+        "complete_mailer_burst",
+        expect.objectContaining({
+          p_campaign_id: campaign.campaignId,
+          p_results: expect.arrayContaining([expect.objectContaining({ status: "sent" })]),
+        }),
+      );
     });
 
     it("falls back to individual keyed sends ONLY for a definitively rejected chunk", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
-      mockResendBatchSend.mockResolvedValueOnce({ data: null, error: { message: "Validation error" } });
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      mockResendBatchSend.mockResolvedValueOnce({
+        data: null,
+        error: { message: "Validation error" },
+      });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.sent).toBe(10);
       expect(mockResendSend).toHaveBeenCalledTimes(10);
       expect(mockLogs.filter((l) => l.status === "sent")).toHaveLength(10);
       const first = Array.from(mockQueue.values())[0];
-      expect(mockResendSend).toHaveBeenCalledWith(expect.objectContaining({
-        replyTo: "contact@goteamgoagency.com",
-      }), expect.objectContaining({ idempotencyKey: expect.any(String) }));
+      expect(mockResendSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          replyTo: "contact@goteamgoagency.com",
+        }),
+        expect.objectContaining({ idempotencyKey: expect.any(String) }),
+      );
       expect(first.status).toBe("sent");
     });
 
     it("handles 429 with Retry-After, global lock and halves next burst", async () => {
       const { admin, campaign } = await enqueueCatalog(300);
       mockResendBatchSend.mockResolvedValueOnce({
-        data: null, error: { message: "429 Too Many Requests", retryAfter: 3 },
+        data: null,
+        error: { message: "429 Too Many Requests", retryAfter: 3 },
       });
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.rateLimited).toBe(true);
       expect(result.effectiveBurstSize).toBe(150);
       expect(mockCampaigns.get(campaign.campaignId).batch_size).toBe(150);
@@ -865,7 +913,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("never falls back after ambiguous provider acceptance", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
       mockResendBatchSend.mockRejectedValueOnce(new Error("Network timeout"));
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.campaignStatus).toBe("paused");
       expect(result.message).toContain("Manual reconciliation");
       expect(mockResendSend).not.toHaveBeenCalled();
@@ -875,7 +926,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("blocks sending when another tab owns the lease", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
       failLease = true;
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.processed).toBe(0);
       expect(mockResendBatchSend).not.toHaveBeenCalled();
     });
@@ -883,7 +937,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("pauses after confirmed acceptance if atomic persistence fails", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
       failSentPersistence = true;
-      const result = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const result = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(result.campaignStatus).toBe("paused");
       expect(result.message).toContain("Manual reconciliation required");
       expect(mockCampaigns.get(campaign.campaignId).status).toBe("paused");
@@ -894,7 +951,10 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     it("will not duplicate accepted emails on a repeated browser tick", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
       await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
-      const repeat = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
+      const repeat = await processMailerQueue({
+        campaignId: campaign.campaignId,
+        customAdmin: admin,
+      });
       expect(repeat.processed).toBe(0);
       expect(mockResendBatchSend).toHaveBeenCalledTimes(1);
       expect(mockLogs.filter((l) => l.status === "sent")).toHaveLength(10);

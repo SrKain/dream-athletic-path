@@ -18,7 +18,10 @@ export function mergeCoachContacts(
   let duplicates = 0;
   for (const coach of incoming) {
     const email = coach.email.trim().toLowerCase();
-    if (!email || seen.has(email)) { duplicates++; continue; }
+    if (!email || seen.has(email)) {
+      duplicates++;
+      continue;
+    }
     seen.add(email);
     coaches.push({ ...coach, email });
   }
@@ -30,6 +33,8 @@ export function evaluateImportUpdates<T extends { error: { message: string } | n
 ): { succeeded: number; failures: Array<{ index: number; message: string }> } {
   return {
     succeeded: responses.filter((r) => !r.error).length,
-    failures: responses.flatMap((r, index) => r.error ? [{ index, message: r.error.message }] : []),
+    failures: responses.flatMap((r, index) =>
+      r.error ? [{ index, message: r.error.message }] : [],
+    ),
   };
 }

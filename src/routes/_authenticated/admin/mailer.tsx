@@ -282,7 +282,12 @@ function MailerPage() {
           .eq("is_public", true)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
-        asQueryResult(fetchAllUniversities<University>(supabase, "id,name,city,state,league,is_hbcu,budget_level,toefl_level,coaches,source_url")),
+        asQueryResult(
+          fetchAllUniversities<University>(
+            supabase,
+            "id,name,city,state,league,is_hbcu,budget_level,toefl_level,coaches,source_url",
+          ),
+        ),
         getSuppressedEmailsServerFn().catch(() => []),
         getMailerHistoryServerFn().catch(() => []),
         getActiveInterestSignalsServerFn().catch(() => []),
@@ -519,7 +524,10 @@ function MailerPage() {
 
           if (res.effectiveBurstSize) burstSizeRef.current = res.effectiveBurstSize;
           if (res.burstPauseMs) burstPauseRef.current = res.burstPauseMs;
-          if (res.rateLimited) setRateLimitNotice(res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`);
+          if (res.rateLimited)
+            setRateLimitNotice(
+              res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`,
+            );
           const tickNow = Date.now();
           if (res.sent > 0 && lastBurstAtRef.current) {
             setSendRate(res.sent / Math.max(1, (tickNow - lastBurstAtRef.current) / 1000));
@@ -1376,7 +1384,12 @@ function MailerPage() {
                 rastreamento, templates unificados multi-atleta e feedback de interesse.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {universities.length} universidades · {universities.reduce((count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0), 0)} coaches cadastrados
+                {universities.length} universidades ·{" "}
+                {universities.reduce(
+                  (count, uni) => count + (Array.isArray(uni.coaches) ? uni.coaches.length : 0),
+                  0,
+                )}{" "}
+                coaches cadastrados
               </p>
             </div>
 
@@ -1588,12 +1601,25 @@ function MailerPage() {
               </div>
 
               <div className="flex flex-wrap gap-4 text-xs text-muted-foreground" role="status">
-                <span>Rajada atual: <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails</span>
-                <span>Ritmo: <strong className="text-foreground">{sendRate.toFixed(1)}</strong> e-mails/s</span>
-                <span>Tempo restante estimado: <strong className="text-foreground">{campaignProgress.estimatedRemainingSeconds}s</strong></span>
+                <span>
+                  Rajada atual:{" "}
+                  <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails
+                </span>
+                <span>
+                  Ritmo: <strong className="text-foreground">{sendRate.toFixed(1)}</strong>{" "}
+                  e-mails/s
+                </span>
+                <span>
+                  Tempo restante estimado:{" "}
+                  <strong className="text-foreground">
+                    {campaignProgress.estimatedRemainingSeconds}s
+                  </strong>
+                </span>
               </div>
               {rateLimitNotice && (
-                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">{rateLimitNotice}</p>
+                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">
+                  {rateLimitNotice}
+                </p>
               )}
 
               {/* Grid de Métricas da Fila */}

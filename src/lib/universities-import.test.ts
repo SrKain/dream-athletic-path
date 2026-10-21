@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateImportUpdates, mergeCoachContacts, universityImportKey, validateUniversityState } from "./universities-import";
+import {
+  evaluateImportUpdates,
+  mergeCoachContacts,
+  universityImportKey,
+  validateUniversityState,
+} from "./universities-import";
 
 describe("university importer safety", () => {
   it("does not silently convert missing or invalid state into CA", () => {
@@ -9,15 +14,24 @@ describe("university importer safety", () => {
   });
 
   it("detects case/whitespace duplicate universities", () => {
-    expect(universityImportKey("  State  University ", "ca")).toBe(universityImportKey("state university", "CA"));
+    expect(universityImportKey("  State  University ", "ca")).toBe(
+      universityImportKey("state university", "CA"),
+    );
   });
 
   it("retains existing coach ids and ignores duplicate emails on re-import", () => {
-    const existing = [{ id: "old", email: "Head@College.edu", first_name: "Original", last_name: "Coach" }];
+    const existing = [
+      { id: "old", email: "Head@College.edu", first_name: "Original", last_name: "Coach" },
+    ];
     const incoming = [
       { id: "new-id", email: " head@college.edu ", first_name: "Copy", last_name: "Coach" },
       { id: "second", email: "assistant@college.edu", first_name: "Assistant", last_name: "Coach" },
-      { id: "another", email: "ASSISTANT@COLLEGE.EDU", first_name: "Duplicate", last_name: "Coach" },
+      {
+        id: "another",
+        email: "ASSISTANT@COLLEGE.EDU",
+        first_name: "Duplicate",
+        last_name: "Coach",
+      },
     ];
     const first = mergeCoachContacts(existing, incoming);
     expect(first.added).toBe(1);
