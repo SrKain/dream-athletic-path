@@ -1210,3 +1210,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Implementação na branch (pós-aprovação humana explícita):** PR #10 `feat/2026-10-21-mailer-bursts-universities-pagination`; paginação compartilhada, correções do importador, Resend em chunks 100×3, retry/429, persistência RPC 0027, gate pré-envio, componentes de progresso e testes. CERNE.md atualizado com contratos e migração obrigatória.
 - **Segurança de implantação:** código **não deve ser liberado na main antes de aplicar/verificar 0027** no Supabase externo; gate `mailer_burst_ready` impede qualquer envio caso ausente. Nenhuma migration executada em produção, nenhuma planilha reimportada, nenhum envio real efetuado. `package.json` e `bun.lock` intactos.
 - **Estado:** [PENDENTE] — aguardando CI final da branch, aplicação controlada da migration, revisão/merge do PR e validação operacional; não afirmar concluído antes desses marcos.
+
+
+## TASK-107 — 2026-10-21 15:01 (America/Sao_Paulo) — Continuidade do Mailer, progresso, budget multisseleção, histórico e coaches em universidades
+
+- **Solicitante:** Kauan (Usuário Humano).
+- **Executor planejado:** Google AI Studio.
+- **Status:** `[PENDENTE]` — plano publicado, aguardando aprovação humana explícita para qualquer alteração de código, migration ou operação sobre campanhas.
+- **Solicitação:** corrigir campanhas que interrompem disparo e não retomam, fornecer visão completa e honesta do progresso/saúde; budget com múltiplas faixas escolhidas; histórico com filtros por características importadas e paginação 25/50/100; aba Coaches dentro de `/admin/universities` com CRUD adicional, paginação, filtros, preferências editáveis e timeline de interações, preservando `/admin/coaches` e cadastro dentro de Universidade.
+- **Plano canônico:** `think/2026-10-21-1501-estabilizacao-mailer-progresso-budget-historico-coaches.md`, baseado no HEAD `54494b7` após TASK-106/migration 0027. Priorização P0 (continuidade/observabilidade) e P1 (filtros/histórico/coaches). SOLID, governança e testes integrais; nenhuma operação de dados nem envio real nesta fase.
