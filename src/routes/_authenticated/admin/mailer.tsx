@@ -579,7 +579,7 @@ function MailerPage() {
               (res.progress?.failedCount || 0) > 0 || (res.progress?.cancelledCount || 0) > 0;
             if (hasFailures) {
               toast.warning(
-                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount} falha(s).`,
+                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount || 0} falha(s), ${res.progress?.cancelledCount || 0} cancelado(s).`,
               );
             } else {
               toast.success("Campanha de e-mails concluída com sucesso!");
