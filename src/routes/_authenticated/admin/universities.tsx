@@ -35,6 +35,7 @@ import {
   inputClass,
 } from "@/components/admin-ui";
 import { supabase } from "@/lib/supabase/client";
+import { asQueryResult, fetchAllUniversities } from "@/lib/universities-fetch";
 import {
   addCoachPreferenceSignalServerFn,
   closeCoachPreferenceSignalServerFn,
@@ -113,10 +114,9 @@ function UniversitiesPage() {
 
   async function loadUniversities() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("universities")
-      .select("*")
-      .order("name", { ascending: true });
+    const { data, error } = await asQueryResult(
+      fetchAllUniversities<University>(supabase, "id,name,city,state,league,source_url,is_hbcu,budget_level,toefl_level,coaches,history,created_at,updated_at"),
+    );
 
     if (error) {
       toast.error("Failed to load universities: " + error.message);
@@ -518,9 +518,9 @@ function UniversitiesPage() {
       }
 
       // Otimização I/O: Buscar todas as universidades existentes de uma única vez
-      const { data: allExisting, error: fetchErr } = await supabase
-        .from("universities")
-        .select("id, name, state, coaches");
+      const { data: allExisting, error: fetchErr } = await asQueryResult(
+        fetchAllUniversities<Pick<University, "id" | "name" | "state" | "coaches">>(supabase, "id,name,state,coaches"),
+      );
 
       if (fetchErr) {
         throw fetchErr;
