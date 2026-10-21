@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 import { AppShell, ProtectedPage } from "@/components/app-shell";
+import { CoachDirectoryTable } from "@/components/coaches/coach-directory-table";
 import {
   EmptyState,
   Panel,
@@ -83,6 +84,7 @@ interface ParsedImportRow {
 }
 
 function UniversitiesPage() {
+  const [activeTab, setActiveTab] = useState<"universities" | "coaches">("universities");
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -755,27 +757,72 @@ function UniversitiesPage() {
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setIsImportOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-xs hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                <UploadCloud className="w-4 h-4 text-muted-foreground" />
-                Importar Planilha
-              </button>
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Nova Universidade
-              </button>
+              {activeTab === "universities" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-xs hover:bg-muted/60 transition-colors cursor-pointer"
+                  >
+                    <UploadCloud className="w-4 h-4 text-muted-foreground" />
+                    Importar Planilha
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Nova Universidade
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Search & Multifaceted Filters */}
-          <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg w-fit">
+            <button
+              type="button"
+              onClick={() => setActiveTab("universities")}
+              className={`px-4 py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                activeTab === "universities"
+                  ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-xs"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900"
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 inline-block mr-1.5" />
+              Universidades ({universities.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("coaches")}
+              className={`px-4 py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                activeTab === "coaches"
+                  ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-xs"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 inline-block mr-1.5" />
+              Coaches (
+              {universities.reduce(
+                (acc, u) => acc + (Array.isArray(u.coaches) ? u.coaches.length : 0),
+                0,
+              )}
+              )
+            </button>
+          </div>
+
+          {activeTab === "coaches" ? (
+            <CoachDirectoryTable
+              universities={universities}
+              onReload={loadUniversities}
+              loading={loading}
+            />
+          ) : (
+            <>
+              {/* Search & Multifaceted Filters */}
+              <div className="glass-panel p-4 space-y-3 rounded-xl border border-border bg-card">
             <div className="flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1053,7 +1100,9 @@ function UniversitiesPage() {
               </div>
             </div>
           )}
-        </div>
+        </>
+      )}
+    </div>
 
         {/* MODAL / DRAWER: CREATE / EDIT UNIVERSITY */}
         {isFormOpen && (

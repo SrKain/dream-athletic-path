@@ -31,6 +31,9 @@ import {
   XCircle,
   RefreshCw,
   Zap,
+  ChevronDown,
+  ChevronUp,
+  Shield,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -53,7 +56,12 @@ import {
   getActiveInterestSignalsServerFn,
   getEmailEventTimelineServerFn,
   getAthletesEmailDataServerFn,
+  reconcileCampaignIncidentServerFn,
+  getCampaignRecipientsServerFn,
+  triggerCampaignWorkerServerFn,
 } from "@/lib/email/recruit-email.functions";
+import { BudgetMultiSelect } from "@/components/mailer/budget-multi-select";
+import { MailerHistorySection } from "@/components/mailer/mailer-history-section";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
 import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
 import {
@@ -165,7 +173,14 @@ function MailerPage() {
   const [activeTab, setActiveTab] = useState<"compose" | "history" | "metrics">("compose");
 
   // Timeline Modal State
-  const [selectedTimelineLog, setSelectedTimelineLog] = useState<RecruitEmailLog | null>(null);
+  const [selectedTimelineLog, setSelectedTimelineLog] = useState<{
+    id: string;
+    recipient_name?: string | null;
+    recipient_email?: string | null;
+    subject: string;
+    sent_at: string;
+    provider_id?: string | null;
+  } | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<EmailTimelineItem[]>([]);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
 
@@ -217,9 +232,37 @@ function MailerPage() {
   const [filterState, setFilterState] = useState("all");
   const [filterLeague, setFilterLeague] = useState("all");
   const [filterHbcu, setFilterHbcu] = useState("all");
-  const [filterBudget, setFilterBudget] = useState("all");
+  const [selectedBudgets, setSelectedBudgets] = useState<UniversityBudgetLevel[]>([]);
   const [filterToefl, setFilterToefl] = useState("all");
   const [filterHideSignaled, setFilterHideSignaled] = useState(false);
+
+  // TASK-107: Fila em Tempo Real & Reconciliação
+  const [showQueueRecipients, setShowQueueRecipients] = useState(false);
+  const [queueRecipients, setQueueRecipients] = useState<
+    Array<{
+      id: string;
+      recipientName: string;
+      recipientEmail: string;
+      universityName: string | null;
+      status: string;
+      attempts: number;
+      lastError: string | null;
+      processedAt: string | null;
+      createdAt: string;
+    }>
+  >([]);
+  const [queueRecipientsTotal, setQueueRecipientsTotal] = useState(0);
+  const [queuePage, setQueuePage] = useState(1);
+  const [queueStatusFilter, setQueueStatusFilter] = useState<string>("all");
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  const [reconcileModalOpen, setReconcileModalOpen] = useState(false);
+  const [reconcileResolution, setReconcileResolution] = useState<"marked_sent" | "marked_failed">(
+    "marked_sent",
+  );
+  const [reconcileNotes, setReconcileNotes] = useState("");
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [isTriggeringWorker, setIsTriggeringWorker] = useState(false);
 
   // Modal de Confirmação & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -714,8 +757,12 @@ function MailerPage() {
       if (filterState !== "all" && item.universityState !== filterState) return false;
       if (filterLeague !== "all" && item.league !== filterLeague) return false;
       if (filterHbcu === "hbcu" && !item.isHbcu) return false;
-      if (filterHbcu === "non_hbcu" && item.isHbcu) return false;
-      if (filterBudget !== "all" && item.budgetLevel !== filterBudget) return false;
+      if (
+        selectedBudgets.length > 0 &&
+        (!item.budgetLevel || !selectedBudgets.includes(item.budgetLevel))
+      ) {
+        return false;
+      }
       if (filterToefl !== "all" && item.toeflLevel !== filterToefl) return false;
       if (filterHideSignaled && item.signals.length > 0) return false;
 
@@ -727,7 +774,7 @@ function MailerPage() {
     filterState,
     filterLeague,
     filterHbcu,
-    filterBudget,
+    selectedBudgets,
     filterToefl,
     filterHideSignaled,
   ]);
@@ -1194,7 +1241,8 @@ function MailerPage() {
             state: filterState,
             league: filterLeague,
             hbcu: filterHbcu,
-            budget: filterBudget,
+            budget: selectedBudgets.length > 0 ? selectedBudgets.join(",") : "all",
+            budgetLevels: selectedBudgets,
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
           },
@@ -1349,7 +1397,102 @@ function MailerPage() {
     }
   }
 
-  const handleViewTimeline = async (log: RecruitEmailLog) => {
+  async function loadQueueRecipients(pageToLoad = queuePage, statusToLoad = queueStatusFilter) {
+    if (!activeCampaignId) return;
+    setQueueLoading(true);
+    try {
+      const res = await getCampaignRecipientsServerFn({
+        data: {
+          campaignId: activeCampaignId,
+          page: pageToLoad,
+          pageSize: 25,
+          statusFilter: statusToLoad === "all" ? undefined : statusToLoad,
+        },
+      });
+      setQueueRecipients(res.items);
+      setQueueRecipientsTotal(res.total);
+      setQueuePage(res.page);
+    } catch (err) {
+      console.error("[mailer] Error loading campaign queue recipients:", err);
+      toast.error("Erro ao carregar destinatários da fila.");
+    } finally {
+      setQueueLoading(false);
+    }
+  }
+
+  async function handleReconcileIncident() {
+    if (!activeCampaignId) return;
+    if (reconcileNotes.trim().length < 5) {
+      toast.error("A justificativa administrativa deve ter no mínimo 5 caracteres.");
+      return;
+    }
+    setIsReconciling(true);
+    try {
+      const formattedNotes = `[${reconcileResolution.toUpperCase()}] ${reconcileNotes.trim()}`;
+      const res = await reconcileCampaignIncidentServerFn({
+        data: {
+          campaignId: activeCampaignId,
+          adminNotes: formattedNotes,
+        },
+      });
+      if (res.success) {
+        toast.success(res.message);
+        setReconcileModalOpen(false);
+        setReconcileNotes("");
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+        void loadQueueRecipients(1, queueStatusFilter);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      console.error("[mailer] Error reconciling incident:", err);
+      toast.error("Erro ao reconciliar incidente.");
+    } finally {
+      setIsReconciling(false);
+    }
+  }
+
+  async function handleTriggerWorker() {
+    if (!activeCampaignId) return;
+    setIsTriggeringWorker(true);
+    try {
+      const res = await triggerCampaignWorkerServerFn({
+        data: { campaignId: activeCampaignId },
+      });
+      if (res.success) {
+        toast.success("Worker do servidor acionado!");
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+      } else {
+        toast.error("Não foi possível acionar o worker.");
+      }
+    } catch (err) {
+      console.error("[mailer] Error triggering worker:", err);
+      toast.error("Erro ao acionar worker.");
+    } finally {
+      setIsTriggeringWorker(false);
+    }
+  }
+
+  useEffect(() => {
+    if (showQueueRecipients && activeCampaignId) {
+      void loadQueueRecipients(queuePage, queueStatusFilter);
+    }
+  }, [showQueueRecipients, queuePage, queueStatusFilter, activeCampaignId]);
+
+  const handleViewTimeline = async (log: {
+    id: string;
+    recipient_name?: string | null;
+    recipient_email?: string | null;
+    subject: string;
+    sent_at: string;
+    provider_id?: string | null;
+  }) => {
     setSelectedTimelineLog(log);
     setLoadingTimeline(true);
     try {
@@ -1444,6 +1587,11 @@ function MailerPage() {
                     <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/10 text-foreground border border-primary/30">
                       Fila Inteligente de Disparos
                     </span>
+                    {campaignProgress.substateLabel && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
+                        {campaignProgress.substateLabel}
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground font-mono">
                       ID: {campaignProgress.campaignId.slice(0, 8)}...
                     </span>
@@ -1452,6 +1600,11 @@ function MailerPage() {
                     <Activity className="w-4 h-4 text-primary animate-pulse" />
                     {campaignProgress.subject}
                   </h3>
+                  {campaignProgress.substateDescription && (
+                    <p className="text-xs text-muted-foreground">
+                      {campaignProgress.substateDescription}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1513,6 +1666,18 @@ function MailerPage() {
                   {campaignProgress.status === "running" && (
                     <button
                       type="button"
+                      disabled={isTriggeringWorker}
+                      onClick={handleTriggerWorker}
+                      title="Acionar execução em background no servidor"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Zap className="w-3 h-3" />
+                      {isTriggeringWorker ? "Acionando..." : "Worker Servidor"}
+                    </button>
+                  )}
+                  {campaignProgress.status === "running" && (
+                    <button
+                      type="button"
                       disabled={isOperatingQueue}
                       onClick={handlePauseCampaign}
                       className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700 dark:hover:bg-amber-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -1559,6 +1724,32 @@ function MailerPage() {
                   )}
                 </div>
               </div>
+
+              {/* Alerta de Quarentena Anti-Duplicação */}
+              {campaignProgress.substate === "reconciliation_required" && (
+                <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 space-y-2 text-rose-950 dark:text-rose-200">
+                  <div className="flex items-center gap-2 font-bold text-sm">
+                    <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span>Disparos Pausados por Quarentena Anti-Duplicação</span>
+                  </div>
+                  <p className="text-xs leading-relaxed">
+                    O provedor Resend respondeu com status ambíguo ou timeout de rede durante a última
+                    rajada. Para garantir que nenhum coach receba e-mails duplicados, a automação foi
+                    suspensa preventivamente. Verifique o painel do Resend e reconcilie o lote para
+                    autorizar a continuidade dos envios.
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setReconcileModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition cursor-pointer shadow-sm flex items-center gap-1.5"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      Reconciliar Incidente com Justificativa
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Orientação discreta da aba aberta e dispositivo ativo */}
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1712,6 +1903,163 @@ function MailerPage() {
                       {new Date(campaignProgress.nextBatchAt).toLocaleTimeString()}
                     </span>
                   )}
+              </div>
+
+              {/* TASK-107: Fila em Tempo Real de Destinatários */}
+              <div className="pt-2 border-t border-border/40 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQueueRecipients(!showQueueRecipients)}
+                  className="w-full flex items-center justify-between text-xs font-semibold text-foreground py-1 px-2 rounded-lg hover:bg-muted/40 transition cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-primary" />
+                    Destinatários Desta Campanha ({campaignProgress.totalRecipients})
+                  </span>
+                  {showQueueRecipients ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {showQueueRecipients && (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Filtrar status:</span>
+                        <select
+                          value={queueStatusFilter}
+                          onChange={(e) => {
+                            setQueueStatusFilter(e.target.value);
+                            setQueuePage(1);
+                          }}
+                          className="text-xs px-2 py-1 rounded-md border border-border bg-background cursor-pointer"
+                        >
+                          <option value="all">Todos ({campaignProgress.totalRecipients})</option>
+                          <option value="pending">Na Fila ({campaignProgress.pendingCount})</option>
+                          <option value="processing">Em Curso ({campaignProgress.processingCount})</option>
+                          <option value="sent">Enviados ({campaignProgress.sentCount})</option>
+                          <option value="failed">Falhas ({campaignProgress.failedCount})</option>
+                          <option value="suppressed">Suprimidos ({campaignProgress.suppressedCount})</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadQueueRecipients(queuePage, queueStatusFilter)}
+                        className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${queueLoading ? "animate-spin" : ""}`} />
+                        Atualizar fila
+                      </button>
+                    </div>
+
+                    <div className="border border-border rounded-xl overflow-hidden bg-background">
+                      <div className="overflow-x-auto max-h-72">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-muted/50 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase sticky top-0">
+                            <tr>
+                              <th className="p-2.5">Coach</th>
+                              <th className="p-2.5">Universidade</th>
+                              <th className="p-2.5">Status</th>
+                              <th className="p-2.5">Tentativas</th>
+                              <th className="p-2.5">Erro / Info</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {queueLoading && queueRecipients.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                                  <Loader2 className="w-4 h-4 animate-spin inline-block mr-2 text-primary" />
+                                  Carregando destinatários da fila...
+                                </td>
+                              </tr>
+                            ) : queueRecipients.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                                  Nenhum destinatário encontrado com o filtro selecionado.
+                                </td>
+                              </tr>
+                            ) : (
+                              queueRecipients.map((item) => (
+                                <tr key={item.id} className="hover:bg-muted/20">
+                                  <td className="p-2.5">
+                                    <div className="font-semibold text-foreground">
+                                      {item.recipientName}
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                      {item.recipientEmail}
+                                    </div>
+                                  </td>
+                                  <td className="p-2.5 text-foreground">{item.universityName}</td>
+                                  <td className="p-2.5">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        item.status === "sent"
+                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                                          : item.status === "processing"
+                                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"
+                                            : item.status === "failed"
+                                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+                                              : item.status === "suppressed"
+                                                ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+                                                : "bg-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      {item.status}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-muted-foreground font-mono">
+                                    {item.attempts}
+                                  </td>
+                                  <td
+                                    className="p-2.5 text-muted-foreground text-[11px] max-w-xs truncate"
+                                    title={item.lastError || ""}
+                                  >
+                                    {item.lastError ||
+                                      (item.processedAt
+                                        ? `Processado às ${new Date(item.processedAt).toLocaleTimeString()}`
+                                        : "—")}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Paginação da fila */}
+                      {queueRecipientsTotal > 25 && (
+                        <div className="flex items-center justify-between p-2.5 border-t border-border bg-muted/20 text-xs">
+                          <span className="text-muted-foreground">
+                            Página {queuePage} de {Math.ceil(queueRecipientsTotal / 25)} (
+                            {queueRecipientsTotal} itens)
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={queuePage <= 1 || queueLoading}
+                              onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
+                              className="px-2 py-1 rounded border border-border bg-background disabled:opacity-40 cursor-pointer"
+                            >
+                              Anterior
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                queuePage >= Math.ceil(queueRecipientsTotal / 25) || queueLoading
+                              }
+                              onClick={() => setQueuePage((p) => p + 1)}
+                              className="px-2 py-1 rounded border border-border bg-background disabled:opacity-40 cursor-pointer"
+                            >
+                              Próxima
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2179,18 +2527,12 @@ function MailerPage() {
                           <option value="non_hbcu">Sem HBCU</option>
                         </select>
 
-                        <select
-                          value={filterBudget}
-                          onChange={(e) => setFilterBudget(e.target.value)}
-                          className="sm:col-span-4 text-xs px-2 py-1.5 rounded-lg border border-border bg-background cursor-pointer"
-                        >
-                          <option value="all">Budget: Todos</option>
-                          {BUDGET_LEVELS.map((bg) => (
-                            <option key={bg} value={bg}>
-                              Budget: ${bg}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="sm:col-span-4">
+                          <BudgetMultiSelect
+                            selected={selectedBudgets}
+                            onChange={setSelectedBudgets}
+                          />
+                        </div>
 
                         <select
                           value={filterToefl}
@@ -2491,128 +2833,8 @@ function MailerPage() {
               </div>
             </div>
           ) : activeTab === "history" ? (
-            /* ABA HISTÓRICO DE DISPAROS */
-            <div className="space-y-4">
-              <div className="glass-panel p-4 flex items-center justify-between rounded-xl border border-border bg-card">
-                <div>
-                  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <History className="w-4 h-4 text-primary" />
-                    Histórico Geral de Envios
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Auditoria de todos os e-mails disparados aos treinadores, incluindo status de
-                    entrega e bloqueios de descadastro.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const logs = await getMailerHistoryServerFn().catch(() => []);
-                    setHistoryLogs((logs as RecruitEmailLog[]) || []);
-                    toast.success("Histórico atualizado.");
-                  }}
-                  className="text-xs text-primary font-semibold hover:underline cursor-pointer"
-                >
-                  Atualizar Lista
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase text-muted-foreground">
-                      <tr>
-                        <th className="p-3">Destinatário</th>
-                        <th className="p-3">Universidade</th>
-                        <th className="p-3">Tipo de E-mail</th>
-                        <th className="p-3">Assunto</th>
-                        <th className="p-3">Data/Hora</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3 text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {historyLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                            Nenhum registro de envio encontrado no log.
-                          </td>
-                        </tr>
-                      ) : (
-                        historyLogs.map((log) => (
-                          <tr key={log.id} className="hover:bg-muted/20">
-                            <td className="p-3">
-                              <div className="font-semibold text-foreground">
-                                {log.recipient_name || "Coach"}
-                              </div>
-                              <div className="text-muted-foreground">
-                                {log.recipient_email || "E-mail indisponível"}
-                              </div>
-                            </td>
-                            <td className="p-3 text-foreground font-medium">
-                              {log.university_name || "—"}
-                            </td>
-                            <td className="p-3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground">
-                                {log.email_type === "catalog_general"
-                                  ? "Catálogo Geral"
-                                  : log.email_type === "athlete_teaser_multi"
-                                    ? "Multi-Atleta (Unificado)"
-                                    : "Teaser Atleta"}
-                              </span>
-                            </td>
-                            <td className="p-3 text-muted-foreground max-w-xs truncate">
-                              {log.subject}
-                            </td>
-                            <td className="p-3 text-muted-foreground whitespace-nowrap">
-                              {new Date(log.sent_at).toLocaleString("pt-BR", {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}
-                            </td>
-                            <td className="p-3">
-                              {log.status === "sent" ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  Enviado
-                                </span>
-                              ) : log.status === "suppressed" ? (
-                                <span
-                                  className="inline-flex items-center gap-1 text-slate-900 dark:text-slate-200 font-semibold"
-                                  title="Ignorado por descadastro (Suppressed)"
-                                >
-                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-                                  Suprimido
-                                </span>
-                              ) : (
-                                <span
-                                  className="inline-flex items-center gap-1 text-destructive font-semibold"
-                                  title={log.error_message || "Falha no envio"}
-                                >
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                  Falhou
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleViewTimeline(log)}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-muted hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-                                title="Ver linha do tempo de eventos deste e-mail"
-                              >
-                                <Activity className="w-3 h-3 text-primary" />
-                                Timeline
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            /* ABA HISTÓRICO DE DISPAROS PAGINADO COM SNAPSHOT */
+            <MailerHistorySection onViewTimeline={handleViewTimeline} />
           ) : (
             /* ABA MÉTRICAS ANALÍTICAS */
             <MailerMetricsDashboard athletes={athletes} onRefreshHistory={loadInitialData} />
@@ -2858,6 +3080,103 @@ function MailerPage() {
                     </>
                   ) : (
                     "Confirmar e Enviar"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE RECONCILIAÇÃO DE INCIDENTE DA FILA */}
+        {reconcileModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Reconciliar Incidente de Quarentena</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Desbloqueie a campanha após auditar os disparos no Resend.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">Ação de Resolução:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReconcileResolution("marked_sent")}
+                      className={`p-2.5 rounded-lg border text-left cursor-pointer transition ${
+                        reconcileResolution === "marked_sent"
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 font-bold"
+                          : "border-border bg-muted/30 text-muted-foreground"
+                      }`}
+                    >
+                      <div>Marcar Enviado</div>
+                      <div className="text-[10px] font-normal opacity-80 mt-0.5">
+                        E-mail aceito pelo Resend Dashboard
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReconcileResolution("marked_failed")}
+                      className={`p-2.5 rounded-lg border text-left cursor-pointer transition ${
+                        reconcileResolution === "marked_failed"
+                          ? "border-rose-500 bg-rose-500/10 text-rose-950 dark:text-rose-200 font-bold"
+                          : "border-border bg-muted/30 text-muted-foreground"
+                      }`}
+                    >
+                      <div>Marcar Falha</div>
+                      <div className="text-[10px] font-normal opacity-80 mt-0.5">
+                        Não entregue, não reenviar automaticamente
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-foreground">
+                    Justificativa Administrativa (Obrigatória, mín. 5 caracteres):
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex: Verificado no Resend Dashboard que o lote anterior foi entregue com sucesso aos destinatários."
+                    value={reconcileNotes}
+                    onChange={(e) => setReconcileNotes(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                  />
+                  <div className="text-[10px] text-muted-foreground text-right">
+                    {reconcileNotes.trim().length} / 5 caracteres mínimos
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isReconciling}
+                  onClick={() => setReconcileModalOpen(false)}
+                  className={secondaryButtonClass}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isReconciling || reconcileNotes.trim().length < 5}
+                  onClick={handleReconcileIncident}
+                  className="px-4 py-2 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+                >
+                  {isReconciling ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Reconciliando...
+                    </>
+                  ) : (
+                    "Autorizar e Desbloquear Fila"
                   )}
                 </button>
               </div>

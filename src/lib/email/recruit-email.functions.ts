@@ -247,3 +247,71 @@ export const getAthletesEmailDataServerFn = createServerFn({ method: "POST" })
     const { loadAthletesEmailData } = await import("./athlete-email-data.server");
     return loadAthletesEmailData(data.athleteIds);
   });
+
+// 17. Consulta de Destinatários da Fila de uma Campanha (Requer agência)
+export const getCampaignRecipientsServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator(
+    (data: {
+      campaignId: string;
+      page?: number;
+      pageSize?: number;
+      statusFilter?: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { getCampaignRecipients } = await import("./mailer-runner.server");
+    return getCampaignRecipients(
+      data.campaignId,
+      data.page || 1,
+      data.pageSize || 10,
+      data.statusFilter,
+    );
+  });
+
+// 18. Reconciliação Manual de Incidente de Campanha em Quarentena (Requer agência)
+export const reconcileCampaignIncidentServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string; adminNotes: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { reconcileCampaignIncident } = await import("./mailer-runner.server");
+    const userEmail = (context as { user?: { email?: string } })?.user?.email;
+    return reconcileCampaignIncident(data.campaignId, data.adminNotes, userEmail);
+  });
+
+// 19. Gatilho de Execução do Worker do Servidor (Requer agência)
+export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { triggerServerCampaignWorker } = await import("./mailer-runner.server");
+    triggerServerCampaignWorker(data.campaignId);
+    return { success: true };
+  });
+
+// 20. Histórico de Envios Paginado no Servidor (Requer agência)
+export const getPaginatedMailerHistoryServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator(
+    (data?: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      status?: string;
+      campaignId?: string;
+      athleteId?: string;
+      universityName?: string;
+      state?: string;
+      league?: string;
+      budgetLevel?: string;
+      toeflLevel?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => data || {},
+  )
+  .handler(async ({ data }) => {
+    const { getPaginatedMailerHistory } = await import("./mailer-history.server");
+    return getPaginatedMailerHistory(data);
+  });
+
+

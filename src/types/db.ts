@@ -557,6 +557,10 @@ export interface CampaignProgress {
   completedAt: string | null;
   estimatedRemainingSeconds: number;
   lastError: string | null;
+  substate?: string;
+  substateLabel?: string;
+  substateDescription?: string;
+  lastProgressAt?: string | null;
 }
 
 export interface EnqueueResult {

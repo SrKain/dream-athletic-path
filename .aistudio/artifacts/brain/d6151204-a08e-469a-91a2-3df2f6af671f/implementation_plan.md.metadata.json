@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de Solução para a TASK-105: Correção de Textos Personalizados no Mailer (Single, Multi e Catálogo) com garantia de paridade estrita entre preview e envio, integridade fail-closed e testes automatizados.",
-  "updatedAt":  "2026-10-20T19:40:42.025586669Z",
+  "summary":  "Plano detalhado de implementação para a TASK-107, abrangendo as quatro entregas: P0 continuidade resiliente e observabilidade da campanha do Mailer desacoplada do navegador, P1 budget multisseleção, P1 histórico completo com paginação no servidor e snapshot de características importadas, e P1 aba Coaches em Universidades com CRUD compartilhado, preferências e timeline de interações.",
+  "updatedAt":  "2026-10-21T18:21:49.960718720Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

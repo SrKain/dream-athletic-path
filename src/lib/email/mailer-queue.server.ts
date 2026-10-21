@@ -26,6 +26,7 @@ import {
   nextBurstSize,
 } from "./mailer-burst";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
+import { deriveCampaignSubstate } from "./mailer-health";
 
 function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name];
@@ -88,6 +89,10 @@ export interface CampaignProgress {
   completedAt: string | null;
   estimatedRemainingSeconds: number;
   lastError: string | null;
+  substate?: string;
+  substateLabel?: string;
+  substateDescription?: string;
+  lastProgressAt?: string | null;
 }
 
 export interface ProcessQueueOptions {
@@ -646,6 +651,15 @@ export async function enqueueCampaignDispatches(
         message: failureMessage,
       };
     }
+
+    // Trigger durable background worker on server
+    import("./mailer-runner.server")
+      .then((m) => {
+        m.triggerServerCampaignWorker(campaignId, admin);
+      })
+      .catch((err) => {
+        console.warn("[mailer-queue] Failed to trigger background worker:", err);
+      });
   }
 
   return {
@@ -1169,6 +1183,16 @@ export async function getCampaignQueueProgress(
           (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
       );
 
+      const health = deriveCampaignSubstate({
+        status: s.status as MailerCampaignStatus,
+        last_error: (s.last_error as string) || null,
+        next_batch_at: (s.next_batch_at as string) || null,
+        started_at: (s.started_at as string) || null,
+      }, {
+        pendingCount: pending,
+        processingCount: processing,
+      });
+
       return {
         campaignId: String(s.campaign_id),
         status: s.status as MailerCampaignStatus,
@@ -1189,6 +1213,9 @@ export async function getCampaignQueueProgress(
         completedAt: (s.completed_at as string) || null,
         estimatedRemainingSeconds,
         lastError: (s.last_error as string) || null,
+        substate: health.substate,
+        substateLabel: health.label,
+        substateDescription: health.description,
       };
     }
   } catch {
@@ -1264,6 +1291,16 @@ export async function getCampaignQueueProgress(
       (Math.max(0, remainingBursts - 1) * QUEUE_CONFIG.BURST_PAUSE_MS) / 1000,
   );
 
+  const fallbackHealth = deriveCampaignSubstate({
+    status: campaign.status as MailerCampaignStatus,
+    last_error: campaign.last_error,
+    next_batch_at: campaign.next_batch_at,
+    started_at: campaign.started_at,
+  }, {
+    pendingCount: pending,
+    processingCount: processing,
+  });
+
   return {
     campaignId: campaign.id,
     status: campaign.status as MailerCampaignStatus,
@@ -1284,6 +1321,9 @@ export async function getCampaignQueueProgress(
     completedAt: campaign.completed_at,
     estimatedRemainingSeconds,
     lastError: campaign.last_error,
+    substate: fallbackHealth.substate,
+    substateLabel: fallbackHealth.label,
+    substateDescription: fallbackHealth.description,
   };
 }
 
@@ -1328,7 +1368,11 @@ export async function resumeCampaign(
     return { success: false, message: "Only paused campaigns can be resumed." };
   }
   // A delivery accepted by Resend but not persisted cannot be replayed safely.
-  if (campaign.last_error?.includes("Manual reconciliation required")) {
+  if (
+    campaign.last_error?.includes("Manual reconciliation required") ||
+    campaign.last_error?.includes("ambiguous") ||
+    campaign.last_error?.includes("PROVIDER_AMBIGUOUS")
+  ) {
     return {
       success: false,
       message: "Manual reconciliation required before resuming this campaign.",
@@ -1345,6 +1389,15 @@ export async function resumeCampaign(
     .eq("id", campaignId);
 
   if (error) return { success: false, message: error.message };
+
+  import("./mailer-runner.server")
+    .then((m) => {
+      m.triggerServerCampaignWorker(campaignId, admin);
+    })
+    .catch((err) => {
+      console.warn("[mailer-queue] Failed to trigger background worker on resume:", err);
+    });
+
   return { success: true };
 }
 
