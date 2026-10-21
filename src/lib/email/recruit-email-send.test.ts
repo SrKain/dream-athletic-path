@@ -104,22 +104,34 @@ vi.mock("@/lib/supabase/clients.server", () => ({
           }),
         };
       }
+      if (table === "universities") {
+        return { select: () => {
+          const chain = {
+            order: () => chain,
+            range: () => Promise.resolve({ data: [], error: null }),
+          };
+          return chain;
+        } };
+      }
       if (table === "coaches") {
         return {
-          select: () => ({
-            in: () =>
-              Promise.resolve({
-                data: [
-                  {
-                    id: "440e8400-e29b-41d4-a716-446655440099",
-                    name: "Coach Miller",
-                    email: "miller@stanford.edu",
-                    institution: "Stanford University",
-                  },
-                ],
-                error: null,
-              }),
-          }),
+          select: () => {
+            const rows = [
+              {
+                id: "440e8400-e29b-41d4-a716-446655440099",
+                name: "Coach Miller",
+                email: "miller@stanford.edu",
+                institution: "Stanford University",
+              },
+            ];
+            const chain = {
+              order: () => chain,
+              range: (from: number, to: number) =>
+                Promise.resolve({ data: rows.slice(from, to + 1), error: null }),
+              in: () => Promise.resolve({ data: rows, error: null }),
+            };
+            return chain;
+          },
         };
       }
       if (table === "athlete_videos") {
