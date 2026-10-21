@@ -575,7 +575,7 @@ function MailerPage() {
 
           if (res.campaignCompleted || res.campaignStatus === "completed") {
             isOrchestratorActiveRef.current = false;
-            const hasFailures = (res.progress?.failedCount || 0) > 0;
+            const hasFailures = (res.progress?.failedCount || 0) > 0 || (res.progress?.cancelledCount || 0) > 0;
             if (hasFailures) {
               toast.warning(
                 `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount} falha(s).`,
