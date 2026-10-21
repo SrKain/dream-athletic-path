@@ -1230,3 +1230,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **TASK-107 / Fase 1:** formatter one-shot preparado para reparar estilo dos arquivos da implementação parcial com dependências congeladas. A formatação não implica aprovação do CI; testes, typecheck e build ainda precisam ser aprovados após o commit formatado.
 
 - Formatação one-shot: sintaxe YAML do guard corrigida; execução automática pendente de confirmação dos jobs.
+
+- **TASK-107 / Fase 1 — endurecimento de segurança:** correção do modo persistido da campanha independente do kill switch, tipagem de mocks e remoção de workflow temporário após formatação. Critérios de CI/aceite ainda sujeitos à pipeline do próximo SHA.

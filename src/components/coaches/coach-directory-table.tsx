@@ -74,8 +74,8 @@ export function CoachDirectoryTable({
       for (const c of coachesArray) {
         list.push({
           id: c.id,
-          first_name: c.first_name || (c as any).firstName,
-          last_name: c.last_name || (c as any).lastName,
+          first_name: c.first_name || (c as UniversityCoach & { firstName?: string }).firstName,
+          last_name: c.last_name || (c as UniversityCoach & { lastName?: string }).lastName,
           email: c.email,
           phone: c.phone,
           role: c.role,

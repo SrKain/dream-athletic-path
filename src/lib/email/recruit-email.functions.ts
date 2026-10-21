@@ -294,8 +294,8 @@ export const getMailerCampaignOrchestrationModeServerFn = createServerFn({ metho
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
-    const { isMailerWorkerEnabled } = await import("./mailer-worker-auth");
-    if (!isMailerWorkerEnabled()) return { serverOrchestrated: false };
+    // Ownership is persisted per campaign; a disabled kill switch must NOT
+    // fall back to browser dispatch for server-owned campaigns.
     const { data: campaign, error } = await getAdminClient()
       .from("mailer_campaigns")
       .select("filters")

@@ -105,7 +105,7 @@ describe("Mailer Health & Substate Derivation Suite", () => {
 
 describe("Mailer Incident Reconciliation Suite", () => {
   it("rejects reconciliation without sufficient explanation notes", async () => {
-    const mockAdmin = {} as any;
+    const mockAdmin = {} as unknown as Parameters<typeof reconcileCampaignIncident>[3];
     const res = await reconcileCampaignIncident("camp-1", "abc", "admin@gtg.com", mockAdmin);
     expect(res.success).toBe(false);
     expect(res.message).toContain("no mínimo 5 caracteres");
@@ -129,7 +129,7 @@ describe("Mailer Incident Reconciliation Suite", () => {
         })),
         update: updateSpy,
       })),
-    } as any;
+    } as unknown as Parameters<typeof reconcileCampaignIncident>[3];
     const res = await reconcileCampaignIncident(
       "camp-1",
       "Analisado no provedor, ainda incerto.",

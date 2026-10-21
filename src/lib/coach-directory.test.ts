@@ -39,7 +39,7 @@ describe("Coach Directory Atomic Operations Suite", () => {
         }),
         update: updateSpy,
       })),
-    } as any;
+    } as unknown as Parameters<typeof updateUniversityCoachAtomic>[2];
 
     const res = await updateUniversityCoachAtomic(
       "uni-1",
@@ -96,7 +96,7 @@ describe("Coach Directory Atomic Operations Suite", () => {
         }),
         update: updateSpy,
       })),
-    } as any;
+    } as unknown as Parameters<typeof updateUniversityCoachAtomic>[2];
 
     const res = await updateUniversityCoachAtomic(
       "uni-1",
@@ -141,7 +141,7 @@ describe("Coach Directory Atomic Operations Suite", () => {
         }),
         update: updateSpy,
       })),
-    } as any;
+    } as unknown as Parameters<typeof updateUniversityCoachAtomic>[2];
 
     const res = await deleteUniversityCoachAtomic("uni-1", "c-1", mockAdmin);
     expect(res.success).toBe(true);

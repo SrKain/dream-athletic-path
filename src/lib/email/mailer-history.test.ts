@@ -22,7 +22,7 @@ describe("Mailer History Server-Side Pagination & Filtering Suite", () => {
         }
         return {};
       }),
-    } as any;
+    } as unknown as Parameters<typeof getPaginatedMailerHistory>[1];
 
     const res = await getPaginatedMailerHistory(
       { page: 1, pageSize: 999 }, // 999 should fallback to 25
@@ -104,7 +104,7 @@ describe("Mailer History Server-Side Pagination & Filtering Suite", () => {
         }
         return {};
       }),
-    } as any;
+    } as unknown as Parameters<typeof getPaginatedMailerHistory>[1];
 
     const res = await getPaginatedMailerHistory({ page: 1, pageSize: 25 }, mockAdmin);
 

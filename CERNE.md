@@ -1502,3 +1502,6 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Formatação reproduzível:** workflow temporário one-shot na GitHub Actions executa o Prettier já presente no projeto com Bun 1.3.14 e publica a formatação diretamente na main (sem alterar dependências), para corrigir erros `prettier/prettier` introduzidos na implementação parcial; será removido depois e a pipeline de validação será reexecutada.
 
 - O primeiro workflow one-shot falhou na validação YAML por `:` no escalar `if`; expressão substituída por `startsWith(...)` para validação do GitHub Actions.
+
+- **Correção do kill switch:** ao identificar o modo de uma campanha, o servidor lê sempre `mailer_campaigns.filters.serverOrchestration` (inclusive quando as flags de infraestrutura estão desligadas). Assim, desligar `MAILER_SEND_ENABLED` não entrega implicitamente a campanha ao navegador.
+- Formatação automática temporária via Bun 1.3.14/Prettier aplicada no commit `de9e3da`; removido o workflow one-shot após uso. Mocks de testes ajustados para tipos concretos, sem `any`; CI a confirmar.
