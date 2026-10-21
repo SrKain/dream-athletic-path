@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   chunkIdempotencyKey,
@@ -24,6 +25,15 @@ describe("Mailer burst safeguards", () => {
     expect(getRetryAfterSeconds(null)).toBe(60);
     expect(getRetryAfterSeconds("99999")).toBe(3600);
     vi.useRealTimers();
+  });
+
+  it("does not regress the PostgreSQL 0027 readiness function delimiter", () => {
+    const sql = readFileSync(
+      new URL("../../../db/migrations/0027_mailer_burst_claim_and_persistence.sql", import.meta.url),
+      "utf8",
+    );
+    expect(sql).toContain("AS $ SELECT true $;");
+    expect(sql).not.toContain("AS $ SELECT true $;");
   });
 
   it("separates rejection, 429 and ambiguous acceptance", () => {
