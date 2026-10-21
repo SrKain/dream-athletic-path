@@ -1,6 +1,7 @@
 import { resolveEmailSubject } from "./email-personalization";
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase/clients.server";
+import { asQueryResult, fetchAllUniversities, fetchAllCoaches } from "@/lib/universities-fetch";
 import { getResendClient, getResendConfig } from "./resend-client.server";
 import {
   buildFixedEmailBlocks,
@@ -922,9 +923,9 @@ export async function sendRecruitEmailToCoaches(input: {
   errors?: string[];
 }> {
   const admin = getAdminClient();
-  const { data: universities, error: coachesErr } = await admin
-    .from("universities")
-    .select("id, name, coaches");
+  const { data: universities, error: coachesErr } = await asQueryResult(
+    fetchAllUniversities<{ id: string; name: string; coaches: Array<{ id: string; first_name: string; last_name: string; email: string }> | null }>(admin, "id,name,coaches"),
+  );
 
   if (coachesErr) {
     console.error(
@@ -953,15 +954,14 @@ export async function sendRecruitEmailToCoaches(input: {
 
   // Fallback para tabela legada coaches se não encontrar na coluna JSON de universities
   if (recipients.length === 0 && input.coachIds.length > 0) {
-    const { data: legacyCoaches } = await admin
-      .from("coaches")
-      .select("id, name, email, institution")
-      .in("id", input.coachIds);
+    const { data: legacyCoaches } = await asQueryResult(
+      fetchAllCoaches<{ id: string; name?: string; email: string; institution?: string }>(admin, "id,name,email,institution"),
+    );
 
     if (legacyCoaches && legacyCoaches.length > 0) {
       recipients = (
         legacyCoaches as Array<{ id: string; name?: string; email: string; institution?: string }>
-      ).map((c) => ({
+      ).filter((c) => selectedIds.has(c.id)).map((c) => ({
         coachId: c.id,
         name: c.name || "Coach",
         email: c.email,
