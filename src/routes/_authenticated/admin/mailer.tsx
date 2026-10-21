@@ -59,6 +59,7 @@ import {
   reconcileCampaignIncidentServerFn,
   getCampaignRecipientsServerFn,
   triggerCampaignWorkerServerFn,
+  getMailerCampaignOrchestrationModeServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { BudgetMultiSelect } from "@/components/mailer/budget-multi-select";
 import { MailerHistorySection } from "@/components/mailer/mailer-history-section";
@@ -270,6 +271,11 @@ function MailerPage() {
 
   // Fila Inteligente: Estado de Monitoramento em Tempo Real e Operações
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  // null until server confirms ownership; never race a scheduled worker from the browser.
+  const [orchestrationMode, setOrchestrationMode] = useState<{
+    campaignId: string;
+    serverOrchestrated: boolean;
+  } | null>(null);
   const [campaignProgress, setCampaignProgress] = useState<CampaignProgress | null>(null);
   const [isOperatingQueue, setIsOperatingQueue] = useState(false);
   const [isTabHidden, setIsTabHidden] = useState(false);
@@ -534,7 +540,9 @@ function MailerPage() {
         tickTimeoutRef.current = null;
       }
 
-      if (!isOrchestratorActiveRef.current || isUnmountedRef.current) return;
+      if (!isOrchestratorActiveRef.current || isUnmountedRef.current ||
+          orchestrationMode?.campaignId !== activeCampaignId ||
+          orchestrationMode.serverOrchestrated) return;
 
       tickTimeoutRef.current = setTimeout(async () => {
         if (
@@ -664,12 +672,59 @@ function MailerPage() {
         }
       }, delayMs);
     },
-    [activeCampaignId],
+    [activeCampaignId, orchestrationMode],
   );
+
+  // Authoritative server ownership must be resolved BEFORE browser ticks start.
+  useEffect(() => {
+    if (!activeCampaignId) return;
+    let cancelled = false;
+    setOrchestrationMode(null);
+    getMailerCampaignOrchestrationModeServerFn({ data: { campaignId: activeCampaignId } })
+      .then((mode) => {
+        if (!cancelled)
+          setOrchestrationMode({
+            campaignId: activeCampaignId,
+            serverOrchestrated: mode.serverOrchestrated,
+          });
+      })
+      .catch(() => {
+        // Fail closed: if ownership is unknown the browser must not send.
+        if (!cancelled)
+          setOrchestrationMode({
+            campaignId: activeCampaignId,
+            serverOrchestrated: true,
+          });
+      });
+    return () => { cancelled = true; };
+  }, [activeCampaignId]);
+
+  // In server mode polling is READ ONLY. A page refresh never starts a batch.
+  useEffect(() => {
+    if (!activeCampaignId || orchestrationMode?.campaignId !== activeCampaignId ||
+        !orchestrationMode.serverOrchestrated) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const progress = await getCampaignQueueProgressServerFn({ data: { campaignId: activeCampaignId } });
+        if (!cancelled && progress) setCampaignProgress(progress);
+      } catch {
+        // Previous state remains visible until next successful poll.
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 10000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [activeCampaignId, orchestrationMode]);
 
   // 5. Iniciar ou pausar orquestrador conforme o estado da campanha
   useEffect(() => {
-    if (activeCampaignId && campaignProgress?.status === "running") {
+    if (
+      activeCampaignId &&
+      campaignProgress?.status === "running" &&
+      orchestrationMode?.campaignId === activeCampaignId &&
+      !orchestrationMode.serverOrchestrated
+    ) {
       isOrchestratorActiveRef.current = true;
       triggerOrchestratorTick(300);
     } else {
@@ -686,7 +741,7 @@ function MailerPage() {
         tickTimeoutRef.current = null;
       }
     };
-  }, [activeCampaignId, campaignProgress?.status, triggerOrchestratorTick]);
+  }, [activeCampaignId, campaignProgress?.status, orchestrationMode, triggerOrchestratorTick]);
 
   // Mapeamento de sinais de interesse ativos agrupados por e-mail do coach
   const signalsByEmail = useMemo(() => {
@@ -1264,7 +1319,7 @@ function MailerPage() {
 
       if (res.success) {
         toast.success(
-          `Campanha iniciada! ${res.totalEnqueued} e-mails na fila. O navegador está orquestrando os envios. Mantenha esta aba aberta.`,
+          `Campanha criada com ${res.totalEnqueued} destinatários na fila. Acompanhe o status operacional abaixo.`,
         );
         if (res.totalSuppressed > 0) {
           toast.info(
@@ -1284,9 +1339,8 @@ function MailerPage() {
           setCampaignProgress(initialProg);
         }
 
-        // Ativar orquestrador do navegador
-        isOrchestratorActiveRef.current = true;
-        triggerOrchestratorTick(300);
+        // O useEffect inicia o navegador SOMENTE após verificar o executor
+        // da campanha. Uma campanha server-orchestrated nunca dispara aqui.
 
         // Atualizar histórico
         const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
@@ -1318,7 +1372,7 @@ function MailerPage() {
     try {
       const res = await pauseMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
-        toast.info("Campanha pausada. O navegador suspendeu os disparos.");
+        toast.info("Campanha pausada. O servidor manterá o estado persistido.");
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
@@ -1340,15 +1394,13 @@ function MailerPage() {
     try {
       const res = await resumeMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
-        toast.success("Campanha retomada! O navegador continuará os disparos.");
+        toast.success("Campanha retomada, aguardando o executor autorizado.");
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
         if (prog) setCampaignProgress(prog);
-        // Reativar o orquestrador do navegador
+        // O effect reativa apenas campanhas explicitamente browser-owned.
         setIsAnotherTabActive(false);
-        isOrchestratorActiveRef.current = true;
-        triggerOrchestratorTick(300);
       } else {
         toast.error(res.message || "Falha ao retomar campanha.");
       }
@@ -1463,13 +1515,13 @@ function MailerPage() {
         data: { campaignId: activeCampaignId },
       });
       if (res.success) {
-        toast.success("Worker do servidor acionado!");
+        toast.info("Worker gerenciado pelo agendador protegido.");
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
         if (prog) setCampaignProgress(prog);
       } else {
-        toast.error("Não foi possível acionar o worker.");
+        toast.error(res.message || "Não foi possível acionar o worker.");
       }
     } catch (err) {
       console.error("[mailer] Error triggering worker:", err);

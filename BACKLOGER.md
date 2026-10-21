@@ -1224,3 +1224,5 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Marco de recuperação de CI:** restaurado o `bun.lock` canônico do commit validado `69843f9` (blob `11e32ea0199fd8ea03742194d7e92136aa0ed513`), sem modificar `package.json`; CI posterior pendente de verificação. Demais etapas e aceite da TASK-107 permanecem pendentes.
 
 - **TASK-107 / Fase 1 — marco de segurança:** endpoint de worker com três gates, opt-in apenas para campanhas novas, retirada do fire-and-forget e proteção fail-closed de reconciliação/recuperação insegura. Não foi acionado nenhum envio nem habilitada infraestrutura. **Status: [PENDENTE — validações e rollout não concluídos]**.
+
+- **TASK-107 / Fase 1 — isolamento da interface:** executor identificado em leitura autenticada antes de disparos; campanhas atribuídas ao servidor atualizam apenas progresso via polling; falha de verificação não inicia envios. CI final ainda pendente.

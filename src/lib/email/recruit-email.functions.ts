@@ -290,6 +290,24 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
     return { success: false, message: "Worker requer agendador protegido e autorização operacional." };
   });
 
+// 19b. Retorna a autoridade de orquestração da campanha atual (somente leitura).
+export const getMailerCampaignOrchestrationModeServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const { isMailerWorkerEnabled } = await import("./mailer-worker-auth");
+    if (!isMailerWorkerEnabled()) return { serverOrchestrated: false };
+    const { data: campaign, error } = await getAdminClient()
+      .from("mailer_campaigns")
+      .select("filters")
+      .eq("id", data.campaignId)
+      .maybeSingle();
+    if (error || !campaign) throw new Error("Não foi possível validar o executor da campanha.");
+    const filters = campaign.filters as Record<string, unknown> | null;
+    return { serverOrchestrated: filters?.serverOrchestration === true };
+  });
+
 // 20. Histórico de Envios Paginado no Servidor (Requer agência)
 export const getPaginatedMailerHistoryServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
