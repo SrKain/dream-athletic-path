@@ -146,3 +146,9 @@ Uma entrega consolidada **após cada etapa testada**, não muitas microversões 
 ## 9. Instrução de execução para Google AI Studio
 
 > Leia `AGENTS.md`, `README.md`, `CERNE.md`, `BACKLOGER.md`, `UI&UX.md` e **todo** `think/`. Use este plano TASK-107 como contrato, com especial atenção à TASK-106 e à migration 0027. **Não modifique código até a aprovação explícita do usuário humano deste plano.** Execute diagnóstico read-only, apresente riscos/ADR de worker, e depois implemente as fases do plano com SOLID, server-side authoritative state, idempotência, RLS e UI mobile-first. Não reenvie campanhas antigas nem use coaches reais em testes. Preserve os sistemas existentes e reporte os testes, migrações, rollouts e critérios de aceite por fase.
+
+
+## 10. Aprovação humana da Fase 1 — 21/10/2026
+- **Aprovada explicitamente pelo solicitante neste atendimento:** correção do CI e implantação de resiliência P0, diretamente na `main`, sem PR ou branch.
+- **Não autorizados:** disparos reais, alteração de registros de produção ou ativação de infraestrutura (Supabase Cron, Edge Functions, agendadores, migrations de produção). Testes somente com mocks/fakes.
+- Execução por etapas documentadas em `CERNE.md` e `BACKLOGER.md`; somente considerar a fase validada após CI Bun 1.3.14 verde e testes de regressão.
