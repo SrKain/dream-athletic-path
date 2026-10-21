@@ -774,6 +774,15 @@ export async function processMailerQueue(
     });
   }
 
+  // Never touch Resend until the atomic-completion migration is installed.
+  const readiness = await admin.rpc("mailer_burst_ready");
+  if (readiness.error || readiness.data !== true) {
+    return empty({
+      effectiveBurstSize: effectiveSize,
+      message: "Mailer migration 0027 is not available. No email was sent.",
+    });
+  }
+
   const { data: limit, error: limitError } = await admin
     .from("mailer_rate_limits")
     .select("locked_until")
