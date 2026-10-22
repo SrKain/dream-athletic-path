@@ -1,158 +1,60 @@
-# TASK-107 — Estabilização do Mailer, Progresso Persistido, Filtros Avançados e Gestão de Coaches
+# Diagnóstico Comprovado e Plano de Resolução do Mailer
 
-Plataforma resiliente e durável de recrutamento internacional para a agência Go Team Go, desacoplando a execução do Mailer do ciclo de vida da aba do navegador, garantindo transparência operacional auditável, filtros multicritério de orçamento e consulta paginada de histórico no servidor, além de unificar a gestão e interações de coaches na tela de Universidades.
-
----
-
-### User Review & Critical Decisions
-
-> [!IMPORTANT]
-> As seguintes decisões estratégicas foram alinhadas e confirmadas na Fase 1:
-
-- **Orquestração Desacoplada do Navegador**: Implementação de endpoint de worker protegido do lado do servidor (`/api/mailer/worker` ou Server Function idempotente com trigger assíncrono server-side) como despachante autoritativo de rajadas, mantendo o navegador puramente como cliente de visualização, telemetria em polling e emissor de comandos manuais.
-- **Transparência de Características Importadas no Histórico**: Novos envios registrarão snapshot imutável das características importadas (`league`, `state`, `budget_level`, `toefl_level`, etc.) na campanha/log. Envios anteriores com vínculo inequívoco com a universidade exibirão o rótulo "Inferido do cadastro atual", e registros sem correspondência exibirão "Não disponível".
-- **Sequência de Rollout em Quatro Fases Estritas**:
-  1. **Fase 1 (P0)**: Resiliência de execução, isolamento de falhas ambíguas, reconciliação manual e novo dashboard de status/saúde do envio.
-  2. **Fase 2 (P1)**: Multi-select de budget no Mailer com semântica OR e persistência no filtro da campanha.
-  3. **Fase 3 (P1)**: Histórico completo com paginação real no servidor (25/50/100) e filtros multicritério.
-  4. **Fase 4 (P1)**: Aba Coaches em `/admin/universities`, componentes compartilhados com `/admin/coaches`, CRUD com controle de concorrência e timeline completa de interações.
+Os dois dados que você trouxe do **Supabase** e da **Vercel** fecharam 100% o quebra-cabeça com precisão cirúrgica. Abaixo está exatamente o que aconteceu na sua campanha atual (`0fe81b27-bdf5-4bbb-9101-27f533d9cd63`) e no webhook da Resend, seguido do plano de correção.
 
 ---
 
-### 1. Overview & Core Concept
+## 1. O que os seus dados comprovam (Causas-Raiz Exatas)
 
-- **O que faz**:
-  - Elimina a dependência de manter a aba do navegador aberta para processar campanhas de e-mail de recrutamento.
-  - Oferece visibilidade de estado em tempo real: percentual de conclusão baseado no banco, contagem segregada (`ativos`, `pendentes`, `processando`, `retry`, `aceitos pelo Resend`, `suprimidos`), tempo decorrido, último avanço, próximo lote e estimativa honesta (ETA).
-  - Previne disparos duplicados colocando em quarentena (`reconciliation_required`) qualquer caso de aceite incerto ou falha de rede pós-chamada ao Resend, bloqueando auto-retentativas cegas.
-  - Permite aos consultores filtrar o Mailer selecionando qualquer combinação das 4 faixas de orçamento cadastradas (`0–1000`, `1000–5000`, `5000–10000`, `10000+`).
-  - Permite auditar todo o histórico de envios sem o teto de 100 registros, com paginação real e filtros de características importadas.
-  - Integra a visualização e gestão de contatos de técnicos universitários diretamente na tela de Universidades em aba própria, preservando a rota `/admin/coaches` e o modal de cadastro.
-- **Público-alvo**: Administradores e consultores da agência Go Team Go (`agency_admin`).
-- **Valor agregado**: Confiança operacional em envios de grande escala (300 a 3.300 destinatários), redução drástica de erros humanos e facilidade de pesquisa de técnicos e históricos de comunicação.
-
----
-
-### 2. User Experience & Visual Design
-
-Seguindo as diretrizes de `UI&UX.md` e do guia de SaaS & Dashboards (`references/3_saas_dashboard.md`):
-- **Cores & Densidade**: Paleta 60-30-10 OKLCH com fundo off-white editorial, superfícies de cards limpos com borda sutil de 1px (`border-slate-200 dark:border-neutral-800`), verde esmeralda (`#061b13` / `--primary`) para ações afirmativas e semântica estrita para status (verde: ativo/concluído, âmbar: cooldown/retry, vermelho: quarentena/erro).
-- **Semântica Visual & Tipografia**: Proibição de fake pills em metadados estáticos. Uso de texto limpo com separadores tipográficos (`·`). Números e contadores com `font-mono tabular-nums` para evitar oscilações visuais de layout.
-- **Controles de Multi-Select (Budget)**:
-  - Trigger em botão de seleção elegante com contador de faixas selecionadas (ex.: `Orçamento: 2 selecionadas` ou `Todas as faixas`).
-  - Popover acessível contendo checkboxes com touch targets $\ge 44\text{px}$, opções de atalho `"Selecionar todas"` e `"Limpar"`, mantendo sincronia com a contagem de destinatários filtrados.
-- **Dashboard Operacional de Envio (Mailer)**:
-  - Header informativo com ID curto da campanha, tipo de envio (single, multi, catalog), indicador de saúde em badge acessível e texto orientador em linguagem humana clara.
-  - Barra de progresso contínua com duplo indicador visual: aceitos pelo provedor vs. total terminal (enviados + falhados + cancelados) sobre destinatários ativos.
-  - Tabela paginada e filtrável de destinatários da campanha em execução, exibindo status individual de cada contato, tentativas e fase do provedor.
-  - Ações operacionais: `Pausar`, `Retomar` (habilitado apenas se elegível), `Cancelar` (com diálogo de confirmação), `Atualizar` e `Revisar incidente` quando em quarentena.
-- **Aba Coaches em Universidades**:
-  - Abas superiores limpas: `[Universidades]` | `[Coaches]`.
-  - Tabela de técnicos de alta densidade (36–44px por linha) com busca, filtros por universidade, estado, liga, cargo e status de supressão/preferência.
-  - Gaveta (*drawer*) ou modal de perfil do coach com ficha de contato, histórico cronológico de e-mails recebidos, cliques/aberturas e gestão de sinais de recrutamento.
+### Causa 1 — Por que a campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63` travou com `300 processing` e `359 pending`
+1. **O RPC `0027` rodou e reservou os primeiros 300 e-mails**:
+   - O fato de existirem exatamente **`300` itens em `processing`** prova que a função `claim_mailer_queue_batch` do Supabase funcionou e reservou o primeiro lote (`BURST_SIZE = 300`) dos 659 destinatários da campanha.
+2. **Estouro de Rate Limit da Resend + Timeout na Vercel antes de salvar o retorno**:
+   - Assim que reservou os 300 itens, `processMailerQueue` (`src/lib/email/mailer-queue.server.ts`) disparou **3 chamadas `resend.batch.send` de 100 e-mails simultaneamente (`Promise.all`)**.
+   - A Resend possui limite estrito de **2 requisições por segundo**. Ao receber 3 chamadas simultâneas (ou se qualquer chunk sofrer rate limit `429`), o código atual cai em um **fallback sequencial que tenta disparar até 100 chamadas `resend.emails.send` uma a uma** dentro da mesma requisição HTTP.
+   - Esse fallback demora mais do que o tempo limite da Serverless Function na Vercel (ou da conexão com o navegador), matando o processo **antes** de chegar na linha que chama `complete_mailer_burst` no Supabase.
+3. **Itens órfãos eternos em `processing`**:
+   - Como o processo morreu antes de `complete_mailer_burst`, os 300 itens ficaram com `status = 'processing'` e `error_code = null`.
+   - Na alteração anterior (`TASK-107`), a recuperação de reservas expiradas (`recover_stale_mailer_queue_reservations`) foi removida, e o RPC `claim_mailer_queue_batch` **só busca itens com `status IN ('pending', 'retry')`**. Resultado: os 300 itens em `processing` jamais são recuperados, mesmo horas depois de expirarem!
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
-
-- **Decisão 1: Servidor como Autoridade Exclusiva da Fila**:
-  - *Abordagem*: O processamento do lote é desencadeado no servidor. O cliente pode acionar um tick de aceleração quando aberto, mas caso a aba feche, a campanha continua elegível e seu progresso é preservado e retomado sem perda de integridade.
-  - *Trade-off*: Evita a necessidade de serviços externos pesados de fila (como RabbitMQ ou SQS), alavancando a infraestrutura de banco já existente com `mailer_queue` e locking seguro via lease.
-- **Decisão 2: Quarentena Inegociável para Respostas Ambíguas do Resend**:
-  - *Abordagem*: Se uma chamada HTTP à API do Resend sofrer timeout ou retornar erro de persistência pós-resposta, o item é marcado como `reconciliation_required` e a campanha entra em quarentena.
-  - *Trade-off*: Exige intervenção humana/verificação para destravar, mas **elimina 100% o risco de disparar e-mails duplicados** para técnicos universitários, preservando a reputação de domínio da agência.
-- **Decisão 3: Normalização de Filtro de Budget em Array de Strings**:
-  - *Abordagem*: Persistência no campo `filters` de `mailer_campaigns` como `budgetLevels: string[]`. Leitura retrocompatível com a chave legada `budget: string`.
-  - *Trade-off*: Sem faixas selecionadas equivale a todas as faixas (sem restrição). Uma ou mais selecionadas aplicam disjunção (OR) estrita, respeitando os 4 valores canônicos.
-- **Decisão 4: Reutilização Modular sem Duplicação de Código entre Rotas**:
-  - *Abordagem*: Extração de componentes especializados (`CoachDirectoryTable`, `CoachFormDialog`, `CoachProfileDrawer`, `CoachPreferencesCard`) utilizados tanto em `/_authenticated/admin/coaches.tsx` quanto na nova aba de `/_authenticated/admin/universities.tsx`.
-  - *Trade-off*: Mantém DRY e SOLID sem romper nenhuma URL existente.
+### Causa 2 — Por que a Vercel acusou erro em `email_suppressions` (`there is no unique or exclusion constraint matching the ON CONFLICT specification`)
+1. Na migration `0018_universities_and_mailer.sql`, a tabela `public.email_suppressions` foi criada **sem** `UNIQUE (email)` direto na coluna; ela possui apenas um índice de expressão funcional:
+   ```sql
+   create unique index idx_email_suppressions_email_lower on public.email_suppressions (lower(trim(email)));
+   ```
+2. Porém, tanto o webhook da Resend (`src/lib/email/resend-webhook.server.ts`) quanto a função de descadastro (`src/lib/email/recruit-email.server.ts`) fazem:
+   ```ts
+   admin.from("email_suppressions").upsert({ email, ... }, { onConflict: "email" })
+   ```
+3. O PostgreSQL rejeita `ON CONFLICT (email)` porque o índice único é sobre a expressão `lower(trim(email))` e não sobre a coluna pura `email`. Isso faz todo webhook de bounce/complaint da Resend falhar com erro 500 na Vercel e impede que e-mails com bounce (`kiersten.eggleton@glenville.edu`) sejam adicionados à lista de supressão!
 
 ---
 
-### 4. Technical Architecture & Data Strategy
+## 2. Plano de Ação e Retomada (4 Frentes)
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                             BROWSER (AGENCY ADMIN)                               │
-│  - Mailer Dashboard (Polling / Status / Controls: Pause, Resume, Cancel)         │
-│  - Universities Route (/admin/universities -> Tabs: Universities | Coaches)     │
-│  - Dedicated Coaches Route (/admin/coaches)                                      │
-└───────────────────────┬──────────────────────────────────┬───────────────────────┘
-                        │ HTTP / Server Functions          │
-                        ▼                                  ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                            SERVER RUNTIME (TANSTACK START)                       │
-│  - mailer-runner.server.ts (Coordenação de bursts, lease & watchdog)              │
-│  - mailer-history.server.ts (Query paginada 25/50/100 & filtros compostos)        │
-│  - coach-directory.server.ts (Listagem, normalização e controle de concorrência) │
-│  - coach-preferences.server.ts (CRUD de preferências e supressões manuais)       │
-└───────────────────────┬──────────────────────────────────┬───────────────────────┘
-                        │ Service Role / RPC               │ REST Batch API
-                        ▼                                  ▼
-┌──────────────────────────────────────────┐     ┌─────────────────────────────────┐
-│         SUPABASE EXTERNAL (DB)           │     │          RESEND API             │
-│  - mailer_campaigns                      │     │  - Batches de até 100 emails    │
-│  - mailer_queue (Status, attempts, lease)│     │  - Idempotency-Key headers      │
-│  - recruit_email_logs & email_events     │     │  - Webhooks de entrega/clique   │
-│  - universities (coaches JSONB)          │     └─────────────────────────────────┘
-└──────────────────────────────────────────┘
-```
+### Frente 1 — Lotes Atômicos de 100 E-mails por Tick no Navegador (Zero `429` e Zero Timeout na Vercel)
+- **Reduzir `BURST_SIZE` padrão de `300` para `100` e-mails por tick** (`src/lib/email/mailer-queue.server.ts` e `src/routes/_authenticated/admin/mailer.tsx`):
+  - A API Batch da Resend envia até **100 e-mails em 1 única requisição HTTP**.
+  - Com `100` e-mails por tick do navegador (e pausa de `1.2s` entre ticks), cada chamada à Vercel faz **apenas 1 requisição à Resend**, terminando em **~1 a 2 segundos** (nunca bate no limite de 2 req/s da Resend e nunca dá timeout na Vercel).
+  - Caso um tamanho maior que 100 seja solicitado, os chunks de 100 serão enviados **sequencialmente com espaçamento de `650ms`** (nunca `Promise.all` paralelo).
+- **Remover o fallback lento de 100 chamadas individuais em erros de batch**:
+  - Se `resend.batch.send` sofrer `429` ou falha transitória, o lote é imediatamente salvo no banco como `retry` (`complete_mailer_burst`) em menos de 1 segundo para que o próximo tick do navegador reenvie com segurança.
 
-#### Mapeamento de Entidades e Estados:
-- **Subestados Derivados da Campanha**:
-  - `scheduled`: aguardando início ou próximo horário (`next_batch_at`).
-  - `sending`: worker ativo executando rajada sob lease válido.
-  - `waiting_provider`: lote enviado ao provedor aguardando confirmação.
-  - `waiting_retry`: lote em cooldown após rate limit (429) ou erro temporário.
-  - `reconciliation_required`: quarentena por resposta incerta ou erro transacional.
-  - `manual_pause`: pausada pelo usuário.
-  - `completed` / `cancelled`: estados finais.
-- **Histórico Paginado**:
-  - Contrato: `{ items: MailerHistoryItem[], total: number, page: number, pageSize: number, totalPages: number }`.
-  - Snapshot de características em `recruit_email_logs.metadata` para novos envios.
+### Frente 2 — Reconciliação Inteligente dos `300` Itens Presos em `processing` (Sem Duplicar Envios)
+- Criar a rotina automática `reconcileStaleProcessingQueueItems` em `src/lib/email/mailer-queue.server.ts` e integrá-la ao `resumeCampaign`, `reconcileCampaignIncident` e ao ciclo de orquestração (`src/lib/email/mailer-runner.server.ts`):
+  1. Busca itens da campanha que estejam em `status = 'processing'` cuja reserva (`reservation_expires_at`) já expirou.
+  2. Cruza os e-mails desses itens com `recruit_email_logs` (`status = 'sent'`) e `email_events` da mesma campanha:
+     - **Se a Resend já tiver enviado o e-mail antes do timeout**: marca o item como `'sent'` na `mailer_queue` (garantindo **zero e-mails duplicados** para os treinadores).
+     - **Se o e-mail não tiver sido enviado**: devolve o item de `'processing'` para `'pending'` (`processing_started_at = null`, `reservation_expires_at = null`) para que o navegador conclua o disparo!
+  3. Permite retomar a campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63` diretamente pelo botão na tela `/admin/mailer`.
 
----
+### Frente 3 — Correção Imediata do Upsert em `email_suppressions` (Sem Depender de Nova Migration)
+- Criar `upsertEmailSuppressionSafe` em `src/lib/email/recruit-email.server.ts` e utilizá-lo tanto no descadastro quanto no webhook da Resend (`src/lib/email/resend-webhook.server.ts`):
+  - Em vez de `.upsert(..., { onConflict: "email" })` (que quebra no PostgreSQL por causa do índice funcional `lower(trim(email))`), faz busca case-insensitive (`.ilike("email", cleanEmail)`) seguida de `.update()` se já existir ou `.insert()` se não existir.
+  - Resolve imediatamente os erros de `[resend-webhook]` na Vercel sem exigir alteração manual de schema no Supabase.
 
-### 5. Plano de Execução em Fases
-
-#### Fase 1 (P0): Desacoplamento do Mailer, Máquina de Estados e Dashboard de Saúde
-1. Criação de `src/lib/email/mailer-runner.server.ts` e refatoração em `mailer-queue.server.ts` para coordenar batches com proteção contra timeout e verificação de lease.
-2. Implementação do endpoint de verificação e trigger desacoplado do navegador.
-3. Tratamento estrito de quarentena com `reconciliation_required` em casos de ambiguidade do Resend, impedindo retomadas cegas.
-4. Refatoração do painel de envio em `src/routes/_authenticated/admin/mailer.tsx` com polling leve (5–10s), métricas auditáveis completas, log de eventos de campanha e ações seguras.
-5. Testes unitários de estados, transições, concorrência e quarentena em `src/lib/email/mailer-runner.test.ts`.
-
-#### Fase 2 (P1): Budget Multisseleção
-1. Criação do componente `SearchableMultiSelect` ou popover de multi-select com checkboxes e touch targets $\ge 44\text{px}$.
-2. Atualização dos filtros em `mailer.tsx` para `selectedBudgetLevels: UniversityBudgetLevel[]`.
-3. Validação da lógica OR interna e AND externa combinada com estados, ligas e supressões.
-4. Persistência de `budgetLevels` no payload e JSON de filtros da campanha.
-5. Testes de filtragem em `src/lib/email/mailer-filtering.test.ts`.
-
-#### Fase 3 (P1): Histórico Completo Paginado e Características Importadas
-1. Implementação de `getPaginatedMailerHistoryServerFn` em `recruit-email.functions.ts` suportando `page`, `pageSize` (25/50/100), ordenação estável (`sent_at DESC, id DESC`), e filtros por busca, campanha, status, atleta, universidade e características importadas.
-2. Snapshot de atributos nos novos envios e rotulagem clara ("Inferido do cadastro atual" vs. "Não disponível") para registros pré-existentes.
-3. Atualização da aba Histórico no Mailer com controles de paginação, contador de total real e estados de loading/empty.
-4. Testes de paginação e filtros no servidor.
-
-#### Fase 4 (P1): Aba Coaches em /admin/universities e Unificação da Gestão
-1. Criação de componentes compartilhados em `src/components/coaches/`: `CoachDirectoryTable`, `CoachFormDialog`, `CoachProfileDrawer` e `CoachPreferencesEditor`.
-2. Adição da aba `Coaches` em `src/routes/_authenticated/admin/universities.tsx`.
-3. Refatoração de `src/routes/_authenticated/admin/coaches.tsx` para utilizar os componentes compartilhados.
-4. Implementação de controle de concorrência atômico para atualizações no array JSONB `universities.coaches`.
-5. Integração da timeline de interações e histórico de e-mails no perfil do coach.
-6. Testes unitários para edição de coaches, preferências manuais vs. automáticas e prevenção de conflito.
-
----
-
-### 6. Critérios de Validação e Aceite
-
-- [ ] **Continuidade**: Campanha segue processando e retoma após fechamento e reabertura da aba ou atualização da página.
-- [ ] **Segurança Antiduplicação**: Falhas ambíguas entram em quarentena documentada e não realizam auto-retry.
-- [ ] **Observabilidade**: Painel reflete métricas reais de banco (ativos, pendentes, retries, aceitos, suprimidos, cancelados) e ETA honesto.
-- [ ] **Budget**: Seleção de qualquer subconjunto das 4 faixas de orçamento reflete exatamente nos destinatários enfileirados.
-- [ ] **Histórico**: Listagem paginada (25/50/100) com total correto, filtros funcionais e ausência de dados inventados em envios legados.
-- [ ] **Gestão de Coaches**: Aba funcional em `/admin/universities`, compatibilidade integral com `/admin/coaches` e cadastro dentro de Universidade, sem perda ou duplicação de dados.
-- [ ] **Qualidade de Código**: `bun run typecheck`, `bun run lint` (0 erros), `bun run test` (todos os testes verdes) e `bun run build` validados com sucesso.
-- [ ] **Governança**: `bun.lock`, `package.json` e migrations 0001–0027 mantidos intactos; `CERNE.md` e `BACKLOGER.md` atualizados a cada entrega.
+### Frente 4 — Otimização da Criação de Campanha e Estabilidade do Loop no Navegador
+- Remover a releitura pesada pós-insert (`sanitizePendingQueueItemsMissingCards` em `src/lib/email/mailer-queue.server.ts`), pois `assertEmailIntegrity` já valida 100% dos cards em memória antes de inserir na fila.
+- Em `src/routes/_authenticated/admin/mailer.tsx`, garantir que qualquer falha de rede momentânea ao consultar `getMailerCampaignOrchestrationModeServerFn` mantenha `serverOrchestrated: false` (para o navegador nunca parar de orquestrar os disparos sozinho).

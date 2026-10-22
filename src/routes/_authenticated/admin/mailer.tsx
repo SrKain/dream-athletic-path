@@ -291,14 +291,27 @@ function MailerPage() {
 
   // Orquestrador do Navegador: Refs de controle do loop assíncrono e concorrência
   const tabIdRef = React.useRef<string>(
-    `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`,
+    (() => {
+      try {
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          const existing = window.sessionStorage.getItem("gtg_mailer_tab_id");
+          if (existing) return existing;
+          const created = `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+          window.sessionStorage.setItem("gtg_mailer_tab_id", created);
+          return created;
+        }
+      } catch {
+        // Fallback em memória se sessionStorage estiver indisponível
+      }
+      return `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+    })(),
   );
   const isUnmountedRef = React.useRef(false);
   const isOrchestratorActiveRef = React.useRef(false);
   const isProcessingTickRef = React.useRef(false);
   const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const burstSizeRef = React.useRef(300);
-  const burstPauseRef = React.useRef(1000);
+  const burstSizeRef = React.useRef(100);
+  const burstPauseRef = React.useRef(1200);
   const lastBurstAtRef = React.useRef<number | null>(null);
   const [sendRate, setSendRate] = useState(0);
   const [rateLimitNotice, setRateLimitNotice] = useState<string | null>(null);
@@ -581,8 +594,12 @@ function MailerPage() {
 
           if (isUnmountedRef.current || !isOrchestratorActiveRef.current) return;
 
-          if (res.effectiveBurstSize) burstSizeRef.current = res.effectiveBurstSize;
-          if (res.burstPauseMs) burstPauseRef.current = res.burstPauseMs;
+          if (res.effectiveBurstSize) {
+            burstSizeRef.current = Math.min(100, res.effectiveBurstSize);
+          }
+          if (res.burstPauseMs) {
+            burstPauseRef.current = Math.max(1000, res.burstPauseMs);
+          }
           if (res.rateLimited)
             setRateLimitNotice(
               res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`,
@@ -595,8 +612,8 @@ function MailerPage() {
 
           if (res.controllerConflict) {
             setIsAnotherTabActive(true);
-            // An expired lease can be acquired later; do not leave the UI stuck.
-            triggerOrchestratorTick(17000);
+            // An expired lease (30s) can be acquired shortly; do not leave the UI stuck.
+            triggerOrchestratorTick(5000);
             return;
           }
 
@@ -710,11 +727,12 @@ function MailerPage() {
           });
       })
       .catch(() => {
-        // Fail closed: if ownership is unknown the browser must not send.
+        // Se houver oscilação na leitura do modo, manter o navegador ativo
+        // (protegido pela lease atômica acquire_mailer_campaign_lease no Supabase).
         if (!cancelled)
           setOrchestrationMode({
             campaignId: activeCampaignId,
-            serverOrchestrated: true,
+            serverOrchestrated: false,
           });
       });
     return () => {
@@ -1550,17 +1568,25 @@ function MailerPage() {
         data: { campaignId: activeCampaignId },
       });
       if (res.success) {
-        toast.info("Worker gerenciado pelo agendador protegido.");
+        toast.success(res.message || "Fila sincronizada e retomada pelo navegador.");
+        setIsAnotherTabActive(false);
+        setCooldownRemaining(null);
+        setOrchestrationMode({
+          campaignId: activeCampaignId,
+          serverOrchestrated: false,
+        });
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
         if (prog) setCampaignProgress(prog);
+        isOrchestratorActiveRef.current = true;
+        triggerOrchestratorTick(250);
       } else {
-        toast.error(res.message || "Não foi possível acionar o worker.");
+        toast.error(res.message || "Não foi possível sincronizar a fila.");
       }
     } catch (err) {
       console.error("[mailer] Error triggering worker:", err);
-      toast.error("Erro ao acionar worker.");
+      toast.error("Erro ao sincronizar fila da campanha.");
     } finally {
       setIsTriggeringWorker(false);
     }
@@ -1794,16 +1820,22 @@ function MailerPage() {
                   )}
 
                   {/* Controles de Ação Seguros */}
-                  {campaignProgress.status === "running" && (
+                  {(campaignProgress.status === "running" ||
+                    campaignProgress.status === "paused" ||
+                    campaignProgress.processingCount > 0) && (
                     <button
                       type="button"
-                      disabled
+                      disabled={isTriggeringWorker || isOperatingQueue}
                       onClick={handleTriggerWorker}
-                      title="Disponível somente após ativação autorizada do scheduler"
+                      title="Reconcilia itens presos em processamento e força a retomada imediata pelo navegador"
                       className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Zap className="w-3 h-3" />
-                      {isTriggeringWorker ? "Aguardando..." : "Worker via Scheduler"}
+                      {isTriggeringWorker
+                        ? "Sincronizando..."
+                        : campaignProgress.processingCount > 0
+                          ? `Destravar Fila (${campaignProgress.processingCount})`
+                          : "Sincronizar Navegador"}
                     </button>
                   )}
                   {campaignProgress.status === "running" && (
@@ -1866,18 +1898,17 @@ function MailerPage() {
                   <p className="text-xs leading-relaxed">
                     O provedor Resend respondeu com status ambíguo ou timeout de rede durante a
                     última rajada. Para garantir que nenhum coach receba e-mails duplicados, a
-                    automação foi suspensa preventivamente. Cada destinatário precisa de evidência
-                    do Resend antes de uma reconciliação autorizada e auditável.
+                    automação foi suspensa preventivamente. Você pode reconciliar os itens
+                    verificando automaticamente os envios já registrados e liberar o restante.
                   </p>
-                  <div className="pt-1">
+                  <div className="pt-1 flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      disabled
-                      title="Requer auditoria por destinatário e autorização operacional."
-                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs opacity-60 cursor-not-allowed shadow-sm flex items-center gap-1.5"
+                      onClick={() => setReconcileModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs cursor-pointer shadow-sm flex items-center gap-1.5 transition-all"
                     >
                       <Shield className="w-3.5 h-3.5" />
-                      Reconciliação bloqueada até auditoria
+                      Reconciliar e Liberar Campanha
                     </button>
                   </div>
                 </div>
@@ -1893,7 +1924,7 @@ function MailerPage() {
                       ? "Validando executor antes de permitir disparos."
                       : orchestrationMode.serverOrchestrated
                         ? "Servidor controla as rajadas. A aba pode ser fechada; aqui são mostrados somente dados persistidos."
-                        : "Campanha legada: mantenha esta aba e o dispositivo ativos durante os disparos."}
+                        : "Orquestração via navegador ativa (lotes seguros de até 100 e-mails/tick): mantenha esta aba aberta durante os disparos."}
                   </span>
                 </div>
                 {isTabHidden && (

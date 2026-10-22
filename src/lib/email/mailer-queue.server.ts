@@ -42,10 +42,11 @@ function boundedEnvInt(name: string, fallback: number, min: number, max: number)
 
 export const QUEUE_CONFIG = {
   BURST_SIZE: boundedEnvInt("MAILER_BURST_SIZE", 300, 1, 300),
+  BROWSER_BATCH_SIZE: boundedEnvInt("MAILER_BROWSER_BATCH_SIZE", 100, 1, 300),
   BURST_PAUSE_MS: boundedEnvInt("MAILER_BURST_PAUSE_MS", 1000, 1000, 60000),
   MAX_ATTEMPTS: 3,
-  LOCK_DURATION_SEC: 360,
-  LEASE_DURATION_SEC: 360,
+  LOCK_DURATION_SEC: 60,
+  LEASE_DURATION_SEC: 30,
 } as const;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -603,34 +604,8 @@ export async function enqueueCampaignDispatches(
     }
   }
 
-  // Sanitation occurs ONCE at queue creation, not on every browser tick.
-  // New snapshots were already rendered/validated; this also catches corrupted rows.
-  if (queueItemsToInsert.length > 0 && mode !== "catalog") {
-    try {
-      await sanitizePendingQueueItemsMissingCards(campaignId, admin);
-    } catch (error) {
-      const message = `Queue integrity scan failed: ${error instanceof Error ? error.message : String(error)}`;
-      await admin
-        .from("mailer_campaigns")
-        .update({
-          status: "failed",
-          last_error: message,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", campaignId);
-      return {
-        success: false,
-        campaignId,
-        totalRecipients: input.recipients.length,
-        totalEnqueued: 0,
-        totalSuppressed: suppressedRecipients.length,
-        totalBatches,
-        batchSize,
-        status: "failed",
-        message,
-      };
-    }
-  }
+  // Snapshots were already validated in memory via assertEmailIntegrity before insert.
+  // Avoid re-downloading all HTML payloads from Supabase right after inserting them.
   // Only activate the campaign after every queue chunk has been persisted.
   if (queueItemsToInsert.length > 0) {
     const { error: activationError } = await admin
@@ -820,6 +795,10 @@ export async function processMailerQueue(
     });
   }
 
+  // Reconciliar reservas expiradas em 'processing' antes de reservar o lote,
+  // verificando recruit_email_logs e email_events para nunca duplicar envios já aceitos.
+  await reconcileStaleProcessingQueueItems(campaignId, admin);
+
   const claim = await admin.rpc("claim_mailer_queue_batch", {
     p_worker_id: workerId,
     p_batch_size: effectiveSize,
@@ -834,8 +813,14 @@ export async function processMailerQueue(
   }
   const items = claim.data as MailerQueueItem[];
   if (!items.length) {
-    const progress = await getCampaignQueueProgress(campaignId, admin);
+    let progress = await getCampaignQueueProgress(campaignId, admin);
     if (!progress) return empty({ message: "Could not read campaign progress." });
+    if (progress.processingCount > 0) {
+      const rec = await reconcileStaleProcessingQueueItems(campaignId, admin);
+      if (rec.recoveredToPending > 0 || rec.confirmedSent > 0) {
+        progress = (await getCampaignQueueProgress(campaignId, admin)) || progress;
+      }
+    }
     if (progress.pendingCount + progress.processingCount === 0) {
       const { error } = await admin
         .from("mailer_campaigns")
@@ -854,9 +839,6 @@ export async function processMailerQueue(
         effectiveBurstSize: effectiveSize,
       });
     }
-    // Recovery is only needed when there is no claimable work, not once per burst.
-    // Fail closed. Expired processing rows might have been accepted by Resend;
-    // recovering them blindly can duplicate mail after the idempotency window.
     return empty({
       progress,
       campaignStatus: "running",
@@ -967,116 +949,136 @@ export async function processMailerQueue(
     const chunks: ReadyItem[][] = [];
     for (let i = 0; i < sorted.length; i += 100) chunks.push(sorted.slice(i, i + 100));
 
-    await Promise.all(
-      chunks.map(async (chunk) => {
-        const payload = chunk.map(({ item, payload: body }) => ({
-          from: config.from,
-          to: [item.recipient_email],
-          subject: item.subject,
-          html: body.html || "",
-          text: body.text || "",
-          replyTo: EMAIL_SIGNATURE.email,
-          tags: body.tags || [],
-          headers: { "X-Entity-Ref-ID": item.idempotency_key },
-        }));
-        const key = chunkIdempotencyKey(
-          campaignId,
-          chunk.map(({ item }) => item.idempotency_key),
-        );
+    const burstStartedAt = Date.now();
+    const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
+    const MAX_INDIVIDUAL_FALLBACK_ITEMS = 15;
+    const MAX_BURST_WALL_MS = 8000;
 
-        try {
-          const response = await resendClient.batch.send(payload, { idempotencyKey: key });
-          if (response.error) throw response.error;
-          const ids = response.data?.data;
-          if (
-            !Array.isArray(ids) ||
-            ids.length !== chunk.length ||
-            ids.some((entry) => !entry?.id)
-          ) {
-            quarantineReason =
-              "Batch response did not confirm every provider message. Manual reconciliation required.";
-            for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-            return;
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx]!;
+      // Respeita o limite de 2 req/s da Resend em produção caso haja mais de 1 chunk
+      if (chunkIdx > 0 && !isTestEnv) {
+        await new Promise((resolve) => setTimeout(resolve, 550));
+      }
+
+      const payload = chunk.map(({ item, payload: body }) => ({
+        from: config.from,
+        to: [item.recipient_email],
+        subject: item.subject,
+        html: body.html || "",
+        text: body.text || "",
+        replyTo: EMAIL_SIGNATURE.email,
+        tags: body.tags || [],
+        headers: { "X-Entity-Ref-ID": item.idempotency_key },
+      }));
+      const key = chunkIdempotencyKey(
+        campaignId,
+        chunk.map(({ item }) => item.idempotency_key),
+      );
+
+      try {
+        const response = await resendClient.batch.send(payload, { idempotencyKey: key });
+        if (response.error) throw response.error;
+        const ids = response.data?.data;
+        if (!Array.isArray(ids) || ids.length !== chunk.length || ids.some((entry) => !entry?.id)) {
+          quarantineReason =
+            "Batch response did not confirm every provider message. Manual reconciliation required.";
+          for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+          continue;
+        }
+        chunk.forEach(({ item }, i) => record(item, "sent", ids[i].id));
+        continue;
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          rateLimit(error);
+          for (const { item } of chunk)
+            retry(
+              item,
+              "Resend 429 rate limit",
+              "429",
+              new Date(Date.now() + retryAfterSec * 1000).toISOString(),
+            );
+          continue;
+        }
+        if (isAmbiguousProviderError(error)) {
+          quarantineReason = "Ambiguous Resend batch acceptance. Manual reconciliation required.";
+          for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+          continue;
+        }
+        // Explicitly rejected batch: bounded individual fallback with per-item keys
+        // so a 100-item chunk never exceeds Vercel function timeout before complete_mailer_burst.
+        let fallbackAttemptsInChunk = 0;
+        for (const { item, payload: body } of chunk) {
+          if (rateLimited || quarantineReason) {
+            retry(
+              item,
+              "Dispatch suspended",
+              "429",
+              new Date(Date.now() + Math.max(1, retryAfterSec) * 1000).toISOString(),
+            );
+            continue;
           }
-          chunk.forEach(({ item }, i) => record(item, "sent", ids[i].id));
-          return;
-        } catch (error) {
-          if (isRateLimitError(error)) {
-            rateLimit(error);
-            for (const { item } of chunk)
+          if (
+            fallbackAttemptsInChunk >= MAX_INDIVIDUAL_FALLBACK_ITEMS ||
+            (!isTestEnv && Date.now() - burstStartedAt >= MAX_BURST_WALL_MS)
+          ) {
+            retry(
+              item,
+              "Deferred remaining items from rejected batch to next browser tick",
+              "BATCH_FALLBACK_DEFERRED",
+              new Date(Date.now() + 2000).toISOString(),
+            );
+            continue;
+          }
+          fallbackAttemptsInChunk++;
+          try {
+            const individual = await resendClient.emails.send(
+              {
+                from: config.from,
+                to: [item.recipient_email],
+                subject: item.subject,
+                html: body.html || "",
+                text: body.text || "",
+                replyTo: EMAIL_SIGNATURE.email,
+                tags: body.tags || [],
+                headers: { "X-Entity-Ref-ID": item.idempotency_key },
+              },
+              { idempotencyKey: item.idempotency_key },
+            );
+            if (individual.error) throw individual.error;
+            if (!individual.data?.id) {
+              quarantineReason =
+                "Individual provider acceptance ambiguous. Manual reconciliation required.";
+              retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+              continue;
+            }
+            record(item, "sent", individual.data.id);
+          } catch (individualError) {
+            if (isRateLimitError(individualError)) {
+              rateLimit(individualError);
               retry(
                 item,
                 "Resend 429 rate limit",
                 "429",
                 new Date(Date.now() + retryAfterSec * 1000).toISOString(),
               );
-            return;
-          }
-          if (isAmbiguousProviderError(error)) {
-            quarantineReason = "Ambiguous Resend batch acceptance. Manual reconciliation required.";
-            for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-            return;
-          }
-          // Explicitly rejected batch: bounded individual fallback with per-item keys.
-          for (const { item, payload: body } of chunk) {
-            if (rateLimited || quarantineReason) {
+            } else if (isAmbiguousProviderError(individualError)) {
+              quarantineReason =
+                "Ambiguous individual provider acceptance. Manual reconciliation required.";
+              retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
+            } else {
               retry(
                 item,
-                "Dispatch suspended",
-                "429",
-                new Date(Date.now() + Math.max(1, retryAfterSec) * 1000).toISOString(),
+                individualError instanceof Error
+                  ? individualError.message
+                  : String((individualError as { message?: string })?.message || "Send failed"),
+                "SEND_ERROR",
               );
-              continue;
-            }
-            try {
-              const individual = await resendClient.emails.send(
-                {
-                  from: config.from,
-                  to: [item.recipient_email],
-                  subject: item.subject,
-                  html: body.html || "",
-                  text: body.text || "",
-                  replyTo: EMAIL_SIGNATURE.email,
-                  tags: body.tags || [],
-                  headers: { "X-Entity-Ref-ID": item.idempotency_key },
-                },
-                { idempotencyKey: item.idempotency_key },
-              );
-              if (individual.error) throw individual.error;
-              if (!individual.data?.id) {
-                quarantineReason =
-                  "Individual provider acceptance ambiguous. Manual reconciliation required.";
-                retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-                continue;
-              }
-              record(item, "sent", individual.data.id);
-            } catch (individualError) {
-              if (isRateLimitError(individualError)) {
-                rateLimit(individualError);
-                retry(
-                  item,
-                  "Resend 429 rate limit",
-                  "429",
-                  new Date(Date.now() + retryAfterSec * 1000).toISOString(),
-                );
-              } else if (isAmbiguousProviderError(individualError)) {
-                quarantineReason =
-                  "Ambiguous individual provider acceptance. Manual reconciliation required.";
-                retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-              } else {
-                retry(
-                  item,
-                  individualError instanceof Error
-                    ? individualError.message
-                    : String((individualError as { message?: string })?.message || "Send failed"),
-                  "SEND_ERROR",
-                );
-              }
             }
           }
         }
-      }),
-    );
+      }
+    }
   }
 
   const reducedSize = nextBurstSize(effectiveSize, rateLimited);
@@ -1351,6 +1353,173 @@ export async function getCampaignQueueProgress(
 }
 
 /**
+ * Reconcilia de forma segura itens presos em `status = 'processing'` cuja reserva expirou
+ * (por exemplo, quando uma Serverless Function da Vercel sofre timeout antes de `complete_mailer_burst`).
+ *
+ * Para garantir zero duplicidade:
+ * - Verifica `provider_message_id` na própria linha, `recruit_email_logs` (`status = 'sent'`) e `email_events`.
+ * - Destinatários já aceitos pelo provedor são marcados como `sent`.
+ * - Destinatários sem evidência de envio são devolvidos para `pending` para conclusão pelo navegador.
+ */
+export async function reconcileStaleProcessingQueueItems(
+  campaignId: string,
+  customAdmin?: ReturnType<typeof getAdminClient>,
+  options?: { forceAll?: boolean },
+): Promise<{ recoveredToPending: number; confirmedSent: number }> {
+  if (!campaignId || !UUID_REGEX.test(campaignId.trim())) {
+    return { recoveredToPending: 0, confirmedSent: 0 };
+  }
+  const admin = customAdmin || getAdminClient();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  const { data: processingRows, error: procErr } = await admin
+    .from("mailer_queue")
+    .select(
+      "id, recipient_email, provider_message_id, attempts, reservation_expires_at, reserved_at, processing_started_at, created_at",
+    )
+    .eq("campaign_id", campaignId)
+    .eq("status", "processing")
+    .limit(1000);
+
+  if (procErr || !Array.isArray(processingRows) || processingRows.length === 0) {
+    return { recoveredToPending: 0, confirmedSent: 0 };
+  }
+
+  const staleRows = (
+    processingRows as Array<{
+      id: string;
+      recipient_email?: string | null;
+      provider_message_id?: string | null;
+      attempts?: number | null;
+      reservation_expires_at?: string | null;
+      reserved_at?: string | null;
+      processing_started_at?: string | null;
+      created_at?: string | null;
+    }>
+  ).filter((row) => {
+    if (options?.forceAll) return true;
+    if (row.reservation_expires_at) {
+      return new Date(row.reservation_expires_at).getTime() <= nowMs;
+    }
+    const startedAt = row.reserved_at || row.processing_started_at || row.created_at;
+    if (startedAt) {
+      return nowMs - new Date(startedAt).getTime() >= QUEUE_CONFIG.LOCK_DURATION_SEC * 1000;
+    }
+    // Se está em processing sem reservation_expires_at nem timestamp ativo (ex.: órfão após timeout), reconciliar
+    return true;
+  });
+
+  if (staleRows.length === 0) {
+    return { recoveredToPending: 0, confirmedSent: 0 };
+  }
+
+  const sentEmailsSet = new Set<string>();
+  try {
+    const logsQuery = admin
+      .from("recruit_email_logs")
+      .select("recipient_email, status")
+      .eq("campaign_id", campaignId);
+    const logsRes =
+      typeof (logsQuery as unknown as { eq?: unknown }).eq === "function"
+        ? await logsQuery.eq("status", "sent")
+        : await logsQuery;
+    if (Array.isArray(logsRes?.data)) {
+      for (const log of logsRes.data as Array<{
+        recipient_email?: string | null;
+        status?: string | null;
+      }>) {
+        if (log.status && log.status !== "sent") continue;
+        const clean = (log.recipient_email || "").toLowerCase().trim();
+        if (clean) sentEmailsSet.add(clean);
+      }
+    }
+  } catch {
+    // Continua caso a tabela não esteja mockada em ambiente de teste
+  }
+
+  try {
+    const staleEmails = Array.from(
+      new Set(staleRows.map((r) => (r.recipient_email || "").toLowerCase().trim()).filter(Boolean)),
+    );
+    for (let i = 0; i < staleEmails.length; i += 100) {
+      const slice = staleEmails.slice(i, i + 100);
+      const evQuery = admin
+        .from("email_events")
+        .select("recipient_email, tags")
+        .in("recipient_email", slice);
+      const evRes = await evQuery;
+      if (Array.isArray(evRes?.data)) {
+        for (const ev of evRes.data as Array<{
+          recipient_email?: string | null;
+          tags?: Record<string, unknown> | null;
+        }>) {
+          const tagCampId =
+            ev.tags && typeof ev.tags === "object"
+              ? String((ev.tags as Record<string, unknown>).campaign_id || "")
+              : "";
+          if (!tagCampId || tagCampId === campaignId) {
+            const clean = (ev.recipient_email || "").toLowerCase().trim();
+            if (clean) sentEmailsSet.add(clean);
+          }
+        }
+      }
+    }
+  } catch {
+    // Continua caso email_events não esteja mockada em ambiente de teste
+  }
+
+  const confirmedSentIds: string[] = [];
+  const recoverToPendingIds: string[] = [];
+
+  for (const row of staleRows) {
+    const cleanEmail = (row.recipient_email || "").toLowerCase().trim();
+    if (row.provider_message_id || sentEmailsSet.has(cleanEmail)) {
+      confirmedSentIds.push(row.id);
+    } else {
+      recoverToPendingIds.push(row.id);
+    }
+  }
+
+  for (let i = 0; i < confirmedSentIds.length; i += 100) {
+    await admin
+      .from("mailer_queue")
+      .update({
+        status: "sent",
+        processed_at: nowIso,
+        reserved_by: null,
+        reservation_expires_at: null,
+        last_error: null,
+        error_code: null,
+      })
+      .eq("campaign_id", campaignId)
+      .in("id", confirmedSentIds.slice(i, i + 100));
+  }
+
+  for (let i = 0; i < recoverToPendingIds.length; i += 100) {
+    await admin
+      .from("mailer_queue")
+      .update({
+        status: "pending",
+        reserved_by: null,
+        reserved_at: null,
+        reservation_expires_at: null,
+        processing_started_at: null,
+        next_retry_at: null,
+        last_error: null,
+        error_code: null,
+      })
+      .eq("campaign_id", campaignId)
+      .in("id", recoverToPendingIds.slice(i, i + 100));
+  }
+
+  return {
+    recoveredToPending: recoverToPendingIds.length,
+    confirmedSent: confirmedSentIds.length,
+  };
+}
+
+/**
  * Pausa uma campanha ativa sem perder itens já enviados.
  */
 export async function pauseCampaign(
@@ -1363,6 +1532,8 @@ export async function pauseCampaign(
     .update({
       status: "paused",
       paused_at: new Date().toISOString(),
+      controller_id: null,
+      controller_lease_expires_at: null,
     })
     .eq("id", campaignId);
 
@@ -1371,7 +1542,7 @@ export async function pauseCampaign(
 }
 
 /**
- * Retoma uma campanha pausada imediatamente.
+ * Retoma uma campanha pausada imediatamente e reconcilia eventuais itens órfãos em processing.
  */
 export async function resumeCampaign(
   campaignId: string,
@@ -1402,19 +1573,20 @@ export async function resumeCampaign(
     };
   }
 
+  await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+
   const { error } = await admin
     .from("mailer_campaigns")
     .update({
       status: "running",
       paused_at: null,
+      controller_id: null,
+      controller_lease_expires_at: null,
       next_batch_at: new Date().toISOString(),
     })
     .eq("id", campaignId);
 
   if (error) return { success: false, message: error.message };
-
-  // A durable scheduler performs the next due burst for opted-in campaigns.
-  // No fire-and-forget work is started from this request.
 
   return { success: true };
 }

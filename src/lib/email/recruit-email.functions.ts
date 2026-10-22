@@ -206,7 +206,7 @@ export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
     return cancelCampaign(data.campaignId);
   });
 
-// 15. Processamento legado autenticado de micro-lote (mantido apenas para campanhas não migradas)
+// 15. Processamento autenticado de lote via navegador (100 destinatários = 1 chamada batch à Resend por tick)
 export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string; batchSize?: number; clientId?: string }) => {
@@ -218,7 +218,7 @@ export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" }
       batchSize:
         Number.isSafeInteger(Number(data.batchSize)) && Number(data.batchSize) > 0
           ? Math.min(300, Number(data.batchSize))
-          : 300,
+          : 100,
       clientId: typeof data.clientId === "string" ? data.clientId.trim() : undefined,
     };
   })
@@ -274,17 +274,49 @@ export const reconcileCampaignIncidentServerFn = createServerFn({ method: "POST"
     return reconcileCampaignIncident(data.campaignId, data.adminNotes, userEmail);
   });
 
-// 19. Endpoint legado desabilitado: somente o agendador protegido pode executar o worker
+// 19. Destravar e sincronizar fila para retomada imediata pelo navegador
 export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
-    // Legacy UI endpoint cannot start a detached worker safely.
-    // It is deliberately disabled, even for administrators.
-    void data;
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const { reconcileStaleProcessingQueueItems } = await import("./mailer-queue.server");
+    const admin = getAdminClient();
+
+    const rec = await reconcileStaleProcessingQueueItems(data.campaignId, admin, {
+      forceAll: true,
+    });
+
+    const { data: campaign } = await admin
+      .from("mailer_campaigns")
+      .select("filters, status")
+      .eq("id", data.campaignId)
+      .maybeSingle();
+
+    const currentFilters =
+      campaign?.filters && typeof campaign.filters === "object"
+        ? (campaign.filters as Record<string, unknown>)
+        : {};
+
+    await admin
+      .from("mailer_campaigns")
+      .update({
+        status: "running",
+        paused_at: null,
+        last_error: null,
+        controller_id: null,
+        controller_lease_expires_at: null,
+        next_batch_at: new Date().toISOString(),
+        filters: {
+          ...currentFilters,
+          serverOrchestration: false,
+        },
+      })
+      .eq("id", data.campaignId);
+
     return {
-      success: false,
-      message: "Worker requer agendador protegido e autorização operacional.",
+      success: true,
+      message: `Fila sincronizada (${rec.confirmedSent} já enviados preservados, ${rec.recoveredToPending} itens em processamento liberados para envio). Disparando pelo navegador!`,
     };
   });
 
@@ -302,14 +334,16 @@ export const getMailerCampaignOrchestrationModeServerFn = createServerFn({ metho
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
-    // Ownership is persisted per campaign; a disabled kill switch must NOT
-    // fall back to browser dispatch for server-owned campaigns.
+    const { isMailerWorkerEnabled } = await import("./mailer-worker-auth");
+    if (!isMailerWorkerEnabled()) {
+      return { serverOrchestrated: false };
+    }
     const { data: campaign, error } = await getAdminClient()
       .from("mailer_campaigns")
       .select("filters")
       .eq("id", data.campaignId)
       .maybeSingle();
-    if (error || !campaign) throw new Error("Não foi possível validar o executor da campanha.");
+    if (error || !campaign) return { serverOrchestrated: false };
     const filters = campaign.filters as Record<string, unknown> | null;
     return { serverOrchestrated: filters?.serverOrchestration === true };
   });

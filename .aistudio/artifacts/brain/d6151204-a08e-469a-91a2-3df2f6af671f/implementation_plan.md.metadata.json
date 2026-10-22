@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano detalhado de implementação para a TASK-107, abrangendo as quatro entregas: P0 continuidade resiliente e observabilidade da campanha do Mailer desacoplada do navegador, P1 budget multisseleção, P1 histórico completo com paginação no servidor e snapshot de características importadas, e P1 aba Coaches em Universidades com CRUD compartilhado, preferências e timeline de interações.",
-  "updatedAt":  "2026-10-21T18:21:49.960718720Z",
+  "summary":  "Diagnóstico comprovado com os logs reais do Supabase (300 itens presos em processing + 359 pending na campanha 0fe81b27-bdf5-4bbb-9101-27f533d9cd63) e da Vercel (erro ON CONFLICT em email_suppressions), acompanhado do plano completo de correção e retomada segura pelo navegador.",
+  "updatedAt":  "2026-10-22T18:06:17.094520119Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

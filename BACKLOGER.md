@@ -1242,3 +1242,18 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **TASK-107 / Fase 1 — UX operacional:** consulta de campanhas recentes e seletor de monitoramento com atualização sob demanda, independente de posse do worker, sem mudanças no banco. CI pendente.
 
 - **TASK-107 / Fase 1:** alinhamento final de mock de paginação de campanhas recentes e estilos da UI; validação completa ainda depende do próximo CI.
+
+---
+
+## TASK-108 — 2026-10-22 10:55 — Diagnóstico de Falhas de Disparo no Mailer e Plano de Retomada Orquestrada pelo Navegador (Resend + Vercel + Supabase)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Google AI Studio (Coding Engine)
+- **Status:** `[CONCLUÍDO]` — Plano atualizado com evidências reais do Supabase/Vercel em `think/2026-10-22-1055-diagnostico-e-plano-retomada-mailer-navegador.md`, aprovado pelo usuário e implementado com validação completa de testes, lint e build.
+- **Pedido:** Diagnosticar os erros ao disparar e-mails no Mailer e promover a retomada do comportamento esperado: selecionar os endereços e realizar os disparos sem enfrentar erros na Resend, na Vercel ou no Supabase, usando o próprio navegador para subsistir esses esforços.
+- **Causas-Raiz Comprovadas pelos Logs de Produção e Correções Aplicadas:**
+  1. **300 itens presos em `processing` + 359 em `pending` na campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63`:** O primeiro lote de 300 itens reservado por `claim_mailer_queue_batch` disparou 3 chamadas `resend.batch.send` em paralelo (`Promise.all`) e caiu no fallback sequencial de até 100 chamadas individuais, sofrendo timeout na Vercel antes de `complete_mailer_burst`. Criada `reconcileStaleProcessingQueueItems()` em `src/lib/email/mailer-queue.server.ts` que cruza itens `processing` expirados com `recruit_email_logs` e `email_events` (marcando como `sent` os já enviados e devolvendo os demais para `pending`), e reduzido o lote padrão do navegador para `100` e-mails por tick (1 única chamada `resend.batch.send` por requisição) com fallback individual limitado a 15 itens / 8s.
+  2. **Erro PostgreSQL na Vercel em `[resend-webhook]` (`there is no unique or exclusion constraint matching the ON CONFLICT specification` em `email_suppressions`):** A tabela `public.email_suppressions` possui índice único sobre a expressão funcional `lower(trim(email))` e não sobre a coluna pura `email`. Criada e aplicada `upsertEmailSuppressionSafe()` em `src/lib/email/recruit-email.server.ts` e `src/lib/email/resend-webhook.server.ts` (busca case-insensitive + `update`/`insert`).
+  3. **Estabilidade da Orquestração pelo Navegador (`src/routes/_authenticated/admin/mailer.tsx` e `src/lib/email/recruit-email.functions.ts`):** Persistência de `tabId` em `sessionStorage` para não conflitar lease ao recarregar a página, redução de `LEASE_DURATION_SEC` para 30s (`LOCK_DURATION_SEC` para 60s), botão ativo `Destravar Fila / Sincronizar Navegador` na UI e remoção da releitura pesada pós-insert em `enqueueCampaignDispatches`.
+
+

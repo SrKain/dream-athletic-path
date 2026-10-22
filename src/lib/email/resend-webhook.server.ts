@@ -6,6 +6,7 @@ import {
   isStatelessAutomatedClick,
   parseAttributionFromClickedUrl,
 } from "./mailer-metrics-quality";
+import { upsertEmailSuppressionSafe } from "./recruit-email.server";
 
 export type ResendWebhookEventType =
   | "email.sent"
@@ -430,16 +431,13 @@ export async function processResendWebhook(
     let suppressedCount = 0;
 
     for (const email of normalizedRecipients) {
-      const supRes = await admin.from("email_suppressions").upsert(
-        {
-          email,
-          reason,
-          suppression_type: "permanent",
-          expires_at: null,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: "email" },
-      );
+      const supRes = await upsertEmailSuppressionSafe(admin, {
+        email,
+        reason,
+        suppression_type: "permanent",
+        expires_at: null,
+        created_at: new Date().toISOString(),
+      });
 
       if (supRes?.error) {
         console.error(

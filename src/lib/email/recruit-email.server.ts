@@ -139,6 +139,114 @@ export async function getSuppressedEmailSet(): Promise<Set<string>> {
   return new Set(activeSuppressed.map((item) => item.email.toLowerCase().trim()));
 }
 
+/**
+ * Persiste supressão de e-mail sem depender de `ON CONFLICT (email)`,
+ * pois `public.email_suppressions` utiliza índice funcional `lower(trim(email))`
+ * (`idx_email_suppressions_email_lower` na migration 0018).
+ */
+export async function upsertEmailSuppressionSafe(
+  admin: ReturnType<typeof getAdminClient>,
+  row: {
+    email: string;
+    reason: string;
+    suppression_type: SuppressionType;
+    expires_at: string | null;
+    created_at?: string;
+  },
+): Promise<{ error: { message: string } | null }> {
+  const cleanEmail = (row.email || "").toLowerCase().trim();
+  const payload = {
+    email: cleanEmail,
+    reason: row.reason,
+    suppression_type: row.suppression_type,
+    expires_at: row.expires_at,
+    created_at: row.created_at || new Date().toISOString(),
+  };
+
+  const table = admin.from("email_suppressions") as unknown as {
+    select?: (cols: string) => {
+      ilike?: (
+        col: string,
+        val: string,
+      ) => {
+        limit: (n: number) => {
+          maybeSingle: () => Promise<{
+            data: { id: string } | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+      eq?: (
+        col: string,
+        val: string,
+      ) => {
+        maybeSingle: () => Promise<{
+          data: { id: string } | null;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+    update?: (values: Record<string, unknown>) => {
+      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+    };
+    insert?: (values: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+    upsert?: (
+      values: Record<string, unknown>,
+      opts?: { onConflict?: string },
+    ) => Promise<{ error: { message: string } | null }>;
+  };
+
+  if (
+    typeof table.select === "function" &&
+    typeof table.insert === "function" &&
+    typeof table.update === "function"
+  ) {
+    const lookupExisting = async () => {
+      const sel = table.select!("id");
+      if (typeof sel.ilike === "function") {
+        return sel.ilike("email", cleanEmail).limit(1).maybeSingle();
+      }
+      if (typeof sel.eq === "function") {
+        return sel.eq("email", cleanEmail).maybeSingle();
+      }
+      return { data: null, error: null };
+    };
+
+    const existingRes = await lookupExisting();
+    if (existingRes.error) {
+      return { error: existingRes.error };
+    }
+
+    if (existingRes.data?.id) {
+      const updateRes = await table.update(payload).eq("id", existingRes.data.id);
+      return { error: updateRes?.error ?? null };
+    }
+
+    const insertRes = await table.insert(payload);
+    if (!insertRes?.error) {
+      return { error: null };
+    }
+
+    // Tratamento de corrida concorrente no índice único funcional (23505)
+    if (/duplicate key|unique constraint|23505/i.test(insertRes.error.message || "")) {
+      const retryExisting = await lookupExisting();
+      if (retryExisting.data?.id) {
+        const retryUpdate = await table.update(payload).eq("id", retryExisting.data.id);
+        return { error: retryUpdate?.error ?? null };
+      }
+    }
+
+    return { error: insertRes.error };
+  }
+
+  if (typeof table.upsert === "function") {
+    const res = await table.upsert(payload);
+    return { error: res?.error ?? null };
+  }
+
+  return { error: { message: "Unsupported email_suppressions table client." } };
+}
+
 // Registrar descadastro com suporte a 2 níveis (Pausa temporária de 6 meses vs Permanente)
 export async function unsubscribeEmailAddress(
   email: string,
@@ -159,16 +267,13 @@ export async function unsubscribeEmailAddress(
     expiresAt = sixMonthsLater.toISOString();
   }
 
-  const { error } = await admin.from("email_suppressions").upsert(
-    {
-      email: cleanEmail,
-      reason,
-      suppression_type: suppressionType,
-      expires_at: expiresAt,
-      created_at: new Date().toISOString(),
-    },
-    { onConflict: "email" },
-  );
+  const { error } = await upsertEmailSuppressionSafe(admin, {
+    email: cleanEmail,
+    reason,
+    suppression_type: suppressionType,
+    expires_at: expiresAt,
+    created_at: new Date().toISOString(),
+  });
 
   if (error) {
     console.error("[recruit-email] Error unsubscribing email:", error.message);

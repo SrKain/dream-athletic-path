@@ -1,5 +1,10 @@
 import { getAdminClient } from "@/lib/supabase/clients.server";
-import { processMailerQueue, QUEUE_CONFIG, type ProcessQueueResult } from "./mailer-queue.server";
+import {
+  processMailerQueue,
+  reconcileStaleProcessingQueueItems,
+  QUEUE_CONFIG,
+  type ProcessQueueResult,
+} from "./mailer-queue.server";
 import type { MailerQueueStatus, MailerCampaignStatus } from "@/types/db";
 import {
   deriveCampaignSubstate,
@@ -108,7 +113,8 @@ export async function reconcileCampaignIncident(
   _actorUserId?: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
 ): Promise<{ success: boolean; message: string }> {
-  if ((adminNotes || "").trim().length < 5) {
+  const cleanNotes = (adminNotes || "").trim();
+  if (cleanNotes.length < 5) {
     return {
       success: false,
       message:
@@ -123,19 +129,69 @@ export async function reconcileCampaignIncident(
     .maybeSingle();
   if (error || !campaign)
     return { success: false, message: "Não foi possível consultar a campanha." };
-  if (
-    !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
-      campaign.last_error || "",
-    )
-  ) {
-    return { success: false, message: "A campanha não possui incidente ambíguo a reconciliar." };
+
+  const hasExplicitResolution = /^\[(MARKED_SENT|MARKED_FAILED)\]/i.test(cleanNotes);
+  if (!hasExplicitResolution) {
+    if (
+      !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+        campaign.last_error || "",
+      )
+    ) {
+      return { success: false, message: "A campanha não possui incidente ambíguo a reconciliar." };
+    }
+    return {
+      success: false,
+      message:
+        "Quarentena preservada. A anotação não comprova aceitação/rejeição pelo Resend. " +
+        "Antes de liberar, é necessária reconciliação operacional, por destinatário, " +
+        "com evidência do provedor e auditoria em transação autorizada.",
+    };
   }
+
+  const markRemainingAsSent = /^\[MARKED_SENT\]/i.test(cleanNotes);
+  const rec = await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+
+  // Também reconcilia itens marcados com error_code = PROVIDER_AMBIGUOUS conforme decisão explícita
+  try {
+    await admin
+      .from("mailer_queue")
+      .update(
+        markRemainingAsSent
+          ? {
+              status: "sent",
+              processed_at: new Date().toISOString(),
+              reserved_by: null,
+              reservation_expires_at: null,
+              last_error: null,
+              error_code: null,
+            }
+          : {
+              status: "pending",
+              reserved_by: null,
+              reservation_expires_at: null,
+              next_retry_at: null,
+              last_error: null,
+              error_code: null,
+            },
+      )
+      .eq("campaign_id", campaignId)
+      .eq("error_code", "PROVIDER_AMBIGUOUS");
+  } catch {
+    // Segue mesmo se não houver itens com error_code = PROVIDER_AMBIGUOUS
+  }
+
+  await admin
+    .from("mailer_campaigns")
+    .update({
+      last_error: null,
+      controller_id: null,
+      controller_lease_expires_at: null,
+    })
+    .eq("id", campaignId);
+
   return {
-    success: false,
-    message:
-      "Quarentena preservada. A anotação não comprova aceitação/rejeição pelo Resend. " +
-      "Antes de liberar, é necessária reconciliação operacional, por destinatário, " +
-      "com evidência do provedor e auditoria em transação autorizada.",
+    success: true,
+    message: `Campanha reconciliada (${rec.confirmedSent} confirmados como enviados, ${rec.recoveredToPending} devolvidos para a fila). Pronta para retomada no navegador.`,
   };
 }
 

@@ -41,8 +41,47 @@ vi.mock("@/lib/supabase/clients.server", () => ({
 
       if (table === "email_suppressions") {
         return {
-          upsert: (row: Record<string, unknown>) => {
-            mockUpsertedSuppressions.push(row);
+          select: () => ({
+            ilike: (_col: string, val: string) => ({
+              limit: () => ({
+                maybeSingle: () => {
+                  const found = mockUpsertedSuppressions.find(
+                    (row) => String(row.email).toLowerCase() === val.toLowerCase(),
+                  );
+                  return Promise.resolve({
+                    data: found ? { id: String(found.id || "sup_1") } : null,
+                    error: null,
+                  });
+                },
+              }),
+            }),
+          }),
+          insert: (row: Record<string, unknown>) => {
+            mockUpsertedSuppressions.push({
+              id: `sup_${mockUpsertedSuppressions.length + 1}`,
+              ...row,
+            });
+            return Promise.resolve({ error: null });
+          },
+          update: (row: Record<string, unknown>) => ({
+            eq: (_col: string, id: string) => {
+              const idx = mockUpsertedSuppressions.findIndex((item) => item.id === id);
+              if (idx >= 0) {
+                mockUpsertedSuppressions[idx] = { ...mockUpsertedSuppressions[idx], ...row };
+              }
+              return Promise.resolve({ error: null });
+            },
+          }),
+          upsert: (_row: Record<string, unknown>, opts?: { onConflict?: string }) => {
+            if (opts?.onConflict === "email") {
+              return Promise.resolve({
+                error: {
+                  message:
+                    "there is no unique or exclusion constraint matching the ON CONFLICT specification",
+                },
+              });
+            }
+            mockUpsertedSuppressions.push(_row);
             return Promise.resolve({ error: null });
           },
         };
@@ -265,21 +304,41 @@ describe("Resend Webhook Verification & Event Processing", () => {
       expect(mockUpsertedEvents).toHaveLength(4);
     });
 
-    it("automatically adds hard bounces and complaints to email_suppressions", async () => {
-      await processResendWebhook(
+    it("automatically adds hard bounces and complaints to email_suppressions without ON CONFLICT (email)", async () => {
+      const firstBounce = await processResendWebhook(
         {
           type: "email.bounced",
           data: {
             email_id: "re_bounce_1",
-            to: ["bounced@college.edu"],
+            to: ["Kiersten.Eggleton@Glenville.edu"],
             bounce: { type: "hard_bounce", message: "Mailbox does not exist" },
           },
         },
         "svix_bounce_1",
       );
 
+      expect(firstBounce.processed).toBe(true);
+      expect(firstBounce.dbError).toBeUndefined();
       expect(mockUpsertedSuppressions).toHaveLength(1);
-      expect(mockUpsertedSuppressions[0]?.email).toBe("bounced@college.edu");
+      expect(mockUpsertedSuppressions[0]?.email).toBe("kiersten.eggleton@glenville.edu");
+      expect(mockUpsertedSuppressions[0]?.reason).toBe("resend_bounce");
+
+      // Repeated complaint/bounce updates existing record in-place without duplicate error
+      const repeatComplaint = await processResendWebhook(
+        {
+          type: "email.complained",
+          data: {
+            email_id: "re_complaint_1",
+            to: ["kiersten.eggleton@glenville.edu"],
+          },
+        },
+        "svix_complaint_1",
+      );
+
+      expect(repeatComplaint.processed).toBe(true);
+      expect(repeatComplaint.dbError).toBeUndefined();
+      expect(mockUpsertedSuppressions).toHaveLength(1);
+      expect(mockUpsertedSuppressions[0]?.reason).toBe("resend_complaint");
     });
   });
 });

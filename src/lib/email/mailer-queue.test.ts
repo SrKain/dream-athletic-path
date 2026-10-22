@@ -278,6 +278,15 @@ function createMockAdminClient() {
             mockLogs.push(...list);
             return { data: list, error: null };
           }),
+          select: vi.fn(() => {
+            const createChain = (items: any[]): any => ({
+              eq: vi.fn((col: string, val: any) =>
+                createChain(items.filter((item) => item[col] === val)),
+              ),
+              then: (resolve: any) => resolve({ data: items, error: null }),
+            });
+            return createChain(mockLogs);
+          }),
         };
       }
 
@@ -1157,6 +1166,58 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(progress?.sentCount).toBe(2);
       expect(progress?.percentComplete).toBe(33);
       expect(progress?.currentBatch).toBeGreaterThanOrEqual(1);
+    });
+
+    it("reconciles expired processing rows without duplicating already-sent recipients", async () => {
+      const mockAdmin = createMockAdminClient();
+      const recipients = Array.from({ length: 4 }, (_, i) => ({
+        name: `Coach ${i}`,
+        email: `coach${i}@college.edu`,
+      }));
+
+      const enqueueRes = await enqueueCampaignDispatches(
+        { mode: "catalog", recipients },
+        mockAdmin,
+      );
+
+      const expiredIso = new Date(Date.now() - 120_000).toISOString();
+      const rows = Array.from(mockQueue.values()).filter(
+        (q) => q.campaign_id === enqueueRes.campaignId,
+      );
+
+      // Simulate 2 rows stuck in processing after a Vercel timeout:
+      // - coach0 was already logged in recruit_email_logs as sent
+      // - coach1 was never sent before timeout
+      mockQueue.set(rows[0].id, {
+        ...rows[0],
+        status: "processing",
+        reserved_by: "stale-worker",
+        reservation_expires_at: expiredIso,
+      });
+      mockQueue.set(rows[1].id, {
+        ...rows[1],
+        status: "processing",
+        reserved_by: "stale-worker",
+        reservation_expires_at: expiredIso,
+      });
+      mockLogs.push({
+        campaign_id: enqueueRes.campaignId,
+        recipient_email: "coach0@college.edu",
+        status: "sent",
+        provider_id: "re_already_sent_0",
+      });
+
+      const tickResult = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: enqueueRes.campaignId,
+        maxBatchSize: 100,
+      });
+
+      // coach0 was reconciled as sent without re-sending; coach1, coach2, coach3 were sent in the batch
+      expect(tickResult.sent).toBe(3);
+      expect(tickResult.campaignStatus).toBe("completed");
+      const finalRows = Array.from(mockQueue.values());
+      expect(finalRows.every((r) => r.status === "sent")).toBe(true);
     });
   });
 });
