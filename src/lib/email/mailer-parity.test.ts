@@ -17,16 +17,11 @@ describe("Mailer Parity Test: Snapshot Rendering vs Legacy Rendering (T1)", () =
     positionName: "Outside Hitter",
     nationality: "Brazil",
     countryFlag: "🇧🇷",
-    heightFormatted: "6'1\"",
     heightCm: 185,
     highSchoolGraduation: "Class of 2026",
     graduationYear: 2026,
-    gpa: "3.8",
-    satScore: "1350",
-    toeflScore: "105",
-    ncaaEligibilityId: "2401999888",
-    videoHighlightUrl: "https://youtube.com/watch?v=sample1",
-    matchFilmUrl: "https://youtube.com/watch?v=sample2",
+    gpa: 3.8,
+    highlightVideoUrl: "https://youtube.com/watch?v=sample1",
     recipientEmail: "coach@university.edu",
     coachName: "Coach Bob",
     coachLastName: "Bob",
@@ -43,11 +38,11 @@ describe("Mailer Parity Test: Snapshot Rendering vs Legacy Rendering (T1)", () =
       athlete: sampleAthlete,
     });
     const fromSnapshot = renderQueuedEmail(snapshot, {
-      recipientEmail: sampleAthlete.recipientEmail,
-      recipientName: sampleAthlete.coachName,
+      recipientEmail: sampleAthlete.recipientEmail ?? "",
+      recipientName: sampleAthlete.coachName ?? "",
       coachLastName: sampleAthlete.coachLastName,
       institutionName: sampleAthlete.institutionName,
-      coachId: sampleAthlete.coachId,
+      coachId: sampleAthlete.coachId ?? undefined,
     });
 
     // Integrity checks
@@ -84,7 +79,6 @@ describe("Mailer Parity Test: Snapshot Rendering vs Legacy Rendering (T1)", () =
       athletes,
       coachName: "Coach Bob",
       coachLastName: "Bob",
-      coachEmail: "coach@university.edu",
       institutionName: "Grand University",
     });
 

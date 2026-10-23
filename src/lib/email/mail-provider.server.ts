@@ -143,7 +143,7 @@ export class ResendMailProvider implements MailProvider {
       clearTimeout(timer);
 
       // Tratar resposta permissiva
-      const response = rawResponse as {
+      const response = rawResponse as unknown as {
         data?:
           | {
               data?: Array<{ id: string }>;
@@ -179,7 +179,7 @@ export class ResendMailProvider implements MailProvider {
                   tags: item.tags,
                 },
                 { idempotencyKey: item.id ? `indiv_${item.id}` : undefined },
-              )) as { data?: { id?: string }; error?: { message?: string } };
+              )) as unknown as { data?: { id?: string }; error?: { message?: string } };
 
               if (indivRes?.data?.id) {
                 sentList.push({ id: item.id, providerId: indivRes.data.id });

@@ -181,8 +181,8 @@ export default {
 
         if (request.method === "POST") {
           // RFC 8058 One-Click Unsubscribe (POST com corpo ou URL token)
-          if (!verification.valid || !verification.email) {
-            return new Response(JSON.stringify({ error: verification.error || "invalid_token" }), {
+          if (!verification) {
+            return new Response(JSON.stringify({ error: "invalid_token" }), {
               status: 400,
               headers: {
                 "content-type": "application/json; charset=utf-8",
@@ -209,10 +209,9 @@ export default {
         if (request.method === "GET") {
           // Scanners de link em domínios .edu não devem descadastrar em GET.
           // Redireciona para o formulário de confirmação interativo.
-          const targetUrl =
-            verification.valid && verification.email
-              ? `/unsubscribe?email=${encodeURIComponent(verification.email)}`
-              : "/unsubscribe";
+          const targetUrl = verification
+            ? `/unsubscribe?email=${encodeURIComponent(verification.email)}`
+            : "/unsubscribe";
           return Response.redirect(new URL(targetUrl, request.url).toString(), 302);
         }
       }

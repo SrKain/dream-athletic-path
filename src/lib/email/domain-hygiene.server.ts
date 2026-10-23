@@ -63,6 +63,18 @@ async function resolveWithTimeout<T>(
 }
 
 /**
+ * Erros de resolvedor que NÃO provam inexistência do domínio. Só ENOTFOUND/ENODATA
+ * são respostas definitivas; o resto (resolvedor fora do ar, rede, cota) vira
+ * "unverified" (fail-open, sem cache) para nunca descartar destinatário válido.
+ */
+const DEFINITIVE_NO_RECORD_CODES = new Set(["ENOTFOUND", "ENODATA"]);
+
+function isTransientDnsError(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code;
+  return !code || !DEFINITIVE_NO_RECORD_CODES.has(code);
+}
+
+/**
  * Verifica se um domínio possui registros MX ou registros A (fallback).
  * - Sem MX e sem A -> hasMx: false
  * - Erro transitório (timeout, SERVFAIL, etc.) -> unverified: true, hasMx: true (fail-open para não descartar indevidamente)
@@ -86,8 +98,7 @@ export async function checkSingleDomainDns(domain: string): Promise<DomainCheckR
 
   // Se o erro foi timeout ou servidor DNS indisponível, não descartar
   if (mxOutcome.error) {
-    const code = (mxOutcome.error as { code?: string })?.code;
-    if (code === "ETIMEOUT" || code === "ESERVFAIL" || code === "EBADRESP") {
+    if (isTransientDnsError(mxOutcome.error)) {
       return { hasMx: true, unverified: true };
     }
   }
@@ -104,8 +115,7 @@ export async function checkSingleDomainDns(domain: string): Promise<DomainCheckR
   }
 
   if (aOutcome.error) {
-    const code = (aOutcome.error as { code?: string })?.code;
-    if (code === "ETIMEOUT" || code === "ESERVFAIL" || code === "EBADRESP") {
+    if (isTransientDnsError(aOutcome.error)) {
       return { hasMx: true, unverified: true };
     }
   }

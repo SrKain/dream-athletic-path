@@ -740,7 +740,7 @@ export async function enqueueCampaignDispatches(
         customOptions: input.customOptions,
         catalogOptions: input.catalogOptions,
         blocks: input.blocks,
-        createdBy: input.createdBy,
+        createdBy: input.createdBy ?? undefined,
         filters: input.filters,
       },
       admin,

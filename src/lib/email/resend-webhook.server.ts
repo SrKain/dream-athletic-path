@@ -35,6 +35,8 @@ export interface ResendWebhookPayload {
       type?: string;
       subType?: string;
     };
+    bounce_type?: string;
+    type?: string;
     click?: {
       ipAddress?: string;
       link?: string;
