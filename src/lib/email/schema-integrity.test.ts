@@ -260,4 +260,37 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
       /create\s+unique\s+index\s+(?:if\s+not\s+exists\s+)?[a-z0-9_]+\s+on\s+public\.email_events\s*\(\s*svix_id\s*\)/i,
     );
   });
+
+  it("verifies that mailer_queue schema does NOT contain processing_started_at and contains all active columns", () => {
+    const mailerQueueColumns = extractColumnsFromSql(migrationFiles, "mailer_queue");
+    expect(mailerQueueColumns.has("id")).toBe(true);
+    expect(mailerQueueColumns.has("campaign_id")).toBe(true);
+    expect(mailerQueueColumns.has("recipient_email")).toBe(true);
+    expect(mailerQueueColumns.has("status")).toBe(true);
+    expect(mailerQueueColumns.has("reserved_at")).toBe(true);
+    expect(mailerQueueColumns.has("reserved_by")).toBe(true);
+    expect(mailerQueueColumns.has("reservation_expires_at")).toBe(true);
+
+    // Phantom column verification (F1 from production audit)
+    expect(mailerQueueColumns.has("processing_started_at")).toBe(false);
+  });
+
+  it("verifies migration 0028 defines snapshot table, domain checks table, and required RPCs", () => {
+    const mig0028 = fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        "db/migrations/0028_mailer_high_volume_snapshot_and_bounce_guard.sql",
+      ),
+      "utf-8",
+    );
+
+    expect(mig0028).toMatch(
+      /create\s+table\s+if\s+not\s+exists\s+public\.mailer_campaign_snapshots/i,
+    );
+    expect(mig0028).toMatch(/create\s+table\s+if\s+not\s+exists\s+public\.mailer_domain_checks/i);
+    expect(mig0028).toMatch(/function\s+public\.filter_suppressed_emails/i);
+    expect(mig0028).toMatch(/function\s+public\.mailer_campaign_bounce_stats/i);
+    expect(mig0028).toMatch(/function\s+public\.complete_mailer_burst/i);
+    expect(mig0028).toMatch(/p_dry_run\s+boolean/i);
+  });
 });

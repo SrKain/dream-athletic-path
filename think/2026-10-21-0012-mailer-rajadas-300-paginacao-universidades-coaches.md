@@ -66,7 +66,7 @@
 
 Executar manualmente no SQL Editor quando desejado; não modifica registros:
 
-~~~sql
+```sql
 SELECT
   lower(btrim(regexp_replace(name, '[[:space:]]+', ' ', 'g'))) AS nome_normalizado,
   upper(btrim(state)) AS estado_normalizado,
@@ -77,7 +77,7 @@ FROM public.universities
 GROUP BY 1, 2
 HAVING count(*) > 1
 ORDER BY quantidade DESC, nome_normalizado, estado_normalizado;
-~~~
+```
 
 ## 4. Validação, critérios de aceite e segurança
 

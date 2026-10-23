@@ -163,88 +163,49 @@ export async function upsertEmailSuppressionSafe(
     created_at: row.created_at || new Date().toISOString(),
   };
 
-  const table = admin.from("email_suppressions") as unknown as {
-    select?: (cols: string) => {
-      ilike?: (
-        col: string,
-        val: string,
-      ) => {
-        limit: (n: number) => {
-          maybeSingle: () => Promise<{
-            data: { id: string } | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-      eq?: (
-        col: string,
-        val: string,
-      ) => {
-        maybeSingle: () => Promise<{
-          data: { id: string } | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-    update?: (values: Record<string, unknown>) => {
-      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
-    };
-    insert?: (values: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
-    upsert?: (
-      values: Record<string, unknown>,
-      opts?: { onConflict?: string },
-    ) => Promise<{ error: { message: string } | null }>;
-  };
+  const { data: existing, error: selectErr } = await admin
+    .from("email_suppressions")
+    .select("id")
+    .ilike("email", cleanEmail)
+    .limit(1)
+    .maybeSingle();
 
-  if (
-    typeof table.select === "function" &&
-    typeof table.insert === "function" &&
-    typeof table.update === "function"
-  ) {
-    const lookupExisting = async () => {
-      const sel = table.select!("id");
-      if (typeof sel.ilike === "function") {
-        return sel.ilike("email", cleanEmail).limit(1).maybeSingle();
-      }
-      if (typeof sel.eq === "function") {
-        return sel.eq("email", cleanEmail).maybeSingle();
-      }
-      return { data: null, error: null };
-    };
-
-    const existingRes = await lookupExisting();
-    if (existingRes.error) {
-      return { error: existingRes.error };
-    }
-
-    if (existingRes.data?.id) {
-      const updateRes = await table.update(payload).eq("id", existingRes.data.id);
-      return { error: updateRes?.error ?? null };
-    }
-
-    const insertRes = await table.insert(payload);
-    if (!insertRes?.error) {
-      return { error: null };
-    }
-
-    // Tratamento de corrida concorrente no índice único funcional (23505)
-    if (/duplicate key|unique constraint|23505/i.test(insertRes.error.message || "")) {
-      const retryExisting = await lookupExisting();
-      if (retryExisting.data?.id) {
-        const retryUpdate = await table.update(payload).eq("id", retryExisting.data.id);
-        return { error: retryUpdate?.error ?? null };
-      }
-    }
-
-    return { error: insertRes.error };
+  if (selectErr) {
+    return { error: selectErr };
   }
 
-  if (typeof table.upsert === "function") {
-    const res = await table.upsert(payload);
-    return { error: res?.error ?? null };
+  if (existing?.id) {
+    const { error: updateErr } = await admin
+      .from("email_suppressions")
+      .update(payload)
+      .eq("id", existing.id);
+    return { error: updateErr };
   }
 
-  return { error: { message: "Unsupported email_suppressions table client." } };
+  const { error: insertErr } = await admin.from("email_suppressions").insert(payload);
+  if (!insertErr) {
+    return { error: null };
+  }
+
+  // Tratamento de corrida concorrente no índice único funcional (23505)
+  if (/duplicate key|unique constraint|23505/i.test(insertErr.message || "")) {
+    const { data: retryExisting } = await admin
+      .from("email_suppressions")
+      .select("id")
+      .ilike("email", cleanEmail)
+      .limit(1)
+      .maybeSingle();
+
+    if (retryExisting?.id) {
+      const { error: retryUpdateErr } = await admin
+        .from("email_suppressions")
+        .update(payload)
+        .eq("id", retryExisting.id);
+      return { error: retryUpdateErr };
+    }
+  }
+
+  return { error: insertErr };
 }
 
 // Registrar descadastro com suporte a 2 níveis (Pausa temporária de 6 meses vs Permanente)

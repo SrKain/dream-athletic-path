@@ -35,15 +35,15 @@ Não é necessária migration para este hotfix. Os campos extras do tipo `Achiev
 
 ## 2. Escopo e arquivos previstos
 
-| Arquivo | Alteração prevista |
-| --- | --- |
-| `src/lib/email/athlete-email-data.server.ts` | Ordenação válida e estável; conquista opcional; consultas essenciais continuam fatais. |
-| `src/routes/_authenticated/admin/mailer.tsx` | Estados exclusivos do painel, retry do carregamento e toast coerente com a causa. |
-| `src/lib/email/athlete-email-quality.ts` | Pequena função pura de decisão de estado, se necessária para testar a lógica sem novas dependências. |
-| `src/lib/email/schema-integrity.test.ts` | Reaproveitar o teste existente e estender a validação para selects/orders do loader. |
-| `src/lib/email/athlete-email-data.server.test.ts` | Novo teste do loader com cliente Supabase simulado. |
-| `src/lib/email/athlete-email-quality.test.ts` | Testes da função de estado e da distinção entre falha técnica e campos faltantes. |
-| `CERNE.md`, `BACKLOGER.md` e este plano | Decisões, solicitação, resultados reais e conclusão. |
+| Arquivo                                           | Alteração prevista                                                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/lib/email/athlete-email-data.server.ts`      | Ordenação válida e estável; conquista opcional; consultas essenciais continuam fatais.               |
+| `src/routes/_authenticated/admin/mailer.tsx`      | Estados exclusivos do painel, retry do carregamento e toast coerente com a causa.                    |
+| `src/lib/email/athlete-email-quality.ts`          | Pequena função pura de decisão de estado, se necessária para testar a lógica sem novas dependências. |
+| `src/lib/email/schema-integrity.test.ts`          | Reaproveitar o teste existente e estender a validação para selects/orders do loader.                 |
+| `src/lib/email/athlete-email-data.server.test.ts` | Novo teste do loader com cliente Supabase simulado.                                                  |
+| `src/lib/email/athlete-email-quality.test.ts`     | Testes da função de estado e da distinção entre falha técnica e campos faltantes.                    |
+| `CERNE.md`, `BACKLOGER.md` e este plano           | Decisões, solicitação, resultados reais e conclusão.                                                 |
 
 Antes de editar código, concluir a leitura integral obrigatória de README.md, CERNE.md, BACKLOGER.md, UI&UX.md, AGENTS.md e planos de `think/`, preservando as decisões históricas aplicáveis.
 
@@ -183,7 +183,6 @@ Registrar testes manuais como executados somente se houver ambiente e evidência
 - Sem Bun disponível localmente e com proxy local inacessível, validação será executada no GitHub Actions com versão exata 1.3.14. A primeira execução disponibiliza diff de formatação para aplicar com o Prettier do próprio projeto; o commit final será validado sem essa etapa auxiliar.
 - Status atual: em validação. Testes manuais de navegador não foram realizados. Nenhum envio real e nenhuma migration aplicados.
 
-
 ## 8. Resultado de implementação e validação
 
 - Correções implementadas nos arquivos previstos: loader, qualidade/estado, painel, integridade do schema e dois arquivos novos de teste. CERNE.md/BACKLOGER.md atualizados. Workflow recebeu proteção pontual para preservar o lockfile e fontes da fila.
@@ -191,13 +190,13 @@ Registrar testes manuais como executados somente se houver ambiente e evidência
 - Consulta SQL equivalente corrigida executou com sucesso no Supabase usando WHERE false, sem leitura de dados pessoais.
 - GitHub Actions: https://github.com/SrKain/dream-athletic-path/actions/runs/39300420381 (Bun 1.3.14; sucesso).
 
-| Comando | Resultado comprovado |
-| --- | --- |
+| Comando                       | Resultado comprovado                                |
+| ----------------------------- | --------------------------------------------------- |
 | bun install --frozen-lockfile | Sucesso, 528 pacotes, manifesto e lockfile sem diff |
-| bun run typecheck | Sucesso |
-| bun run lint | Sucesso, 0 erros e 11 avisos preexistentes |
-| bun run test | Sucesso, 217/217 testes em 27 arquivos |
-| bun run build | Sucesso |
+| bun run typecheck             | Sucesso                                             |
+| bun run lint                  | Sucesso, 0 erros e 11 avisos preexistentes          |
+| bun run test                  | Sucesso, 217/217 testes em 27 arquivos              |
+| bun run build                 | Sucesso                                             |
 
 O primeiro CI usou Prettier apenas sobre os arquivos do hotfix e disponibilizou seu diff. Esse diff foi aplicado às fontes versionadas, sem executar novamente o gerador de lockfile. A etapa auxiliar foi removida; o commit final será validado pelo workflow normal sem formatação ou commits automáticos.
 

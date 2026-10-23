@@ -293,8 +293,19 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
       .eq("id", data.campaignId)
       .maybeSingle();
 
+    if (!campaign) {
+      return { success: false, message: "Campaign not found." };
+    }
+
+    if (["completed", "cancelled", "failed"].includes(campaign.status)) {
+      return {
+        success: false,
+        message: `Campaign is in terminal state '${campaign.status}' and cannot be resumed.`,
+      };
+    }
+
     const currentFilters =
-      campaign?.filters && typeof campaign.filters === "object"
+      campaign.filters && typeof campaign.filters === "object"
         ? (campaign.filters as Record<string, unknown>)
         : {};
 
@@ -320,7 +331,69 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
     };
   });
 
-// 19a. Histórico operacional recente, limitado e exclusivo da agência.
+// 19a. Criação de Rascunho de Campanha em 3 Fases (Requer agência)
+export const createCampaignDraftServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: import("./mailer-queue.server").CreateCampaignDraftInput) => data)
+  .handler(async ({ data }) => {
+    const { createCampaignDraft } = await import("./mailer-queue.server");
+    return createCampaignDraft(data);
+  });
+
+// 19b. Anexar Destinatários em Lote (Requer agência)
+export const appendCampaignRecipientsServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string; recipients: SendMailerInput["recipients"] }) => data)
+  .handler(async ({ data }) => {
+    const { appendCampaignRecipients } = await import("./mailer-queue.server");
+    return appendCampaignRecipients(data.campaignId, data.recipients);
+  });
+
+// 19c. Ativar Campanha (Requer agência)
+export const activateCampaignServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string; dryRun?: boolean }) => data)
+  .handler(async ({ data }) => {
+    const { activateCampaign } = await import("./mailer-queue.server");
+    return activateCampaign(data.campaignId, { dryRun: data.dryRun });
+  });
+
+// 19d. Consulta de Métricas de Bounce em Tempo Real (Requer agência)
+export const getCampaignBounceStatsServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin.rpc("mailer_campaign_bounce_stats", {
+      p_campaign_id: data.campaignId,
+    });
+    if (error || !Array.isArray(rows) || rows.length === 0) {
+      return {
+        sentCount: 0,
+        bounceCount: 0,
+        complaintCount: 0,
+        bounceRate: 0,
+        bounceGuardTriggered: false,
+      };
+    }
+    const r = rows[0] as {
+      sent_count?: number;
+      bounce_count?: number;
+      complaint_count?: number;
+      bounce_rate?: number;
+      bounce_guard_triggered?: boolean;
+    };
+    return {
+      sentCount: Number(r.sent_count) || 0,
+      bounceCount: Number(r.bounce_count) || 0,
+      complaintCount: Number(r.complaint_count) || 0,
+      bounceRate: Number(r.bounce_rate) || 0,
+      bounceGuardTriggered: Boolean(r.bounce_guard_triggered),
+    };
+  });
+
+// 19e. Histórico operacional recente, limitado e exclusivo da agência.
 export const getRecentMailerCampaignsServerFn = createServerFn({ method: "GET" })
   .middleware([requireAgency])
   .handler(async () => {

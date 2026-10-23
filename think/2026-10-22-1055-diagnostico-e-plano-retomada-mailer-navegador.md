@@ -11,6 +11,7 @@
 ## 1. Evidências Reais de Produção Coletadas (Supabase & Vercel)
 
 ### Evidência A — Fila da Campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63` no Supabase
+
 ```json
 [
   {
@@ -31,6 +32,7 @@
 ```
 
 **O que essa evidência comprova matematicamente:**
+
 1. O RPC `claim_mailer_queue_batch` da migration `0027` **está instalado no Supabase** e reservou exatamente o primeiro lote de **`300` itens** (`BURST_SIZE = 300`), mudando o status deles para `processing`, enquanto os `359` restantes ficaram em `pending` (total de 659 destinatários na campanha).
 2. Porém, após reservar os `300` itens, a execução de `processMailerQueue` (`src/lib/email/mailer-queue.server.ts`):
    - Disparou **3 chamadas paralelas** de `resendClient.batch.send` (100 e-mails cada via `Promise.all`), o que esbarra no rate limit padrão da Resend (**2 requisições/segundo**).
@@ -44,6 +46,7 @@
 ---
 
 ### Evidência B — Erro em Produção na Vercel (`[resend-webhook]`)
+
 ```text
 2026-10-22 17:00:32.213 [error] [resend-webhook] Database error upserting email_suppressions:
 there is no unique or exclusion constraint matching the ON CONFLICT specification
@@ -51,6 +54,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
 ```
 
 **Causa-Raiz Exata no Banco e Código:**
+
 1. Na migration `db/migrations/0018_universities_and_mailer.sql` (linhas 26–34), a tabela `public.email_suppressions` foi criada sem `UNIQUE` direto na coluna `email`, usando apenas um **índice de expressão funcional**:
    ```sql
    create unique index if not exists idx_email_suppressions_email_lower
@@ -68,6 +72,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
 ---
 
 ### Evidência C — Outros Gargalos Identificados na Auditoria do Código
+
 1. **Releitura pesada pós-insert em `enqueueCampaignDispatches` (`src/lib/email/mailer-queue.server.ts`)**:
    - Após validar (`assertEmailIntegrity`) e inserir todos os itens na fila, `enqueueCampaignDispatches` chama `sanitizePendingQueueItemsMissingCards`, que faz `SELECT id, recipient_email, payload` paginando de 1.000 em 1.000 linhas (~60 MB de HTML trafegados de volta do Supabase para a Vercel), podendo causar timeout/OOM na criação da campanha.
 2. **Desativação silenciosa da orquestração pelo navegador em caso de erro de rede (`src/routes/_authenticated/admin/mailer.tsx`)**:
@@ -78,6 +83,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
 ## 2. Plano de Resolução Definitiva
 
 ### Passo 1 — Tornar cada Tick do Navegador Rápido, Atômico e Compatível com o Rate Limit da Resend (`src/lib/email/mailer-queue.server.ts` e `src/routes/_authenticated/admin/mailer.tsx`)
+
 1. **Reduzir o tamanho padrão do lote por tick (`BURST_SIZE`) de `300` para `100` e-mails** (1 único `resend.batch.send` de até 100 destinatários por requisição do navegador):
    - A API Batch da Resend suporta até **100 e-mails em 1 única chamada HTTP** (`POST /emails/batch`).
    - Com `100` e-mails por tick e `1.200ms` de intervalo entre ticks no navegador, cada chamada à Vercel faz **apenas 1 requisição à Resend**, levando **~1 a 2 segundos** (zero risco de timeout na Vercel e zero risco de `429 Too Many Requests` por concorrência de `Promise.all`).
@@ -89,6 +95,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
    - Se o erro do batch for de validação (ex.: um endereço de e-mail com sintaxe inválida rejeitado pela Resend), validar/isolar ou dividir sem estourar o tempo limite da função.
 
 ### Passo 2 — Recuperação Segura e Reconciliação de Itens Presos em `processing` (`src/lib/email/mailer-queue.server.ts` e `src/lib/email/mailer-runner.server.ts`)
+
 1. **Reconciliação Inteligente de Itens `processing` Expirados**:
    - Criar uma rotina segura em `mailer-queue.server.ts` (acionada automaticamente ao retomar uma campanha via `resumeCampaign` / `reconcileMailerCampaignIncidentServerFn` e também ao detectar itens em `processing` com `reservation_expires_at < now()`):
    - Antes de devolver um item `processing` expirado para `pending`, verificar em `recruit_email_logs` (por `campaign_id` + `recipient_email` com `status = 'sent'`) e em `email_events` (por tag `campaign_id` + `recipient_email`) se a Resend **já aceitou/enviou** aquele e-mail antes do timeout da Vercel!
@@ -98,6 +105,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
    - Permitir que `resumeCampaign` e `reconcileCampaignIncident` executem essa reconciliação inteligente mesmo quando a campanha tiver itens presos em `processing` (como os 300 itens da campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63`) ou estiver pausada com incidente, destravando a campanha diretamente pelo botão da interface `/admin/mailer`.
 
 ### Passo 3 — Correção Definitiva de `email_suppressions` (`src/lib/email/resend-webhook.server.ts` e `src/lib/email/recruit-email.server.ts`)
+
 1. Criar uma função utilitária compartilhada `upsertEmailSuppressionSafe(admin, { email, reason, suppression_type, expires_at })`:
    - Normaliza `cleanEmail = email.toLowerCase().trim()`.
    - Consulta registro existente via `.select("id").ilike("email", cleanEmail).limit(1).maybeSingle()`.
@@ -107,6 +115,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
    - **Vantagem imediata**: Funciona **100% sem depender de nova migration SQL no Supabase**, eliminando na hora o erro `there is no unique or exclusion constraint matching the ON CONFLICT specification` nos webhooks de bounce/complaint da Resend e nos descadastros.
 
 ### Passo 4 — Remoção da Releitura Pesada Pós-Insert e Resiliência do Loop no Navegador
+
 1. **Em `src/lib/email/mailer-queue.server.ts`**:
    - Remover a chamada redundante `sanitizePendingQueueItemsMissingCards` ao final de `enqueueCampaignDispatches`, pois `assertEmailIntegrity` já valida 100% dos HTMLs em memória antes do `.insert()`.
 2. **Em `src/routes/_authenticated/admin/mailer.tsx`**:
@@ -116,6 +125,7 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
 ---
 
 ## 3. Arquivos que Serão Modificados (Após Aprovação)
+
 1. `src/lib/email/recruit-email.server.ts` — Implementação e uso de `upsertEmailSuppressionSafe` sem depender de `ON CONFLICT (email)`.
 2. `src/lib/email/resend-webhook.server.ts` — Uso de `upsertEmailSuppressionSafe` para bounces e complaints da Resend.
 3. `src/lib/email/resend-webhook.test.ts` — Atualização e adição de testes cobrindo a persistência de supressão sem `ON CONFLICT (email)`.

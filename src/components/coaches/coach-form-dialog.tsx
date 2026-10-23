@@ -12,6 +12,8 @@ import { saveUniversityCoachServerFn } from "@/lib/coach-directory.functions";
 import type { University } from "@/types/db";
 import { buttonClass, secondaryButtonClass, inputClass } from "@/components/admin-ui";
 
+import { isDeliverableEmailSyntax } from "@/lib/email/email-syntax";
+
 export interface CoachFormData {
   id?: string;
   firstName: string;
@@ -74,8 +76,8 @@ export function CoachFormDialog({
       toast.error("Informe o primeiro nome do treinador.");
       return;
     }
-    if (!cleanEmail.includes("@")) {
-      toast.error("Informe um e-mail válido.");
+    if (!isDeliverableEmailSyntax(cleanEmail)) {
+      toast.error("Informe um e-mail válido com domínio entregável (ex.: coach@university.edu).");
       return;
     }
 

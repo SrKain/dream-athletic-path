@@ -97,7 +97,7 @@ bun run validate
 | [`src/routes/_authenticated/admin/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/pipeline.tsx)     | Agência (Admin)     | **Gestão de Pipeline**: Quadro Kanban/Linha do tempo dos atletas em cada etapa de recrutamento.                                                                                                                                                                                                                                                                                                                                                                                 |
 | [`src/routes/_authenticated/admin/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/documents.tsx)   | Agência (Admin)     | **Central de Documentos**: Aprovação, reprovação e acompanhamento de arquivos enviados pelos atletas.                                                                                                                                                                                                                                                                                                                                                                           |
 | [`src/routes/_authenticated/admin/settings.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/settings.tsx)     | Agência (Admin)     | Configurações da Agência, etapas do pipeline e parâmetros do sistema.                                                                                                                                                                                                                                                                                                                                                                                                           |
-| [`src/routes/_authenticated/admin/coaches.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/coaches.tsx)       | Agência (Admin)     | Gestão administrativa dos coaches armazenados em `universities.coaches`: busca e filtro por universidade, cadastro/edição/remoção de vínculo, preferências de fit e bloqueios de comunicação, além de associação explícita dos contatos legados sem eliminar a tabela de origem. |
+| [`src/routes/_authenticated/admin/coaches.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/admin/coaches.tsx)       | Agência (Admin)     | Gestão administrativa dos coaches armazenados em `universities.coaches`: busca e filtro por universidade, cadastro/edição/remoção de vínculo, preferências de fit e bloqueios de comunicação, além de associação explícita dos contatos legados sem eliminar a tabela de origem.                                                                                                                                                                                                |
 | [`src/routes/_authenticated/portal/index.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/index.tsx)         | Atleta              | **Home do Atleta**: Resumo do progresso, alertas de pendências de documentos e etapa atual. **Atualizado**: Integrado componente `<ConfettiCelebration />` que dispara animação quando URL contém `?celebrate=true`.                                                                                                                                                                                                                                                            |
 | [`src/routes/_authenticated/portal/pipeline.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/pipeline.tsx)   | Atleta              | Visualização detalhada do pipeline e etapas a cumprir.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | [`src/routes/_authenticated/portal/documents.tsx`](file:///c:/Users/kauan/OneDrive/%C3%81rea%20de%20Trabalho/dev%202.0/teamgo/dream-athletic-path/src/routes/_authenticated/portal/documents.tsx) | Atleta              | **Envio de Documentos do Atleta**: Upload de PDFs, histórico de status e correções solicitadas pela agência.                                                                                                                                                                                                                                                                                                                                                                    |
@@ -1297,9 +1297,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Deploy/schema:** nenhuma migration ou mudança de `package.json`, `bun.lock` ou `vercel.json` foi feita. `git diff --check` sem erros. Build, typecheck e lint não puderam ser executados porque Bun e `node_modules` estão ausentes no checkout.
 - **Plano:** `think/2026-10-09-1718-mailer-availability-coach-management-fit-warning-signature.md`.
 
-
-
-
 ## Atualização 2026-10-13 — Assunto, saudação e respostas do Mailer
 
 - `src/lib/email/email-personalization.ts` centraliza o assunto opcional (até 200 caracteres, rejeição de CR/LF/tipos inválidos) e a saudação `Hi Coach [last_name],`, com fallback `Hi Coach,`. Não infere sobrenome pelo nome completo.
@@ -1349,7 +1346,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
   - Governança de pacotes: `package.json` e `bun.lock` preservados intactos.
 - **Plano:** `think/2026-10-16-0735-correcao-definitiva-mailer-fila-navegador.md`.
 
-
 ## Atualização 2026-10-16 — Recuperação da build e endurecimento do Mailer (TASK-097, em validação)
 
 - **Plano aprovado:** `think/2026-10-16-1238-recuperacao-build-e-auditoria-mailer.md`; implementação em `fix/2026-10-16-vercel-mailer-reliability`.
@@ -1363,7 +1359,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Testes:** cenários de lease indisponível, inserção parcial, envio aceito com falha de persistência e idempotência HTTP adicionados em `src/lib/email/mailer-queue.test.ts`. Resultados de CI/build e smoke tests serão registrados após execução.
 - **Restrições:** sem envio real a coaches no processo de validação e sem alterações diretas de schema até revisão operacional.
 
-
 ## Atualização 2026-10-16 — Hotfix Mailer FK + contraste do monitor (TASK-098)
 
 - **Causa confirmada no Supabase `teamgoteam`:** `public.universities` possui 1.219 registros, mas `public.coaches` possui zero; os contatos vinculados ao JSON das universidades são exibidos no Mailer como coaches. Seus UUIDs não são necessariamente registros da tabela `public.coaches`. Ao criar `mailer_queue`, `coach_id` inválido acionava `mailer_queue_coach_id_fkey` e a campanha acabava em `failed`.
@@ -1372,7 +1367,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **UI (`src/routes/_authenticated/admin/mailer.tsx`):** cores de badges, métricas e controles receberam variantes explícitas claro/escuro com tons de fundo claros e texto escuro no tema claro, e equivalentes de alto contraste no escuro; comportamento e métricas da fila preservados.
 - **Testes (`src/lib/email/mailer-queue.test.ts`):** cenários cobrem UUID existente e UUID que não referencia `public.coaches`; sem e-mails externos nos testes.
 - **Infraestrutura:** migrations 0025/0026 estavam aplicadas segundo `supabase_migrations`, sem novas alterações de banco. Validação GitHub Actions `38929272621`: instalação Bun frozen, typecheck, lint, testes unitários e build passaram; Vercel pós-merge será verificada pelo SHA publicado.
-
 
 ## Atualização 2026-10-19 — Mailer: campos obrigatórios, fonte única e card completo
 
@@ -1397,7 +1391,6 @@ Quando a Agência move um atleta para uma nova etapa no pipeline (via drag-and-d
 - **Escopo preservado:** bun.lock, package.json, renderizadores/layout do card, fila, idempotência, Reply-To e textos canônicos intactos. Sem disparo real a coaches.
 
 - **Verificação real:** consulta SQL equivalente à de conquistas, com `WHERE false` e `ORDER BY achieved_on DESC NULLS LAST, id ASC`, executada com sucesso no Supabase, sem ler fichas nem enviar mensagens. Os três cenários do painel têm cobertura automatizada da lógica. Aceitação manual em navegador autenticado não executada neste ambiente; procedimento registrado no plano.
-
 
 ## Quick Facts do Mailer — 2026-10-19 (TASK-101)
 
@@ -1437,14 +1430,12 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
   - Suíte completa de testes: 28 arquivos, 243 testes unitários aprovados (100% de sucesso).
 - **Governança:** `bun.lock` e `package.json` estritamente preservados; zero erros de lint; compilação de produção via `compile_applet` concluída com sucesso.
 
-
 ## 2026-10-20 — Hotfix de build Vercel / Bun direto na main (TASK-104)
 
 - **Falha:** o commit `6d192c3` alterou as entradas raiz de `bun.lock` para `@lovable.dev/vite-tanstack-config@2.13.1` e `nitro@^3.0.260610-beta`, em contradição ao `package.json` (`2.25.3` e `3.0.260603-beta`). Esse commit tem status Vercel failure; `3aa3ae9` tem status success.
 - **Estratégia de execução aprovada:** entrega na `main`, sem branch/PR. Como o ambiente do agente não dispõe de Bun, usar GitHub Actions com Bun 1.3.14 para executar `bun install`, revalidar com `--frozen-lockfile` e executar typecheck, lint, Vitest e build antes de commitar somente `bun.lock`.
 - **Impacto:** sem alteração funcional do Mailer/TASK-103, de `package.json`, banco, URLs ou regras do Vercel. Sem uso de flags de bypass de vulnerabilidade.
 - **Governança:** plano `think/2026-10-20-1601-correcao-build-main-bun-lock.md`; BACKLOGER TASK-104. Adicionar proteção de CI sobre push na `main` e retirar workflow de recuperação temporário após a conclusão. Confirmar status Vercel success no commit final antes de considerar o deploy validado.
-
 
 ### Resultado da TASK-104 — Recuperação da build / CI (2026-10-20)
 
@@ -1455,7 +1446,6 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Execução temporária:** `.github/workflows/repair-bun-lock-main-2026-10-20.yml` foi usada como preparação da tentativa de regeneração remota, depois removida por `affa3df31e1413a768d9d7fb794433706bdc4b2f`. A correção efetiva foi a restauração do lockfile anteriormente produzido/validado pelo Bun 1.3.14, não uma execução Bun no ambiente local atual.
 - **Integridade:** nenhuma modificação em `package.json`, `vercel.json`, aplicações, dados, migrations ou serviços do Mailer. TASK-103 preservada.
 - **Limites da validação:** status de produção da Vercel confirmado no SHA de correção; os checks GitHub Actions e deploy do último commit de documentação devem ser acompanhados separadamente, sem alegar que passaram na ausência de logs/status.
-
 
 ## 2026-10-20 — TASK-105: composição determinística dos textos do Mailer
 
@@ -1484,14 +1474,14 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Validação:** mocks exclusivos para Resend e Supabase no Vitest; cenários 10, 150, 300, 301, 799 e 3300, fallback, 429, idempotência, lease, falha pós-aceitação, ausência de migration, paginação 0/999/1000/1001/1332/3300, importador inválido/deduplicação/erro parcial. Não há testes que enviem e-mails reais.
 - **Rollout:** não liberar essa versão do Mailer em produção antes de aplicar e verificar as migrations `0025`, `0026`, **depois `0027`** no Supabase externo. `vercel.json` não declara `maxDuration`; com Fluid Compute habilitado, o padrão documentado é de 300s, mas configuração e quota efetivas devem ser verificadas no projeto Vercel antes de prometer 799 envios em poucos segundos. Não modificar `package.json` ou `bun.lock`. A implantação depende de migração e CI aprovados; a publicação da branch não altera a main.
 
-
 ## 2026-10-21 — TASK-107 / Fase 1 — Recuperação de CI (execução autorizada)
+
 - O solicitante aprovou explicitamente a Fase 1 em 21/10/2026; commits diretamente na `main`, sem branch ou PR. **Não autorizou** disparos reais, alteração de registros de produção nem ativação de infraestrutura.
 - Primeiro marco: restaurado `bun.lock` ao blob `11e32ea0199fd8ea03742194d7e92136aa0ed513` da `main` previamente validada (`69843f9`), compatível com o `package.json` fixado em `@lovable.dev/vite-tanstack-config@2.25.3` e `nitro@3.0.260603-beta`. Sem atualização de dependências/migrations existentes.
 - A Fase 1 permanece **em implementação**, condicionada a instalar com Bun 1.3.14 e obter CI verde; ainda não autoriza execução de campanhas, cron ou deploy de banco. Preservar TASK-103/105/106.
 
-
 ### TASK-107 / Fase 1 — Worker protegido e reconciliação fail-closed (21/10/2026)
+
 - Foi substituída a falsa durabilidade do `setTimeout`/fire-and-forget em função serverless por execução **aguardada** no endpoint POST `/api/mailer/worker`, autenticado com segredo dedicado (comparação timing-safe). A rota fica desativada por padrão e exige as três configurações de ambiente `MAILER_SERVER_ORCHESTRATION=true`, `MAILER_SEND_ENABLED=true` e `MAILER_WORKER_SECRET` (mínimo 32 caracteres). Não foram ativadas variáveis, Cron, Edge Functions nem migrations em produção.
 - O worker seleciona uma campanha `running`, vencida e explicitamente marcada `filters.serverOrchestration=true` no momento da criação, sem assumir campanhas preexistentes. Executa **uma** rajada por invocação; cooldown, lease, rate limit, persistência e idempotência da TASK-106 continuam nos serviços existentes. Repetições do scheduler devem ser arbitradas pela lease/RPC, não pela aplicação.
 - Operações de reconciliação deixam de transformar incidentes ambíguos em `paused` retomável a partir de uma justificativa textual. Sem RPC/auditoria de reconciliação por destinatário, há bloqueio permanente e nenhuma atualização destrutiva da quarentena. Desabilitado gatilho inseguro de execução fire-and-forget; recuperação automática de reservas `processing` com possível aceite foi removida por precaução.
@@ -1517,8 +1507,33 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Testes de consulta recente:** mock atualizado para modelar `order(...).order(...).limit(20)` conforme contrato PostgREST real; rótulos UI com formatação Prettier. Segurança e retornos inalterados.
 
 ## 2026-10-22 — TASK-108 — Correção Definitiva de Disparos via Navegador, Reconciliação de `processing` e Upsert de `email_suppressions`
+
 - **Plano aprovado:** [`think/2026-10-22-1055-diagnostico-e-plano-retomada-mailer-navegador.md`](think/2026-10-22-1055-diagnostico-e-plano-retomada-mailer-navegador.md).
 - **Correção de `email_suppressions` (`src/lib/email/recruit-email.server.ts` e `src/lib/email/resend-webhook.server.ts`):** criada a função compartilhada `upsertEmailSuppressionSafe()` que realiza busca case-insensitive (`.ilike("email", cleanEmail)`) seguida de `.update()` ou `.insert()` (com fallback para condição de corrida `23505`), eliminando o erro PostgreSQL `there is no unique or exclusion constraint matching the ON CONFLICT specification` causado pelo índice funcional `idx_email_suppressions_email_lower` (`lower(trim(email))` na migration `0018`).
 - **Reconciliação segura de itens órfãos em `processing` (`src/lib/email/mailer-queue.server.ts` e `src/lib/email/mailer-runner.server.ts`):** adicionada `reconcileStaleProcessingQueueItems()`, executada automaticamente antes de `claim_mailer_queue_batch`, em `resumeCampaign()` e no botão `Destravar Fila / Sincronizar Navegador` (`triggerCampaignWorkerServerFn`). Verifica `provider_message_id`, `recruit_email_logs` (`status = 'sent'`) e `email_events` antes de devolver itens expirados de `processing` para `pending` (ou marcá-los como `sent` caso o provedor já tenha aceito o envio), impedindo duplicidade e destravando campanhas interrompidas por timeout na Vercel (como `300 processing` + `359 pending`).
 - **Orquestração via Navegador em Lotes de 100 (`src/routes/_authenticated/admin/mailer.tsx`, `src/lib/email/recruit-email.functions.ts`, `src/lib/email/mailer-queue.server.ts`):** ticks do navegador configurados para solicitar `batchSize: 100` (1 única requisição `resend.batch.send` por tick com pausa de `1.2s`), `tabId` persistido em `sessionStorage` para evitar auto-bloqueio de lease ao atualizar a aba, `LOCK_DURATION_SEC = 60` / `LEASE_DURATION_SEC = 30`, espaçamento de `550ms` entre múltiplos chunks e teto de `15` itens / `8s` no fallback individual, além da remoção da releitura pós-insert de payloads HTML em `enqueueCampaignDispatches`.
 
+## 2026-10-22 — TASK-109 — Mailer Sem Travas: 5.000+ Destinatários com Build Intacta
+
+- **Plano de Solução Aprovado:** [`think/2026-10-22-1346-mailer-sem-travas-5k.md`](think/2026-10-22-1346-mailer-sem-travas-5k.md) e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Migration 0028 Aditiva e Idempotente (`db/migrations/0028_mailer_high_volume_snapshot_and_bounce_guard.sql` & `db/migrations/verify-0028.sql`):**
+  - `public.mailer_campaign_snapshots`: armazena 1 snapshot imutável por campanha (`version = 1`, `snapshot_data JSONB`), reduzindo o armazenamento por campanha de 5.000 destinatários de ~430 MB para < 15 MB.
+  - `public.mailer_domain_checks`: cache persistente de higiene DNS/MX (TTL de 30 dias).
+  - RPC `filter_suppressed_emails(p_emails text[])`: pré-filtragem em lote O(1) contra `email_suppressions` via índice funcional `lower(trim(email))`.
+  - RPC `mailer_campaign_bounce_stats(p_campaign_id uuid)`: calcula em tempo real `sent_count`, `bounce_count`, `complaint_count`, `bounce_rate` e `bounce_guard_triggered` (> 3,0% com mínimo de 20 envios).
+  - RPC `complete_mailer_burst` com `p_dry_run boolean DEFAULT FALSE`: omite gravação em `recruit_email_logs` em modo ensaio e compacta `payload` (`q.payload - 'html' - 'text'`) ao transicionar itens para `sent` ou `cancelled`.
+  - Permissões endurecidas com `REVOKE ALL FROM PUBLIC, anon, authenticated` e `GRANT EXECUTE TO service_role`.
+- **Camada de Provedor Isolada e Modo Ensaio (`src/lib/email/mail-provider.server.ts`):**
+  - Interface `MailProvider` com implementações `ResendMailProvider` (`batchValidation: 'permissive'`, timeout de 12s via `AbortController`, fallback individual exclusivo para rejeições definitivas de validação, sem fallback em timeouts ambíguos) e `FakeMailProvider` para ensaios (`dry_<uuid>`, zero chamadas de rede à Resend).
+- **Higiene de Sintaxe RFC 5322, DNS MX e One-Click Unsubscribe RFC 8058:**
+  - `src/lib/email/email-syntax.ts`: validação estrita `isDeliverableEmailSyntax` e `extractEmailDomain` aplicadas no enfileiramento, na importação de planilhas (`src/lib/universities-import.ts`) e no diálogo de cadastro de coaches (`src/components/coaches/coach-form-dialog.tsx`).
+  - `src/lib/email/domain-hygiene.server.ts`: verificação DNS MX/A com timeout de 3s, concorrência máxima de 20, fail-open para erros transitórios de DNS e cache em `mailer_domain_checks`.
+  - `src/lib/email/unsubscribe-token.ts` e `POST /api/unsubscribe` em `src/server.ts`: tokens assinados via HMAC-SHA256 e cabeçalhos `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
+- **Enfileiramento em 3 Fases e Snapshot (`src/lib/email/mailer-snapshot.ts`, `src/lib/email/mailer-queue.server.ts`, `src/lib/email/recruit-email.functions.ts`):**
+  1. `createCampaignDraft` (`createCampaignDraftServerFn`): cria campanha em `draft`, compõe blocos canônicos, valida renderização de sonda fail-closed (`assertEmailIntegrity`) e grava o snapshot em `mailer_campaign_snapshots`.
+  2. `appendCampaignRecipients` (`appendCampaignRecipientsServerFn`): anexa destinatários em fatias de até 500 itens, filtra sintaxe e supressões via RPC e prepara `payload` com suporte a `render: 'at_send'`.
+  3. `activateCampaign` (`activateCampaignServerFn`): verifica guarda de bounce obrigatória para campanhas > 1.000 destinatários e transiciona para `running`.
+- **Orquestrador Resiliente no Navegador e Semáforo de Bounce (`src/routes/_authenticated/admin/mailer.tsx`):**
+  - Web Worker inline via `Blob` (`setInterval` fora da main thread) imune ao throttling de abas em segundo plano, aliado à Screen Wake Lock API e alerta `beforeunload`.
+  - Chave de Modo Ensaio (`Dry-Run`) com badge visual no monitor, modal de confirmação pré-disparo (contagem de válidos, suprimidos e inválidos) e semáforo de reputação ao vivo (Verde < 2%, Amarelo 2–3%, Vermelho > 3% com pausa automática).
+- **Validação & Governança:** 41 arquivos de teste (324 testes no Vitest) 100% verdes, incluindo `schema-integrity.test.ts` (garantia de ausência da coluna fantasma `processing_started_at`), `mailer-parity.test.ts`, `email-syntax.test.ts`, `domain-hygiene.test.ts`, `unsubscribe-token.test.ts`, `mail-provider.test.ts`, `resend-email.test.ts` e `mailer-queue.test.ts`. `package.json` e `bun.lock` intactos; lint com 0 erros e build de produção validada.

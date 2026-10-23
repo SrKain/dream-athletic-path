@@ -1,60 +1,65 @@
-# Diagnóstico Comprovado e Plano de Resolução do Mailer
+# Plano de Implementação — TASK-109: Mailer Sem Travas (5.000+ Destinatários com Build Intacta)
 
-Os dois dados que você trouxe do **Supabase** e da **Vercel** fecharam 100% o quebra-cabeça com precisão cirúrgica. Abaixo está exatamente o que aconteceu na sua campanha atual (`0fe81b27-bdf5-4bbb-9101-27f533d9cd63`) e no webhook da Resend, seguido do plano de correção.
-
----
-
-## 1. O que os seus dados comprovam (Causas-Raiz Exatas)
-
-### Causa 1 — Por que a campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63` travou com `300 processing` e `359 pending`
-1. **O RPC `0027` rodou e reservou os primeiros 300 e-mails**:
-   - O fato de existirem exatamente **`300` itens em `processing`** prova que a função `claim_mailer_queue_batch` do Supabase funcionou e reservou o primeiro lote (`BURST_SIZE = 300`) dos 659 destinatários da campanha.
-2. **Estouro de Rate Limit da Resend + Timeout na Vercel antes de salvar o retorno**:
-   - Assim que reservou os 300 itens, `processMailerQueue` (`src/lib/email/mailer-queue.server.ts`) disparou **3 chamadas `resend.batch.send` de 100 e-mails simultaneamente (`Promise.all`)**.
-   - A Resend possui limite estrito de **2 requisições por segundo**. Ao receber 3 chamadas simultâneas (ou se qualquer chunk sofrer rate limit `429`), o código atual cai em um **fallback sequencial que tenta disparar até 100 chamadas `resend.emails.send` uma a uma** dentro da mesma requisição HTTP.
-   - Esse fallback demora mais do que o tempo limite da Serverless Function na Vercel (ou da conexão com o navegador), matando o processo **antes** de chegar na linha que chama `complete_mailer_burst` no Supabase.
-3. **Itens órfãos eternos em `processing`**:
-   - Como o processo morreu antes de `complete_mailer_burst`, os 300 itens ficaram com `status = 'processing'` e `error_code = null`.
-   - Na alteração anterior (`TASK-107`), a recuperação de reservas expiradas (`recover_stale_mailer_queue_reservations`) foi removida, e o RPC `claim_mailer_queue_batch` **só busca itens com `status IN ('pending', 'retry')`**. Resultado: os 300 itens em `processing` jamais são recuperados, mesmo horas depois de expirarem!
+Este plano detalha a resolução das 18 causas de instabilidade e a execução integral dos critérios da **TASK-109**, sem alterar `package.json` nem `bun.lock`, mantendo build, lint, typecheck e vitest 100% íntegros.
 
 ---
 
-### Causa 2 — Por que a Vercel acusou erro em `email_suppressions` (`there is no unique or exclusion constraint matching the ON CONFLICT specification`)
-1. Na migration `0018_universities_and_mailer.sql`, a tabela `public.email_suppressions` foi criada **sem** `UNIQUE (email)` direto na coluna; ela possui apenas um índice de expressão funcional:
-   ```sql
-   create unique index idx_email_suppressions_email_lower on public.email_suppressions (lower(trim(email)));
-   ```
-2. Porém, tanto o webhook da Resend (`src/lib/email/resend-webhook.server.ts`) quanto a função de descadastro (`src/lib/email/recruit-email.server.ts`) fazem:
-   ```ts
-   admin.from("email_suppressions").upsert({ email, ... }, { onConflict: "email" })
-   ```
-3. O PostgreSQL rejeita `ON CONFLICT (email)` porque o índice único é sobre a expressão `lower(trim(email))` e não sobre a coluna pura `email`. Isso faz todo webhook de bounce/complaint da Resend falhar com erro 500 na Vercel e impede que e-mails com bounce (`kiersten.eggleton@glenville.edu`) sejam adicionados à lista de supressão!
+## 1. Linha de Base Medida no Repositório
+
+- **Testes (Vitest):** 36 arquivos, 300 testes. 298 aprovados e exatamente 2 falhas conhecidas em `src/lib/email/resend-email.test.ts` decorrentes da substituição do `upsert({ onConflict: 'email' })` por `upsertEmailSuppressionSafe()`. Serão corrigidos no Passo 1 da entrega para validar o contrato real.
+- **Funções Vercel:** `vercel.json` não especifica `maxDuration`. O teto padrão é 15 segundos. Orçamento de tick estabelecido em p95 <= 3s, teto máximo de 10s.
+- **SDK Resend (`resend ^6.31.0`):** Inspecionado `node_modules/resend/dist/index.d.mts`. Suporte nativo a `batchValidation: 'permissive'` com `{ data: { id: string }[], errors: { index: number, message: string }[] }`. Fallback de envios individuais e adiamento serão totalmente removidos.
+- **Auditoria de Índices (0024):** Confirmado que `idx_mailer_queue_idempotency` é redundante com a constraint `UNIQUE(idempotency_key)`. O índice será documentado e preservado sem DROP.
+- **Inspeção de Bounces:** Tipos Resend `Permanent` vs `Transient`/`Undetermined` serão mapeados respectivamente para `permanent` e `temporary_6m` em `email_suppressions`.
 
 ---
 
-## 2. Plano de Ação e Retomada (4 Frentes)
+## 2. Componentes e Arquivos a Serem Criados / Alterados
 
-### Frente 1 — Lotes Atômicos de 100 E-mails por Tick no Navegador (Zero `429` e Zero Timeout na Vercel)
-- **Reduzir `BURST_SIZE` padrão de `300` para `100` e-mails por tick** (`src/lib/email/mailer-queue.server.ts` e `src/routes/_authenticated/admin/mailer.tsx`):
-  - A API Batch da Resend envia até **100 e-mails em 1 única requisição HTTP**.
-  - Com `100` e-mails por tick do navegador (e pausa de `1.2s` entre ticks), cada chamada à Vercel faz **apenas 1 requisição à Resend**, terminando em **~1 a 2 segundos** (nunca bate no limite de 2 req/s da Resend e nunca dá timeout na Vercel).
-  - Caso um tamanho maior que 100 seja solicitado, os chunks de 100 serão enviados **sequencialmente com espaçamento de `650ms`** (nunca `Promise.all` paralelo).
-- **Remover o fallback lento de 100 chamadas individuais em erros de batch**:
-  - Se `resend.batch.send` sofrer `429` ou falha transitória, o lote é imediatamente salvo no banco como `retry` (`complete_mailer_burst`) em menos de 1 segundo para que o próximo tick do navegador reenvie com segurança.
+1. **Testes de Regressão e Mocks:**
+   - `src/lib/email/resend-email.test.ts`: atualizar os 2 testes falhos para o contrato real de `upsertEmailSuppressionSafe`.
+   - `src/lib/email/recruit-email.server.ts`: remover ramos artificiais `typeof x === 'function'`.
+   - `src/lib/email/schema-integrity.test.ts`: teste T9 validando queries contra migrations 0001 a 0028.
+2. **Migration 0028 e Verificação SQL:**
+   - `db/migrations/0028_mailer_high_volume_snapshot_and_bounce_guard.sql`:
+     - Tabela `mailer_campaign_snapshots` (RLS agency admin + service_role).
+     - Tabela `mailer_domain_checks` (cache DNS MX/A de 30 dias).
+     - RPC `filter_suppressed_emails(p_emails text[])`.
+     - RPC `mailer_campaign_bounce_stats(p_campaign_id uuid)`.
+     - Atualização de `complete_mailer_burst`: parâmetro `p_dry_run`, pausa mínima de 250ms, reembolso de tentativas para 429/pause/config/ambiguous, strip de `html`/`text` do payload após envio.
+     - `mailer_burst_ready()` real verificando tabelas e colunas no `information_schema`.
+     - Índices de performance na fila e em `email_events`.
+   - `db/migrations/verify-0028.sql`: verificação somente leitura.
+3. **Abstração do Provedor (`mail-provider.server.ts`):**
+   - Interface `MailProvider` com `sendBatch()`.
+   - `ResendMailProvider` com `batchValidation: 'permissive'`.
+   - `FakeMailProvider` para ensaio dry-run (IDs `dry_<uuid>`, 0 chamadas externas, sem inicializar Resend).
+4. **Higiene de Sintaxe e Domínio:**
+   - `src/lib/email/email-syntax.ts`: `isDeliverableEmailSyntax` (validação rigorosa de sintaxe, sem regex frágil).
+   - `src/lib/email/domain-hygiene.server.ts`: verificação assíncrona de MX (fallback para A) via `node:dns/promises` com concorrência 20, timeout de 3s e cache de 30 dias.
+   - Aplicação no enqueue, no importador de universidades/coaches e no formulário.
+5. **Snapshots e Render no Envio:**
+   - `src/lib/email/mailer-snapshot.ts`: empacota dados estáticos da campanha (~0,5 KB por linha na fila).
+   - Teste de paridade golden file (T1) garantindo paridade de renderização HTML byte a byte.
+   - Enqueue em 3 fases (`createCampaignDraft`, `appendCampaignRecipients` em fatias de 1.000, `activateCampaign`).
+6. **Controle de Resiliência e Fila:**
+   - `src/lib/email/mailer-burst.ts`: classificação de erros por status code, circuit breaker para 401/403/quota, recuperação progressiva do burst (+10 por tick sem 429).
+   - `src/lib/email/mailer-queue.server.ts`: rechecagem de supressão pré-envio, guarda de bounce a cada 5 ticks, reconciliação estrita somente para reservas expiradas.
+7. **Unsubscribe One-Click (RFC 8058):**
+   - `src/lib/email/unsubscribe-token.ts`: token assinado HMAC-SHA256 (`MAILER_UNSUBSCRIBE_SECRET`).
+   - `src/server.ts`: endpoint POST `/api/unsubscribe` compatível com leitores de e-mail.
+8. **Interface do Mailer (`src/routes/_authenticated/admin/mailer.tsx`):**
+   - Ticker orquestrador desacoplado em Web Worker via `Blob` inline (sem novos entrypoints no bundler) com fallback para timer.
+   - Screen Wake Lock e `beforeunload` durante orquestração ativa.
+   - Resumo pré-disparo detalhado (destinatários totais, excluídos por sintaxe, excluídos por MX, suprimidos, não verificados).
+   - Semáforo ao vivo de taxa de bounce com bloqueio preventivo acima de 3%.
+   - Modo DRY RUN com badge e ações isoladas.
 
-### Frente 2 — Reconciliação Inteligente dos `300` Itens Presos em `processing` (Sem Duplicar Envios)
-- Criar a rotina automática `reconcileStaleProcessingQueueItems` em `src/lib/email/mailer-queue.server.ts` e integrá-la ao `resumeCampaign`, `reconcileCampaignIncident` e ao ciclo de orquestração (`src/lib/email/mailer-runner.server.ts`):
-  1. Busca itens da campanha que estejam em `status = 'processing'` cuja reserva (`reservation_expires_at`) já expirou.
-  2. Cruza os e-mails desses itens com `recruit_email_logs` (`status = 'sent'`) e `email_events` da mesma campanha:
-     - **Se a Resend já tiver enviado o e-mail antes do timeout**: marca o item como `'sent'` na `mailer_queue` (garantindo **zero e-mails duplicados** para os treinadores).
-     - **Se o e-mail não tiver sido enviado**: devolve o item de `'processing'` para `'pending'` (`processing_started_at = null`, `reservation_expires_at = null`) para que o navegador conclua o disparo!
-  3. Permite retomar a campanha `0fe81b27-bdf5-4bbb-9101-27f533d9cd63` diretamente pelo botão na tela `/admin/mailer`.
+---
 
-### Frente 3 — Correção Imediata do Upsert em `email_suppressions` (Sem Depender de Nova Migration)
-- Criar `upsertEmailSuppressionSafe` em `src/lib/email/recruit-email.server.ts` e utilizá-lo tanto no descadastro quanto no webhook da Resend (`src/lib/email/resend-webhook.server.ts`):
-  - Em vez de `.upsert(..., { onConflict: "email" })` (que quebra no PostgreSQL por causa do índice funcional `lower(trim(email))`), faz busca case-insensitive (`.ilike("email", cleanEmail)`) seguida de `.update()` se já existir ou `.insert()` se não existir.
-  - Resolve imediatamente os erros de `[resend-webhook]` na Vercel sem exigir alteração manual de schema no Supabase.
+## 3. Critérios de Verificação da Entrega
 
-### Frente 4 — Otimização da Criação de Campanha e Estabilidade do Loop no Navegador
-- Remover a releitura pesada pós-insert (`sanitizePendingQueueItemsMissingCards` em `src/lib/email/mailer-queue.server.ts`), pois `assertEmailIntegrity` já valida 100% dos cards em memória antes de inserir na fila.
-- Em `src/routes/_authenticated/admin/mailer.tsx`, garantir que qualquer falha de rede momentânea ao consultar `getMailerCampaignOrchestrationModeServerFn` mantenha `serverOrchestrated: false` (para o navegador nunca parar de orquestrar os disparos sozinho).
+1. **Paridade e Segurança:** Golden test T1 aprovado byte a byte; 0 e-mails enviados em modo dry-run; client Resend nunca instanciado no ensaio.
+2. **Resiliência a Lotes de Volume:** Simulações de 5.000 e 20.000 itens com erros de rede e taxa de falhas passando com 100% dos válidos enviados uma única vez.
+3. **Qualidade do Código:** Lint com 0 erros e no máximo 14 warnings (preexistentes), typecheck com 0 erros, vitest 100% verde (mais de 300 testes), compilação do applet aprovada.
+4. **Governança:** `package.json` e `bun.lock` inalterados. Documentação viva `CERNE.md` atualizada e `TASK-109` registrada no `BACKLOGER.md`.

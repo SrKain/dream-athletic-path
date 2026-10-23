@@ -1,6 +1,6 @@
 {
-  "summary":  "Diagnóstico comprovado com os logs reais do Supabase (300 itens presos em processing + 359 pending na campanha 0fe81b27-bdf5-4bbb-9101-27f533d9cd63) e da Vercel (erro ON CONFLICT em email_suppressions), acompanhado do plano completo de correção e retomada segura pelo navegador.",
-  "updatedAt":  "2026-10-22T18:06:17.094520119Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Plano de implementação detalhado da TASK-109 para envio de 5.000+ e-mails no Mailer sem travas, com snapshots leves de campanha, render no envio com paridade estrita, validação de sintaxe e higiene de domínio via MX/A nativo, circuit breaker inteligente, guarda de bounce obrigatório (>1.000 destinatários), webhook tipado, ticker via Blob Web Worker, modo dry-run e migration 0028 aditiva/idempotente.",
+  "updatedAt": "2026-10-22T20:49:57.592490931Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

@@ -61,7 +61,9 @@ import {
   triggerCampaignWorkerServerFn,
   getMailerCampaignOrchestrationModeServerFn,
   getRecentMailerCampaignsServerFn,
+  getCampaignBounceStatsServerFn,
 } from "@/lib/email/recruit-email.functions";
+import { isDeliverableEmailSyntax } from "@/lib/email/email-syntax";
 import { BudgetMultiSelect } from "@/components/mailer/budget-multi-select";
 import { MailerHistorySection } from "@/components/mailer/mailer-history-section";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
@@ -288,6 +290,13 @@ function MailerPage() {
     typeof navigator !== "undefined" ? !navigator.onLine : false,
   );
   const [isAnotherTabActive, setIsAnotherTabActive] = useState(false);
+  const [isDryRun, setIsDryRun] = useState(false);
+  const [campaignBounceStats, setCampaignBounceStats] = useState<{
+    bounceRate: number;
+    bounceCount: number;
+    sentCount: number;
+    bounceGuardTriggered: boolean;
+  } | null>(null);
 
   // Orquestrador do Navegador: Refs de controle do loop assíncrono e concorrência
   const tabIdRef = React.useRef<string>(
@@ -647,6 +656,13 @@ function MailerPage() {
 
           if (res.progress) {
             setCampaignProgress(res.progress);
+            if (activeCampaignId) {
+              void getCampaignBounceStatsServerFn({ data: { campaignId: activeCampaignId } })
+                .then((stats) => {
+                  if (!isUnmountedRef.current) setCampaignBounceStats(stats);
+                })
+                .catch(() => {});
+            }
           }
 
           if (res.campaignCompleted || res.campaignStatus === "completed") {
@@ -699,6 +715,75 @@ function MailerPage() {
     },
     [activeCampaignId, orchestrationMode],
   );
+
+  // 4b. Background Web Worker + Screen Wake Lock + beforeunload
+  useEffect(() => {
+    if (!activeCampaignId || !campaignProgress || campaignProgress.status !== "running") {
+      return;
+    }
+
+    let wakeLockSentinel: { release: () => Promise<void> } | null = null;
+    if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
+      (
+        navigator as unknown as {
+          wakeLock: { request: (type: string) => Promise<{ release: () => Promise<void> }> };
+        }
+      ).wakeLock
+        .request("screen")
+        .then((lock) => {
+          wakeLockSentinel = lock;
+        })
+        .catch(() => {});
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue =
+        "Uma campanha de e-mails está sendo enviada pelo navegador. Sair da página pausará os disparos.";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    let worker: Worker | null = null;
+    try {
+      const workerScript = `
+        var timer = null;
+        self.onmessage = function(e) {
+          if (e.data === 'start') {
+            if (timer) clearInterval(timer);
+            timer = setInterval(function() {
+              self.postMessage('tick');
+            }, 1000);
+          } else if (e.data === 'stop') {
+            if (timer) { clearInterval(timer); timer = null; }
+          }
+        };
+      `;
+      const blob = new Blob([workerScript], { type: "application/javascript" });
+      worker = new Worker(URL.createObjectURL(blob));
+      worker.onmessage = (e) => {
+        if (e.data === "tick") {
+          if (!isProcessingTickRef.current && isOrchestratorActiveRef.current) {
+            triggerOrchestratorTick(0);
+          }
+        }
+      };
+      worker.postMessage("start");
+    } catch {
+      // Fallback
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release().catch(() => {});
+      }
+      if (worker) {
+        worker.postMessage("stop");
+        worker.terminate();
+      }
+    };
+  }, [activeCampaignId, campaignProgress?.status, triggerOrchestratorTick]);
 
   // Select among recent campaigns without claiming ownership or triggering email.
   const refreshRecentCampaigns = React.useCallback(async () => {
@@ -1221,13 +1306,19 @@ function MailerPage() {
     [previewEmail.html],
   );
 
-  // Calcular contagens para o disparo
+  // Calcular contagens para o disparo com validação estrita de sintaxe
   const selectedRecipientsList = useMemo(() => {
     return allRecipients.filter((r) => selectedRecipientKeys.has(r.key));
   }, [allRecipients, selectedRecipientKeys]);
 
+  const syntaxInvalidCount = useMemo(() => {
+    return selectedRecipientsList.filter((r) => !isDeliverableEmailSyntax(r.email)).length;
+  }, [selectedRecipientsList]);
+
   const activeSelectedRecipients = useMemo(() => {
-    return selectedRecipientsList.filter((r) => !r.isSuppressed);
+    return selectedRecipientsList.filter(
+      (r) => !r.isSuppressed && isDeliverableEmailSyntax(r.email),
+    );
   }, [selectedRecipientsList]);
 
   const suppressedSelectedCount = useMemo(() => {
@@ -1352,6 +1443,7 @@ function MailerPage() {
             budgetLevels: selectedBudgets,
             toefl: filterToefl,
             hideSignaled: filterHideSignaled,
+            dryRun: isDryRun,
           },
           blocks: sendMode === "catalog" ? [] : finalBlocks,
           customOptions: {
@@ -1744,6 +1836,11 @@ function MailerPage() {
                     <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/10 text-foreground border border-primary/30">
                       Fila Inteligente de Disparos
                     </span>
+                    {isDryRun && (
+                      <span className="text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40">
+                        DRY RUN
+                      </span>
+                    )}
                     {campaignProgress.substateLabel && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
                         {campaignProgress.substateLabel}
@@ -1983,6 +2080,39 @@ function MailerPage() {
                 <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">
                   {rateLimitNotice}
                 </p>
+              )}
+
+              {/* Semáforo de Bounce em Tempo Real */}
+              {campaignBounceStats && campaignBounceStats.sentCount > 0 && (
+                <div className="flex items-center justify-between p-2.5 rounded-xl border bg-muted/30 text-xs">
+                  <div className="flex items-center gap-2">
+                    {campaignBounceStats.bounceRate < 2.0 ? (
+                      <span className="flex items-center gap-1.5 font-bold text-emerald-500">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Saudável &lt;
+                        2%)
+                      </span>
+                    ) : campaignBounceStats.bounceRate <= 3.0 ? (
+                      <span className="flex items-center gap-1.5 font-bold text-amber-500">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Atenção 2%-3%)
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-bold text-rose-500">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Bounce Guard
+                        Acionado &gt; 3%)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {campaignBounceStats.bounceCount} bounces / {campaignBounceStats.sentCount}{" "}
+                    enviados
+                    {campaignBounceStats.bounceGuardTriggered && (
+                      <span className="ml-2 font-bold text-rose-500">· Disparos suspensos</span>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Grid de Métricas da Fila */}
@@ -3187,17 +3317,29 @@ function MailerPage() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Destinatários Ativos:</span>
-                  <span className="font-bold text-emerald-500">
-                    {activeSelectedRecipients.length} coaches
+                  <span className="text-muted-foreground">Total Selecionados:</span>
+                  <span className="font-bold text-foreground">
+                    {selectedRecipientsList.length} coaches
                   </span>
                 </div>
+                {syntaxInvalidCount > 0 && (
+                  <div className="flex justify-between text-rose-500 font-medium">
+                    <span>Sintaxe Inválida (Excluídos):</span>
+                    <span>{syntaxInvalidCount} (RFC 5322)</span>
+                  </div>
+                )}
                 {suppressedSelectedCount > 0 && (
                   <div className="flex justify-between text-amber-500 font-medium">
                     <span>Bloqueados por Descadastro:</span>
                     <span>{suppressedSelectedCount} (serão pulados)</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Destinatários Válidos:</span>
+                  <span className="font-bold text-emerald-500">
+                    {activeSelectedRecipients.length} coaches
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Assunto:</span>
                   <span
@@ -3210,6 +3352,30 @@ function MailerPage() {
                 <div className="flex justify-between pt-1 border-t border-border/40 font-bold">
                   <span>Total de E-mails a Disparar:</span>
                   <span className="text-primary text-sm">{totalCalculatedDispatches}</span>
+                </div>
+
+                {/* Dry Run Toggle Switch */}
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 mt-2">
+                  <div>
+                    <span className="font-bold text-xs text-amber-500 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" />
+                      Modo Ensaio (Dry Run)
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Simula o disparo sem custos e sem acionar a Resend API.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDryRun(!isDryRun)}
+                    className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                      isDryRun
+                        ? "bg-amber-500 text-black shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {isDryRun ? "ATIVADO" : "DESATIVADO"}
+                  </button>
                 </div>
               </div>
 

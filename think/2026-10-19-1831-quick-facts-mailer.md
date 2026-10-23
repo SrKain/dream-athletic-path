@@ -30,6 +30,7 @@ A referência utilizável neste pedido é a especificação textual e os valores
 ## 3. Contraste
 
 Cálculo WCAG sRGB dos tokens atuais:
+
 - textMuted = #4b6353;
 - boardPanel = #f6f7f3;
 - contraste = 6.0823:1.
@@ -47,6 +48,7 @@ O contraste já supera 4.5:1. Manter os tokens para não alterar outras seções
 - Preservar testes de About Her, estatísticas, vídeos, fit e ações.
 
 Com Bun exatamente 1.3.14, executar e registrar:
+
 1. bun install --frozen-lockfile
 2. bun run typecheck
 3. bun run lint
@@ -67,8 +69,6 @@ O ambiente local não possui Bun e seu proxy estava inacessível na tarefa anter
 O preview atual é calculado a partir da seleção/dados atuais; novo carregamento usa o renderer atualizado. A fila persiste snapshots HTML/texto em mailer_queue.payload: itens já enfileirados manterão o conteúdo antigo, inclusive após este deploy. Envios realizados não serão alterados e não haverá reprocessamento automático. Para novo layout, criar nova campanha após publicar a correção.
 
 Entregar branch/PR com commits claros, HTML de exemplo, comparação das oito linhas, resultados individuais dos comandos e registro dos adaptadores legados encontrados. Manter catálogo institucional separado, pois não possui card de atleta.
-
-
 
 ## 7. Resultado da execução
 

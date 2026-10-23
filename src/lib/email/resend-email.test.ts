@@ -10,14 +10,52 @@ const mockUpsert = vi.fn().mockResolvedValue({ error: null });
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+const mockSuppressionList: Array<Record<string, unknown>> = [];
 
 vi.mock("@/lib/supabase/clients.server", () => ({
   getAdminClient: () => ({
     from: (table: string) => {
       if (table === "email_suppressions") {
         return {
+          select: (cols?: string) => {
+            const p = mockSelect(cols) ?? Promise.resolve({ data: [], error: null });
+            const chain = {
+              then: (
+                onFulfilled?: (value: unknown) => unknown,
+                onRejected?: (reason: unknown) => unknown,
+              ) => p.then(onFulfilled, onRejected),
+              catch: (onRejected?: (reason: unknown) => unknown) => p.catch(onRejected),
+              ilike: (_col: string, val: string) => ({
+                limit: () => ({
+                  maybeSingle: () => {
+                    const found = mockSuppressionList.find(
+                      (r) => String(r.email).toLowerCase() === val.toLowerCase(),
+                    );
+                    return Promise.resolve({
+                      data: found ? { id: String(found.id || "sup_1") } : null,
+                      error: null,
+                    });
+                  },
+                }),
+              }),
+              in: () => ({
+                limit: () => Promise.resolve({ data: [], error: null }),
+              }),
+            };
+            return chain;
+          },
+          insert: vi.fn().mockImplementation((row: Record<string, unknown>) => {
+            mockSuppressionList.push(row);
+            mockUpsert(row);
+            return Promise.resolve({ error: null });
+          }),
+          update: vi.fn().mockImplementation((payload: Record<string, unknown>) => ({
+            eq: vi.fn().mockImplementation((_col: string, _id: string) => {
+              mockUpsert(payload);
+              return Promise.resolve({ error: null });
+            }),
+          })),
           upsert: mockUpsert,
-          select: mockSelect,
         };
       }
       if (table === "email_log" || table === "recruit_email_logs") {
@@ -89,6 +127,7 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
   beforeEach(() => {
     delete process.env.RESEND_WEBHOOK_SECRET;
     vi.clearAllMocks();
+    mockSuppressionList.length = 0;
   });
 
   it("verifies Svix signature successfully", () => {
@@ -141,7 +180,6 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
     expect(result.processedEmails).toContain("bounced-coach@university.edu");
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({ email: "bounced-coach@university.edu" }),
-      { onConflict: "email" },
     );
   });
 
@@ -159,7 +197,6 @@ describe("Resend Webhook Processor (Bounces, Complaints & Verification)", () => 
     expect(result.processedEmails).toContain("complaint-coach@athletics.org");
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({ email: "complaint-coach@athletics.org" }),
-      { onConflict: "email" },
     );
   });
 });

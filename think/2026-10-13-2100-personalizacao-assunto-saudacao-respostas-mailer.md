@@ -51,7 +51,6 @@ Links mailto abrem composição no cliente do destinatário, que pode acrescenta
 
 Aprovação recebida do usuário: "Aprovado". Implementação concluída em branch de revisão; sem merge/deploy. Campanhas antigas não foram alteradas.
 
-
 ## Resultado e validação da implementação
 
 - Campo de assunto comum aos três modos, com prévia do assunto final e identificação do coach de exemplo/selecionado.

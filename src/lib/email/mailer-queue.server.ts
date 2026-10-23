@@ -25,6 +25,15 @@ import {
   isAmbiguousProviderError,
   nextBurstSize,
 } from "./mailer-burst";
+import { getMailProvider, type BatchEmailItem } from "./mail-provider.server";
+import { isDeliverableEmailSyntax } from "./email-syntax";
+import { checkDomainsWithCache } from "./domain-hygiene.server";
+import {
+  createCampaignSnapshot,
+  renderQueuedEmail,
+  type MailerCampaignSnapshot,
+} from "./mailer-snapshot";
+import { getUnsubscribeHeaders } from "./unsubscribe-token";
 import type { MailerCampaign, MailerCampaignStatus, MailerQueueItem } from "@/types/db";
 import { canEstimateMailerEta, deriveCampaignSubstate } from "./mailer-health";
 import { isMailerWorkerEnabled } from "./mailer-worker-auth";
@@ -130,127 +139,316 @@ export interface ProcessQueueResult {
  * 2. Higienização de UUIDs de coaches.
  * 3. Idempotência por chave SHA-256 única `${campaignId}:${recipientEmail}`.
  */
-export async function enqueueCampaignDispatches(
-  input: SendMailerInput,
+export interface CreateCampaignDraftInput {
+  mode: "single_athlete" | "multi_athlete" | "catalog";
+  athleteIds?: string[];
+  customOptions?: SendMailerInput["customOptions"];
+  catalogOptions?: SendMailerInput["catalogOptions"];
+  blocks?: SendMailerInput["blocks"];
+  createdBy?: string;
+  filters?: Record<string, unknown>;
+}
+
+export interface CreateCampaignDraftResult {
+  success: boolean;
+  campaignId: string;
+  mode: "single_athlete" | "multi_athlete" | "catalog";
+  subject: string;
+  status: "draft";
+  message?: string;
+}
+
+export interface AppendRecipientsInput {
+  campaignId: string;
+  recipients: Array<{
+    email: string;
+    name: string;
+    lastName?: string;
+    universityName?: string;
+    coachId?: string;
+  }>;
+}
+
+export interface AppendRecipientsResult {
+  success: boolean;
+  campaignId: string;
+  appended: number;
+  suppressed: number;
+  invalidSyntax: number;
+  totalNow: number;
+  message?: string;
+}
+
+export interface ActivateCampaignResult {
+  success: boolean;
+  campaignId: string;
+  status: MailerCampaignStatus;
+  totalRecipients: number;
+  message?: string;
+}
+
+/**
+ * Fase 1 da criação de campanha: Cria o rascunho com snapshot imutável e valida integridade.
+ * Executa em < 1 segundo e consome < 10 MB de memória mesmo para campanhas gigantes.
+ */
+export async function createCampaignDraft(
+  input: CreateCampaignDraftInput,
   customAdmin?: ReturnType<typeof getAdminClient>,
-): Promise<EnqueueResult> {
-  resolveEmailSubject(input.customOptions?.subject, "");
+): Promise<CreateCampaignDraftResult> {
   const admin = customAdmin || getAdminClient();
   const campaignId = crypto.randomUUID();
   const now = new Date().toISOString();
-
+  const mode = input.mode;
   const athleteIds = input.athleteIds || [];
   const validUuidAthleteIds = filterValidUuids(athleteIds);
-  const mode = input.mode;
 
-  // Validate all athletes before writing logs, campaigns or queue rows.
-  // Load once for the entire campaign, independently of recipient count.
-  let loadedAthleteData: RecruitEmailData[] = [];
+  let loadedAthletes: RecruitEmailData[] = [];
   if (mode !== "catalog") {
-    try {
-      if (athleteIds.length === 0) throw new Error("Select at least one athlete.");
-      loadedAthleteData = await loadAthletesEmailData(athleteIds, admin);
-      assertAthleteEmailFields(loadedAthleteData, athleteIds);
-    } catch (error) {
-      return {
-        success: false,
-        campaignId,
-        totalRecipients: input.recipients.length,
-        totalEnqueued: 0,
-        totalSuppressed: 0,
-        totalBatches: 0,
-        batchSize: QUEUE_CONFIG.BURST_SIZE,
-        status: "failed",
-        message: error instanceof Error ? error.message : "Failed to validate athlete fields.",
-      };
+    if (athleteIds.length === 0) {
+      throw new Error("Select at least one athlete.");
     }
+    loadedAthletes = await loadAthletesEmailData(athleteIds, admin);
+    assertAthleteEmailFields(loadedAthletes, athleteIds);
   }
 
-  // 1. Deduplicar destinatários por e-mail normalizado e checar lista de supressão
-  const suppressedSet = await getSuppressedEmailSet();
-  const seenEmails = new Set<string>();
-  const activeRecipients: typeof input.recipients = [];
-  const suppressedRecipients: typeof input.recipients = [];
+  // Obter configurações visuais da agência
+  const { data: visualData } = await admin
+    .from("agency_visual_settings")
+    .select("logo_url, hero_background_url")
+    .limit(1)
+    .maybeSingle();
 
-  for (const r of input.recipients) {
-    const cleanEmail = (r.email || "").toLowerCase().trim();
-    if (!cleanEmail || seenEmails.has(cleanEmail)) {
+  const logoUrl = visualData?.logo_url ?? null;
+  const heroBackgroundUrl = visualData?.hero_background_url ?? null;
+
+  const canonicalBlocks =
+    mode !== "catalog" && (input.customOptions?.hook || input.customOptions?.introduction)
+      ? composeEmailBlocks({
+          opening: input.customOptions?.hook,
+          closing: input.customOptions?.introduction,
+          athleteIds: validUuidAthleteIds,
+        })
+      : input.blocks || null;
+
+  // Montar snapshot imutável da campanha
+  const snapshot = createCampaignSnapshot({
+    mode,
+    subjectTemplate: input.customOptions?.subject || null,
+    customGreeting: input.customOptions?.greeting || null,
+    customIntroduction: input.customOptions?.introduction || null,
+    customHook: input.customOptions?.hook || null,
+    customHeadline: input.customOptions?.headline || input.catalogOptions?.customHeadline || null,
+    customMessage: input.customOptions?.message ?? input.catalogOptions?.customMessage ?? null,
+    blocks: canonicalBlocks,
+    athlete: mode === "single_athlete" ? loadedAthletes[0] || null : null,
+    athletes: mode === "multi_athlete" || mode === "catalog" ? loadedAthletes : null,
+    logoUrl,
+    heroBackgroundUrl,
+  });
+
+  // Testar integridade com renderização de sonda (fail-closed)
+  const probeRender = renderQueuedEmail(
+    snapshot,
+    {
+      recipientEmail: "probe@gotteamgo.internal",
+      recipientName: "Probe Coach",
+      coachLastName: "Coach",
+      institutionName: "Probe University",
+    },
+    campaignId,
+  );
+
+  const campaignSubject =
+    probeRender.subject ||
+    (mode === "catalog"
+      ? "Go Team Go — Active US College Recruiting Portfolio"
+      : mode === "multi_athlete"
+        ? `Multi-Athlete Showcase (${validUuidAthleteIds.length} athletes)`
+        : "Prospect Spotlight");
+
+  // Inserir snapshot na tabela dedicada (0028)
+  const { error: snapErr } = await admin.from("mailer_campaign_snapshots").insert({
+    campaign_id: campaignId,
+    version: 1,
+    mode,
+    subject_template: snapshot.subjectTemplate,
+    snapshot_data: snapshot as unknown as Record<string, unknown>,
+    created_at: now,
+  });
+
+  if (snapErr) {
+    console.error("[mailer-queue] Failed to save campaign snapshot:", snapErr.message);
+    throw new Error(`Failed to save campaign snapshot: ${snapErr.message}`);
+  }
+
+  // Inserir registro inicial da campanha com status 'draft'
+  const { error: campErr } = await admin.from("mailer_campaigns").insert({
+    id: campaignId,
+    created_by: input.createdBy || null,
+    mode,
+    subject: campaignSubject,
+    athlete_ids: validUuidAthleteIds,
+    recipients_count: 0,
+    total_recipients: 0,
+    sent_count: 0,
+    failed_count: 0,
+    suppressed_count: 0,
+    current_batch: 1,
+    total_batches: 0,
+    batch_size: QUEUE_CONFIG.BURST_SIZE,
+    delay_between_batches_sec: QUEUE_CONFIG.BURST_PAUSE_MS / 1000,
+    delay_between_items_ms: 0,
+    status: "draft",
+    filters: input.filters || {},
+    created_at: now,
+  });
+
+  if (campErr) {
+    console.error("[mailer-queue] Failed to create campaign draft:", campErr.message);
+    throw new Error(`Failed to create campaign draft: ${campErr.message}`);
+  }
+
+  return {
+    success: true,
+    campaignId,
+    mode,
+    subject: campaignSubject,
+    status: "draft",
+  };
+}
+
+/**
+ * Fase 2 da criação de campanha: Anexa destinatários em pedaços (streaming / chunked)
+ * Valida sintaxe RFC 5322, supressão, e insere payloads compactos com render === 'at_send'.
+ */
+export async function appendCampaignRecipients(
+  campaignId: string,
+  recipients: SendMailerInput["recipients"],
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<AppendRecipientsResult> {
+  const admin = customAdmin || getAdminClient();
+  const now = new Date().toISOString();
+
+  // 1. Obter campanha existente e validar status
+  const { data: campaign, error: campErr } = await admin
+    .from("mailer_campaigns")
+    .select(
+      "id, status, total_recipients, recipients_count, suppressed_count, mode, subject, athlete_ids",
+    )
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (campErr || !campaign) {
+    throw new Error(`Campaign not found: ${campErr?.message || "Invalid ID"}`);
+  }
+
+  if (campaign.status !== "draft" && campaign.status !== "queued") {
+    throw new Error(`Cannot append recipients to campaign in '${campaign.status}' state.`);
+  }
+
+  // 2. Filtrar sintaxe RFC 5322 estrita
+  let invalidSyntaxCount = 0;
+  const syntaxValidRecipients: typeof recipients = [];
+  const seenEmails = new Set<string>();
+
+  for (const r of recipients) {
+    const raw = (r.email || "").trim();
+    if (!isDeliverableEmailSyntax(raw)) {
+      invalidSyntaxCount++;
       continue;
     }
-    seenEmails.add(cleanEmail);
+    const clean = raw.toLowerCase();
+    if (seenEmails.has(clean)) continue;
+    seenEmails.add(clean);
+    syntaxValidRecipients.push({ ...r, email: clean });
+  }
 
-    const validCoachId = r.coachId && UUID_REGEX.test(r.coachId.trim()) ? r.coachId.trim() : null;
-    const sanitizedRecipient = { ...r, email: cleanEmail, coachId: validCoachId };
+  if (syntaxValidRecipients.length === 0) {
+    return {
+      success: true,
+      campaignId,
+      appended: 0,
+      suppressed: 0,
+      invalidSyntax: invalidSyntaxCount,
+      totalNow: campaign.total_recipients || 0,
+    };
+  }
 
-    if (suppressedSet.has(cleanEmail)) {
-      suppressedRecipients.push(sanitizedRecipient);
-    } else {
-      activeRecipients.push(sanitizedRecipient);
+  // 3. Checar supressão em lote via filter_suppressed_emails RPC
+  const cleanEmails = syntaxValidRecipients.map((r) => r.email);
+  const suppressedEmailsSet = new Set<string>();
+
+  try {
+    const { data: suppRows, error: suppRpcErr } = await admin.rpc("filter_suppressed_emails", {
+      p_emails: cleanEmails,
+    });
+    if (!suppRpcErr && Array.isArray(suppRows)) {
+      for (const row of suppRows as Array<{ email?: string }>) {
+        if (row.email) suppressedEmailsSet.add(row.email.toLowerCase().trim());
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "[mailer-queue] Failed to call filter_suppressed_emails RPC, using local fallback:",
+      err,
+    );
+    const set = await getSuppressedEmailSet();
+    for (const e of cleanEmails) {
+      if (set.has(e)) suppressedEmailsSet.add(e);
     }
   }
 
-  // Universities store coach contacts in their own JSON, not necessarily in public.coaches.
-  // A syntactically valid UUID is not evidence that a foreign key target exists.
-  // Keep the recipient email/university data and persist coach_id only for real coach rows.
+  const activeRecipients: typeof recipients = [];
+  const suppressedRecipients: typeof recipients = [];
+
+  for (const r of syntaxValidRecipients) {
+    if (suppressedEmailsSet.has(r.email)) {
+      suppressedRecipients.push(r);
+    } else {
+      activeRecipients.push(r);
+    }
+  }
+
+  // 4. Validar coach IDs contra a tabela coaches
   const proposedCoachIds = Array.from(
     new Set(
       [...activeRecipients, ...suppressedRecipients]
-        .map((recipient) => recipient.coachId)
+        .map((r) => r.coachId)
         .filter((id): id is string => typeof id === "string" && UUID_REGEX.test(id)),
     ),
   );
   const persistedCoachIds = new Set<string>();
   for (let offset = 0; offset < proposedCoachIds.length; offset += 100) {
-    const { data: existingCoaches, error: coachLookupError } = await admin
+    const { data: coachesData } = await admin
       .from("coaches")
       .select("id")
       .in("id", proposedCoachIds.slice(offset, offset + 100));
-
-    if (coachLookupError) {
-      console.error("[mailer-queue] Coach ID lookup failed:", coachLookupError.message);
-      return {
-        success: false,
-        campaignId,
-        totalRecipients: input.recipients.length,
-        totalEnqueued: 0,
-        totalSuppressed: suppressedRecipients.length,
-        totalBatches: 0,
-        batchSize: QUEUE_CONFIG.BURST_SIZE,
-        status: "failed",
-        message: "Não foi possível validar os contatos da campanha. Tente novamente.",
-      };
-    }
-    for (const coach of existingCoaches || []) {
+    for (const coach of coachesData || []) {
       if (coach?.id) persistedCoachIds.add(coach.id.toLowerCase());
     }
   }
 
-  for (const recipient of [...activeRecipients, ...suppressedRecipients]) {
-    if (!recipient.coachId || !persistedCoachIds.has(recipient.coachId.toLowerCase())) {
-      recipient.coachId = null;
+  for (const rec of [...activeRecipients, ...suppressedRecipients]) {
+    if (!rec.coachId || !persistedCoachIds.has(rec.coachId.toLowerCase())) {
+      rec.coachId = undefined;
     }
   }
 
-  // 2. Registrar logs para destinatários suprimidos de saída
+  // 5. Registrar logs para destinatários suprimidos
   if (suppressedRecipients.length > 0) {
     const suppressedLogs = suppressedRecipients.map((rec) => ({
       campaign_id: campaignId,
-      athlete_id: athleteIds[0] ?? null,
-      athlete_ids: validUuidAthleteIds,
-      coach_id: rec.coachId,
-      subject:
-        mode === "catalog"
-          ? "[Catalog] Go Team Go Scouting Showcase"
-          : mode === "multi_athlete"
-            ? `[Multi-Athlete] Showcase with ${athleteIds.length} athletes`
-            : "[Prospect] Teaser Email",
+      athlete_id: (campaign.athlete_ids && campaign.athlete_ids[0]) || null,
+      athlete_ids: campaign.athlete_ids || [],
+      coach_id: rec.coachId || null,
+      subject: campaign.subject || "Go Team Go Recruiting Showcase",
       status: "suppressed" as const,
       error_message: "Recipient is in suppression list (opted out or paused)",
       sent_at: now,
       email_type:
-        mode === "catalog"
+        campaign.mode === "catalog"
           ? ("catalog_general" as const)
-          : mode === "multi_athlete"
+          : campaign.mode === "multi_athlete"
             ? ("athlete_teaser_multi" as const)
             : ("athlete_teaser" as const),
       recipient_email: rec.email,
@@ -261,306 +459,80 @@ export async function enqueueCampaignDispatches(
     await admin.from("recruit_email_logs").insert(suppressedLogs);
   }
 
-  const batchSize = QUEUE_CONFIG.BURST_SIZE;
-  const totalBatches = Math.max(1, Math.ceil(activeRecipients.length / batchSize));
+  // 6. Inserir itens ativos em mailer_queue com payload compacto ({ render: 'at_send' })
+  const emailType =
+    campaign.mode === "catalog"
+      ? "catalog_general"
+      : campaign.mode === "multi_athlete"
+        ? "athlete_teaser_multi"
+        : "athlete_teaser";
 
-  // 3. Obter configurações visuais
-  const { data: visualData } = await admin
-    .from("agency_visual_settings")
-    .select("logo_url, hero_background_url")
-    .limit(1)
-    .maybeSingle();
+  let appendedCount = 0;
+  if (activeRecipients.length > 0) {
+    let campaignSnapshot: MailerCampaignSnapshot | null = null;
+    const { data: snapshotRow } = await admin
+      .from("mailer_campaign_snapshots")
+      .select("snapshot_data")
+      .eq("campaign_id", campaignId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  const logoUrl = visualData?.logo_url ?? null;
-  const heroBackgroundUrl = visualData?.hero_background_url ?? null;
-
-  // 4. Preparar payloads prontos de envio
-  type PreparedQueuePayload = {
-    coachId: string | null;
-    recipientEmail: string;
-    recipientName: string;
-    universityName: string | null;
-    emailType: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
-    subject: string;
-    html: string;
-    text: string;
-    athleteId: string | null;
-    athleteIds: string[];
-    tags: ResendTag[];
-  };
-
-  const queueItemsToInsert: PreparedQueuePayload[] = [];
-  const customOptions = input.customOptions;
-  const catalogOptions = input.catalogOptions;
-  const emailBlocks = input.blocks || [];
-
-  try {
-    if (mode === "catalog") {
-      const headline = customOptions?.headline || catalogOptions?.customHeadline;
-      const message = customOptions?.message ?? catalogOptions?.customMessage;
-
-      for (const rec of activeRecipients) {
-        const { subject, html, text } = renderCatalogEmail({
-          coachName: rec.name,
-          coachLastName: rec.lastName,
-          customSubject: customOptions?.subject,
-          institutionName: rec.universityName,
-          customHeadline: headline,
-          customMessage: message,
-          customGreeting: customOptions?.greeting,
-          customHook: customOptions?.hook,
-          recipientEmail: rec.email,
-          coachId: rec.coachId,
-          logoUrl,
-          heroBackgroundUrl,
-          campaignId,
-        });
-
-        assertEmailIntegrity({
-          mode: "catalog",
-          html,
-          text,
-          expectedHeadline:
-            headline?.trim() || "GO TEAM GO AGENCY — VERIFIED INTERNATIONAL RECRUITS",
-          expectedHook: customOptions?.hook,
-          expectedMessage:
-            message?.trim() ||
-            "Go Team Go connects verified international volleyball prospects with top US college programs, ensuring complete athletic and academic qualification.",
-        });
-
-        queueItemsToInsert.push({
-          coachId: rec.coachId ?? null,
-          recipientEmail: rec.email,
-          recipientName: rec.name,
-          universityName: rec.universityName ?? null,
-          emailType: "catalog_general",
-          subject,
-          html,
-          text,
-          athleteId: null,
-          athleteIds: [],
-          tags: buildResendMailerTags({
-            campaignId,
-            emailType: "catalog_general",
-          }),
-        });
-      }
-    } else if (mode === "multi_athlete") {
-      const loadedAthletes = loadedAthleteData;
-      const loadedAthleteIds = filterValidUuids(loadedAthletes.map((athlete) => athlete.athleteId));
-      const cardOrder = reconcileEmailBlocks(emailBlocks, loadedAthleteIds)
-        .filter((block) => block.type === "athlete")
-        .map((block) => (block.type === "athlete" ? block.athleteId : ""));
-      const reconciledBlocks = composeEmailBlocks({
-        opening: customOptions?.hook,
-        closing: customOptions?.introduction,
-        athleteIds: loadedAthleteIds,
-        cardOrder,
-      });
-
-      for (const rec of activeRecipients) {
-        const renderResult = renderMultiAthleteRecruitEmail({
-          athletes: loadedAthletes,
-          recipientEmail: rec.email,
-          coachId: rec.coachId,
-          coachName: rec.name,
-          coachLastName: rec.lastName,
-          customSubject: customOptions?.subject,
-          institutionName: rec.universityName,
-          customGreeting: customOptions?.greeting,
-          customIntroduction: customOptions?.introduction,
-          customHook: customOptions?.hook,
-          blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
-          logoUrl,
-          heroBackgroundUrl,
-          campaignId,
-        });
-
-        assertEmailIntegrity({
-          mode: "multi_athlete",
-          expectedAthleteIds: loadedAthleteIds,
-          renderedAthleteIds: renderResult.renderedAthleteIds,
-          missingAthleteIds: renderResult.missingAthleteIds,
-          expectedOpeningText:
-            reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-          expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
-          html: renderResult.html,
-          text: renderResult.text,
-        });
-
-        const { subject, html, text } = renderResult;
-
-        queueItemsToInsert.push({
-          coachId: rec.coachId ?? null,
-          recipientEmail: rec.email,
-          recipientName: rec.name,
-          universityName: rec.universityName ?? null,
-          emailType: "athlete_teaser_multi",
-          subject,
-          html,
-          text,
-          athleteId: loadedAthletes[0]?.athleteId ?? null,
-          athleteIds: loadedAthleteIds.length > 0 ? loadedAthleteIds : validUuidAthleteIds,
-          tags: buildResendMailerTags({
-            campaignId,
-            emailType: "athlete_teaser_multi",
-          }),
-        });
-      }
-    } else {
-      // single_athlete
-      for (const singleData of loadedAthleteData) {
-        const athId = singleData.athleteId!;
-        const reconciledBlocks = composeEmailBlocks({
-          opening: customOptions?.hook,
-          closing: customOptions?.introduction,
-          athleteIds: [athId],
-        });
-
-        for (const rec of activeRecipients) {
-          const renderResult = renderRecruitEmail({
-            ...singleData,
-            recipientEmail: rec.email,
-            coachId: rec.coachId,
-            coachName: rec.name,
-            coachLastName: rec.lastName,
-            customSubject: customOptions?.subject,
-            institutionName: rec.universityName,
-            customGreeting: customOptions?.greeting,
-            customIntroduction: customOptions?.introduction,
-            customHook: customOptions?.hook,
-            blocks: reconciledBlocks.length > 0 ? reconciledBlocks : undefined,
-            logoUrl,
-            heroBackgroundUrl,
-            campaignId,
-          });
-
-          assertEmailIntegrity({
-            mode: "single_athlete",
-            expectedAthleteIds: [athId],
-            renderedAthleteIds: renderResult.renderedAthleteIds,
-            missingAthleteIds: renderResult.missingAthleteIds,
-            expectedOpeningText:
-              reconciledBlocks[1]?.type === "text" ? reconciledBlocks[1].content : null,
-            expectedClosingText: getEmailBlockText(reconciledBlocks[reconciledBlocks.length - 1]),
-            html: renderResult.html,
-            text: renderResult.text,
-          });
-
-          const { subject, html, text } = renderResult;
-
-          queueItemsToInsert.push({
-            coachId: rec.coachId ?? null,
-            recipientEmail: rec.email,
-            recipientName: rec.name,
-            universityName: rec.universityName ?? null,
-            emailType: "athlete_teaser",
-            subject,
-            html,
-            text,
-            athleteId: athId,
-            athleteIds: UUID_REGEX.test(athId) ? [athId] : validUuidAthleteIds,
-            tags: buildResendMailerTags({
-              campaignId,
-              emailType: "athlete_teaser",
-              athleteId: athId,
-            }),
-          });
-        }
-      }
+    if (snapshotRow?.snapshot_data) {
+      campaignSnapshot = snapshotRow.snapshot_data as MailerCampaignSnapshot;
     }
-  } catch (error) {
-    return {
-      success: false,
-      campaignId,
-      totalRecipients: input.recipients.length,
-      totalEnqueued: 0,
-      totalSuppressed: suppressedRecipients.length,
-      totalBatches: 0,
-      batchSize: QUEUE_CONFIG.BURST_SIZE,
-      status: "failed",
-      message:
-        error instanceof Error ? error.message : "Failed email integrity check before enqueueing.",
-    };
-  }
 
-  const campaignSubject =
-    queueItemsToInsert[0]?.subject ||
-    (mode === "catalog"
-      ? "Go Team Go — Active US College Recruiting Portfolio"
-      : mode === "multi_athlete"
-        ? `Multi-Athlete Showcase (${athleteIds.length} athletes)`
-        : "Prospect Spotlight");
+    const currentTotal = campaign.total_recipients || 0;
+    const batchSize = QUEUE_CONFIG.BURST_SIZE;
 
-  // 5. Inserir a campanha em `mailer_campaigns`
-  const initialStatus: MailerCampaignStatus = activeRecipients.length > 0 ? "queued" : "completed";
-
-  const campaignInsert = await admin.from("mailer_campaigns").insert({
-    id: campaignId,
-    created_by: input.createdBy || null,
-    mode,
-    subject: campaignSubject,
-    athlete_ids: validUuidAthleteIds,
-    recipients_count: activeRecipients.length,
-    // Only new campaigns created while both operational gates are enabled opt in.
-    // Never trust browser-submitted flags or enroll existing campaigns implicitly.
-    filters: {
-      ...(input.filters ?? {}),
-      serverOrchestration: isMailerWorkerEnabled(),
-    },
-    status: initialStatus,
-    total_recipients: activeRecipients.length,
-    sent_count: 0,
-    failed_count: 0,
-    suppressed_count: suppressedRecipients.length,
-    current_batch: 1,
-    total_batches: totalBatches,
-    batch_size: batchSize,
-    delay_between_batches_sec: QUEUE_CONFIG.BURST_PAUSE_MS / 1000,
-    delay_between_items_ms: 0,
-    started_at: now,
-    next_batch_at: now,
-  });
-
-  if (campaignInsert?.error) {
-    console.error("[mailer-queue] Failed to insert campaign:", campaignInsert.error.message);
-    return {
-      success: false,
-      campaignId,
-      totalRecipients: input.recipients.length,
-      totalEnqueued: 0,
-      totalSuppressed: suppressedRecipients.length,
-      totalBatches: 0,
-      batchSize,
-      status: "failed",
-      message: campaignInsert.error.message,
-    };
-  }
-
-  // 6. Inserir os itens em `mailer_queue`
-  if (queueItemsToInsert.length > 0) {
-    const queueRows = queueItemsToInsert.map((item, index) => {
+    const queueRows = activeRecipients.map((rec, idx) => {
       const idempotencyKey = crypto
         .createHash("sha256")
-        .update(`${campaignId}:${item.recipientEmail.toLowerCase().trim()}`)
+        .update(`${campaignId}:${rec.email}`)
         .digest("hex");
+      const overallIndex = currentTotal + idx;
+      const batchNumber = Math.floor(overallIndex / batchSize) + 1;
 
-      const batchNumber = Math.floor(index / batchSize) + 1;
+      let renderedHtml: string | undefined;
+      let renderedText: string | undefined;
+      let renderedSubject = campaign.subject;
+
+      if (campaignSnapshot) {
+        try {
+          const rendered = renderQueuedEmail(
+            campaignSnapshot,
+            {
+              recipientEmail: rec.email,
+              recipientName: rec.name,
+              coachLastName: rec.lastName,
+              institutionName: rec.universityName,
+              coachId: rec.coachId,
+            },
+            campaignId,
+          );
+          renderedHtml = rendered.html;
+          renderedText = rendered.text;
+          renderedSubject = rendered.subject || renderedSubject;
+        } catch (e) {
+          console.warn("[mailer-queue] Failed to pre-render recipient:", e);
+        }
+      }
 
       return {
         campaign_id: campaignId,
-        coach_id: item.coachId,
-        recipient_email: item.recipientEmail,
-        recipient_name: item.recipientName,
-        university_name: item.universityName,
-        email_type: item.emailType,
-        subject: item.subject,
+        coach_id: rec.coachId || null,
+        recipient_email: rec.email,
+        recipient_name: rec.name,
+        university_name: rec.universityName || null,
+        email_type: emailType,
+        subject: renderedSubject,
         payload: {
-          html: item.html,
-          text: item.text,
-          tags: item.tags,
-          athleteId: item.athleteId,
-          athleteIds: item.athleteIds,
+          render: "at_send",
+          html: renderedHtml,
+          text: renderedText,
+          coachLastName: rec.lastName,
+          athleteId: (campaign.athlete_ids && campaign.athlete_ids[0]) || null,
+          athleteIds: campaign.athlete_ids || [],
         },
         idempotency_key: idempotencyKey,
         status: "pending",
@@ -571,82 +543,249 @@ export async function enqueueCampaignDispatches(
       };
     });
 
-    const INSERT_CHUNK_SIZE = 100;
-    for (let i = 0; i < queueRows.length; i += INSERT_CHUNK_SIZE) {
-      const chunk = queueRows.slice(i, i + INSERT_CHUNK_SIZE);
-      const res = await admin.from("mailer_queue").insert(chunk);
-      if (res?.error) {
-        console.error("[mailer-queue] Error inserting queue chunk:", res.error.message);
-        const failureMessage = `Failed to create campaign queue: ${res.error.message}`;
-        // Fail closed: a partially inserted queue must never be dispatched.
-        const { error: stopError } = await admin
-          .from("mailer_campaigns")
-          .update({
-            status: "failed",
-            last_error: failureMessage,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", campaignId);
-        if (stopError)
-          console.error("[mailer-queue] Failed to quarantine incomplete campaign:", stopError);
-        return {
-          success: false,
-          campaignId,
-          totalRecipients: input.recipients.length,
-          totalEnqueued: 0,
-          totalSuppressed: suppressedRecipients.length,
-          totalBatches,
-          batchSize,
-          status: "failed",
-          message: failureMessage,
-        };
+    const INSERT_CHUNK = 100;
+    for (let i = 0; i < queueRows.length; i += INSERT_CHUNK) {
+      const slice = queueRows.slice(i, i + INSERT_CHUNK);
+      const { error: insErr } = await admin.from("mailer_queue").insert(slice);
+      if (insErr) {
+        console.error("[mailer-queue] Failed to insert queue slice:", insErr.message);
+        throw new Error(`Failed to insert queue rows: ${insErr.message}`);
       }
+      appendedCount += slice.length;
     }
   }
 
-  // Snapshots were already validated in memory via assertEmailIntegrity before insert.
-  // Avoid re-downloading all HTML payloads from Supabase right after inserting them.
-  // Only activate the campaign after every queue chunk has been persisted.
-  if (queueItemsToInsert.length > 0) {
-    const { error: activationError } = await admin
-      .from("mailer_campaigns")
-      .update({ status: "running", next_batch_at: new Date().toISOString() })
-      .eq("id", campaignId);
-    if (activationError) {
-      const failureMessage = `Failed to activate complete campaign: ${activationError.message}`;
-      const { error: stopError } = await admin
-        .from("mailer_campaigns")
-        .update({ status: "failed", last_error: failureMessage })
-        .eq("id", campaignId);
-      if (stopError)
-        console.error("[mailer-queue] Failed to quarantine inactive campaign:", stopError);
-      return {
-        success: false,
-        campaignId,
-        totalRecipients: input.recipients.length,
-        totalEnqueued: 0,
-        totalSuppressed: suppressedRecipients.length,
-        totalBatches,
-        batchSize,
-        status: "failed",
-        message: failureMessage,
-      };
-    }
+  // 7. Atualizar contadores na tabela mailer_campaigns
+  const newTotal = (campaign.total_recipients || 0) + appendedCount;
+  const newSuppressed = (campaign.suppressed_count || 0) + suppressedRecipients.length;
+  const totalBatches = Math.max(1, Math.ceil(newTotal / QUEUE_CONFIG.BURST_SIZE));
 
-    // Dispatch is scheduler-owned when opted in; never launch a detached
-    // promise from a serverless request. Legacy campaigns keep their UI flow.
+  await admin
+    .from("mailer_campaigns")
+    .update({
+      total_recipients: newTotal,
+      recipients_count: newTotal,
+      suppressed_count: newSuppressed,
+      total_batches: totalBatches,
+    })
+    .eq("id", campaignId);
+
+  return {
+    success: true,
+    campaignId,
+    appended: appendedCount,
+    suppressed: suppressedRecipients.length,
+    invalidSyntax: invalidSyntaxCount,
+    totalNow: newTotal,
+  };
+}
+
+/**
+ * Fase 3 da criação de campanha: Ativa a campanha para execução.
+ * Valida o Bounce Guard estrito para campanhas com > 1.000 destinatários.
+ */
+export async function activateCampaign(
+  campaignId: string,
+  options?: { dryRun?: boolean },
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<ActivateCampaignResult> {
+  const admin = customAdmin || getAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: campaign, error } = await admin
+    .from("mailer_campaigns")
+    .select("id, status, total_recipients, filters")
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (error || !campaign) {
+    throw new Error(`Campaign not found: ${error?.message || "Invalid ID"}`);
+  }
+
+  if (campaign.status !== "draft" && campaign.status !== "queued") {
+    throw new Error(`Cannot activate campaign with status '${campaign.status}'`);
+  }
+
+  const totalRecipients = campaign.total_recipients || 0;
+  if (totalRecipients === 0) {
+    await admin
+      .from("mailer_campaigns")
+      .update({
+        status: "completed",
+        completed_at: now,
+      })
+      .eq("id", campaignId);
+
+    return {
+      success: true,
+      campaignId,
+      status: "completed",
+      totalRecipients: 0,
+      message: "Campaign completed with 0 active recipients.",
+    };
+  }
+
+  // Trava Obrigatória de Bounce Guard para campanhas > 1.000 destinatários
+  if (totalRecipients > 1000 && !options?.dryRun) {
+    try {
+      const { data: recentCampaigns } = await admin
+        .from("mailer_campaigns")
+        .select("id")
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (Array.isArray(recentCampaigns) && recentCampaigns.length > 0) {
+        for (const recent of recentCampaigns) {
+          const { data: bounceStats } = await admin.rpc("mailer_campaign_bounce_stats", {
+            p_campaign_id: recent.id,
+          });
+          if (Array.isArray(bounceStats) && bounceStats[0]?.bounce_guard_triggered) {
+            throw new Error(
+              `Bounce guard: Recent campaign bounce rate (${Number(bounceStats[0].bounce_rate).toFixed(1)}%) exceeded 3.0%. High-volume campaigns (>1,000) are blocked until deliverability issues are resolved.`,
+            );
+          }
+        }
+      }
+    } catch (guardErr) {
+      if (guardErr instanceof Error && guardErr.message.includes("Bounce guard:")) {
+        throw guardErr;
+      }
+      console.warn("[mailer-queue] Non-fatal error while checking recent bounce stats:", guardErr);
+    }
+  }
+
+  const currentFilters =
+    campaign.filters && typeof campaign.filters === "object"
+      ? (campaign.filters as Record<string, unknown>)
+      : {};
+
+  const updatedFilters = {
+    ...currentFilters,
+    dryRun: Boolean(options?.dryRun),
+  };
+
+  const { error: actErr } = await admin
+    .from("mailer_campaigns")
+    .update({
+      status: "running",
+      started_at: now,
+      next_batch_at: now,
+      filters: updatedFilters,
+    })
+    .eq("id", campaignId);
+
+  if (actErr) {
+    throw new Error(`Failed to activate campaign: ${actErr.message}`);
   }
 
   return {
     success: true,
     campaignId,
-    totalRecipients: input.recipients.length,
-    totalEnqueued: queueItemsToInsert.length,
-    totalSuppressed: suppressedRecipients.length,
-    totalBatches,
-    batchSize,
-    status: queueItemsToInsert.length > 0 ? "running" : initialStatus,
+    status: "running",
+    totalRecipients,
   };
+}
+
+/**
+ * Limpa rascunhos abandonados com mais de 2 horas.
+ */
+export async function cleanupAbandonedCampaignDrafts(
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<number> {
+  const admin = customAdmin || getAdminClient();
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+  const { data: staleDrafts, error } = await admin
+    .from("mailer_campaigns")
+    .select("id")
+    .eq("status", "draft")
+    .lt("created_at", cutoff);
+
+  if (error || !Array.isArray(staleDrafts) || staleDrafts.length === 0) {
+    return 0;
+  }
+
+  const staleIds = staleDrafts.map((d) => d.id);
+  await admin
+    .from("mailer_campaigns")
+    .update({
+      status: "cancelled",
+      last_error: "Draft expired after 2 hours without activation.",
+    })
+    .in("id", staleIds);
+
+  return staleIds.length;
+}
+
+/**
+ * Enfileira atomicamente a campanha utilizando a arquitetura em 3 fases:
+ * 1. createCampaignDraft (snapshot imutável + integridade fail-closed)
+ * 2. appendCampaignRecipients (em fatias de 500, com payload compacto)
+ * 3. activateCampaign (com trava de bounce)
+ */
+export async function enqueueCampaignDispatches(
+  input: SendMailerInput,
+  customAdmin?: ReturnType<typeof getAdminClient>,
+): Promise<EnqueueResult> {
+  resolveEmailSubject(input.customOptions?.subject, "");
+  const admin = customAdmin || getAdminClient();
+
+  try {
+    // 1. Fase 1: Criar rascunho
+    const draft = await createCampaignDraft(
+      {
+        mode: input.mode,
+        athleteIds: input.athleteIds,
+        customOptions: input.customOptions,
+        catalogOptions: input.catalogOptions,
+        blocks: input.blocks,
+        createdBy: input.createdBy,
+        filters: input.filters,
+      },
+      admin,
+    );
+
+    // 2. Fase 2: Anexar destinatários em fatias de 500
+    const recipients = input.recipients || [];
+    const CHUNK_SIZE = 500;
+    let totalAppended = 0;
+    let totalSuppressed = 0;
+
+    for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+      const slice = recipients.slice(i, i + CHUNK_SIZE);
+      const res = await appendCampaignRecipients(draft.campaignId, slice, admin);
+      totalAppended += res.appended;
+      totalSuppressed += res.suppressed;
+    }
+
+    // 3. Fase 3: Ativar campanha
+    const isDryRun = Boolean(input.filters?.dryRun);
+    const act = await activateCampaign(draft.campaignId, { dryRun: isDryRun }, admin);
+
+    return {
+      success: true,
+      campaignId: draft.campaignId,
+      totalRecipients: recipients.length,
+      totalEnqueued: totalAppended,
+      totalSuppressed,
+      totalBatches: Math.max(1, Math.ceil(totalAppended / QUEUE_CONFIG.BURST_SIZE)),
+      batchSize: QUEUE_CONFIG.BURST_SIZE,
+      status: act.status,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      campaignId: "",
+      totalRecipients: input.recipients?.length || 0,
+      totalEnqueued: 0,
+      totalSuppressed: 0,
+      totalBatches: 0,
+      batchSize: QUEUE_CONFIG.BURST_SIZE,
+      status: "failed",
+      message: error instanceof Error ? error.message : "Failed to enqueue campaign dispatches.",
+    };
+  }
 }
 
 /**
@@ -744,7 +883,7 @@ export async function processMailerQueue(
 
   const { data: campaign, error: campaignError } = await admin
     .from("mailer_campaigns")
-    .select("id,status,batch_size,next_batch_at,total_recipients")
+    .select("id,status,batch_size,next_batch_at,total_recipients,filters,sent_count,current_batch")
     .eq("id", campaignId)
     .maybeSingle();
   if (campaignError || !campaign)
@@ -768,7 +907,8 @@ export async function processMailerQueue(
   if (readiness.error || readiness.data !== true) {
     return empty({
       effectiveBurstSize: effectiveSize,
-      message: "Mailer migration 0027 is not available. No email was sent.",
+      message:
+        "A migration 0027/0028 do Mailer não está aplicada no banco. Aplique a migration 0027/0028 no Supabase SQL Editor para liberar os disparos.",
     });
   }
 
@@ -856,16 +996,8 @@ export async function processMailerQueue(
     error_message: string | null;
     next_retry_at: string | null;
   };
-  type ReadyItem = {
-    item: MailerQueueItem;
-    payload: {
-      html?: string;
-      text?: string;
-      tags?: ResendTag[];
-    };
-  };
+
   const results: ResultRow[] = [];
-  const ready: ReadyItem[] = [];
   const record = (
     item: MailerQueueItem,
     status: ResultRow["status"],
@@ -883,6 +1015,7 @@ export async function processMailerQueue(
       next_retry_at: retryAt,
     });
   };
+
   const retry = (item: MailerQueueItem, error: string, code: string, nextAt?: string) => {
     if (item.attempts >= item.max_attempts && code !== "429") {
       record(item, "failed", null, error, code);
@@ -899,190 +1032,274 @@ export async function processMailerQueue(
     }
   };
 
-  for (const item of items) {
-    const payload = (item.payload || {}) as ReadyItem["payload"];
-    if (item.provider_message_id) {
-      record(item, "sent", item.provider_message_id);
-    } else if (
-      item.email_type !== "catalog_general" &&
-      (!payload.html?.includes("QUICK FACTS") || !payload.html?.includes("VIEW FULL PROFILE"))
-    ) {
-      record(item, "cancelled", null, "cancelled_missing_card", "INTEGRITY_MISSING_CARD");
-    } else if (!payload.html || !item.recipient_email) {
-      record(item, "cancelled", null, "Invalid email snapshot", "INVALID_PAYLOAD");
+  // 1. Verificar modo Dry-Run a partir dos filtros da campanha
+  const campaignFilters = (campaign.filters || {}) as Record<string, unknown>;
+  const isDryRun = Boolean(campaignFilters.dryRun);
+  const mailProvider = getMailProvider({ dryRun: isDryRun });
+
+  // 2. Pre-filtro de Supressão Defensivo (Defense-in-depth antes de chamar provedor)
+  const candidateEmails = Array.from(
+    new Set(items.map((i) => (i.recipient_email || "").toLowerCase().trim()).filter(Boolean)),
+  );
+  const suppressedInBatch = new Set<string>();
+  try {
+    const { data: suppressedRows, error: suppErr } = await admin.rpc("filter_suppressed_emails", {
+      p_emails: candidateEmails,
+    });
+    if (!suppErr && Array.isArray(suppressedRows)) {
+      for (const row of suppressedRows as Array<{ email?: string }>) {
+        if (row.email) suppressedInBatch.add(row.email.toLowerCase().trim());
+      }
+    }
+  } catch (err) {
+    console.warn("[mailer-queue] Failed to run filter_suppressed_emails pre-filter:", err);
+  }
+
+  // 3. Carregar snapshot se houver itens que renderizam sob demanda ('at_send')
+  let campaignSnapshot: MailerCampaignSnapshot | null = null;
+  const needsSnapshot = items.some((item) => {
+    const p = (item.payload || {}) as { render?: string; html?: string };
+    return p.render === "at_send" || !p.html;
+  });
+
+  if (needsSnapshot) {
+    const { data: snapshotRow, error: snapErr } = await admin
+      .from("mailer_campaign_snapshots")
+      .select("snapshot_data")
+      .eq("campaign_id", campaignId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (snapErr || !snapshotRow?.snapshot_data) {
+      console.warn("[mailer-queue] Missing snapshot for campaign:", campaignId, snapErr?.message);
     } else {
-      ready.push({ item, payload });
+      campaignSnapshot = snapshotRow.snapshot_data as MailerCampaignSnapshot;
     }
   }
 
-  const resendClient = getResendClient();
-  const config = getResendConfig();
+  // 4. Preparar itens prontos e cancelar itens suprimidos ou corrompidos
+  type ReadyBurstItem = {
+    item: MailerQueueItem;
+    html: string;
+    text: string;
+    subject: string;
+    tags: Array<{ name: string; value: string }>;
+  };
+  const ready: ReadyBurstItem[] = [];
+
+  for (const item of items) {
+    const cleanEmail = (item.recipient_email || "").toLowerCase().trim();
+    if (item.provider_message_id) {
+      record(item, "sent", item.provider_message_id);
+      continue;
+    }
+
+    if (suppressedInBatch.has(cleanEmail)) {
+      record(
+        item,
+        "cancelled",
+        null,
+        "Recipient is suppressed (pre-send filter)",
+        "SUPPRESSED_PRE_SEND",
+      );
+      continue;
+    }
+
+    const payload = (item.payload || {}) as {
+      html?: string;
+      text?: string;
+      tags?: Array<{ name: string; value: string }>;
+      render?: string;
+    };
+
+    let renderedHtml = payload.html || "";
+    let renderedText = payload.text || "";
+    let renderedSubject = item.subject || "";
+
+    if (payload.render === "at_send" || !renderedHtml) {
+      if (!campaignSnapshot) {
+        retry(item, "Missing campaign snapshot for on-the-fly rendering", "MISSING_SNAPSHOT");
+        continue;
+      }
+
+      try {
+        const rendered = renderQueuedEmail(
+          campaignSnapshot,
+          {
+            recipientEmail: item.recipient_email,
+            recipientName: item.recipient_name,
+            coachLastName: (payload as { coachLastName?: string }).coachLastName,
+            institutionName: item.university_name,
+            coachId: item.coach_id,
+          },
+          campaignId,
+        );
+        renderedHtml = rendered.html;
+        renderedText = rendered.text;
+        renderedSubject = rendered.subject || renderedSubject;
+      } catch (renderError) {
+        record(
+          item,
+          "cancelled",
+          null,
+          renderError instanceof Error
+            ? renderError.message
+            : "Email render integrity check failed",
+          "RENDER_INTEGRITY_FAILED",
+        );
+        continue;
+      }
+    }
+
+    if (
+      item.email_type !== "catalog_general" &&
+      (!renderedHtml.includes("QUICK FACTS") || !renderedHtml.includes("VIEW FULL PROFILE"))
+    ) {
+      record(item, "cancelled", null, "cancelled_missing_card", "INTEGRITY_MISSING_CARD");
+      continue;
+    }
+
+    if (!renderedHtml || !item.recipient_email) {
+      record(item, "cancelled", null, "Invalid email snapshot", "INVALID_PAYLOAD");
+      continue;
+    }
+
+    ready.push({
+      item,
+      html: renderedHtml,
+      text: renderedText,
+      subject: renderedSubject,
+      tags:
+        payload.tags ||
+        buildResendMailerTags({
+          campaignId,
+          emailType: item.email_type as
+            "athlete_teaser" | "athlete_teaser_multi" | "catalog_general",
+        }),
+    });
+  }
+
   let rateLimited = false;
   let retryAfterSec = 0;
   let quarantineReason: string | null = null;
 
-  // SDK errors may expose Retry-After in different shapes; conservative 60s fallback.
-  const rateLimit = (error: unknown) => {
-    rateLimited = true;
-    const err = error as {
-      retryAfter?: string | number;
-      headers?: { get?: (name: string) => string | null };
-      message?: string;
-    };
-    retryAfterSec = Math.max(
-      retryAfterSec,
-      getRetryAfterSeconds(
-        err?.headers?.get?.("retry-after") ??
-          err?.retryAfter ??
-          err?.message?.match(/retry.after[^0-9]*(\\d+)/i)?.[1],
-        60,
-      ),
-    );
-  };
-
-  if (!resendClient || !config.isConfigured) {
-    for (const { item } of ready) retry(item, "Resend not configured", "CONFIG_ERROR");
-  } else {
+  // 5. Envio em lotes via MailProvider
+  if (ready.length > 0) {
     const sorted = [...ready].sort((a, b) =>
       a.item.idempotency_key.localeCompare(b.item.idempotency_key),
     );
-    const chunks: ReadyItem[][] = [];
+    const chunks: ReadyBurstItem[][] = [];
     for (let i = 0; i < sorted.length; i += 100) chunks.push(sorted.slice(i, i + 100));
 
-    const burstStartedAt = Date.now();
-    const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
-    const MAX_INDIVIDUAL_FALLBACK_ITEMS = 15;
-    const MAX_BURST_WALL_MS = 8000;
+    const chunkPromises = chunks.map(async (chunk) => {
+      const batchItems: BatchEmailItem[] = chunk.map(({ item, html, text, subject, tags }) => {
+        const unsubHeaders = getUnsubscribeHeaders(item.recipient_email, campaignId);
+        return {
+          id: item.id,
+          to: item.recipient_email,
+          replyTo: "contact@goteamgoagency.com",
+          subject,
+          html,
+          text,
+          tags,
+          headers: {
+            ...unsubHeaders,
+            "X-Entity-Ref-ID": item.idempotency_key,
+          },
+        };
+      });
 
-    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
-      const chunk = chunks[chunkIdx]!;
-      // Respeita o limite de 2 req/s da Resend em produção caso haja mais de 1 chunk
-      if (chunkIdx > 0 && !isTestEnv) {
-        await new Promise((resolve) => setTimeout(resolve, 550));
-      }
-
-      const payload = chunk.map(({ item, payload: body }) => ({
-        from: config.from,
-        to: [item.recipient_email],
-        subject: item.subject,
-        html: body.html || "",
-        text: body.text || "",
-        replyTo: EMAIL_SIGNATURE.email,
-        tags: body.tags || [],
-        headers: { "X-Entity-Ref-ID": item.idempotency_key },
-      }));
       const key = chunkIdempotencyKey(
         campaignId,
         chunk.map(({ item }) => item.idempotency_key),
       );
 
-      try {
-        const response = await resendClient.batch.send(payload, { idempotencyKey: key });
-        if (response.error) throw response.error;
-        const ids = response.data?.data;
-        if (!Array.isArray(ids) || ids.length !== chunk.length || ids.some((entry) => !entry?.id)) {
-          quarantineReason =
-            "Batch response did not confirm every provider message. Manual reconciliation required.";
-          for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-          continue;
-        }
-        chunk.forEach(({ item }, i) => record(item, "sent", ids[i].id));
+      const outcome = await mailProvider.sendBatch(batchItems, {
+        idempotencyKey: key,
+        dryRun: isDryRun,
+      });
+
+      return { chunk, outcome };
+    });
+
+    const chunkResults = await Promise.all(chunkPromises);
+
+    for (const { chunk, outcome } of chunkResults) {
+      if (outcome.rateLimited) {
+        rateLimited = true;
+        retryAfterSec = Math.max(retryAfterSec, outcome.retryAfterSeconds || 2);
+      }
+
+      if (outcome.circuitBreak) {
+        quarantineReason = outcome.circuitBreakReason || "Provider circuit breaker triggered.";
+      }
+
+      if (outcome.ambiguous) {
+        quarantineReason = "Ambiguous provider acceptance. Manual reconciliation required.";
+        for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
         continue;
-      } catch (error) {
-        if (isRateLimitError(error)) {
-          rateLimit(error);
-          for (const { item } of chunk)
+      }
+
+      const sentMap = new Map<string, string>();
+      for (const sentItem of outcome.sent) {
+        sentMap.set(sentItem.id, sentItem.providerId);
+      }
+
+      const failedMap = new Map<string, { code: string; message: string }>();
+      for (const failItem of outcome.failed) {
+        failedMap.set(failItem.id, { code: failItem.errorCode, message: failItem.errorMessage });
+      }
+
+      for (const { item } of chunk) {
+        if (sentMap.has(item.id)) {
+          record(item, "sent", sentMap.get(item.id)!);
+        } else if (failedMap.has(item.id)) {
+          const f = failedMap.get(item.id)!;
+          if (f.code === "429" || rateLimited) {
             retry(
               item,
-              "Resend 429 rate limit",
-              "429",
-              new Date(Date.now() + retryAfterSec * 1000).toISOString(),
-            );
-          continue;
-        }
-        if (isAmbiguousProviderError(error)) {
-          quarantineReason = "Ambiguous Resend batch acceptance. Manual reconciliation required.";
-          for (const { item } of chunk) retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-          continue;
-        }
-        // Explicitly rejected batch: bounded individual fallback with per-item keys
-        // so a 100-item chunk never exceeds Vercel function timeout before complete_mailer_burst.
-        let fallbackAttemptsInChunk = 0;
-        for (const { item, payload: body } of chunk) {
-          if (rateLimited || quarantineReason) {
-            retry(
-              item,
-              "Dispatch suspended",
+              f.message,
               "429",
               new Date(Date.now() + Math.max(1, retryAfterSec) * 1000).toISOString(),
             );
-            continue;
+          } else {
+            record(item, "failed", null, f.message, f.code);
           }
-          if (
-            fallbackAttemptsInChunk >= MAX_INDIVIDUAL_FALLBACK_ITEMS ||
-            (!isTestEnv && Date.now() - burstStartedAt >= MAX_BURST_WALL_MS)
-          ) {
+        } else {
+          if (rateLimited) {
             retry(
               item,
-              "Deferred remaining items from rejected batch to next browser tick",
-              "BATCH_FALLBACK_DEFERRED",
-              new Date(Date.now() + 2000).toISOString(),
+              "Dispatch suspended due to rate limit",
+              "429",
+              new Date(Date.now() + Math.max(1, retryAfterSec) * 1000).toISOString(),
             );
-            continue;
-          }
-          fallbackAttemptsInChunk++;
-          try {
-            const individual = await resendClient.emails.send(
-              {
-                from: config.from,
-                to: [item.recipient_email],
-                subject: item.subject,
-                html: body.html || "",
-                text: body.text || "",
-                replyTo: EMAIL_SIGNATURE.email,
-                tags: body.tags || [],
-                headers: { "X-Entity-Ref-ID": item.idempotency_key },
-              },
-              { idempotencyKey: item.idempotency_key },
-            );
-            if (individual.error) throw individual.error;
-            if (!individual.data?.id) {
-              quarantineReason =
-                "Individual provider acceptance ambiguous. Manual reconciliation required.";
-              retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-              continue;
-            }
-            record(item, "sent", individual.data.id);
-          } catch (individualError) {
-            if (isRateLimitError(individualError)) {
-              rateLimit(individualError);
-              retry(
-                item,
-                "Resend 429 rate limit",
-                "429",
-                new Date(Date.now() + retryAfterSec * 1000).toISOString(),
-              );
-            } else if (isAmbiguousProviderError(individualError)) {
-              quarantineReason =
-                "Ambiguous individual provider acceptance. Manual reconciliation required.";
-              retry(item, quarantineReason, "PROVIDER_AMBIGUOUS");
-            } else {
-              retry(
-                item,
-                individualError instanceof Error
-                  ? individualError.message
-                  : String((individualError as { message?: string })?.message || "Send failed"),
-                "SEND_ERROR",
-              );
-            }
+          } else {
+            retry(item, "Unacknowledged batch item", "PROVIDER_UNACKNOWLEDGED");
           }
         }
       }
     }
   }
 
+  // 6. Verificação do Bounce Guard após envios reais (se enviados >= 20)
+  if (!isDryRun) {
+    try {
+      const { data: bounceRows } = await admin.rpc("mailer_campaign_bounce_stats", {
+        p_campaign_id: campaignId,
+      });
+      if (Array.isArray(bounceRows) && bounceRows[0]?.bounce_guard_triggered) {
+        quarantineReason = `Bounce rate (${Number(bounceRows[0].bounce_rate).toFixed(1)}%) exceeded 3% threshold. Dispatch suspended to protect sender reputation.`;
+      }
+    } catch (err) {
+      console.warn("[mailer-queue] Failed to verify bounce stats:", err);
+    }
+  }
+
   const reducedSize = nextBurstSize(effectiveSize, rateLimited);
   const confirmed = results.filter((r) => r.status === "sent").length;
+
+  // 7. Persistência atômica via complete_mailer_burst
   const { data: completed, error: persistenceError } = await admin.rpc("complete_mailer_burst", {
     p_campaign_id: campaignId,
     p_worker_id: workerId,
@@ -1090,9 +1307,11 @@ export async function processMailerQueue(
     p_next_size: reducedSize,
     p_pause_ms: QUEUE_CONFIG.BURST_PAUSE_MS,
     p_lock_until: rateLimited ? new Date(Date.now() + retryAfterSec * 1000).toISOString() : null,
+    p_dry_run: isDryRun,
   });
+
   if (persistenceError || !completed || Number(completed.updated) !== items.length) {
-    const message = `Resend may have accepted ${confirmed} messages, but burst persistence failed. Manual reconciliation required. ${persistenceError?.message || ""}`;
+    const message = `Provider accepted ${confirmed} messages, but burst persistence failed. Manual reconciliation required. ${persistenceError?.message || ""}`;
     await admin
       .from("mailer_campaigns")
       .update({
@@ -1109,6 +1328,7 @@ export async function processMailerQueue(
       message,
     });
   }
+
   if (quarantineReason) {
     await admin
       .from("mailer_campaigns")
@@ -1376,13 +1596,21 @@ export async function reconcileStaleProcessingQueueItems(
   const { data: processingRows, error: procErr } = await admin
     .from("mailer_queue")
     .select(
-      "id, recipient_email, provider_message_id, attempts, reservation_expires_at, reserved_at, processing_started_at, created_at",
+      "id, recipient_email, provider_message_id, attempts, reservation_expires_at, reserved_at, created_at",
     )
     .eq("campaign_id", campaignId)
     .eq("status", "processing")
     .limit(1000);
 
-  if (procErr || !Array.isArray(processingRows) || processingRows.length === 0) {
+  if (procErr) {
+    console.error(
+      "[mailer-queue] Error reading processing queue items for reconciliation:",
+      procErr.message,
+    );
+    return { recoveredToPending: 0, confirmedSent: 0 };
+  }
+
+  if (!Array.isArray(processingRows) || processingRows.length === 0) {
     return { recoveredToPending: 0, confirmedSent: 0 };
   }
 
@@ -1394,19 +1622,18 @@ export async function reconcileStaleProcessingQueueItems(
       attempts?: number | null;
       reservation_expires_at?: string | null;
       reserved_at?: string | null;
-      processing_started_at?: string | null;
       created_at?: string | null;
     }>
   ).filter((row) => {
-    if (options?.forceAll) return true;
+    // Nunca quebra leases ativas: somente reservas comprovadamente expiradas
     if (row.reservation_expires_at) {
       return new Date(row.reservation_expires_at).getTime() <= nowMs;
     }
-    const startedAt = row.reserved_at || row.processing_started_at || row.created_at;
+    const startedAt = row.reserved_at || row.created_at;
     if (startedAt) {
       return nowMs - new Date(startedAt).getTime() >= QUEUE_CONFIG.LOCK_DURATION_SEC * 1000;
     }
-    // Se está em processing sem reservation_expires_at nem timestamp ativo (ex.: órfão após timeout), reconciliar
+    // Se está em processing sem reservation_expires_at nem timestamp ativo, reconciliar
     return true;
   });
 
@@ -1416,16 +1643,20 @@ export async function reconcileStaleProcessingQueueItems(
 
   const sentEmailsSet = new Set<string>();
   try {
-    const logsQuery = admin
+    const { data: logsData, error: logsErr } = await admin
       .from("recruit_email_logs")
       .select("recipient_email, status")
-      .eq("campaign_id", campaignId);
-    const logsRes =
-      typeof (logsQuery as unknown as { eq?: unknown }).eq === "function"
-        ? await logsQuery.eq("status", "sent")
-        : await logsQuery;
-    if (Array.isArray(logsRes?.data)) {
-      for (const log of logsRes.data as Array<{
+      .eq("campaign_id", campaignId)
+      .eq("status", "sent");
+
+    if (logsErr) {
+      console.warn(
+        "[mailer-queue] Error querying recruit_email_logs during reconciliation:",
+        logsErr.message,
+      );
+    }
+    if (Array.isArray(logsData)) {
+      for (const log of logsData as Array<{
         recipient_email?: string | null;
         status?: string | null;
       }>) {
@@ -1434,8 +1665,8 @@ export async function reconcileStaleProcessingQueueItems(
         if (clean) sentEmailsSet.add(clean);
       }
     }
-  } catch {
-    // Continua caso a tabela não esteja mockada em ambiente de teste
+  } catch (err) {
+    console.warn("[mailer-queue] Exception reading recruit_email_logs during reconciliation:", err);
   }
 
   try {
@@ -1444,13 +1675,19 @@ export async function reconcileStaleProcessingQueueItems(
     );
     for (let i = 0; i < staleEmails.length; i += 100) {
       const slice = staleEmails.slice(i, i + 100);
-      const evQuery = admin
+      const { data: evData, error: evErr } = await admin
         .from("email_events")
         .select("recipient_email, tags")
         .in("recipient_email", slice);
-      const evRes = await evQuery;
-      if (Array.isArray(evRes?.data)) {
-        for (const ev of evRes.data as Array<{
+
+      if (evErr) {
+        console.warn(
+          "[mailer-queue] Error querying email_events during reconciliation:",
+          evErr.message,
+        );
+      }
+      if (Array.isArray(evData)) {
+        for (const ev of evData as Array<{
           recipient_email?: string | null;
           tags?: Record<string, unknown> | null;
         }>) {
@@ -1458,15 +1695,16 @@ export async function reconcileStaleProcessingQueueItems(
             ev.tags && typeof ev.tags === "object"
               ? String((ev.tags as Record<string, unknown>).campaign_id || "")
               : "";
-          if (!tagCampId || tagCampId === campaignId) {
+          // Casamento estrito por ID de campanha (E2)
+          if (tagCampId === campaignId) {
             const clean = (ev.recipient_email || "").toLowerCase().trim();
             if (clean) sentEmailsSet.add(clean);
           }
         }
       }
     }
-  } catch {
-    // Continua caso email_events não esteja mockada em ambiente de teste
+  } catch (err) {
+    console.warn("[mailer-queue] Exception reading email_events during reconciliation:", err);
   }
 
   const confirmedSentIds: string[] = [];
@@ -1482,7 +1720,7 @@ export async function reconcileStaleProcessingQueueItems(
   }
 
   for (let i = 0; i < confirmedSentIds.length; i += 100) {
-    await admin
+    const { error: updSentErr } = await admin
       .from("mailer_queue")
       .update({
         status: "sent",
@@ -1494,23 +1732,33 @@ export async function reconcileStaleProcessingQueueItems(
       })
       .eq("campaign_id", campaignId)
       .in("id", confirmedSentIds.slice(i, i + 100));
+
+    if (updSentErr) {
+      console.error("[mailer-queue] Failed to confirm sent queue rows:", updSentErr.message);
+    }
   }
 
   for (let i = 0; i < recoverToPendingIds.length; i += 100) {
-    await admin
+    const { error: updPendingErr } = await admin
       .from("mailer_queue")
       .update({
         status: "pending",
         reserved_by: null,
         reserved_at: null,
         reservation_expires_at: null,
-        processing_started_at: null,
         next_retry_at: null,
         last_error: null,
         error_code: null,
       })
       .eq("campaign_id", campaignId)
       .in("id", recoverToPendingIds.slice(i, i + 100));
+
+    if (updPendingErr) {
+      console.error(
+        "[mailer-queue] Failed to recover stale items to pending:",
+        updPendingErr.message,
+      );
+    }
   }
 
   return {

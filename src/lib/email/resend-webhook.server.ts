@@ -428,14 +428,26 @@ export async function processResendWebhook(
     }
 
     const reason = payload.type === "email.bounced" ? "resend_bounce" : "resend_complaint";
+    const rawBounceType =
+      payload.data?.bounce?.type ||
+      payload.data?.bounce_type ||
+      (typeof payload.data?.type === "string" ? payload.data.type : "") ||
+      "";
+    const isPermanent =
+      payload.type === "email.complained" || String(rawBounceType).toLowerCase() === "permanent";
+    const suppressionType = isPermanent ? "permanent" : "temporary_6m";
+    const expiresAt = isPermanent
+      ? null
+      : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
+
     let suppressedCount = 0;
 
     for (const email of normalizedRecipients) {
       const supRes = await upsertEmailSuppressionSafe(admin, {
         email,
         reason,
-        suppression_type: "permanent",
-        expires_at: null,
+        suppression_type: suppressionType,
+        expires_at: expiresAt,
         created_at: new Date().toISOString(),
       });
 
@@ -443,7 +455,7 @@ export async function processResendWebhook(
         console.error(
           "[resend-webhook] Database error upserting email_suppressions:",
           supRes.error.message,
-          { email, reason },
+          { email, reason, suppressionType },
         );
         return {
           processed: false,

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 export function chunkIdempotencyKey(campaignId: string, keys: string[]): string {
   return crypto
     .createHash("sha256")
-    .update(["mailer-burst-v1", campaignId, ...[...keys].sort()].join(":"))
+    .update(["mailer-burst-v2", campaignId, ...[...keys].sort()].join(":"))
     .digest("hex");
 }
 
@@ -30,21 +30,53 @@ export function isRateLimitError(error: unknown): boolean {
   return (
     obj?.statusCode === 429 ||
     obj?.status === 429 ||
-    /429|rate.limit|too many requests/i.test(`${obj?.name ?? ""} ${obj?.message ?? ""}`)
+    obj?.name === "rate_limit_exceeded" ||
+    /rate_limit_exceeded|too many requests|429/i.test(obj?.message ?? "")
   );
 }
 
+/**
+ * Classificação robusta por statusCode e name estruturado (E10).
+ * Evita casar emails como 'coach500@university.edu'.
+ */
 export function isAmbiguousProviderError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : String((error as { message?: string } | null)?.message ?? "");
-  // Timeouts/network resets and 5xx responses can occur AFTER provider acceptance.
-  return /timeout|timed out|ECONN|network|abort|500|502|503|504|internal server|unavailable/i.test(
-    message,
-  );
+  if (!error) return false;
+  const obj = error as {
+    statusCode?: number;
+    status?: number;
+    name?: string;
+    code?: string;
+    message?: string;
+  };
+  const status = obj.statusCode ?? obj.status;
+  if (typeof status === "number" && status >= 500 && status <= 504) {
+    return true;
+  }
+  const name = String(obj.name ?? "");
+  const code = String(obj.code ?? "");
+  const msg = String(obj.message ?? "");
+  if (
+    name === "TimeoutError" ||
+    name === "AbortError" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNRESET" ||
+    code === "ECONNABORTED" ||
+    /timeout|network|econnreset|fetch failed/i.test(msg)
+  ) {
+    return true;
+  }
+  return false;
 }
 
-export function nextBurstSize(current: number, rateLimited: boolean): number {
-  return rateLimited ? Math.max(1, Math.floor(current / 2)) : current;
+/**
+ * Recuperação gradual do tamanho do lote (E6):
+ * - Em 429: divide por 2 (mínimo 1)
+ * - Em tick bem-sucedido sem 429: recupera até o teto máximo (300)
+ */
+export function nextBurstSize(current: number, rateLimited: boolean, maxSize = 300): number {
+  if (rateLimited) {
+    return Math.max(1, Math.floor(current / 2));
+  }
+  if (current >= maxSize) return maxSize;
+  return Math.min(maxSize, Math.max(1, current + 10));
 }

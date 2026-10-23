@@ -14,26 +14,26 @@
 1. **Reserva Não Escopada na RPC (`claim_mailer_queue_batch`)**:
    - A RPC em `0024_mailer_queue_and_rate_limiting.sql` reservava itens de qualquer campanha em estado `running`.
    - O código TypeScript filtrava a campanha em memória somente após a reserva (`claimedItems = rpcClaimed.filter(item => item.campaign_id === options.campaignId)`).
-   - *Impacto:* Se duas campanhas existissem ou houvesse sobras de campanhas anteriores, itens de outra campanha eram reservados indevidamente e ficavam órfãos em estado `processing`.
-   - *Correção:* Migration 0025 atualiza `claim_mailer_queue_batch` para aceitar `p_campaign_id uuid default null`. Se fornecido, a query SQL filtra restritivamente `q.campaign_id = p_campaign_id` dentro da transação `FOR UPDATE SKIP LOCKED`.
+   - _Impacto:_ Se duas campanhas existissem ou houvesse sobras de campanhas anteriores, itens de outra campanha eram reservados indevidamente e ficavam órfãos em estado `processing`.
+   - _Correção:_ Migration 0025 atualiza `claim_mailer_queue_batch` para aceitar `p_campaign_id uuid default null`. Se fornecido, a query SQL filtra restritivamente `q.campaign_id = p_campaign_id` dentro da transação `FOR UPDATE SKIP LOCKED`.
 
 2. **Carga no Banco e Consulta Integral de Linhas (`getCampaignQueueProgress`)**:
    - O método atual realizava `select('status')` de todas as linhas de `mailer_queue` para contar uma a uma em JavaScript. Em campanhas com milhares de destinatários, causava sobrecarga de I/O, lentidão e estourava o limite padrão de linhas da API do Supabase (1.000 registros).
-   - *Correção:* Nova RPC `get_mailer_campaign_progress_summary(p_campaign_id uuid)` no PostgreSQL com agregação `COUNT(*) FILTER (...)` compacta em O(1), além de contagens com `{ count: 'exact', head: true }` como fallback. A resposta do micro-lote já retorna o progresso consolidado, eliminando polling redundante simultâneo. A contagem regressiva de cooldown é decrementada localmente no frontend.
+   - _Correção:_ Nova RPC `get_mailer_campaign_progress_summary(p_campaign_id uuid)` no PostgreSQL com agregação `COUNT(*) FILTER (...)` compacta em O(1), além de contagens com `{ count: 'exact', head: true }` como fallback. A resposta do micro-lote já retorna o progresso consolidado, eliminando polling redundante simultâneo. A contagem regressiva de cooldown é decrementada localmente no frontend.
 
 3. **Orquestração e Ciclo de Vida do Executor no Navegador**:
    - A orquestração pelo navegador em `mailer.tsx` apresentava vulnerabilidades de concorrência: desmontar o componente, pausar ou cancelar não abortava chamadas assíncronas já em curso que retornavam posteriormente.
    - Faltava trava de lease no servidor para impedir que múltiplas abas ou sessões disparassem contra a mesma campanha simultaneamente.
-   - *Correção:* Adicionado `BroadcastChannel` local entre abas e colunas `controller_id` e `controller_lease_expires_at` em `mailer_campaigns`, validadas pela RPC `acquire_mailer_campaign_lease`. Trava estrita com `isUnmountedRef` e `isOrchestratorActiveRef` que cancela sumariamente qualquer novo tick após desmonte ou interrupção.
+   - _Correção:_ Adicionado `BroadcastChannel` local entre abas e colunas `controller_id` e `controller_lease_expires_at` em `mailer_campaigns`, validadas pela RPC `acquire_mailer_campaign_lease`. Trava estrita com `isUnmountedRef` e `isOrchestratorActiveRef` que cancela sumariamente qualquer novo tick após desmonte ou interrupção.
 
 4. **Idempotência, Falhas de Persistência e Cabeçalhos Resend**:
    - O envio utilizava apenas `X-Entity-Ref-ID`.
-   - *Correção:* Implementação de `Idempotency-Key` e `X-Entity-Ref-ID` com hash SHA-256 estável (`${campaignId}:${recipientEmail}`).
-   - *Tratamento de Falha Parcial:* Se o Resend aceitar o e-mail (retornando `provider_message_id`), mas a persistência do log falhar, o status do item é gravado como `sent` com o `provider_message_id` salvo, impedindo categoricamente reenvios cegos em duplicidade.
+   - _Correção:_ Implementação de `Idempotency-Key` e `X-Entity-Ref-ID` com hash SHA-256 estável (`${campaignId}:${recipientEmail}`).
+   - _Tratamento de Falha Parcial:_ Se o Resend aceitar o e-mail (retornando `provider_message_id`), mas a persistência do log falhar, o status do item é gravado como `sent` com o `provider_message_id` salvo, impedindo categoricamente reenvios cegos em duplicidade.
 
 5. **Ritmo, Limites Globais e Eliminação de Bypass**:
    - O cliente podia enviar `ignoreCooldown: true` ou acionar `triggerProcessMailerQueueServerFn`.
-   - *Correção:* Remoção de `ignoreCooldown` no backend e no frontend; remoção da Server Function desprotegida de disparo forçado; validação estrita no servidor que limita o micro-lote a no máximo 2 e-mails (`Math.min(2, Math.max(1, batchSize))`); remoção de esperas artificiais dentro da função serverless da Vercel (o intervalo de 1s ocorre estritamente no navegador).
+   - _Correção:_ Remoção de `ignoreCooldown` no backend e no frontend; remoção da Server Function desprotegida de disparo forçado; validação estrita no servidor que limita o micro-lote a no máximo 2 e-mails (`Math.min(2, Math.max(1, batchSize))`); remoção de esperas artificiais dentro da função serverless da Vercel (o intervalo de 1s ocorre estritamente no navegador).
 
 6. **Deduplicação de Destinatários e Validação de IDs**:
    - No enfileiramento, destinatários com o mesmo e-mail normalizado (`email.toLowerCase().trim()`) agora são deduplicados.

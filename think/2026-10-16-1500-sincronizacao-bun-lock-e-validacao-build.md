@@ -12,11 +12,15 @@
 ## 1. Diagnóstico do Problema
 
 ### Causa Raiz Confirmada:
+
 Na Vercel, o deploy falha durante a etapa de instalação de dependências:
+
 ```
 error: lockfile had changes, but lockfile is frozen
 ```
+
 Isso ocorre porque o comando de instalação configurado no `vercel.json` executa `bun install --frozen-lockfile` com **Bun 1.3.14**, mas no repositório remoto (commit `8e91de8`):
+
 - O `package.json` declara:
   - `"@lovable.dev/vite-tanstack-config": "2.25.3"`
   - `"nitro": "3.0.260603-beta"`

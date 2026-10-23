@@ -1058,9 +1058,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Aprovação Humana:** Autorizado no prompt do usuário em 2026-10-16.
 - **Status:** `[EM EXECUÇÃO]`
 
-
-
-
 ## TASK-097 — 2026-10-16 — Recuperação do deployment Vercel e estabilização da orquestração do Mailer
 
 - **Solicitante:** usuário responsável pelo projeto
@@ -1074,7 +1071,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Critérios de aceite:** Bun 1.3.14 com frozen-lockfile; lint/typecheck/Vitest/build; logs de execução; deployment Vercel verde no mesmo SHA; migrations 0025/0026 aplicadas e verificadas; smoke test do Mailer com destinatários de teste.
 - **Status:** `[EM EXECUÇÃO — AGUARDANDO RESULTADOS CI / MIGRATIONS / DEPLOY]`
 
-
 ## TASK-098 — 2026-10-16 — Correção direta do disparo Mailer e contraste do painel
 
 - **Solicitante:** usuário responsável pelo Go Team Go.
@@ -1085,7 +1081,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Branch:** `fix/2026-10-16-mailer-coach-fk-contrast`.
 - **Validação:** GitHub Actions `38929272621` aprovado: Bun 1.3.14, frozen install, typecheck, lint, testes unitários e build.
 - **Status:** `[EM EXECUÇÃO — PUBLICAÇÃO E VERIFICAÇÃO DO DEPLOY]`
-
 
 ## TASK-099 — 2026-10-19 09:31 — Restaurar bio e encaixe obrigatórios no card de atleta do Mailer
 
@@ -1101,7 +1096,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Validação:** GitHub Actions run `39256913678`, Bun 1.3.14: `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint` (0 erros, 11 avisos existentes), `bun run test` (200/200) e `bun run build` aprovados. Sem modificações de `bun.lock`/`package.json`; sem envio real de campanha.
 - **Revisão visual:** Position/Height/From removidos de Quick Facts por já aparecerem no cabeçalho; foto + tabela responsiva mantidas.
 
-
 ## TASK-100 — 2026-10-19 17:54 UTC — Planejamento do hotfix achievements.created_at no Mailer
 
 - **Solicitante:** responsável pelo repositório (SrKain).
@@ -1115,9 +1109,7 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[CONCLUÍDO]` — hotfix e auditoria implementados; CI `39300420381` aprovado (Bun 1.3.14, frozen install, typecheck, lint, 217/217 testes e build). PR #7. Validação do commit final sem etapa auxiliar de formatação em acompanhamento; aceitação manual em navegador autenticado não executada.
 - **Implementação:** loader e estados/retry do painel corrigidos, testes de schema/loader/lógica adicionados e CERNE.md atualizado. bun.lock, package.json, fila, idempotência, Reply-To, textos canônicos e layout preservados; nenhuma migration ou envio real.
 
-
 - **TASK-100 — evidência adicional:** consulta corrigida aceita pelo Supabase com WHERE false; cenários de UI cobertos por testes de lógica. Sem envio real, novas migrations ou alteração de bun.lock/package.json. Detalhes e procedimento manual no plano.
-
 
 ## TASK-101 — 2026-10-19 18:31 UTC — Plano de alinhamento dos Quick Facts do Mailer
 
@@ -1144,7 +1136,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Plano:** `think/2026-10-20-1028-integridade-preview-envio-mailer.md`.
 - **Alterações nesta sessão:** apenas documentação (`think/` e este registro). Sem alterações de código, migrations, banco, filas, reenvio ou e-mails reais.
 
-
 ## TASK-103 — 2026-10-20 15:30 (America/Sao_Paulo) — Correção definitiva da seleção de atletas, preview e integridade de disparo no Mailer
 
 - **Solicitante:** Kauan (Usuário Humano).
@@ -1163,7 +1154,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Status:** `[CONCLUÍDO]`
 - **Validação:** 243 testes unitários aprovados em 28 arquivos (Vitest), ESLint 0 erros (11 warnings preexistentes), `compile_applet` verde com build de produção validado. `bun.lock` e `package.json` intactos.
 
-
 ## TASK-104 — 2026-10-20 16:01 (America/Sao_Paulo) — Recuperação da build da Vercel com entrega direta na main
 
 - **Solicitante:** usuário humano.
@@ -1175,14 +1165,12 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Preservação:** não reverter nem alterar a implementação TASK-103; não mudar `package.json` nem configurações Vercel; não enviar e-mails reais.
 - **Status:** [CONCLUÍDO — HOTFIX ENTREGUE E DEPLOY VERCEL DO COMMIT DE CORREÇÃO APROVADO].
 
-
 ### Conclusão TASK-104 — 2026-10-20
 
 - **Status:** [CONCLUÍDO] — hotfix do lockfile entregue diretamente na `main`, sem branch/PR; deploy da Vercel comprovadamente `success` no SHA `891edd192e58837514e842a4701981c8db68998c`.
 - **Correção:** `bun.lock` restaurado byte a byte a partir de `3aa3ae9` (Bun 1.3.14 validado no CI anteriormente), blob SHA `11e32ea0199fd8ea03742194d7e92136aa0ed513`. `package.json` permanece idêntico (blob SHA `868f6434b581f681611b76689623de2ee9a2b9b1`).
 - **Prevenção:** CI atualizado em `0dfbfc8` para pushes na main e PRs; valida frozen lockfile, diff, typecheck, lint, testes e build; etapas legadas de alteração automática removidas.
 - **Limites:** build Vercel aprovado no SHA de correção. Não foram obtidos logs/resultados completos do novo pipeline do GitHub Actions neste atendimento; acompanhar o pipeline e o deploy do último commit documental separadamente. Sem envio real no Mailer.
-
 
 ## TASK-105 — 2026-10-20 (America/Sao_Paulo) — Textos personalizados do Mailer e paridade preview/envio
 
@@ -1210,7 +1198,6 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Implementação na branch (pós-aprovação humana explícita):** PR #10 `feat/2026-10-21-mailer-bursts-universities-pagination`; paginação compartilhada, correções do importador, Resend em chunks 100×3, retry/429, persistência RPC 0027, gate pré-envio, componentes de progresso e testes. CERNE.md atualizado com contratos e migração obrigatória.
 - **Segurança de implantação:** código **não deve ser liberado na main antes de aplicar/verificar 0027** no Supabase externo; gate `mailer_burst_ready` impede qualquer envio caso ausente. Nenhuma migration executada em produção, nenhuma planilha reimportada, nenhum envio real efetuado. `package.json` e `bun.lock` intactos.
 - **Estado:** [PENDENTE] — aguardando CI final da branch, aplicação controlada da migration, revisão/merge do PR e validação operacional; não afirmar concluído antes desses marcos.
-
 
 ## TASK-107 — 2026-10-21 15:01 (America/Sao_Paulo) — Continuidade do Mailer, progresso, budget multisseleção, histórico e coaches em universidades
 
@@ -1256,4 +1243,18 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   2. **Erro PostgreSQL na Vercel em `[resend-webhook]` (`there is no unique or exclusion constraint matching the ON CONFLICT specification` em `email_suppressions`):** A tabela `public.email_suppressions` possui índice único sobre a expressão funcional `lower(trim(email))` e não sobre a coluna pura `email`. Criada e aplicada `upsertEmailSuppressionSafe()` em `src/lib/email/recruit-email.server.ts` e `src/lib/email/resend-webhook.server.ts` (busca case-insensitive + `update`/`insert`).
   3. **Estabilidade da Orquestração pelo Navegador (`src/routes/_authenticated/admin/mailer.tsx` e `src/lib/email/recruit-email.functions.ts`):** Persistência de `tabId` em `sessionStorage` para não conflitar lease ao recarregar a página, redução de `LEASE_DURATION_SEC` para 30s (`LOCK_DURATION_SEC` para 60s), botão ativo `Destravar Fila / Sincronizar Navegador` na UI e remoção da releitura pesada pós-insert em `enqueueCampaignDispatches`.
 
+---
 
+## TASK-109 — 2026-10-22 13:46 — Mailer Sem Travas: 5.000+ Destinatários com Build Intacta
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Google AI Studio (Coding Engine)
+- **Status:** `[CONCLUÍDO]` — Plano detalhado registrado em `think/2026-10-22-1346-mailer-sem-travas-5k.md`, aprovado explicitamente pelo usuário e implementado integralmente com testes (41 arquivos / 324 testes 100% verdes), lint (0 erros) e build de produção validados.
+- **Pedido:** Transformar o Mailer num disparador que envia 5.000+ e-mails em sequência sem travar, sem duplicar, sem perder endereço válido e sem quebrar a build, mantendo `package.json` e `bun.lock` intactos.
+- **Entregas Realizadas:**
+  1. **Migration 0028 (`db/migrations/0028_mailer_high_volume_snapshot_and_bounce_guard.sql` e `db/migrations/verify-0028.sql`):** Tabelas `mailer_campaign_snapshots` e `mailer_domain_checks`, RPCs `filter_suppressed_emails`, `mailer_campaign_bounce_stats` e `complete_mailer_burst` (com `p_dry_run` e compactação de `payload`).
+  2. **Camada de Provedor & Modo Ensaio (`src/lib/email/mail-provider.server.ts`):** `ResendMailProvider` com `batchValidation: 'permissive'`, timeout de 12s via `AbortController`, fallback individual restrito a erros definitivos de validação e `FakeMailProvider` para ensaios sem chamadas à Resend.
+  3. **Higiene RFC 5322, DNS MX e One-Click Unsubscribe RFC 8058:** `src/lib/email/email-syntax.ts`, `src/lib/email/domain-hygiene.server.ts`, `src/lib/email/unsubscribe-token.ts` e endpoint `POST /api/unsubscribe` em `src/server.ts`.
+  4. **Enfileiramento em 3 Fases e Render sob Demanda (`src/lib/email/mailer-snapshot.ts`, `src/lib/email/mailer-queue.server.ts`, `src/lib/email/recruit-email.functions.ts`):** `createCampaignDraft`, `appendCampaignRecipients` em chunks de 500 e `activateCampaign` com bloqueio de bounce guard para campanhas > 1.000 destinatários.
+  5. **Orquestração Anti-Throttling e Semáforo de Bounce na UI (`src/routes/_authenticated/admin/mailer.tsx`):** Web Worker inline via `Blob`, Screen Wake Lock API, alerta `beforeunload`, toggle `Dry-Run`, modal de confirmação pré-disparo e semáforo de reputação ao vivo (Verde < 2%, Amarelo 2–3%, Vermelho > 3%).
+  6. **Suíte de Testes e Conformidade:** Corrigidos os 2 testes de `src/lib/email/resend-email.test.ts` para o contrato real de `upsertEmailSuppressionSafe` e adicionados `schema-integrity.test.ts`, `mailer-parity.test.ts`, `email-syntax.test.ts`, `domain-hygiene.test.ts`, `unsubscribe-token.test.ts` e `mail-provider.test.ts`. Total: 41 suítes / 324 testes 100% aprovados.

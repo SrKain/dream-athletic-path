@@ -15,8 +15,9 @@
 Ao disparar e-mails para atletas diferentes no Mailer (`/admin/mailer`), o sistema não atualiza os blocos internos do card da atleta selecionada e dispara a mensagem sem o card de informações (Quick Facts, View Full Profile, foto e biografia).
 
 O objetivo da TASK-103 é garantir que:
+
 1. Em qualquer seleção de atleta (modo individual ou múltiplo), o preview e o payload enviado contenham exatamente os cards dos atletas selecionados.
-2. Seja impossível disparar mensagens sem os cards correspondentes (arquitetura *fail-closed* no cliente e no servidor).
+2. Seja impossível disparar mensagens sem os cards correspondentes (arquitetura _fail-closed_ no cliente e no servidor).
 3. Textos e campos editados pelo usuário sejam preservados durante a troca de atletas.
 4. Itens pendentes na fila (`mailer_queue`) que estejam sem o card sejam cancelados preventivamente.
 
@@ -33,6 +34,7 @@ O objetivo da TASK-103 é garantir que:
 ## 3. Arquitetura da Solução
 
 ### 3.1 Módulo Puro de Reconciliação (`src/lib/email/email-blocks.ts`)
+
 - Implementar `reconcileEmailBlocks(prev: EmailBlock[], athleteIds: string[]): EmailBlock[]`:
   - Remove blocos do tipo `athlete` cujos IDs não constam em `athleteIds`.
   - Preserva todos os blocos do tipo `text` e a ordem relativa existente.
@@ -45,6 +47,7 @@ O objetivo da TASK-103 é garantir que:
   - Lança erro impeditivo caso haja divergência.
 
 ### 3.2 Correção no Frontend (`src/routes/_authenticated/admin/mailer.tsx`)
+
 - Remover o `useEffect` com condição `if (prev.length > 0) return prev` (linhas 805–816).
 - Derivar sincronamente `finalBlocks` via `useMemo` com base em `reconcileEmailBlocks(composerBlocks, activeComposerAthleteIds)`.
 - Usar `finalBlocks` em:
@@ -54,9 +57,11 @@ O objetivo da TASK-103 é garantir que:
 - Adicionar banner de alerta no container de preview caso haja divergência de integridade, desabilitando o botão "Send".
 
 ### 3.3 Renderers com Integridade Verificável
+
 - Atualizar `renderRecruitEmail` e `renderMultiAthleteRecruitEmail` em `src/lib/email/recruit-email-template.ts` para repassar e expor `expectedAthleteIds`, `renderedAthleteIds` e `missingAthleteIds`.
 
-### 3.4 Servidor *Fail-Closed* e Limpeza de Fila
+### 3.4 Servidor _Fail-Closed_ e Limpeza de Fila
+
 - Em `src/lib/email/mailer-queue.server.ts` e `src/lib/email/recruit-email.server.ts`:
   - Aplicar `reconcileEmailBlocks(input.blocks, loadedAthleteIds)` no servidor antes de gerar o payload persistido.
   - Executar `assertEmailIntegrity` sobre o HTML e texto gerados.
@@ -66,6 +71,7 @@ O objetivo da TASK-103 é garantir que:
 ---
 
 ## 4. Testes e Validação
+
 - Testes unitários com Vitest em `src/lib/email/email-blocks.test.ts`.
 - Validação de regressão do bug com fixtures de atletas reais e sintéticas.
 - Garantia de 0 envios ao Resend e 0 inserts em caso de erro de integridade.
@@ -74,6 +80,7 @@ O objetivo da TASK-103 é garantir que:
 ---
 
 ## 5. Governança
+
 - Nenhuma alteração em `bun.lock` ou `package.json`.
 - Atualização viva do `CERNE.md`.
 - Registro da conclusão da **TASK-103** no `BACKLOGER.md`.

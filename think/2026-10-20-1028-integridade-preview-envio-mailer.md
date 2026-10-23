@@ -39,7 +39,7 @@ Os campos `customHook` e `customIntroduction` de `mailer.tsx` são encaminhados 
 
 ## 3. Arquitetura de correção
 
-1. **Composição canônica única:** definir modelo tipado do rascunho com assunto, saudação automática por `last_name`, abertura/corpo editáveis, hook conforme posicionamento editorial aprovado, lista ordenada de IDs de atletas e fechamento institucional editável. Converter os campos da UI *uma vez* para blocos canônicos. Manter adaptadores para chamadas antigas e catálogo, sem um segundo caminho que ignore campos.
+1. **Composição canônica única:** definir modelo tipado do rascunho com assunto, saudação automática por `last_name`, abertura/corpo editáveis, hook conforme posicionamento editorial aprovado, lista ordenada de IDs de atletas e fechamento institucional editável. Converter os campos da UI _uma vez_ para blocos canônicos. Manter adaptadores para chamadas antigas e catálogo, sem um segundo caminho que ignore campos.
 2. **Reconciliação de seleção:** ao mudar atleta individual A→B, substituir a referência do card sem perder textos; no multi, remover IDs desmarcados, preservar ordem dos mantidos e inserir novos uma vez. Bloquear duplicatas e referências fora da seleção. Sincronizar as mesmas regras no servidor, não confiar no estado do navegador.
 3. **Render determinístico e resultado verificável:** reutilizar o mesmo renderizador tipado para o preview e para o payload enfileirado; registrar `expectedAthleteIds`, `renderedAthleteIds`, `missingAthleteIds`, assunto e indicadores de inclusão de texto. Adaptar o renderer para retornar explicitamente falha ou lançar antes de persistir se um card selecionado não renderizou.
 4. **Validação fail-closed no backend:** para `single_athlete` e `multi_athlete`, impedir criação/ativação de campanhas quando o conjunto renderizado não corresponde ao conjunto selecionado, quando um card obrigatório falta, quando o conteúdo principal foi perdido ou quando o HTML/texto final estão vazios ou divergentes em elementos fundamentais. Para catálogo, validar textos/campos específicos sem exigir atletas. Não descartar silenciosamente conteúdo editável.
@@ -85,7 +85,6 @@ Nenhuma migration ou alteração de dependência antecipada.
 ## 7. Resultado desta sessão
 
 Conexão ao GitHub confirmada; código, documentos e histórico de Mailer auditados; evidência somente leitura em `mailer_campaigns` e `mailer_queue` comprova e-mail aceito pelo Resend com conteúdo principal não renderizado. Plano salvo para revisão e execução posterior autorizada.
-
 
 ## 8. Plano aprovado para execução — 2026-10-20
 

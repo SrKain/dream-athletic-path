@@ -18,6 +18,7 @@ import { renderCatalogEmail } from "./recruit-email-catalog-template";
 
 // Mocks do Supabase e Resend
 const mockCampaigns = new Map<string, any>();
+const mockSnapshots = new Map<string, any>();
 const mockQueue = new Map<string, any>();
 const mockLogs: any[] = [];
 const mockPersistedCoachIds = new Set<string>();
@@ -325,6 +326,28 @@ function createMockAdminClient() {
         };
       }
 
+      if (table === "mailer_campaign_snapshots") {
+        return {
+          insert: vi.fn(async (row: any) => {
+            const rowData = Array.isArray(row) ? row[0] : row;
+            mockSnapshots.set(rowData.campaign_id, { ...rowData });
+            return { data: [rowData], error: null };
+          }),
+          select: vi.fn(() => ({
+            eq: vi.fn((_col: string, val: any) => ({
+              order: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn(async () => {
+                    const snap = mockSnapshots.get(val);
+                    return { data: snap || null, error: null };
+                  }),
+                })),
+              })),
+            })),
+          })),
+        };
+      }
+
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
@@ -342,6 +365,26 @@ function createMockAdminClient() {
       if (fnName === "mailer_burst_ready") return { data: migrationReady, error: null };
       if (fnName === "recover_stale_mailer_queue_reservations") {
         return { data: 0, error: null };
+      }
+      if (fnName === "filter_suppressed_emails") {
+        const emails = (args.p_emails || []) as string[];
+        const match = emails.filter((e) => e === "suppressed@coach.edu").map((e) => ({ email: e }));
+        return { data: match, error: null };
+      }
+      if (fnName === "mailer_campaign_bounce_stats") {
+        return {
+          data: [
+            {
+              campaign_id: args.p_campaign_id,
+              sent_count: 0,
+              bounce_count: 0,
+              complaint_count: 0,
+              bounce_rate: 0,
+              bounce_guard_triggered: false,
+            },
+          ],
+          error: null,
+        };
       }
       if (fnName === "acquire_mailer_campaign_lease") {
         return failLease
@@ -464,6 +507,7 @@ function createMockAdminClient() {
 describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
   beforeEach(() => {
     mockCampaigns.clear();
+    mockSnapshots.clear();
     mockQueue.clear();
     mockLogs.length = 0;
     mockPersistedCoachIds.clear();

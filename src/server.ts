@@ -174,6 +174,49 @@ export default {
         });
       }
 
+      if (url.pathname === "/api/unsubscribe") {
+        const token = url.searchParams.get("token") || "";
+        const { verifyUnsubscribeToken } = await import("./lib/email/unsubscribe-token");
+        const verification = verifyUnsubscribeToken(token);
+
+        if (request.method === "POST") {
+          // RFC 8058 One-Click Unsubscribe (POST com corpo ou URL token)
+          if (!verification.valid || !verification.email) {
+            return new Response(JSON.stringify({ error: verification.error || "invalid_token" }), {
+              status: 400,
+              headers: {
+                "content-type": "application/json; charset=utf-8",
+                "cache-control": "no-store",
+              },
+            });
+          }
+
+          const { unsubscribeEmailAddress } = await import("./lib/email/recruit-email.server");
+          const result = await unsubscribeEmailAddress(
+            verification.email,
+            "one_click_unsubscribe",
+            "permanent",
+          );
+          return new Response(JSON.stringify(result), {
+            status: result.success ? 200 : 500,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            },
+          });
+        }
+
+        if (request.method === "GET") {
+          // Scanners de link em domínios .edu não devem descadastrar em GET.
+          // Redireciona para o formulário de confirmação interativo.
+          const targetUrl =
+            verification.valid && verification.email
+              ? `/unsubscribe?email=${encodeURIComponent(verification.email)}`
+              : "/unsubscribe";
+          return Response.redirect(new URL(targetUrl, request.url).toString(), 302);
+        }
+      }
+
       if (
         url.pathname === "/api/cron/process-scheduled-emails" &&
         (request.method === "POST" || request.method === "GET")
