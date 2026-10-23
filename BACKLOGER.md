@@ -1258,3 +1258,14 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
   4. **Enfileiramento em 3 Fases e Render sob Demanda (`src/lib/email/mailer-snapshot.ts`, `src/lib/email/mailer-queue.server.ts`, `src/lib/email/recruit-email.functions.ts`):** `createCampaignDraft`, `appendCampaignRecipients` em chunks de 500 e `activateCampaign` com bloqueio de bounce guard para campanhas > 1.000 destinatários.
   5. **Orquestração Anti-Throttling e Semáforo de Bounce na UI (`src/routes/_authenticated/admin/mailer.tsx`):** Web Worker inline via `Blob`, Screen Wake Lock API, alerta `beforeunload`, toggle `Dry-Run`, modal de confirmação pré-disparo e semáforo de reputação ao vivo (Verde < 2%, Amarelo 2–3%, Vermelho > 3%).
   6. **Suíte de Testes e Conformidade:** Corrigidos os 2 testes de `src/lib/email/resend-email.test.ts` para o contrato real de `upsertEmailSuppressionSafe` e adicionados `schema-integrity.test.ts`, `mailer-parity.test.ts`, `email-syntax.test.ts`, `domain-hygiene.test.ts`, `unsubscribe-token.test.ts` e `mail-provider.test.ts`. Total: 41 suítes / 324 testes 100% aprovados.
+
+---
+
+## TASK-110 — 2026-10-23 17:35 — Recuperação da build (bun.lock) + endurecimento do mailer + portão anti-build-quebrada
+
+- **Solicitante:** Kauan (Usuário Humano) · **Executor:** Claude (agente de código)
+- **Status:** `[CONCLUÍDO]` — validação executada de fato (saídas abaixo).
+- **Causa-raiz da build quebrada:** o commit `504cf43` regravou o `bun.lock` com `@lovable.dev/vite-tanstack-config` 2.13.1 e `nitro ^3.0.260610-beta`, divergindo do `package.json` (2.25.3 / `3.0.260603-beta`); a Vercel (`bun install --frozen-lockfile`) recusa. Reincidência de 16/10, 20/10, 21/10 e 22/10.
+- **Correções:** `bun.lock` restaurado (blob canônico `11e32ea`); `src/server.ts` alinhado ao contrato de `verifyUnsubscribeToken` (objeto|null) — o descadastro one-click RFC 8058 sempre retornava 400/500; `domain-hygiene` só trata `ENOTFOUND`/`ENODATA` como definitivos (erros transitórios = fail-open, sem cache de 30 dias); 18 erros de typecheck corrigidos; testes de DNS herméticos; novo guarda `src/lib/lockfile-sync.test.ts`.
+- **Prevenção:** regra 7 adicionada ao `AGENTS.md` (portão anti-build-quebrada).
+- **Validação:** `bun install --frozen-lockfile` OK · `typecheck` 0 erros · `lint` 0 erros · `test` 42 arquivos / 330 testes · `build` OK.

@@ -1537,3 +1537,10 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
   - Web Worker inline via `Blob` (`setInterval` fora da main thread) imune ao throttling de abas em segundo plano, aliado à Screen Wake Lock API e alerta `beforeunload`.
   - Chave de Modo Ensaio (`Dry-Run`) com badge visual no monitor, modal de confirmação pré-disparo (contagem de válidos, suprimidos e inválidos) e semáforo de reputação ao vivo (Verde < 2%, Amarelo 2–3%, Vermelho > 3% com pausa automática).
 - **Validação & Governança:** 41 arquivos de teste (324 testes no Vitest) 100% verdes, incluindo `schema-integrity.test.ts` (garantia de ausência da coluna fantasma `processing_started_at`), `mailer-parity.test.ts`, `email-syntax.test.ts`, `domain-hygiene.test.ts`, `unsubscribe-token.test.ts`, `mail-provider.test.ts`, `resend-email.test.ts` e `mailer-queue.test.ts`. `package.json` e `bun.lock` intactos; lint com 0 erros e build de produção validada.
+
+## Atualização 2026-10-23 (TASK-110)
+
+- `src/lib/lockfile-sync.test.ts`: guarda que compara `package.json` × `bun.lock` (falha antes da Vercel).
+- `src/server.ts` (`/api/unsubscribe`): usa o retorno `{ email, campaignId } | null` de `verifyUnsubscribeToken`; POST válido descadastra de forma permanente, inválido retorna 400.
+- `src/lib/email/domain-hygiene.server.ts`: apenas `ENOTFOUND`/`ENODATA` são definitivos; demais erros de DNS = `unverified` (fail-open, não vai para `mailer_domain_checks`).
+- `AGENTS.md` regra 7: portão obrigatório (`bun install --frozen-lockfile`, `git diff --exit-code -- package.json bun.lock`, `bun run validate`).
