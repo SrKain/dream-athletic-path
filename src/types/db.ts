@@ -481,7 +481,14 @@ export interface MailerDomainCheck {
 }
 
 export type MailerQueueStatus =
-  "pending" | "processing" | "sent" | "failed" | "retry" | "cancelled";
+  | "pending"
+  | "processing"
+  | "sent"
+  | "failed"
+  | "retry"
+  | "suppressed"
+  | "cancelled"
+  | "unconfirmed";
 
 export interface MailerCampaign {
   id: string;
@@ -561,6 +568,7 @@ export interface CampaignProgress {
   pendingCount: number;
   processingCount: number;
   cancelledCount: number;
+  unconfirmedCount?: number;
   currentBatch: number;
   totalBatches: number;
   batchSize: number;

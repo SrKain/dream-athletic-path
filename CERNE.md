@@ -1594,4 +1594,31 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
   - `bun run test`: 42 suítes / 336 testes 100% verdes no Vitest.
   - `compile_applet`: build de produção concluída com sucesso.
 
+## Atualização 2026-10-27 (TASK-113) — Migration 0030 (`coach_id` Nullable), Persistência Resiliente de Rajada, Estado `unconfirmed` sem Reenvio Automático e Polling Independente no Navegador
+
+- **Plano Aprovado:** [`think/2026-10-27-1320-mailer-coach-nullable-persistencia-resiliente-unconfirmed.md`](think/2026-10-27-1320-mailer-coach-nullable-persistencia-resiliente-unconfirmed.md) e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Causa Raiz Resolvida:**
+  - `recruit_email_logs.coach_id` era `NOT NULL` desde a migration `0016`, enquanto a `0018` removeu `NOT NULL` apenas de `athlete_id` e a FK de `coach_id`. Contatos importados de `universities.coaches` (JSONB) possuem `mailer_queue.coach_id = NULL`. Ao fechar a rajada via `complete_mailer_burst`, o `INSERT INTO recruit_email_logs` violava a constraint `NOT NULL` de `coach_id`, revertendo toda a transação após o Resend já ter aceitado o lote (`"Provider accepted N messages, but burst persistence failed"`), deixando itens presos em `processing`.
+- **Migration 0030 Idempotente (`db/migrations/0030_recruit_email_logs_coach_nullable.sql` & `db/migrations/verify-0030.sql`):**
+  1. `ALTER TABLE public.recruit_email_logs ALTER COLUMN coach_id DROP NOT NULL;` e `ALTER COLUMN athlete_id DROP NOT NULL;`.
+  2. Endurecimento de todas as colunas `NOT NULL` e constraints `CHECK` de `recruit_email_logs` cruzadas nas migrations `0001–0029`: `subject` (`DEFAULT ''`), `status` (`DEFAULT 'sent'` e `CHECK (status IN ('sent', 'failed', 'suppressed'))`), `email_type` (`DEFAULT 'athlete_teaser'` e `CHECK` para `'athlete_teaser'`, `'athlete_teaser_multi'`, `'catalog'`), `athlete_ids` (`DEFAULT '{}'::uuid[]`) e `sent_at` (`DEFAULT timezone('utc', now())`).
+  3. Adição do estado `'unconfirmed'` em `mailer_queue_status_check` (`'pending', 'processing', 'sent', 'failed', 'retry', 'cancelled', 'suppressed', 'unconfirmed'`).
+  4. Isolamento resiliente em `complete_mailer_burst`: o `UPDATE public.mailer_queue` (`status = 'sent'`, `provider_message_id`) ocorre primeiro; o `INSERT INTO public.recruit_email_logs` roda dentro de um bloco `BEGIN ... EXCEPTION WHEN OTHERS THEN v_log_error := SQLERRM; v_logs := 0; END;`, garantindo que uma falha eventual no log de auditoria nunca reverta a gravação da fila nem os contadores da campanha.
+  5. `get_mailer_campaign_progress_summary` atualizado com `unconfirmed_count` e `mailer_burst_ready()` atualizado para validar `coach_id` nullable e `unconfirmed` na constraint.
+- **Persistência Resiliente no Servidor (`src/lib/email/mailer-queue.server.ts`):**
+  - Se a chamada RPC `complete_mailer_burst` retornar erro relacionado a `recruit_email_logs` ou `coach_id` (ex.: durante janela de deploy), o backend executa fallback direto gravando `status = 'sent'` e `provider_message_id` em `mailer_queue` e atualizando os contadores de `mailer_campaigns`, preservando 100% dos envios aceitos pelo provedor.
+  - Todas as saídas de `processMailerQueue` (inclusive early-returns de lease conflict, cooldown, gate de migration, rate limit e falha de persistência) incluem o campo `progress: CampaignProgress | null` via helper `withProgress`.
+- **Reconciliação sem Reenvio Automático (`unconfirmed`):**
+  - Em `reconcileStaleProcessingQueueItems` e no botão `Destravar Fila / Sincronizar Navegador` (`triggerCampaignWorkerServerFn`), itens em `processing` sem evidência de entrega (`provider_message_id`, `recruit_email_logs` com `status = 'sent'` ou `email_events`) **nunca** voltam automaticamente para `pending`: são marcados como `status = 'unconfirmed'` (`error_code = 'UNCONFIRMED_DELIVERY'`) e pausam a campanha para decisão explícita do operador.
+  - `reconcileCampaignIncident` (`src/lib/email/mailer-runner.server.ts`) suporta as 3 ações explícitas do humano: `[MARKED_SENT]` (marcar como enviados), `[REQUEUE_PENDING]` (reenviar para `pending`) e `[MARKED_FAILED]` (cancelar/falhar).
+- **Observabilidade e Polling Independente na UI (`src/routes/_authenticated/admin/mailer.tsx`):**
+  - Polling de leitura independente a cada `7s` no modo navegador para atualizar `campaignProgress` e detectar conclusão mesmo entre ticks ou durante cooldown.
+  - Indicador ao vivo `"último tick há Xs"` no monitor da campanha.
+  - Modal de reconciliação exibindo a lista de destinatários `unconfirmed` afetados (nome, e-mail e universidade) e os 3 botões de decisão explícita.
+- **Validação & Governança:**
+  - `package.json` (SHA `868f6434b581f681611b76689623de2ee9a2b9b1`) e `bun.lock` (SHA `11e32ea0199fd8ea03742194d7e92136aa0ed513`) rigorosamente intocados.
+  - 42 suítes / 342 testes 100% verdes no Vitest; `tsc --noEmit` com 0 erros; `eslint .` com 0 erros; build de produção (`bun run build`) concluída com sucesso.
+  - **Ordem obrigatória de implantação:** aplicar `0030_recruit_email_logs_coach_nullable.sql` no Supabase SQL Editor (e validar com `verify-0030.sql`) **ANTES** de subir o código.
+
+
 

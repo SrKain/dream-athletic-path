@@ -72,7 +72,7 @@ export async function runNextEligibleCampaignBurst(
     (c) =>
       c.status === "running" &&
       c.filters?.serverOrchestration === true &&
-      !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+      !/manual reconciliation required|unconfirmed_delivery|unconfirmed|provider_ambiguous|ambiguous|quarantine/i.test(
         c.last_error || "",
       ),
   );
@@ -102,17 +102,22 @@ export async function runNextEligibleCampaignBurst(
 }
 
 /**
- * Incident review intentionally does not clear quarantine or mutate queue rows.
- * A note from a person does NOT prove whether Resend accepted a request.
- * Controlled row-level reconciliation, audit records and a new authorized RPC
- * are prerequisites to any subsequent resume. No silent state transitions.
+ * Incident review intentionally does not clear quarantine or mutate queue rows
+ * without an explicit human resolution tag:
+ * - [MARKED_SENT]: Marks unconfirmed / ambiguous items as 'sent' (prevents re-send)
+ * - [REQUEUE_PENDING]: Re-enqueues unconfirmed / ambiguous items to 'pending'
+ * - [MARKED_FAILED]: Marks unconfirmed / ambiguous items as 'failed' (cancels re-send)
  */
 export async function reconcileCampaignIncident(
   campaignId: string,
   adminNotes: string,
   _actorUserId?: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
-): Promise<{ success: boolean; message: string }> {
+): Promise<{
+  success: boolean;
+  message: string;
+  resolution?: "marked_sent" | "requeue_pending" | "marked_failed";
+}> {
   const cleanNotes = (adminNotes || "").trim();
   if (cleanNotes.length < 5) {
     return {
@@ -130,10 +135,10 @@ export async function reconcileCampaignIncident(
   if (error || !campaign)
     return { success: false, message: "Não foi possível consultar a campanha." };
 
-  const hasExplicitResolution = /^\[(MARKED_SENT|MARKED_FAILED)\]/i.test(cleanNotes);
-  if (!hasExplicitResolution) {
+  const resolutionMatch = cleanNotes.match(/^\[(MARKED_SENT|REQUEUE_PENDING|MARKED_FAILED)\]/i);
+  if (!resolutionMatch) {
     if (
-      !/manual reconciliation required|provider_ambiguous|ambiguous|quarantine/i.test(
+      !/manual reconciliation required|unconfirmed_delivery|unconfirmed|provider_ambiguous|ambiguous|quarantine/i.test(
         campaign.last_error || "",
       )
     ) {
@@ -148,32 +153,65 @@ export async function reconcileCampaignIncident(
     };
   }
 
-  const markRemainingAsSent = /^\[MARKED_SENT\]/i.test(cleanNotes);
-  const rec = await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+  const rawTag = resolutionMatch[1].toUpperCase();
+  const resolution: "marked_sent" | "requeue_pending" | "marked_failed" =
+    rawTag === "MARKED_SENT"
+      ? "marked_sent"
+      : rawTag === "REQUEUE_PENDING"
+        ? "requeue_pending"
+        : "marked_failed";
 
-  // Também reconcilia itens marcados com error_code = PROVIDER_AMBIGUOUS conforme decisão explícita
+  const rec = await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+  const nowIso = new Date().toISOString();
+
+  const targetUpdate =
+    resolution === "marked_sent"
+      ? {
+          status: "sent",
+          processed_at: nowIso,
+          reserved_by: null,
+          reserved_at: null,
+          reservation_expires_at: null,
+          last_error: null,
+          error_code: null,
+        }
+      : resolution === "requeue_pending"
+        ? {
+            status: "pending",
+            reserved_by: null,
+            reserved_at: null,
+            reservation_expires_at: null,
+            next_retry_at: null,
+            last_error: null,
+            error_code: null,
+          }
+        : {
+            status: "failed",
+            processed_at: nowIso,
+            reserved_by: null,
+            reserved_at: null,
+            reservation_expires_at: null,
+            next_retry_at: null,
+            last_error: `Marcado como falha pelo operador na reconciliação: ${cleanNotes}`,
+            error_code: "RECONCILED_FAILED",
+          };
+
+  // 1. Aplicar decisão explícita do humano aos itens em status = 'unconfirmed'
   try {
     await admin
       .from("mailer_queue")
-      .update(
-        markRemainingAsSent
-          ? {
-              status: "sent",
-              processed_at: new Date().toISOString(),
-              reserved_by: null,
-              reservation_expires_at: null,
-              last_error: null,
-              error_code: null,
-            }
-          : {
-              status: "pending",
-              reserved_by: null,
-              reservation_expires_at: null,
-              next_retry_at: null,
-              last_error: null,
-              error_code: null,
-            },
-      )
+      .update(targetUpdate)
+      .eq("campaign_id", campaignId)
+      .eq("status", "unconfirmed");
+  } catch {
+    // Segue mesmo se o mock ou tabela não tiver linhas em status = 'unconfirmed'
+  }
+
+  // 2. Aplicar decisão explícita do humano aos itens com error_code = 'PROVIDER_AMBIGUOUS'
+  try {
+    await admin
+      .from("mailer_queue")
+      .update(targetUpdate)
       .eq("campaign_id", campaignId)
       .eq("error_code", "PROVIDER_AMBIGUOUS");
   } catch {
@@ -189,9 +227,17 @@ export async function reconcileCampaignIncident(
     })
     .eq("id", campaignId);
 
+  const actionLabel =
+    resolution === "marked_sent"
+      ? "marcados como enviados"
+      : resolution === "requeue_pending"
+        ? "devolvidos para pending"
+        : "marcados como falha/cancelados";
+
   return {
     success: true,
-    message: `Campanha reconciliada (${rec.confirmedSent} confirmados como enviados, ${rec.recoveredToPending} devolvidos para a fila). Pronta para retomada no navegador.`,
+    resolution,
+    message: `Campanha reconciliada (${rec.confirmedSent} confirmados automaticamente por evidência; itens não confirmados ${actionLabel}). Pronta para retomada no navegador.`,
   };
 }
 

@@ -31,6 +31,8 @@ let mockEmailFit: string | null = "High court awareness; Reliable leadership";
 let failQueueInsertOnCall = 0;
 let queueInsertCalls = 0;
 let failSentPersistence = false;
+let failLogPersistence = false;
+let failBurstRpcWithLogConstraint = false;
 let failLease = false;
 let migrationReady = true;
 const mockRateLimit = {
@@ -285,6 +287,15 @@ function createMockAdminClient() {
       if (table === "recruit_email_logs") {
         return {
           insert: vi.fn(async (rows: any[]) => {
+            if (failLogPersistence) {
+              return {
+                data: null,
+                error: {
+                  message:
+                    'null value in column "coach_id" of relation "recruit_email_logs" violates not-null constraint',
+                },
+              };
+            }
             const list = Array.isArray(rows) ? rows : [rows];
             mockLogs.push(...list);
             return { data: list, error: null };
@@ -413,6 +424,7 @@ function createMockAdminClient() {
         let pending = 0;
         let processing = 0;
         let cancelled = 0;
+        let unconfirmed = 0;
         for (const q of mockQueue.values()) {
           if (q.campaign_id === campaignId) {
             if (q.status === "sent") sent++;
@@ -420,6 +432,7 @@ function createMockAdminClient() {
             else if (q.status === "pending" || q.status === "retry") pending++;
             else if (q.status === "processing") processing++;
             else if (q.status === "cancelled") cancelled++;
+            else if (q.status === "unconfirmed") unconfirmed++;
           }
         }
         return {
@@ -434,6 +447,7 @@ function createMockAdminClient() {
             pending_count: pending,
             processing_count: processing,
             cancelled_count: cancelled,
+            unconfirmed_count: unconfirmed,
             current_batch: c.current_batch || 1,
             total_batches: c.total_batches || 1,
             batch_size: c.batch_size || 150,
@@ -450,8 +464,18 @@ function createMockAdminClient() {
       if (fnName === "complete_mailer_burst") {
         if (failSentPersistence)
           return { data: null, error: { message: "simulated sent persistence failure" } };
+        if (failBurstRpcWithLogConstraint) {
+          return {
+            data: null,
+            error: {
+              message:
+                'null value in column "coach_id" of relation "recruit_email_logs" violates not-null constraint',
+            },
+          };
+        }
         const camp = mockCampaigns.get(args.p_campaign_id);
         let updated = 0;
+        let logError: string | null = null;
         for (const result of args.p_results) {
           const q = mockQueue.get(result.id);
           if (!q || q.reserved_by !== args.p_worker_id) continue;
@@ -472,31 +496,40 @@ function createMockAdminClient() {
           };
           mockQueue.set(q.id, next);
           updated++;
-          if (result.status === "sent" || result.status === "failed") {
-            mockLogs.push({
-              campaign_id: q.campaign_id,
-              status: result.status,
-              recipient_email: q.recipient_email,
-              provider_id: result.provider_id || null,
-            });
+          if ((result.status === "sent" || result.status === "failed") && !args.p_dry_run) {
+            if (failLogPersistence) {
+              logError = "simulated recruit_email_logs insertion error (caught in subtransaction)";
+            } else {
+              mockLogs.push({
+                campaign_id: q.campaign_id,
+                coach_id: q.coach_id ?? null,
+                status: result.status,
+                recipient_email: q.recipient_email,
+                provider_id: result.provider_id || null,
+              });
+            }
           }
         }
         const rows = Array.from(mockQueue.values()).filter(
           (q) => q.campaign_id === args.p_campaign_id,
         );
         const remain = rows.filter((q) =>
-          ["pending", "processing", "retry"].includes(q.status),
+          ["pending", "processing", "retry", "unconfirmed"].includes(q.status),
         ).length;
+        const unconfirmedCount = rows.filter((q) => q.status === "unconfirmed").length;
         Object.assign(camp, {
           sent_count: rows.filter((q) => q.status === "sent").length,
           failed_count: rows.filter((q) => q.status === "failed").length,
           batch_size: args.p_next_size,
           current_batch: (camp.current_batch || 1) + (remain ? 1 : 0),
-          status: remain === 0 ? "completed" : "running",
+          status: unconfirmedCount > 0 ? "paused" : remain === 0 ? "completed" : "running",
           next_batch_at: null,
         });
         if (args.p_lock_until) mockRateLimit.locked_until = args.p_lock_until;
-        return { data: { updated }, error: null };
+        return {
+          data: { updated, logs: failLogPersistence ? 0 : updated, log_error: logError },
+          error: null,
+        };
       }
       if (fnName === "claim_mailer_queue_batch") {
         const batchSize = Math.min(300, Math.max(1, args.p_batch_size || 300));
@@ -535,6 +568,8 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
     failQueueInsertOnCall = 0;
     queueInsertCalls = 0;
     failSentPersistence = false;
+    failLogPersistence = false;
+    failBurstRpcWithLogConstraint = false;
     failLease = false;
     migrationReady = true;
     mockRateLimit.locked_until = null;
@@ -1231,7 +1266,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(progress?.currentBatch).toBeGreaterThanOrEqual(1);
     });
 
-    it("reconciles expired processing rows without duplicating already-sent recipients", async () => {
+    it("reconciles expired processing rows: marks evidenced items as sent and unevidenced items as unconfirmed (never auto-pending)", async () => {
       const mockAdmin = createMockAdminClient();
       const recipients = Array.from({ length: 4 }, (_, i) => ({
         name: `Coach ${i}`,
@@ -1250,7 +1285,7 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
 
       // Simulate 2 rows stuck in processing after a Vercel timeout:
       // - coach0 was already logged in recruit_email_logs as sent
-      // - coach1 was never sent before timeout
+      // - coach1 has NO delivery evidence
       mockQueue.set(rows[0].id, {
         ...rows[0],
         status: "processing",
@@ -1276,11 +1311,125 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
         maxBatchSize: 100,
       });
 
-      // coach0 was reconciled as sent without re-sending; coach1, coach2, coach3 were sent in the batch
-      expect(tickResult.sent).toBe(3);
-      expect(tickResult.campaignStatus).toBe("completed");
+      // coach0 was reconciled as sent; coach2 & coach3 (pending) were sent (2 items);
+      // coach1 (no evidence) was marked 'unconfirmed' and NOT resent automatically!
+      expect(tickResult.sent).toBe(2);
+      expect(tickResult.campaignStatus).toBe("paused");
+      expect(tickResult.progress).toBeDefined();
+      expect(tickResult.progress?.unconfirmedCount).toBe(1);
+      expect(tickResult.progress?.substate).toBe("reconciliation_required");
+
       const finalRows = Array.from(mockQueue.values());
-      expect(finalRows.every((r) => r.status === "sent")).toBe(true);
+      const coach0Row = finalRows.find((r) => r.recipient_email === "coach0@college.edu");
+      const coach1Row = finalRows.find((r) => r.recipient_email === "coach1@college.edu");
+      const coach2Row = finalRows.find((r) => r.recipient_email === "coach2@college.edu");
+      const coach3Row = finalRows.find((r) => r.recipient_email === "coach3@college.edu");
+
+      expect(coach0Row?.status).toBe("sent");
+      expect(coach1Row?.status).toBe("unconfirmed");
+      expect(coach1Row?.error_code).toBe("UNCONFIRMED_DELIVERY");
+      expect(coach2Row?.status).toBe("sent");
+      expect(coach3Row?.status).toBe("sent");
+    });
+
+    it("keeps mailer_queue as sent with provider_message_id when coach_id is null even if recruit_email_logs fails", async () => {
+      const mockAdmin = createMockAdminClient();
+      const camp = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [
+            {
+              coachId: "b0c7a8f1-3210-4200-8101-556677889900", // Not in coaches table -> coach_id = null
+              name: "JSONB Coach One",
+              email: "jsonb1@university.edu",
+              universityName: "State University",
+            },
+            {
+              name: "JSONB Coach Two",
+              email: "jsonb2@university.edu",
+              universityName: "Tech University",
+            },
+          ],
+        },
+        mockAdmin,
+      );
+
+      // Simulate failure in recruit_email_logs insertion both in subtransaction and fallback
+      failLogPersistence = true;
+      failBurstRpcWithLogConstraint = true;
+
+      const tick = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+        maxBatchSize: 100,
+      });
+
+      expect(tick.sent).toBe(2);
+      expect(tick.campaignStatus).toBe("completed");
+      expect(tick.progress?.sentCount).toBe(2);
+
+      const qRows = Array.from(mockQueue.values()).filter((q) => q.campaign_id === camp.campaignId);
+      expect(qRows).toHaveLength(2);
+      for (const row of qRows) {
+        expect(row.coach_id).toBeNull();
+        expect(row.status).toBe("sent");
+        expect(row.provider_message_id).toMatch(/^resend_batch_/);
+      }
+    });
+
+    it("populates progress on all processMailerQueue early-return paths (lease conflict, cooldown, readiness gate, persistence error)", async () => {
+      const mockAdmin = createMockAdminClient();
+      const camp = await enqueueCampaignDispatches(
+        {
+          mode: "catalog",
+          recipients: [{ name: "Coach Early", email: "early@college.edu" }],
+        },
+        mockAdmin,
+      );
+
+      // 1. Lease conflict early return
+      failLease = true;
+      const leaseRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+      });
+      expect(leaseRes.processed).toBe(0);
+      expect(leaseRes.progress).not.toBeNull();
+      expect(leaseRes.progress?.campaignId).toBe(camp.campaignId);
+      failLease = false;
+
+      // 2. Readiness gate early return
+      migrationReady = false;
+      const gateRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+      });
+      expect(gateRes.processed).toBe(0);
+      expect(gateRes.progress).not.toBeNull();
+      expect(gateRes.progress?.pendingCount).toBe(1);
+      migrationReady = true;
+
+      // 3. Cooldown early return
+      mockRateLimit.locked_until = new Date(Date.now() + 30_000).toISOString();
+      const cooldownRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+      });
+      expect(cooldownRes.cooldownActive).toBe(true);
+      expect(cooldownRes.progress).not.toBeNull();
+      expect(cooldownRes.progress?.campaignId).toBe(camp.campaignId);
+      mockRateLimit.locked_until = null;
+
+      // 4. Persistence error early return
+      failSentPersistence = true;
+      const persistErrRes = await processMailerQueue({
+        customAdmin: mockAdmin,
+        campaignId: camp.campaignId,
+      });
+      expect(persistErrRes.campaignStatus).toBe("paused");
+      expect(persistErrRes.progress).not.toBeNull();
+      expect(persistErrRes.progress?.campaignId).toBe(camp.campaignId);
+      failSentPersistence = false;
     });
   });
 

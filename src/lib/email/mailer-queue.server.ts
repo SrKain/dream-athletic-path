@@ -134,6 +134,7 @@ export interface CampaignProgress {
   pendingCount: number;
   processingCount: number;
   cancelledCount: number;
+  unconfirmedCount?: number;
   currentBatch: number;
   totalBatches: number;
   batchSize: number;
@@ -907,10 +908,26 @@ export async function processMailerQueue(
     effectiveBurstSize: QUEUE_CONFIG.BURST_SIZE,
     burstPauseMs: QUEUE_CONFIG.BURST_PAUSE_MS,
     activeCampaignId: campaignId,
+    progress: null,
     ...extra,
   });
-  if (!campaignId || !UUID_REGEX.test(campaignId))
-    return empty({ message: "Valid campaignId is required." });
+
+  if (!campaignId || !UUID_REGEX.test(campaignId)) {
+    return empty({ message: "Valid campaignId is required.", progress: null });
+  }
+
+  const withProgress = async (
+    extra: Partial<ProcessQueueResult> = {},
+  ): Promise<ProcessQueueResult> => {
+    const progress =
+      extra.progress !== undefined
+        ? extra.progress
+        : await getCampaignQueueProgress(campaignId, admin).catch(() => null);
+    return empty({
+      ...extra,
+      progress,
+    });
+  };
 
   const workerId = options?.workerId || `browser-${crypto.randomBytes(8).toString("hex")}`;
   const controllerId = options?.clientId?.trim() || workerId;
@@ -929,7 +946,7 @@ export async function processMailerQueue(
     p_lease_seconds: QUEUE_CONFIG.LEASE_DURATION_SEC,
   });
   if (lease.error || lease.data !== true) {
-    return empty({
+    return withProgress({
       controllerConflict: lease.data === false && !lease.error,
       message: lease.error?.message || "Another tab controls this campaign.",
     });
@@ -940,29 +957,29 @@ export async function processMailerQueue(
     .select("id,status,batch_size,next_batch_at,total_recipients,filters,sent_count,current_batch")
     .eq("id", campaignId)
     .maybeSingle();
-  if (campaignError || !campaign)
-    return empty({ message: campaignError?.message || "Campaign not found." });
+  if (campaignError || !campaign) {
+    return withProgress({ message: campaignError?.message || "Campaign not found." });
+  }
   const effectiveSize = Math.min(
     requestedSize,
     Math.max(1, Number(campaign.batch_size) || QUEUE_CONFIG.BURST_SIZE),
   );
   const stopped = ["paused", "cancelled", "completed", "failed"].includes(campaign.status);
   if (stopped) {
-    return empty({
+    return withProgress({
       effectiveBurstSize: effectiveSize,
       campaignStatus: campaign.status,
       campaignCompleted: campaign.status === "completed",
-      progress: await getCampaignQueueProgress(campaignId, admin),
     });
   }
 
   // Never touch Resend until the atomic-completion migration is installed.
   const readiness = await admin.rpc("mailer_burst_ready");
   if (readiness.error || readiness.data !== true) {
-    return empty({
+    return withProgress({
       effectiveBurstSize: effectiveSize,
       message:
-        "A migration 0029 do Mailer não está aplicada no banco. Aplique a migration 0029 no Supabase SQL Editor para liberar os disparos.",
+        "A migration 0029/0030 do Mailer não está aplicada no banco. Aplique a migration 0030 no Supabase SQL Editor para liberar os disparos.",
     });
   }
 
@@ -971,8 +988,9 @@ export async function processMailerQueue(
     .select("locked_until")
     .eq("id", "global_resend_limit")
     .maybeSingle();
-  if (limitError)
-    return empty({ message: `Cannot verify provider rate limit: ${limitError.message}` });
+  if (limitError) {
+    return withProgress({ message: `Cannot verify provider rate limit: ${limitError.message}` });
+  }
   const now = Date.now();
   const notBefore = Math.max(
     limit?.locked_until ? new Date(limit.locked_until).getTime() : 0,
@@ -980,7 +998,7 @@ export async function processMailerQueue(
   );
   if (notBefore > now) {
     const wait = Math.ceil((notBefore - now) / 1000);
-    return empty({
+    return withProgress({
       effectiveBurstSize: effectiveSize,
       rateLimited: !!limit?.locked_until && new Date(limit.locked_until).getTime() > now,
       cooldownActive: true,
@@ -991,7 +1009,8 @@ export async function processMailerQueue(
 
   // Reconciliar reservas expiradas em 'processing' antes de reservar o lote,
   // verificando recruit_email_logs e email_events para nunca duplicar envios já aceitos.
-  await reconcileStaleProcessingQueueItems(campaignId, admin);
+  // Itens sem evidência vão para 'unconfirmed' (nunca 'pending' automaticamente).
+  const preReconcile = await reconcileStaleProcessingQueueItems(campaignId, admin);
 
   const claim = await admin.rpc("claim_mailer_queue_batch", {
     p_worker_id: workerId,
@@ -1000,7 +1019,7 @@ export async function processMailerQueue(
     p_campaign_id: campaignId,
   });
   if (claim.error || !Array.isArray(claim.data)) {
-    return empty({
+    return withProgress({
       effectiveBurstSize: effectiveSize,
       message: claim.error?.message || "Invalid queue reservation.",
     });
@@ -1008,14 +1027,32 @@ export async function processMailerQueue(
   const items = claim.data as MailerQueueItem[];
   if (!items.length) {
     let progress = await getCampaignQueueProgress(campaignId, admin);
-    if (!progress) return empty({ message: "Could not read campaign progress." });
+    if (!progress) return empty({ message: "Could not read campaign progress.", progress: null });
     if (progress.processingCount > 0) {
       const rec = await reconcileStaleProcessingQueueItems(campaignId, admin);
-      if (rec.recoveredToPending > 0 || rec.confirmedSent > 0) {
+      if (rec.unconfirmedCount > 0 || rec.confirmedSent > 0) {
         progress = (await getCampaignQueueProgress(campaignId, admin)) || progress;
       }
     }
-    if (progress.pendingCount + progress.processingCount === 0) {
+    const unconfirmedTotal = (progress.unconfirmedCount || 0) + preReconcile.unconfirmedCount;
+    if (progress.pendingCount + progress.processingCount === 0 && unconfirmedTotal > 0) {
+      const pauseMsg = `Manual reconciliation required: UNCONFIRMED_DELIVERY on ${progress.unconfirmedCount || unconfirmedTotal} recipient(s) without delivery confirmation.`;
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          status: "paused",
+          last_error: pauseMsg,
+          next_batch_at: null,
+        })
+        .eq("id", campaignId);
+      return withProgress({
+        campaignStatus: "paused",
+        campaignCompleted: false,
+        effectiveBurstSize: effectiveSize,
+        message: pauseMsg,
+      });
+    }
+    if (progress.pendingCount + progress.processingCount + (progress.unconfirmedCount || 0) === 0) {
       const { error } = await admin
         .from("mailer_campaigns")
         .update({
@@ -1025,15 +1062,14 @@ export async function processMailerQueue(
         })
         .eq("id", campaignId)
         .eq("status", "running");
-      if (error) return empty({ message: error.message });
-      return empty({
+      if (error) return withProgress({ message: error.message, progress });
+      return withProgress({
         campaignStatus: "completed",
         campaignCompleted: true,
-        progress: await getCampaignQueueProgress(campaignId, admin),
         effectiveBurstSize: effectiveSize,
       });
     }
-    return empty({
+    return withProgress({
       progress,
       campaignStatus: "running",
       effectiveBurstSize: effectiveSize,
@@ -1358,7 +1394,7 @@ export async function processMailerQueue(
   const reducedSize = nextBurstSize(effectiveSize, rateLimited);
   const confirmed = results.filter((r) => r.status === "sent").length;
 
-  // 7. Persistência atômica via complete_mailer_burst
+  // 7. Persistência atômica e resiliente via complete_mailer_burst
   const { data: completed, error: persistenceError } = await admin.rpc("complete_mailer_burst", {
     p_campaign_id: campaignId,
     p_worker_id: workerId,
@@ -1369,23 +1405,155 @@ export async function processMailerQueue(
     p_dry_run: isDryRun,
   });
 
+  if (
+    completed &&
+    typeof completed === "object" &&
+    "log_error" in completed &&
+    completed.log_error
+  ) {
+    console.warn(
+      "[mailer-queue] complete_mailer_burst log insertion warning (queue status preserved):",
+      completed.log_error,
+    );
+  }
+
   if (persistenceError || !completed || Number(completed.updated) !== items.length) {
-    const message = `Provider accepted ${confirmed} messages, but burst persistence failed. Manual reconciliation required. ${persistenceError?.message || ""}`;
-    await admin
-      .from("mailer_campaigns")
-      .update({
-        status: "paused",
-        last_error: message,
-        next_batch_at: null,
-      })
-      .eq("id", campaignId);
-    return empty({
-      sent: confirmed,
-      processed: items.length,
-      effectiveBurstSize: reducedSize,
-      campaignStatus: "paused",
-      message,
-    });
+    // Fallback resiliente: se o provedor já aceitou mensagens e a RPC falhou
+    // (ex.: violação de constraint em recruit_email_logs antes da 0030),
+    // persistir imediatamente mailer_queue (status = 'sent' + provider_message_id)
+    // para que NENHUM e-mail aceito pelo provedor fique sem registro de sent.
+    let fallbackSucceeded = false;
+    const nowIso = new Date().toISOString();
+    let fallbackUpdatedCount = 0;
+
+    for (const r of results) {
+      const targetItem = items.find((i) => i.id === r.id);
+      const nextPayload =
+        targetItem?.payload && typeof targetItem.payload === "object"
+          ? { ...targetItem.payload }
+          : {};
+      if (r.status === "sent" || r.status === "cancelled") {
+        delete nextPayload.html;
+        delete nextPayload.text;
+      }
+
+      const { error: qUpdErr } = await admin
+        .from("mailer_queue")
+        .update({
+          status: r.status,
+          provider_message_id:
+            r.status === "sent" ? r.provider_id : (targetItem?.provider_message_id ?? null),
+          error_code: r.error_code,
+          last_error: r.error_message,
+          next_retry_at: r.next_retry_at,
+          processed_at: ["sent", "failed", "cancelled"].includes(r.status) ? nowIso : null,
+          payload: nextPayload,
+          reserved_by: null,
+          reserved_at: null,
+          reservation_expires_at: null,
+        })
+        .eq("id", r.id);
+
+      if (!qUpdErr) {
+        fallbackUpdatedCount += 1;
+      }
+    }
+
+    const isLogConstraintError = /recruit_email_logs|coach_id/i.test(
+      persistenceError?.message || "",
+    );
+
+    if (fallbackUpdatedCount === items.length && isLogConstraintError) {
+      fallbackSucceeded = true;
+      // Tentar inserir os logs isoladamente sem reverter a fila caso falhe
+      if (!isDryRun) {
+        try {
+          const logRows = results
+            .filter((r) => r.status === "sent" || r.status === "failed")
+            .map((r) => {
+              const u = items.find((i) => i.id === r.id);
+              const p = (u?.payload || {}) as Record<string, unknown>;
+              return {
+                campaign_id: campaignId,
+                athlete_id:
+                  typeof p.athleteId === "string" && UUID_REGEX.test(p.athleteId)
+                    ? p.athleteId
+                    : null,
+                athlete_ids: Array.isArray(p.athleteIds)
+                  ? filterValidUuids(p.athleteIds as string[])
+                  : [],
+                coach_id: u?.coach_id ?? null,
+                subject: u?.subject || "Go Team Go Recruiting",
+                status: r.status,
+                error_message: r.error_message,
+                sent_at: nowIso,
+                email_type: u?.email_type || "athlete_teaser",
+                recipient_email: u?.recipient_email || null,
+                recipient_name: u?.recipient_name || null,
+                university_name: u?.university_name || null,
+                provider_id: r.provider_id,
+              };
+            });
+          if (logRows.length > 0) {
+            await admin.from("recruit_email_logs").insert(logRows);
+          }
+        } catch (logErr) {
+          console.warn(
+            "[mailer-queue] Fallback log insert failed (ignored to preserve queue):",
+            logErr,
+          );
+        }
+      }
+
+      const postProgress = await getCampaignQueueProgress(campaignId, admin);
+      const remaining =
+        (postProgress?.pendingCount || 0) +
+        (postProgress?.processingCount || 0) +
+        (postProgress?.unconfirmedCount || 0);
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          sent_count: postProgress?.sentCount ?? Number(campaign.sent_count || 0) + confirmed,
+          failed_count: postProgress?.failedCount ?? 0,
+          batch_size: reducedSize,
+          current_batch: (Number(campaign.current_batch) || 1) + (remaining > 0 ? 1 : 0),
+          status:
+            (postProgress?.unconfirmedCount || 0) > 0
+              ? "paused"
+              : remaining === 0
+                ? "completed"
+                : "running",
+          completed_at: remaining === 0 ? nowIso : null,
+          next_batch_at:
+            remaining === 0
+              ? null
+              : new Date(Date.now() + QUEUE_CONFIG.BURST_PAUSE_MS).toISOString(),
+        })
+        .eq("id", campaignId);
+    }
+
+    if (!fallbackSucceeded) {
+      const message = `Provider accepted ${confirmed} messages, but burst persistence failed. Manual reconciliation required. ${persistenceError?.message || ""}`;
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          status: "paused",
+          last_error: message,
+          next_batch_at: null,
+        })
+        .eq("id", campaignId);
+      return withProgress({
+        sent: confirmed,
+        processed: items.length,
+        effectiveBurstSize: reducedSize,
+        campaignStatus: "paused",
+        message,
+      });
+    }
+  }
+
+  if (preReconcile.unconfirmedCount > 0 && !quarantineReason) {
+    quarantineReason = `Manual reconciliation required: UNCONFIRMED_DELIVERY on ${preReconcile.unconfirmedCount} recipient(s) without delivery confirmation.`;
   }
 
   if (quarantineReason) {
@@ -1447,11 +1615,12 @@ export async function getCampaignQueueProgress(
       const processing = Number(s.processing_count) || 0;
       const cancelled = Number(s.cancelled_count) || 0;
       const suppressed = Number(s.suppressed_count) || 0;
+      const unconfirmed = Number(s.unconfirmed_count) || 0;
 
       const processed = sent + failed + cancelled;
       const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
-      const remainingItems = pending + processing;
+      const remainingItems = pending + processing + unconfirmed;
       const remainingBursts = Math.ceil(
         remainingItems / Math.max(1, Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE),
       );
@@ -1483,6 +1652,7 @@ export async function getCampaignQueueProgress(
         {
           pendingCount: pending,
           processingCount: processing,
+          unconfirmedCount: unconfirmed,
         },
       );
 
@@ -1497,6 +1667,7 @@ export async function getCampaignQueueProgress(
         pendingCount: pending,
         processingCount: processing,
         cancelledCount: cancelled,
+        unconfirmedCount: unconfirmed,
         currentBatch: Number(s.current_batch) || 1,
         totalBatches: Number(s.total_batches) || 1,
         batchSize: Number(s.batch_size) || QUEUE_CONFIG.BURST_SIZE,
@@ -1532,6 +1703,7 @@ export async function getCampaignQueueProgress(
     { count: pendingCount },
     { count: processingCount },
     { count: cancelledCount },
+    { count: unconfirmedCount },
   ] = await Promise.all([
     admin
       .from("mailer_queue")
@@ -1558,6 +1730,11 @@ export async function getCampaignQueueProgress(
       .select("id", { count: "exact", head: true })
       .eq("campaign_id", campaignId)
       .eq("status", "cancelled"),
+    admin
+      .from("mailer_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .eq("status", "unconfirmed"),
   ]);
 
   const sent = sentCount || 0;
@@ -1565,12 +1742,14 @@ export async function getCampaignQueueProgress(
   const pending = pendingCount || 0;
   const processing = processingCount || 0;
   const cancelled = cancelledCount || 0;
+  const unconfirmed = unconfirmedCount || 0;
 
-  const total = campaign.total_recipients || sent + failed + pending + processing + cancelled;
+  const total =
+    campaign.total_recipients || sent + failed + pending + processing + cancelled + unconfirmed;
   const processed = sent + failed + cancelled;
   const percentComplete = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 
-  const remainingItems = pending + processing;
+  const remainingItems = pending + processing + unconfirmed;
   const remainingBursts = Math.ceil(
     remainingItems / Math.max(1, campaign.batch_size || QUEUE_CONFIG.BURST_SIZE),
   );
@@ -1602,6 +1781,7 @@ export async function getCampaignQueueProgress(
     {
       pendingCount: pending,
       processingCount: processing,
+      unconfirmedCount: unconfirmed,
     },
   );
 
@@ -1616,6 +1796,7 @@ export async function getCampaignQueueProgress(
     pendingCount: pending,
     processingCount: processing,
     cancelledCount: cancelled,
+    unconfirmedCount: unconfirmed,
     currentBatch: campaign.current_batch || 1,
     totalBatches: campaign.total_batches || 1,
     batchSize: campaign.batch_size || QUEUE_CONFIG.BURST_SIZE,
@@ -1631,22 +1812,40 @@ export async function getCampaignQueueProgress(
   };
 }
 
+export interface UnconfirmedRecipientSummary {
+  id: string;
+  recipientEmail: string;
+  recipientName: string;
+  universityName: string | null;
+}
+
 /**
  * Reconcilia de forma segura itens presos em `status = 'processing'` cuja reserva expirou
- * (por exemplo, quando uma Serverless Function da Vercel sofre timeout antes de `complete_mailer_burst`).
+ * (por exemplo, quando uma Serverless Function da Vercel sofre timeout ou falha de persistência).
  *
  * Para garantir zero duplicidade:
  * - Verifica `provider_message_id` na própria linha, `recruit_email_logs` (`status = 'sent'`) e `email_events`.
  * - Destinatários já aceitos pelo provedor são marcados como `sent`.
- * - Destinatários sem evidência de envio são devolvidos para `pending` para conclusão pelo navegador.
+ * - Destinatários sem evidência de envio NUNCA voltam automaticamente para `pending`:
+ *   são marcados como `unconfirmed` (`error_code = 'UNCONFIRMED_DELIVERY'`) e exigem decisão explícita do humano.
  */
 export async function reconcileStaleProcessingQueueItems(
   campaignId: string,
   customAdmin?: ReturnType<typeof getAdminClient>,
-  options?: { forceAll?: boolean },
-): Promise<{ recoveredToPending: number; confirmedSent: number }> {
+  _options?: { forceAll?: boolean },
+): Promise<{
+  recoveredToPending: number;
+  confirmedSent: number;
+  unconfirmedCount: number;
+  unconfirmedRecipients: UnconfirmedRecipientSummary[];
+}> {
   if (!campaignId || !UUID_REGEX.test(campaignId.trim())) {
-    return { recoveredToPending: 0, confirmedSent: 0 };
+    return {
+      recoveredToPending: 0,
+      confirmedSent: 0,
+      unconfirmedCount: 0,
+      unconfirmedRecipients: [],
+    };
   }
   const admin = customAdmin || getAdminClient();
   const nowMs = Date.now();
@@ -1655,7 +1854,7 @@ export async function reconcileStaleProcessingQueueItems(
   const { data: processingRows, error: procErr } = await admin
     .from("mailer_queue")
     .select(
-      "id, recipient_email, provider_message_id, attempts, reservation_expires_at, reserved_at, created_at",
+      "id, recipient_email, recipient_name, university_name, provider_message_id, attempts, reservation_expires_at, reserved_at, created_at",
     )
     .eq("campaign_id", campaignId)
     .eq("status", "processing")
@@ -1666,17 +1865,29 @@ export async function reconcileStaleProcessingQueueItems(
       "[mailer-queue] Error reading processing queue items for reconciliation:",
       procErr.message,
     );
-    return { recoveredToPending: 0, confirmedSent: 0 };
+    return {
+      recoveredToPending: 0,
+      confirmedSent: 0,
+      unconfirmedCount: 0,
+      unconfirmedRecipients: [],
+    };
   }
 
   if (!Array.isArray(processingRows) || processingRows.length === 0) {
-    return { recoveredToPending: 0, confirmedSent: 0 };
+    return {
+      recoveredToPending: 0,
+      confirmedSent: 0,
+      unconfirmedCount: 0,
+      unconfirmedRecipients: [],
+    };
   }
 
   const staleRows = (
     processingRows as Array<{
       id: string;
       recipient_email?: string | null;
+      recipient_name?: string | null;
+      university_name?: string | null;
       provider_message_id?: string | null;
       attempts?: number | null;
       reservation_expires_at?: string | null;
@@ -1697,7 +1908,12 @@ export async function reconcileStaleProcessingQueueItems(
   });
 
   if (staleRows.length === 0) {
-    return { recoveredToPending: 0, confirmedSent: 0 };
+    return {
+      recoveredToPending: 0,
+      confirmedSent: 0,
+      unconfirmedCount: 0,
+      unconfirmedRecipients: [],
+    };
   }
 
   const sentEmailsSet = new Set<string>();
@@ -1767,14 +1983,21 @@ export async function reconcileStaleProcessingQueueItems(
   }
 
   const confirmedSentIds: string[] = [];
-  const recoverToPendingIds: string[] = [];
+  const unconfirmedIds: string[] = [];
+  const unconfirmedRecipients: UnconfirmedRecipientSummary[] = [];
 
   for (const row of staleRows) {
     const cleanEmail = (row.recipient_email || "").toLowerCase().trim();
     if (row.provider_message_id || sentEmailsSet.has(cleanEmail)) {
       confirmedSentIds.push(row.id);
     } else {
-      recoverToPendingIds.push(row.id);
+      unconfirmedIds.push(row.id);
+      unconfirmedRecipients.push({
+        id: row.id,
+        recipientEmail: row.recipient_email || "",
+        recipientName: row.recipient_name || "Coach",
+        universityName: row.university_name ?? null,
+      });
     }
   }
 
@@ -1797,32 +2020,35 @@ export async function reconcileStaleProcessingQueueItems(
     }
   }
 
-  for (let i = 0; i < recoverToPendingIds.length; i += 100) {
-    const { error: updPendingErr } = await admin
+  for (let i = 0; i < unconfirmedIds.length; i += 100) {
+    const { error: updUnconfirmedErr } = await admin
       .from("mailer_queue")
       .update({
-        status: "pending",
+        status: "unconfirmed",
         reserved_by: null,
         reserved_at: null,
         reservation_expires_at: null,
         next_retry_at: null,
-        last_error: null,
-        error_code: null,
+        last_error:
+          "Processing reservation expired without delivery confirmation. Human decision required.",
+        error_code: "UNCONFIRMED_DELIVERY",
       })
       .eq("campaign_id", campaignId)
-      .in("id", recoverToPendingIds.slice(i, i + 100));
+      .in("id", unconfirmedIds.slice(i, i + 100));
 
-    if (updPendingErr) {
+    if (updUnconfirmedErr) {
       console.error(
-        "[mailer-queue] Failed to recover stale items to pending:",
-        updPendingErr.message,
+        "[mailer-queue] Failed to mark stale items as unconfirmed:",
+        updUnconfirmedErr.message,
       );
     }
   }
 
   return {
-    recoveredToPending: recoverToPendingIds.length,
+    recoveredToPending: 0,
     confirmedSent: confirmedSentIds.length,
+    unconfirmedCount: unconfirmedIds.length,
+    unconfirmedRecipients,
   };
 }
 
@@ -1871,6 +2097,7 @@ export async function resumeCampaign(
   // A delivery accepted by Resend but not persisted cannot be replayed safely.
   if (
     campaign.last_error?.includes("Manual reconciliation required") ||
+    campaign.last_error?.includes("UNCONFIRMED_DELIVERY") ||
     campaign.last_error?.includes("ambiguous") ||
     campaign.last_error?.includes("PROVIDER_AMBIGUOUS")
   ) {
@@ -1880,7 +2107,20 @@ export async function resumeCampaign(
     };
   }
 
-  await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+  const rec = await reconcileStaleProcessingQueueItems(campaignId, admin, { forceAll: true });
+  if (rec.unconfirmedCount > 0) {
+    await admin
+      .from("mailer_campaigns")
+      .update({
+        status: "paused",
+        last_error: `Manual reconciliation required: UNCONFIRMED_DELIVERY on ${rec.unconfirmedCount} recipient(s) without delivery confirmation.`,
+      })
+      .eq("id", campaignId);
+    return {
+      success: false,
+      message: `Existem ${rec.unconfirmedCount} destinatário(s) em estado 'unconfirmed'. Decisão humana obrigatória antes de retomar.`,
+    };
+  }
 
   const { error } = await admin
     .from("mailer_campaigns")

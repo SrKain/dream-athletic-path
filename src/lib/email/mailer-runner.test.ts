@@ -46,6 +46,18 @@ describe("Mailer Health & Substate Derivation Suite", () => {
     expect(healthQuarantine.substate).toBe("reconciliation_required");
     expect(healthQuarantine.canResume).toBe(false);
     expect(healthQuarantine.requiresReconciliation).toBe(true);
+
+    const healthUnconfirmed = deriveCampaignSubstate(
+      {
+        status: "paused",
+        last_error: null,
+      },
+      { unconfirmedCount: 3 },
+    );
+    expect(healthUnconfirmed.substate).toBe("reconciliation_required");
+    expect(healthUnconfirmed.canResume).toBe(false);
+    expect(healthUnconfirmed.requiresReconciliation).toBe(true);
+    expect(healthUnconfirmed.description).toContain("3 destinatário(s) em estado 'unconfirmed'");
   });
 
   it("derives manual_pause when status is paused and no quarantine error exists", () => {
@@ -148,6 +160,70 @@ describe("Mailer Incident Reconciliation Suite", () => {
     expect(res.message).toContain("Quarentena preservada");
     expect(updateSpy).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["[MARKED_SENT] Confirmado no painel do Resend", "marked_sent", "sent"],
+    ["[REQUEUE_PENDING] Não saiu no Resend, reenviar para a fila", "requeue_pending", "pending"],
+    ["[MARKED_FAILED] Cancelar envio para esses destinatários", "marked_failed", "failed"],
+  ] as const)(
+    "applies explicit human decision %s to unconfirmed items",
+    async (notes, expectedResolution, expectedStatus) => {
+      const queueUpdates: Array<Record<string, unknown>> = [];
+      const mockAdmin = {
+        from: vi.fn((table: string) => {
+          if (table === "mailer_campaigns") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: "110e8400-e29b-41d4-a716-446655440001",
+                      status: "paused",
+                      last_error: "Manual reconciliation required: UNCONFIRMED_DELIVERY",
+                    },
+                    error: null,
+                  }),
+                })),
+              })),
+              update: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+              })),
+            };
+          }
+          if (table === "mailer_queue") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  eq: vi.fn(() => ({
+                    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+                  })),
+                })),
+              })),
+              update: vi.fn((payload: Record<string, unknown>) => {
+                queueUpdates.push(payload);
+                return {
+                  eq: vi.fn(() => ({
+                    eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+                  })),
+                };
+              }),
+            };
+          }
+          return {};
+        }),
+      } as unknown as Parameters<typeof reconcileCampaignIncident>[3];
+
+      const res = await reconcileCampaignIncident(
+        "110e8400-e29b-41d4-a716-446655440001",
+        notes,
+        "admin@gtg.com",
+        mockAdmin,
+      );
+      expect(res.success).toBe(true);
+      expect(res.resolution).toBe(expectedResolution);
+      expect(queueUpdates.some((u) => u.status === expectedStatus)).toBe(true);
+    },
+  );
 });
 
 describe("TASK-107 honest ETA", () => {

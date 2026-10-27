@@ -380,4 +380,26 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
       }
     }
   });
+
+  it("verifies migration 0030 drops NOT NULL on recruit_email_logs.coach_id, adds unconfirmed to mailer_queue, and isolates log insertion", () => {
+    const mig0030 = fs.readFileSync(
+      path.resolve(process.cwd(), "db/migrations/0030_recruit_email_logs_coach_nullable.sql"),
+      "utf-8",
+    );
+
+    expect(mig0030).toMatch(/alter\s+column\s+coach_id\s+drop\s+not\s+null/i);
+    expect(mig0030).toMatch(/alter\s+column\s+athlete_id\s+drop\s+not\s+null/i);
+    expect(mig0030).toMatch(/mailer_queue_status_check/i);
+    expect(mig0030).toMatch(/'unconfirmed'/i);
+    expect(mig0030).toMatch(/exception\s+when\s+others\s+then/i);
+    expect(mig0030).toMatch(/v_log_error/i);
+    expect(mig0030).toMatch(/is_nullable\s*=\s*'YES'/i);
+
+    const verify0030 = fs.readFileSync(
+      path.resolve(process.cwd(), "db/migrations/verify-0030.sql"),
+      "utf-8",
+    );
+    expect(verify0030).toMatch(/information_schema\.columns/i);
+    expect(verify0030).toMatch(/mailer_burst_ready/i);
+  });
 });

@@ -274,13 +274,14 @@ export const reconcileCampaignIncidentServerFn = createServerFn({ method: "POST"
     return reconcileCampaignIncident(data.campaignId, data.adminNotes, userEmail);
   });
 
-// 19. Destravar e sincronizar fila para retomada imediata pelo navegador
+// 19. Destravar e sincronizar fila para retomada pelo navegador (sem reenvio automático de unconfirmed)
 export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
-    const { reconcileStaleProcessingQueueItems } = await import("./mailer-queue.server");
+    const { reconcileStaleProcessingQueueItems, getCampaignQueueProgress } =
+      await import("./mailer-queue.server");
     const admin = getAdminClient();
 
     const rec = await reconcileStaleProcessingQueueItems(data.campaignId, admin, {
@@ -294,13 +295,49 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (!campaign) {
-      return { success: false, message: "Campaign not found." };
+      return {
+        success: false as boolean,
+        requiresReconciliation: false as boolean,
+        unconfirmedCount: 0 as number,
+        unconfirmedRecipients: [] as import("./mailer-queue.server").UnconfirmedRecipientSummary[],
+        message: "Campaign not found.",
+      };
     }
 
     if (["completed", "cancelled", "failed"].includes(campaign.status)) {
       return {
-        success: false,
+        success: false as boolean,
+        requiresReconciliation: false as boolean,
+        unconfirmedCount: 0 as number,
+        unconfirmedRecipients: [] as import("./mailer-queue.server").UnconfirmedRecipientSummary[],
         message: `Campaign is in terminal state '${campaign.status}' and cannot be resumed.`,
+      };
+    }
+
+    const progress = await getCampaignQueueProgress(data.campaignId, admin);
+    const totalUnconfirmed = Math.max(rec.unconfirmedCount, progress?.unconfirmedCount || 0);
+
+    // Se houver itens em 'unconfirmed' (sem evidência de entrega), NÃO retomar automaticamente
+    // nem voltar para pending: pausar e exigir decisão explícita do humano.
+    if (totalUnconfirmed > 0) {
+      const pauseReason = `Manual reconciliation required: UNCONFIRMED_DELIVERY on ${totalUnconfirmed} recipient(s) without delivery confirmation.`;
+      await admin
+        .from("mailer_campaigns")
+        .update({
+          status: "paused",
+          last_error: pauseReason,
+          controller_id: null,
+          controller_lease_expires_at: null,
+          next_batch_at: null,
+        })
+        .eq("id", data.campaignId);
+
+      return {
+        success: true as boolean,
+        requiresReconciliation: true as boolean,
+        unconfirmedCount: totalUnconfirmed as number,
+        unconfirmedRecipients: rec.unconfirmedRecipients,
+        message: `Atenção: ${totalUnconfirmed} destinatário(s) estavam em processamento sem confirmação de entrega e foram marcados como 'unconfirmed' (${rec.confirmedSent} já enviados foram preservados). Decisão humana obrigatória antes de prosseguir.`,
       };
     }
 
@@ -326,8 +363,11 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
       .eq("id", data.campaignId);
 
     return {
-      success: true,
-      message: `Fila sincronizada (${rec.confirmedSent} já enviados preservados, ${rec.recoveredToPending} itens em processamento liberados para envio). Disparando pelo navegador!`,
+      success: true as boolean,
+      requiresReconciliation: false as boolean,
+      unconfirmedCount: 0 as number,
+      unconfirmedRecipients: [] as import("./mailer-queue.server").UnconfirmedRecipientSummary[],
+      message: `Fila sincronizada (${rec.confirmedSent} já enviados preservados). Disparando pelo navegador!`,
     };
   });
 

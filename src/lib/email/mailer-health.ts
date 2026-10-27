@@ -43,14 +43,19 @@ export function deriveCampaignSubstate(
     controllerConflict?: boolean;
     pendingCount?: number;
     processingCount?: number;
+    unconfirmedCount?: number;
   },
 ): CampaignHealthSummary {
   const status = campaign.status;
   const lastError = (campaign.last_error || "").trim();
+  const hasUnconfirmed = (options?.unconfirmedCount || 0) > 0;
 
   // 1. Quarentena / Reconciliação Manual tem máxima precedência
   const isQuarantine =
+    hasUnconfirmed ||
     lastError.includes("Manual reconciliation required") ||
+    lastError.includes("UNCONFIRMED_DELIVERY") ||
+    lastError.includes("unconfirmed") ||
     lastError.includes("ambiguous") ||
     lastError.includes("PROVIDER_AMBIGUOUS") ||
     lastError.includes("quarantine");
@@ -59,8 +64,9 @@ export function deriveCampaignSubstate(
     return {
       substate: "reconciliation_required",
       label: "Requer Reconciliação",
-      description:
-        "O provedor respondeu de forma ambígua ou houve falha transacional. O envio foi bloqueado para prevenir duplicidade de e-mails.",
+      description: hasUnconfirmed
+        ? `Existem ${options?.unconfirmedCount} destinatário(s) em estado 'unconfirmed' sem confirmação de entrega. Decisão humana obrigatória antes de prosseguir.`
+        : "O provedor respondeu de forma ambígua ou houve falha transacional. O envio foi bloqueado para prevenir duplicidade de e-mails.",
       isHealthy: false,
       canResume: false, // Bloqueado propositalmente até reconciliação explícita
       canPause: false,

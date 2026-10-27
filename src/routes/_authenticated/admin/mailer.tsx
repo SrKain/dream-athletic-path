@@ -261,12 +261,21 @@ function MailerPage() {
   const [queueLoading, setQueueLoading] = useState(false);
 
   const [reconcileModalOpen, setReconcileModalOpen] = useState(false);
-  const [reconcileResolution, setReconcileResolution] = useState<"marked_sent" | "marked_failed">(
-    "marked_sent",
-  );
+  const [reconcileResolution, setReconcileResolution] = useState<
+    "marked_sent" | "requeue_pending" | "marked_failed"
+  >("marked_sent");
   const [reconcileNotes, setReconcileNotes] = useState("");
   const [isReconciling, setIsReconciling] = useState(false);
   const [isTriggeringWorker, setIsTriggeringWorker] = useState(false);
+  const [unconfirmedRecipientsList, setUnconfirmedRecipientsList] = useState<
+    Array<{
+      id: string;
+      recipientName: string;
+      recipientEmail: string;
+      universityName: string | null;
+    }>
+  >([]);
+  const [loadingUnconfirmedList, setLoadingUnconfirmedList] = useState(false);
 
   // Modal de Confirmação & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -322,6 +331,8 @@ function MailerPage() {
   const burstSizeRef = React.useRef(100);
   const burstPauseRef = React.useRef(1200);
   const lastBurstAtRef = React.useRef<number | null>(null);
+  const [lastTickAt, setLastTickAt] = useState<number | null>(null);
+  const [lastTickElapsedSec, setLastTickElapsedSec] = useState<number | null>(null);
   const [sendRate, setSendRate] = useState(0);
   const [rateLimitNotice, setRateLimitNotice] = useState<string | null>(null);
 
@@ -618,6 +629,12 @@ function MailerPage() {
             setSendRate(res.sent / Math.max(1, (tickNow - lastBurstAtRef.current) / 1000));
           }
           lastBurstAtRef.current = tickNow;
+          setLastTickAt(tickNow);
+          setLastTickElapsedSec(0);
+
+          if (res.progress) {
+            setCampaignProgress(res.progress);
+          }
 
           if (res.controllerConflict) {
             setIsAnotherTabActive(true);
@@ -824,6 +841,64 @@ function MailerPage() {
       cancelled = true;
     };
   }, [activeCampaignId]);
+
+  // 3b. Relógio de 1s para exibir "último tick há Xs" no modo navegador
+  useEffect(() => {
+    if (lastTickAt === null) {
+      setLastTickElapsedSec(null);
+      return;
+    }
+    setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - lastTickAt) / 1000)));
+    const interval = setInterval(() => {
+      setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - lastTickAt) / 1000)));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lastTickAt]);
+
+  // 4c. Polling de leitura independente no modo navegador (a cada 7s, entre 5-10s),
+  // desacoplado dos ticks de disparo para garantir atualização de progresso e conclusão.
+  useEffect(() => {
+    if (!activeCampaignId) return;
+    if (orchestrationMode?.serverOrchestrated) return;
+    const isTerminal =
+      campaignProgress?.status === "completed" || campaignProgress?.status === "cancelled";
+    if (isTerminal) return;
+
+    let cancelled = false;
+    const pollBrowserProgress = async () => {
+      try {
+        const progress = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (cancelled || isUnmountedRef.current || !progress) return;
+        setCampaignProgress((prev) => {
+          const wasCompleted = prev?.status === "completed";
+          if (!wasCompleted && progress.status === "completed") {
+            isOrchestratorActiveRef.current = false;
+            void getMailerHistoryServerFn()
+              .then((updatedLogs) => {
+                if (!isUnmountedRef.current) {
+                  setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+                }
+              })
+              .catch(() => {});
+          }
+          return progress;
+        });
+      } catch {
+        // Falha transitória de leitura não interrompe o monitoramento.
+      }
+    };
+
+    const timer = setInterval(() => {
+      void pollBrowserProgress();
+    }, 7000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeCampaignId, orchestrationMode?.serverOrchestrated, campaignProgress?.status]);
 
   // In server mode polling is READ ONLY. A page refresh never starts a batch.
   useEffect(() => {
@@ -1617,6 +1692,38 @@ function MailerPage() {
     }
   }
 
+  const loadUnconfirmedRecipientsForModal = React.useCallback(async (campId: string) => {
+    setLoadingUnconfirmedList(true);
+    try {
+      const res = await getCampaignRecipientsServerFn({
+        data: {
+          campaignId: campId,
+          page: 1,
+          pageSize: 100,
+          statusFilter: "unconfirmed",
+        },
+      });
+      setUnconfirmedRecipientsList(
+        res.items.map((item) => ({
+          id: item.id,
+          recipientName: item.recipientName,
+          recipientEmail: item.recipientEmail,
+          universityName: item.universityName,
+        })),
+      );
+    } catch {
+      // Mantém lista prévia se houver erro de leitura
+    } finally {
+      setLoadingUnconfirmedList(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (reconcileModalOpen && activeCampaignId) {
+      void loadUnconfirmedRecipientsForModal(activeCampaignId);
+    }
+  }, [reconcileModalOpen, activeCampaignId, loadUnconfirmedRecipientsForModal]);
+
   async function handleReconcileIncident() {
     if (!activeCampaignId) return;
     if (reconcileNotes.trim().length < 5) {
@@ -1636,6 +1743,7 @@ function MailerPage() {
         toast.success(res.message);
         setReconcileModalOpen(false);
         setReconcileNotes("");
+        setUnconfirmedRecipientsList([]);
         const prog = await getCampaignQueueProgressServerFn({
           data: { campaignId: activeCampaignId },
         });
@@ -1660,6 +1768,26 @@ function MailerPage() {
         data: { campaignId: activeCampaignId },
       });
       if (res.success) {
+        const prog = await getCampaignQueueProgressServerFn({
+          data: { campaignId: activeCampaignId },
+        });
+        if (prog) setCampaignProgress(prog);
+
+        if (res.requiresReconciliation || Number(res.unconfirmedCount || 0) > 0) {
+          isOrchestratorActiveRef.current = false;
+          if (Array.isArray(res.unconfirmedRecipients) && res.unconfirmedRecipients.length > 0) {
+            setUnconfirmedRecipientsList(res.unconfirmedRecipients);
+          } else {
+            void loadUnconfirmedRecipientsForModal(activeCampaignId);
+          }
+          setReconcileModalOpen(true);
+          toast.warning(
+            res.message ||
+              "Destinatários sem evidência de entrega foram marcados como 'unconfirmed'. Decisão humana obrigatória.",
+          );
+          return;
+        }
+
         toast.success(res.message || "Fila sincronizada e retomada pelo navegador.");
         setIsAnotherTabActive(false);
         setCooldownRemaining(null);
@@ -1667,10 +1795,6 @@ function MailerPage() {
           campaignId: activeCampaignId,
           serverOrchestrated: false,
         });
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
         isOrchestratorActiveRef.current = true;
         triggerOrchestratorTick(250);
       } else {
@@ -2068,6 +2192,19 @@ function MailerPage() {
                   </strong>
                 </span>
                 <span>
+                  Último tick:{" "}
+                  <strong className="text-foreground font-mono">
+                    {lastTickElapsedSec !== null
+                      ? `último tick há ${lastTickElapsedSec}s`
+                      : "aguardando 1º tick"}
+                  </strong>
+                </span>
+                {(campaignProgress.unconfirmedCount || 0) > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400 font-bold">
+                    Não confirmados (unconfirmed): {campaignProgress.unconfirmedCount}
+                  </span>
+                )}
+                <span>
                   Tempo restante estimado:{" "}
                   <strong className="text-foreground">
                     {campaignProgress.estimatedRemainingSeconds === null
@@ -2242,6 +2379,9 @@ function MailerPage() {
                           <option value="processing">
                             Em Curso ({campaignProgress.processingCount})
                           </option>
+                          <option value="unconfirmed">
+                            Não Confirmados ({campaignProgress.unconfirmedCount || 0})
+                          </option>
                           <option value="sent">Enviados ({campaignProgress.sentCount})</option>
                           <option value="failed">Falhas ({campaignProgress.failedCount})</option>
                           <option value="suppressed">
@@ -2302,13 +2442,15 @@ function MailerPage() {
                                       className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
                                         item.status === "sent"
                                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                                          : item.status === "processing"
-                                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"
-                                            : item.status === "failed"
-                                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
-                                              : item.status === "suppressed"
-                                                ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                                                : "bg-muted text-muted-foreground"
+                                          : item.status === "unconfirmed"
+                                            ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                                            : item.status === "processing"
+                                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"
+                                              : item.status === "failed"
+                                                ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+                                                : item.status === "suppressed"
+                                                  ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+                                                  : "bg-muted text-muted-foreground"
                                       }`}
                                     >
                                       {item.status}
@@ -3431,23 +3573,81 @@ function MailerPage() {
         {/* MODAL DE RECONCILIAÇÃO DE INCIDENTE DA FILA */}
         {reconcileModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
                   <ShieldAlert className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Reconciliar Incidente de Quarentena</h3>
+                  <h3 className="font-bold text-foreground">
+                    Reconciliar Destinatários Não Confirmados
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    Desbloqueie a campanha após auditar os disparos no Resend.
+                    Itens em processamento sem evidência foram marcados como{" "}
+                    <strong className="text-foreground">unconfirmed</strong> e não voltam sozinhos
+                    para pending.
                   </p>
+                </div>
+              </div>
+
+              {/* Lista de destinatários afetados */}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground">
+                    Destinatários Afetados ({unconfirmedRecipientsList.length})
+                  </span>
+                  {activeCampaignId && (
+                    <button
+                      type="button"
+                      onClick={() => void loadUnconfirmedRecipientsForModal(activeCampaignId)}
+                      className="text-[11px] text-primary hover:underline cursor-pointer"
+                    >
+                      Atualizar lista
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-border bg-muted/20 divide-y divide-border">
+                  {loadingUnconfirmedList ? (
+                    <div className="p-3 text-center text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin inline-block mr-1.5" />
+                      Carregando destinatários não confirmados...
+                    </div>
+                  ) : unconfirmedRecipientsList.length === 0 ? (
+                    <div className="p-3 text-muted-foreground">
+                      Verifique no Resend Dashboard o status do último lote antes de escolher a
+                      resolução abaixo.
+                    </div>
+                  ) : (
+                    unconfirmedRecipientsList.map((rec) => (
+                      <div
+                        key={rec.id}
+                        className="px-3 py-2 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-semibold text-foreground truncate">
+                            {rec.recipientName}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {rec.recipientEmail}
+                          </div>
+                        </div>
+                        {rec.universityName && (
+                          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[160px] truncate">
+                            {rec.universityName}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
               <div className="space-y-3 text-xs">
                 <div className="space-y-1">
-                  <label className="font-semibold text-foreground">Ação de Resolução:</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="font-semibold text-foreground">
+                    Decisão Explícita do Operador:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => setReconcileResolution("marked_sent")}
@@ -3457,9 +3657,23 @@ function MailerPage() {
                           : "border-border bg-muted/30 text-muted-foreground"
                       }`}
                     >
-                      <div>Marcar Enviado</div>
+                      <div>Marcar Enviados</div>
                       <div className="text-[10px] font-normal opacity-80 mt-0.5">
-                        E-mail aceito pelo Resend Dashboard
+                        Confirmar como sent (sem reenvio)
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReconcileResolution("requeue_pending")}
+                      className={`p-2.5 rounded-lg border text-left cursor-pointer transition ${
+                        reconcileResolution === "requeue_pending"
+                          ? "border-amber-500 bg-amber-500/10 text-amber-950 dark:text-amber-200 font-bold"
+                          : "border-border bg-muted/30 text-muted-foreground"
+                      }`}
+                    >
+                      <div>Reenviar p/ Pending</div>
+                      <div className="text-[10px] font-normal opacity-80 mt-0.5">
+                        Devolver à fila para novo envio
                       </div>
                     </button>
                     <button
@@ -3471,9 +3685,9 @@ function MailerPage() {
                           : "border-border bg-muted/30 text-muted-foreground"
                       }`}
                     >
-                      <div>Marcar Falha</div>
+                      <div>Cancelar / Falhar</div>
                       <div className="text-[10px] font-normal opacity-80 mt-0.5">
-                        Não entregue, não reenviar automaticamente
+                        Marcar failed sem reenviar
                       </div>
                     </button>
                   </div>
@@ -3485,7 +3699,7 @@ function MailerPage() {
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="Ex: Verificado no Resend Dashboard que o lote anterior foi entregue com sucesso aos destinatários."
+                    placeholder="Ex: Verificado no Resend Dashboard que o lote anterior já foi aceito para estes destinatários."
                     value={reconcileNotes}
                     onChange={(e) => setReconcileNotes(e.target.value)}
                     className="w-full p-2.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary/40 focus:outline-none"

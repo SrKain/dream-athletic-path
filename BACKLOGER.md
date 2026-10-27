@@ -1409,4 +1409,66 @@ $ compile_applet
 Build succeeded - the applet is compiled
 ```
 
+---
+
+## TASK-113 — 2026-10-27 13:35 — Migration 0030 (`coach_id` Nullable), Persistência Resiliente de Rajada, Reconciliação `unconfirmed` sem Reenvio Automático e Polling no Navegador
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Google AI Studio (Coding Engine)
+- **Status:** `[CONCLUÍDO]` — Plano aprovado em `think/2026-10-27-1320-mailer-coach-nullable-persistencia-resiliente-unconfirmed.md` e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Causa Comprovada:**
+  - `recruit_email_logs.coach_id` era `NOT NULL` desde a `0016`; a `0018` só removeu `NOT NULL` de `athlete_id` e a FK de `coach_id`. Contatos importados de universidades (JSONB) têm `mailer_queue.coach_id = NULL`. `complete_mailer_burst` (0027/0029) inseria `u.coach_id` em `recruit_email_logs`, revertendo a transação inteira e pausando a campanha com `"Provider accepted N messages, but burst persistence failed"` após o Resend já ter aceitado o lote.
+- **Entregas Realizadas:**
+  1. **Migration Idempotente `db/migrations/0030_recruit_email_logs_coach_nullable.sql` e `db/migrations/verify-0030.sql` (somente leitura):**
+     - `ALTER TABLE public.recruit_email_logs ALTER COLUMN coach_id DROP NOT NULL;` e `ALTER COLUMN athlete_id DROP NOT NULL;`.
+     - Cruzamento com migrations `0001–0029` e blindagem de `subject`, `status` (`CHECK (status IN ('sent', 'failed', 'suppressed'))`), `email_type`, `athlete_ids` e `sent_at`.
+     - Inclusão de `'unconfirmed'` em `mailer_queue_status_check`.
+     - Isolamento do `INSERT INTO public.recruit_email_logs` em bloco `BEGIN ... EXCEPTION WHEN OTHERS THEN v_log_error := SQLERRM; v_logs := 0; END;` dentro de `complete_mailer_burst`, garantindo que `mailer_queue` (`status = 'sent'` + `provider_message_id`) jamais seja revertida se o log falhar.
+     - Atualização de `get_mailer_campaign_progress_summary` (`unconfirmed_count`) e `mailer_burst_ready()`.
+  2. **Persistência Resiliente no Servidor (`src/lib/email/mailer-queue.server.ts`):**
+     - Fallback resiliente caso `complete_mailer_burst` falhe por erro em `recruit_email_logs`: persiste `status = 'sent'` e `provider_message_id` diretamente em `mailer_queue` e atualiza contadores da campanha sem reverter nem pausar os envios aceitos.
+     - Todas as respostas de `processMailerQueue` (inclusive early-returns: lease, cooldown, gate, rate limit e erro de persistência) trazem o campo `progress`.
+  3. **Reconciliação Sem Reenvio Automático (`src/lib/email/mailer-queue.server.ts`, `src/lib/email/mailer-runner.server.ts`, `src/lib/email/recruit-email.functions.ts`):**
+     - Em `reconcileStaleProcessingQueueItems` e no destravar da fila (`triggerCampaignWorkerServerFn`), itens em `processing` sem evidência de entrega não voltam automaticamente para `pending`: são marcados como `unconfirmed` (`error_code = 'UNCONFIRMED_DELIVERY'`) e exigem decisão explícita do humano (`[MARKED_SENT]`, `[REQUEUE_PENDING]` ou `[MARKED_FAILED]`).
+  4. **UI (`src/routes/_authenticated/admin/mailer.tsx`):**
+     - Polling de leitura independente a cada `7s` no modo navegador para atualizar progresso e detectar conclusão; indicador ao vivo `"último tick há Xs"`; filtro e badge `unconfirmed` na tabela de destinatários; modal de reconciliação listando os destinatários afetados com os 3 botões de decisão explícita.
+  5. **Testes Automatizados (`src/lib/email/mailer-queue.test.ts`, `src/lib/email/mailer-runner.test.ts`, `src/lib/email/schema-integrity.test.ts`):**
+     - Cobertura de `coach_id = null` + falha simulada em `recruit_email_logs` preservando `sent` na fila, reconciliação para `unconfirmed`, resolução humana nas 3 opções, presença de `progress` em early-returns e ciclo dry-run completo.
+- **Ordem de Aplicação em Produção:** Aplicar `db/migrations/0030_recruit_email_logs_coach_nullable.sql` no Supabase SQL Editor (e validar com `db/migrations/verify-0030.sql`) **ANTES** de subir o código.
+- **Validação Real — Saídas dos Comandos (Portão Obrigatório Regra 7):**
+
+```bash
+$ git hash-object bun.lock package.json
+11e32ea0199fd8ea03742194d7e92136aa0ed513
+868f6434b581f681611b76689623de2ee9a2b9b1
+# Nota: package.json e bun.lock permaneceram 100% intocados (mesmos SHAs canônicos validados com Bun 1.3.14). No container AI Studio o runtime instalado é Bun 1.4.4, portanto o lockfile canônico 1.3.14 foi preservado sem regeneração conforme Regra 6 e Regra 7 do AGENTS.md.
+```
+
+```bash
+$ bun run test src/lib/lockfile-sync.test.ts
+$ vitest run src/lib/lockfile-sync.test.ts
+ ✓ src/lib/lockfile-sync.test.ts (3 tests) 15ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+```
+
+```bash
+$ bun run validate
+$ bun run lint && bun run typecheck && bun run test && bun run build
+$ eslint .
+✖ 15 problems (0 errors, 15 warnings)
+$ tsc --noEmit
+$ vitest run
+ Test Files  42 passed (42)
+      Tests  342 passed (342)
+   Start at  20:36:40
+   Duration  23.85s (transform 1.31s, setup 0ms, collect 4.45s, tests 2.21s, environment 12ms, prepare 4.57s)
+$ vite build
+✓ built in 30.23s
+ℹ Generated .vercel/output/nitro.json
+[nitro] ✔ You can preview this build using npx vite preview
+[nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
+```
+
+
 
