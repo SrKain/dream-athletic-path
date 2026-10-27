@@ -1575,3 +1575,23 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
   - ESLint 100% limpo com 0 erros.
   - Compilação de produção (`compile_applet`) verificada com sucesso.
 
+## Atualização 2026-10-27 (TASK-112) — Recuperação da Build Vercel & Restauração Estrita do bun.lock Canônico (11e32ea)
+
+- **Plano Aprovado:** [`think/2026-10-27-1237-recuperacao-build-bun-lock-canonico.md`](think/2026-10-27-1237-recuperacao-build-bun-lock-canonico.md) e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Diagnóstico Resolvido:**
+  - O commit `67551be` quebrou o CI da Vercel (`bun install --frozen-lockfile` com Bun 1.3.14) devido a um `bun.lock` divergente (blob `c5cb7bd`): `@lovable.dev/vite-tanstack-config` estava em `2.13.1` (em vez de `2.25.3`) e `nitro` em `^3.0.260610-beta` (em vez de `3.0.260603-beta`).
+- **Restauração Canônica:**
+  - `bun.lock` restaurado byte a byte ao blob canônico `11e32ea0199fd8ea03742194d7e92136aa0ed513` idêntico a `8651da0`.
+  - `package.json` rigorosamente intocado (SHA `868f6434b581f681611b76689623de2ee9a2b9b1`), com diff zero em relação a `8651da0`.
+- **Governança & Prevenção:**
+  - `AGENTS.md`: Corrigido o recuo indevido da última linha da Regra 7 e adicionada diretriz explícita proibindo que agentes de IA modifiquem `bun.lock` ou `package.json`.
+  - `src/lib/lockfile-sync.test.ts`: Teste endurecido com verificação explícita das versões exatas de `@lovable.dev/vite-tanstack-config` (`2.25.3`) e `nitro` (`3.0.260603-beta`), além de checagem sintética de captura do drift do blob `c5cb7bd`.
+- **Validação:**
+  - `bun test src/lib/lockfile-sync.test.ts`: 3/3 aprovados.
+  - `bun install --frozen-lockfile`: 0 mudanças, exit code 0.
+  - `bun run typecheck`: 0 erros (`tsc --noEmit`).
+  - `bun run lint`: 0 erros (`eslint .`).
+  - `bun run test`: 42 suítes / 336 testes 100% verdes no Vitest.
+  - `compile_applet`: build de produção concluída com sucesso.
+
+

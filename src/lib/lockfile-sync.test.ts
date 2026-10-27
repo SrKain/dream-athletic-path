@@ -52,4 +52,38 @@ describe("bun.lock em sincronia com package.json (evita 'lockfile had changes, b
       'devDependencies.@lovable.dev/vite-tanstack-config: package.json="2.25.3" bun.lock="2.13.1"',
     ]);
   });
+
+  it("garante versões exatas de @lovable.dev/vite-tanstack-config e nitro entre package.json e bun.lock", () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8"));
+    const lock = readFileSync(resolve(process.cwd(), "bun.lock"), "utf8");
+    const root = parseBunLock(lock).workspaces[""] ?? {};
+
+    // 1. @lovable.dev/vite-tanstack-config
+    expect(pkg.devDependencies?.["@lovable.dev/vite-tanstack-config"]).toBe("2.25.3");
+    expect(root.devDependencies?.["@lovable.dev/vite-tanstack-config"]).toBe("2.25.3");
+    expect(root.devDependencies?.["@lovable.dev/vite-tanstack-config"]).toBe(
+      pkg.devDependencies?.["@lovable.dev/vite-tanstack-config"],
+    );
+
+    // 2. nitro
+    expect(pkg.devDependencies?.["nitro"]).toBe("3.0.260603-beta");
+    expect(root.devDependencies?.["nitro"]).toBe("3.0.260603-beta");
+    expect(root.devDependencies?.["nitro"]).toBe(pkg.devDependencies?.["nitro"]);
+
+    // 3. Regressão simulada: se bun.lock regredir para o blob c5cb7bd (commit 67551be), o drift acusa ambas
+    const brokenLockSnippet = `{"lockfileVersion":1,"workspaces":{"":{"devDependencies":{"@lovable.dev/vite-tanstack-config":"2.13.1","nitro":"^3.0.260610-beta",},},},}`;
+    const syntheticPkg = {
+      devDependencies: {
+        "@lovable.dev/vite-tanstack-config": "2.25.3",
+        nitro: "3.0.260603-beta",
+      },
+    };
+    const drifts = findLockfileDrift(syntheticPkg, brokenLockSnippet);
+    expect(drifts).toContain(
+      'devDependencies.@lovable.dev/vite-tanstack-config: package.json="2.25.3" bun.lock="2.13.1"',
+    );
+    expect(drifts).toContain(
+      'devDependencies.nitro: package.json="3.0.260603-beta" bun.lock="^3.0.260610-beta"',
+    );
+  });
 });

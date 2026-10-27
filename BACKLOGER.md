@@ -1328,3 +1328,85 @@ $ compile_applet
 Build succeeded - the applet is compiled
 ```
 
+---
+
+## TASK-112 — 2026-10-27 12:45 — Recuperação da Build Vercel & Restauração Estrita do bun.lock Canônico (11e32ea)
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Google AI Studio (Coding Engine)
+- **Status:** `[CONCLUÍDO]` — Plano aprovado em `think/2026-10-27-1237-recuperacao-build-bun-lock-canonico.md` e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Causa Comprovada da Quebra na Vercel (Commit 67551be):**
+  - O commit `67551be` introduziu divergência no `bun.lock` (blob `c5cb7bd`):
+    - `@lovable.dev/vite-tanstack-config`: package.json = `2.25.3`, bun.lock = `2.13.1`
+    - `nitro`: package.json = `3.0.260603-beta`, bun.lock = `^3.0.260610-beta`
+  - A Vercel executou `bun install --frozen-lockfile` (Bun 1.3.14) e falhou com `"error: lockfile had changes, but lockfile is frozen"`.
+- **Ações Realizadas (Escopo Mínimo & Prevenção):**
+  1. **Restauração Canônica do `bun.lock`:** Restaurado byte a byte ao blob canônico `11e32ea0199fd8ea03742194d7e92136aa0ed513` idêntico aos commits validados `8651da0` e `3a90ba2`. O manifesto `package.json` permaneceu rigorosamente intocado (SHA `868f6434b581f681611b76689623de2ee9a2b9b1`). Verificação `diff -u` contra o commit `8651da0` retornou zero diferenças.
+  2. **Correção e Reforço do `AGENTS.md`:** Restaurado o recuo original de 3 espaços da frase final da Regra 7 ("Se qualquer etapa falhar..."). Reforçada a Regra 7 item 2 com a diretriz mandatória proibindo qualquer agente de alterar `bun.lock` ou `package.json`.
+  3. **Endurecimento do Teste de Guarda (`src/lib/lockfile-sync.test.ts`):** Adicionado caso de teste verificando explicitamente as versões exatas de `@lovable.dev/vite-tanstack-config` (`2.25.3`) e `nitro` (`3.0.260603-beta`) entre `package.json` e `bun.lock`, além de assertar que a simulação do lockfile defasado (blob `c5cb7bd`) é capturada com drift positivo.
+  4. **Documentação e Governança:** Registro integral no `BACKLOGER.md` (TASK-112) e atualização do `CERNE.md`.
+- **Validação Real — Saídas dos Comandos (Portão Obrigatório Regra 7):**
+
+```bash
+$ git hash-object bun.lock
+11e32ea0199fd8ea03742194d7e92136aa0ed513
+```
+
+```bash
+$ git hash-object package.json
+868f6434b581f681611b76689623de2ee9a2b9b1
+```
+
+```bash
+$ curl -s https://raw.githubusercontent.com/SrKain/dream-athletic-path/8651da0/bun.lock | diff -u - bun.lock && curl -s https://raw.githubusercontent.com/SrKain/dream-athletic-path/8651da0/package.json | diff -u - package.json
+# Exit code 0 (Zero diferenças)
+```
+
+```bash
+$ bun install --frozen-lockfile
+bun install v1.4.4 (38afee6c8)
+Checked 532 installs across 652 packages (no changes) [43.00ms]
+# Exit code 0
+```
+
+```bash
+$ bun run test src/lib/lockfile-sync.test.ts
+$ vitest run src/lib/lockfile-sync.test.ts
+ RUN  v3.2.7 /app/applet
+ ✓ src/lib/lockfile-sync.test.ts (3 tests) 15ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  19:38:50
+   Duration  461ms (transform 69ms, setup 0ms, collect 64ms, tests 15ms, environment 0ms, prepare 92ms)
+# Exit code 0
+```
+
+```bash
+$ bun run typecheck
+$ tsc --noEmit
+# Exit code 0 (Zero errors)
+```
+
+```bash
+$ bun run lint
+$ eslint .
+✖ 15 problems (0 errors, 15 warnings)
+# Exit code 0 (Zero errors)
+```
+
+```bash
+$ bun run test
+$ vitest run
+Test Files  42 passed (42)
+     Tests  336 passed (336)
+  Start at  19:40:39
+  Duration  22.92s (transform 1.28s, setup 0ms, collect 4.70s, tests 2.27s, environment 11ms, prepare 4.22s)
+# Exit code 0 (100% green across all 42 suites and 336 tests)
+```
+
+```bash
+$ compile_applet
+Build succeeded - the applet is compiled
+```
+
+

@@ -1,6 +1,6 @@
 {
-  "summary": "Plano de implementação da TASK-111 para reconciliação do schema do Mailer (migration 0029 autossuficiente), correção de chave estrangeira e colunas de snapshot, parse defensivo de bounce stats e garantia de funcionamento da orquestração do navegador.",
-  "updatedAt": "2026-10-27T18:38:16.830500514Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Plano de Recuperação da Build Vercel através da restauração estrita do bun.lock canônico (11e32ea), correção e reforço do AGENTS.md, endurecimento do lockfile-sync.test.ts e atualização das documentações BACKLOGER.md e CERNE.md.",
+  "updatedAt":  "2026-10-27T19:37:32.839244865Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }
