@@ -7,6 +7,10 @@ import {
   resumeCampaign,
   cancelCampaign,
   getCampaignQueueProgress,
+  createCampaignDraft,
+  appendCampaignRecipients,
+  activateCampaign,
+  parseCampaignBounceStats,
 } from "./mailer-queue.server";
 import type { SendMailerInput } from "./recruit-email.server";
 
@@ -139,6 +143,12 @@ function createMockAdminClient() {
               if (existing) {
                 mockCampaigns.set(id, { ...existing, ...updates });
               }
+              return { data: null, error: null };
+            }),
+          })),
+          delete: vi.fn(() => ({
+            eq: vi.fn(async (_col: string, id: string) => {
+              mockCampaigns.delete(id);
               return { data: null, error: null };
             }),
           })),
@@ -334,16 +344,17 @@ function createMockAdminClient() {
             return { data: [rowData], error: null };
           }),
           select: vi.fn(() => ({
-            eq: vi.fn((_col: string, val: any) => ({
-              order: vi.fn(() => ({
-                limit: vi.fn(() => ({
-                  maybeSingle: vi.fn(async () => {
-                    const snap = mockSnapshots.get(val);
-                    return { data: snap || null, error: null };
-                  }),
+            eq: vi.fn((_col: string, val: any) => {
+              const snap = mockSnapshots.get(val);
+              return {
+                maybeSingle: vi.fn(async () => ({ data: snap || null, error: null })),
+                order: vi.fn(() => ({
+                  limit: vi.fn(() => ({
+                    maybeSingle: vi.fn(async () => ({ data: snap || null, error: null })),
+                  })),
                 })),
-              })),
-            })),
+              };
+            }),
           })),
         };
       }
@@ -368,21 +379,23 @@ function createMockAdminClient() {
       }
       if (fnName === "filter_suppressed_emails") {
         const emails = (args.p_emails || []) as string[];
-        const match = emails.filter((e) => e === "suppressed@coach.edu").map((e) => ({ email: e }));
+        const match = emails
+          .filter((e) => e === "suppressed@coach.edu")
+          .map((e) => ({ email: e, suppressed_email: e }));
         return { data: match, error: null };
       }
       if (fnName === "mailer_campaign_bounce_stats") {
         return {
-          data: [
-            {
-              campaign_id: args.p_campaign_id,
-              sent_count: 0,
-              bounce_count: 0,
-              complaint_count: 0,
-              bounce_rate: 0,
-              bounce_guard_triggered: false,
-            },
-          ],
+          data: {
+            campaign_id: args.p_campaign_id,
+            sent_count: 0,
+            permanent_bounces: 0,
+            transient_bounces: 0,
+            complaints: 0,
+            bounce_rate: 0,
+            complaint_rate: 0,
+            bounce_guard_triggered: false,
+          },
           error: null,
         };
       }
@@ -442,8 +455,14 @@ function createMockAdminClient() {
         for (const result of args.p_results) {
           const q = mockQueue.get(result.id);
           if (!q || q.reserved_by !== args.p_worker_id) continue;
+          const nextPayload = q.payload ? { ...q.payload } : {};
+          if (result.status === "sent" || result.status === "cancelled") {
+            delete nextPayload.html;
+            delete nextPayload.text;
+          }
           const next = {
             ...q,
+            payload: nextPayload,
             status: result.status,
             provider_message_id: result.provider_id || q.provider_message_id,
             last_error: result.error_message,
@@ -980,12 +999,12 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(mockLogs.filter((l) => l.status === "sent")).toHaveLength(0);
     });
 
-    it("does not call Resend until migration 0027 is installed", async () => {
+    it("does not call Resend until migration 0029 is installed", async () => {
       const { admin, campaign } = await enqueueCatalog(10);
       migrationReady = false;
       const res = await processMailerQueue({ campaignId: campaign.campaignId, customAdmin: admin });
       expect(res.processed).toBe(0);
-      expect(res.message).toContain("migration 0027");
+      expect(res.message).toContain("migration 0029");
       expect(mockResendBatchSend).not.toHaveBeenCalled();
       expect(mockResendSend).not.toHaveBeenCalled();
       expect(Array.from(mockQueue.values()).every((row) => row.status === "pending")).toBe(true);
@@ -1262,6 +1281,226 @@ describe("Mailer Intelligent Queue & Rate Limiting Suite", () => {
       expect(tickResult.campaignStatus).toBe("completed");
       const finalRows = Array.from(mockQueue.values());
       expect(finalRows.every((r) => r.status === "sent")).toBe(true);
+    });
+  });
+
+  describe("4. Migration 0029 Reconcile, Order, Rollback, Bounce Stats & Dry-Run Lifecycle", () => {
+    it("creates campaign in draft before inserting snapshot, and rolls back draft if snapshot insert fails", async () => {
+      const admin = createMockAdminClient();
+      // 1. Success case: campaign created first with status 'draft', snapshot inserted second
+      const draftResult = await createCampaignDraft(
+        {
+          mode: "catalog",
+          catalogOptions: { customHeadline: "Catalog Test" },
+        },
+        admin,
+      );
+
+      expect(draftResult.success).toBe(true);
+      expect(draftResult.status).toBe("draft");
+      const campaign = mockCampaigns.get(draftResult.campaignId);
+      expect(campaign).toBeDefined();
+      expect(campaign.status).toBe("draft");
+
+      const snapshot = mockSnapshots.get(draftResult.campaignId);
+      expect(snapshot).toBeDefined();
+      expect(snapshot.campaign_id).toBe(draftResult.campaignId);
+      expect(snapshot.schema_version).toBe(1);
+      expect(snapshot.snapshot).toBeDefined();
+
+      // 2. Failure case: simulate snapshot insertion error and verify rollback of campaign
+      const brokenAdmin = {
+        ...admin,
+        from: vi.fn((table: string) => {
+          if (table === "mailer_campaign_snapshots") {
+            return {
+              insert: vi.fn(async () => ({
+                data: null,
+                error: { message: "Simulated snapshot insert error" },
+              })),
+            };
+          }
+          return (admin as any).from(table);
+        }),
+      } as any;
+
+      await expect(
+        createCampaignDraft(
+          {
+            mode: "catalog",
+            catalogOptions: { customHeadline: "Failed Snapshot" },
+          },
+          brokenAdmin,
+        ),
+      ).rejects.toThrow("Failed to save campaign snapshot: Simulated snapshot insert error");
+    });
+
+    it("parses campaign bounce stats correctly whether provided as jsonb object or array", () => {
+      // Direct jsonb object from migration 0029
+      const objParsed = parseCampaignBounceStats({
+        sent_count: 50,
+        permanent_bounces: 4,
+        transient_bounces: 2,
+        complaints: 1,
+        bounce_rate: 8.0,
+        complaint_rate: 2.0,
+        bounce_guard_triggered: true,
+      });
+      expect(objParsed.sentCount).toBe(50);
+      expect(objParsed.permanentBounces).toBe(4);
+      expect(objParsed.complaints).toBe(1);
+      expect(objParsed.bounceRate).toBe(8.0);
+      expect(objParsed.bounceGuardTriggered).toBe(true);
+
+      // Auto trigger if sent_count >= 20 and bounce_rate > 3.0 even if boolean flag missing
+      const derivedParsed = parseCampaignBounceStats({
+        sent_count: 30,
+        permanent_bounces: 3,
+        bounce_rate: 10.0,
+      });
+      expect(derivedParsed.bounceGuardTriggered).toBe(true);
+
+      // Safe defaults on null/empty
+      const nullParsed = parseCampaignBounceStats(null);
+      expect(nullParsed.sentCount).toBe(0);
+      expect(nullParsed.bounceGuardTriggered).toBe(false);
+
+      // Array format compatibility
+      const arrayParsed = parseCampaignBounceStats([
+        {
+          sent_count: 10,
+          permanent_bounces: 0,
+          bounce_rate: 0,
+          bounce_guard_triggered: false,
+        },
+      ]);
+      expect(arrayParsed.sentCount).toBe(10);
+      expect(arrayParsed.bounceGuardTriggered).toBe(false);
+    });
+
+    it("blocks high-volume campaign activation when recent bounce stats exceed 3.0%", async () => {
+      const admin = createMockAdminClient();
+      const draftResult = await createCampaignDraft(
+        {
+          mode: "catalog",
+          catalogOptions: { customHeadline: "High Volume Test" },
+        },
+        admin,
+      );
+
+      // Simulate 1200 recipients on the draft campaign
+      mockCampaigns.set(draftResult.campaignId, {
+        ...mockCampaigns.get(draftResult.campaignId),
+        total_recipients: 1200,
+      });
+
+      // Admin with recent completed campaign having >3% bounce
+      const highBounceAdmin = {
+        ...admin,
+        from: vi.fn((table: string) => {
+          if (table === "mailer_campaigns") {
+            const original = (admin as any).from("mailer_campaigns");
+            return {
+              ...original,
+              select: vi.fn((cols: string) => {
+                const chain = original.select(cols);
+                return {
+                  ...chain,
+                  eq: vi.fn((col: string, val: any) => {
+                    if (col === "status" && val === "completed") {
+                      return {
+                        order: vi.fn(() => ({
+                          limit: vi.fn(async () => ({
+                            data: [{ id: "recent_bad_campaign" }],
+                            error: null,
+                          })),
+                        })),
+                      };
+                    }
+                    return chain.eq(col, val);
+                  }),
+                };
+              }),
+            };
+          }
+          return (admin as any).from(table);
+        }),
+        rpc: vi.fn(async (fnName: string, args: any) => {
+          if (fnName === "mailer_campaign_bounce_stats") {
+            return {
+              data: {
+                campaign_id: args.p_campaign_id,
+                sent_count: 50,
+                permanent_bounces: 4,
+                bounce_rate: 8.0,
+                bounce_guard_triggered: true,
+              },
+              error: null,
+            };
+          }
+          return (admin as any).rpc(fnName, args);
+        }),
+      } as any;
+
+      await expect(
+        activateCampaign(draftResult.campaignId, { dryRun: false }, highBounceAdmin),
+      ).rejects.toThrow("Bounce guard: Recent campaign bounce rate");
+    });
+
+    it("completes full 3-phase lifecycle in dry-run mode: createCampaignDraft -> appendCampaignRecipients -> activateCampaign -> processMailerQueue -> completed", async () => {
+      const admin = createMockAdminClient();
+      // 1. Phase 1: create draft
+      const draft = await createCampaignDraft(
+        {
+          mode: "catalog",
+          catalogOptions: { customHeadline: "Dry Run Full Flow" },
+        },
+        admin,
+      );
+      expect(draft.status).toBe("draft");
+
+      // 2. Phase 2: append recipients
+      const append = await appendCampaignRecipients(
+        draft.campaignId,
+        [
+          { email: "valid1@university.edu", name: "Coach One" },
+          { email: "valid2@university.edu", name: "Coach Two" },
+          { email: "suppressed@coach.edu", name: "Suppressed Coach" },
+          { email: "not-an-email", name: "Invalid Coach" },
+        ],
+        admin,
+      );
+      expect(append.appended).toBe(2);
+      expect(append.suppressed).toBe(1);
+      expect(append.invalidSyntax).toBe(1);
+
+      // 3. Phase 3: activate with dryRun: true
+      const active = await activateCampaign(draft.campaignId, { dryRun: true }, admin);
+      expect(active.status).toBe("running");
+
+      // 4. Browser tick: process queue
+      const tick = await processMailerQueue({
+        customAdmin: admin,
+        campaignId: draft.campaignId,
+        maxBatchSize: 100,
+      });
+
+      expect(tick.sent).toBe(2);
+      expect(tick.campaignStatus).toBe("completed");
+      expect(tick.campaignCompleted).toBe(true);
+
+      // 5. Verify queue rows transitioned to sent with HTML purged
+      const queueItems = Array.from(mockQueue.values()).filter(
+        (q) => q.campaign_id === draft.campaignId,
+      );
+      expect(queueItems.length).toBe(2);
+      for (const item of queueItems) {
+        expect(item.status).toBe("sent");
+        expect(item.provider_message_id).toMatch(/^dry_/);
+        // Payload had html and text purged to save storage
+        expect(item.payload.html).toBeUndefined();
+        expect(item.payload.text).toBeUndefined();
+      }
     });
   });
 });

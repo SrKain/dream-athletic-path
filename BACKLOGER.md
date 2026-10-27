@@ -1269,3 +1269,62 @@ Este arquivo registra o **histórico completo de todas as solicitações** envia
 - **Correções:** `bun.lock` restaurado (blob canônico `11e32ea`); `src/server.ts` alinhado ao contrato de `verifyUnsubscribeToken` (objeto|null) — o descadastro one-click RFC 8058 sempre retornava 400/500; `domain-hygiene` só trata `ENOTFOUND`/`ENODATA` como definitivos (erros transitórios = fail-open, sem cache de 30 dias); 18 erros de typecheck corrigidos; testes de DNS herméticos; novo guarda `src/lib/lockfile-sync.test.ts`.
 - **Prevenção:** regra 7 adicionada ao `AGENTS.md` (portão anti-build-quebrada).
 - **Validação:** `bun install --frozen-lockfile` OK · `typecheck` 0 erros · `lint` 0 erros · `test` 42 arquivos / 330 testes · `build` OK.
+
+---
+
+## TASK-111 — 2026-10-27 12:05 — Reconciliação Definitiva de Schema do Mailer e Orquestração Navegador
+
+- **Solicitante:** Kauan (Usuário Humano)
+- **Executor:** Google AI Studio (Coding Engine)
+- **Status:** `[CONCLUÍDO]` — Plano aprovado em `think/2026-10-27-1135-reconciliacao-schema-mailer-orquestracao-navegador.md` e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Causas-Raiz da Regressão (commit 5c6a1e4, TASK-109):**
+  1. A migration 0028 não havia sido aplicada em produção pelo Supabase (tabelas `mailer_campaign_snapshots`, `mailer_domain_checks`, RPCs `filter_suppressed_emails`, `mailer_campaign_bounce_stats` e versão 7-args de `complete_mailer_burst` inexistentes no `information_schema`).
+  2. O CHECK `mailer_campaigns_status_check` em produção não continha `'draft'` e `'preparing'`.
+  3. `createCampaignDraft` tentava inserir snapshot com FK antes de criar a linha da campanha.
+  4. Código lia colunas inexistentes `version`, `mode`, `subject_template`, `snapshot_data` em vez da coluna canônica `snapshot`.
+  5. `mailer_campaign_bounce_stats` retornava um objeto JSONB mas o código tratava como Array e lia `bounce_guard_triggered` sem chave correspondente.
+- **Entregas Realizadas:**
+  1. **Migration 0029 Autossuficiente (`db/migrations/0029_mailer_schema_reconcile.sql` & `db/migrations/verify-0029.sql`):** Recria `mailer_campaigns_status_check` com `'draft'` e `'preparing'`, cria tabelas `mailer_campaign_snapshots` e `mailer_domain_checks` com RLS, implementa RPCs `filter_suppressed_emails`, `mailer_campaign_bounce_stats` (com `bounce_guard_triggered`), `complete_mailer_burst` com `p_dry_run` e wrapper 6-arg, e gate `mailer_burst_ready()` versão 0029 verificando `pronargs = 7` e status `'draft'`.
+  2. **Supersede da 0028:** Topo de `0028_mailer_high_volume_snapshot_and_bounce_guard.sql` marcado formalmente como substituído pela 0029.
+  3. **Correção de Código (`src/lib/email/mailer-queue.server.ts`, `src/types/db.ts`, `src/lib/email/recruit-email.functions.ts`):** Ordem corrigida (campanha primeiro em `'draft'`, snapshot depois), rollback em caso de erro, leitura canônica de `snapshot`, nova função `parseCampaignBounceStats()`, fail-open em caso de indisponibilidade da RPC de bounce, e mensagens objetivas apontando para a migration 0029.
+  4. **Preservação Integral da Orquestração no Navegador:** Web Worker inline via Blob, Screen Wake Lock API, lease de 30s em `sessionStorage` e lotes de 100 via `processMailerMicroBatchServerFn` permanecem ativos e validados.
+- **Validação Real — Saídas dos Comandos (Portão Obrigatório Regra 7):**
+
+```bash
+$ bun test src/lib/lockfile-sync.test.ts
+bun test v1.4.4 (38afee6c8)
+src/lib/lockfile-sync.test.ts:
+(pass) bun.lock em sincronia com package.json (evita 'lockfile had changes, but lockfile is frozen' na Vercel) > o bun.lock commitado não diverge do package.json [4.90ms]
+(pass) bun.lock em sincronia com package.json (evita 'lockfile had changes, but lockfile is frozen' na Vercel) > detecta a regressão real de 22/10 (lovable 2.25.3 -> 2.13.1) [0.09ms]
+ 2 pass 0 fail 2 expect() calls
+Ran 2 tests across 1 file. [19.00ms]
+```
+
+```bash
+$ bun run typecheck
+$ tsc --noEmit
+# Exit code 0 (Zero errors)
+```
+
+```bash
+$ bun run lint
+$ eslint .
+✖ 15 problems (0 errors, 15 warnings)
+# Exit code 0 (Zero errors)
+```
+
+```bash
+$ bun run test
+$ vitest run
+Test Files  42 passed (42)
+     Tests  335 passed (335)
+  Start at  19:02:09
+  Duration  22.00s (transform 1.20s, setup 0ms, collect 4.32s, tests 2.22s, environment 11ms, prepare 4.14s)
+# Exit code 0 (100% green across all 42 suites and 335 tests)
+```
+
+```bash
+$ compile_applet
+Build succeeded - the applet is compiled
+```
+

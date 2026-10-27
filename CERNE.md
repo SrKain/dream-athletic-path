@@ -1544,3 +1544,34 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - `src/server.ts` (`/api/unsubscribe`): usa o retorno `{ email, campaignId } | null` de `verifyUnsubscribeToken`; POST válido descadastra de forma permanente, inválido retorna 400.
 - `src/lib/email/domain-hygiene.server.ts`: apenas `ENOTFOUND`/`ENODATA` são definitivos; demais erros de DNS = `unverified` (fail-open, não vai para `mailer_domain_checks`).
 - `AGENTS.md` regra 7: portão obrigatório (`bun install --frozen-lockfile`, `git diff --exit-code -- package.json bun.lock`, `bun run validate`).
+
+## Atualização 2026-10-27 (TASK-111) — Reconciliação Definitiva de Schema do Mailer e Orquestração Navegador
+
+- **Plano de Solução Aprovado:** [`think/2026-10-27-1135-reconciliacao-schema-mailer-orquestracao-navegador.md`](think/2026-10-27-1135-reconciliacao-schema-mailer-orquestracao-navegador.md) e `.aistudio/artifacts/brain/d6151204-a08e-469a-91a2-3df2f6af671f/implementation_plan.md`.
+- **Diagnóstico Resolvido (Regressão commit 5c6a1e4 / TASK-109):**
+  - Migration 0028 não havia sido aplicada em produção devido a bloco com exception anônima e ausência de 'draft'/'preparing' no CHECK `mailer_campaigns_status_check`.
+  - Inversão de ordem FK: `createCampaignDraft` tentava inserir snapshot antes da linha de `mailer_campaigns`.
+  - Colunas inexistentes: código acessava `version`, `snapshot_data`, `mode` e `subject_template` em `mailer_campaign_snapshots`, tabela que canonicamente possui apenas `(campaign_id, schema_version, snapshot, created_at)`.
+  - Formato de retorno da RPC `mailer_campaign_bounce_stats` era um objeto JSONB, porém o código tratava como Array e não incluía `bounce_guard_triggered`.
+  - `complete_mailer_burst` exigia 7 argumentos (`p_dry_run`), causando falha de persistência pós-envio caso o banco rodasse a versão da 0027.
+- **Migration 0029 Autossuficiente (`db/migrations/0029_mailer_schema_reconcile.sql` & `db/migrations/verify-0029.sql`):**
+  - Recriação sem blocos anônimos de `mailer_campaigns_status_check` contemplando: `'draft', 'preparing', 'queued', 'running', 'paused', 'completed', 'failed', 'cancelled'`.
+  - `CREATE TABLE IF NOT EXISTS public.mailer_campaign_snapshots (campaign_id uuid PRIMARY KEY REFERENCES public.mailer_campaigns(id) ON DELETE CASCADE, schema_version integer NOT NULL DEFAULT 1, snapshot jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT timezone('utc', now()))`.
+  - `CREATE TABLE IF NOT EXISTS public.mailer_domain_checks (domain text PRIMARY KEY, has_mx boolean NOT NULL DEFAULT false, checked_at timestamptz NOT NULL DEFAULT timezone('utc', now()))`.
+  - RPCs idempotentes: `filter_suppressed_emails`, `mailer_campaign_bounce_stats` (retornando explicitamente `bounce_guard_triggered: sent_count >= 20 AND bounce_rate > 3.0`), `complete_mailer_burst` de 7 argumentos (com purga de payload HTML/texto) e wrapper de compatibilidade de 6 argumentos.
+  - RPC de validação `mailer_burst_ready()` versão 0029: confere existência estrita das 2 tabelas, 3 RPCs, pronargs = 7 em `complete_mailer_burst` e valor `'draft'` no CHECK.
+  - Script somente leitura `db/migrations/verify-0029.sql` para checagem rápida no Supabase SQL Editor.
+  - Migration 0028 formalmente documentada como substituída pela 0029.
+- **Ajustes de Código (`src/lib/email/mailer-queue.server.ts`, `src/types/db.ts`, `src/lib/email/recruit-email.functions.ts`):**
+  - `createCampaignDraft`: insere a campanha PRIMEIRO em status `'draft'`, e o snapshot SEGUNDO usando exclusivamente `campaign_id`, `schema_version` e `snapshot`. Em caso de erro na gravação do snapshot, executa rollback excluindo o rascunho de campanha e propaga erro legível.
+  - `appendCampaignRecipients` e `processMailerQueue`: leitura do snapshot por `campaign_id` na coluna `snapshot`, sem cláusula `order("version")` ou campos fantasmas.
+  - Criada função auxiliar `parseCampaignBounceStats()` tolerante a JSONB objeto e arrays, mapeando corretamente `sentCount`, `permanentBounces`, `complaints`, `bounceRate` e `bounceGuardTriggered`.
+  - Ativação de campanha: fail-open em caso de indisponibilidade transitória da RPC de bounce, bloqueando apenas quando `bounceGuardTriggered` for comprovadamente verdadeiro.
+  - Mensagens de prontidão atualizadas para instruir aplicação da migration 0029 caso o gate retorne false.
+- **Validação de Governança e Testes:**
+  - `src/lib/email/schema-integrity.test.ts` e `src/lib/email/mailer-queue.test.ts` ampliados para cobrir ciclo de vida de 3 fases, rollback, parsing de bounce stats e integridade de colunas contra migrations SQL.
+  - 42 suítes de teste (335 testes) 100% aprovadas no Vitest.
+  - TypeScript typecheck limpo com 0 erros (`tsc --noEmit`).
+  - ESLint 100% limpo com 0 erros.
+  - Compilação de produção (`compile_applet`) verificada com sucesso.
+

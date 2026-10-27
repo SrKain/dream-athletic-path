@@ -216,14 +216,16 @@ export async function getRecentMailerCampaigns(
     .order("id", { ascending: false })
     .limit(20);
   if (error) throw new Error("Unable to load recent mailer campaigns.");
-  return (data || []).map((row) => ({
-    id: row.id,
-    subject: row.subject || "Campanha sem assunto",
-    status: row.status as MailerCampaignStatus,
-    createdAt: row.created_at,
-    totalRecipients: Number(row.total_recipients) || 0,
-    sentCount: Number(row.sent_count) || 0,
-  }));
+  return (data || [])
+    .filter((row) => row.status !== "draft" && row.status !== "preparing")
+    .map((row) => ({
+      id: row.id,
+      subject: row.subject || "Campanha sem assunto",
+      status: row.status as MailerCampaignStatus,
+      createdAt: row.created_at,
+      totalRecipients: Number(row.total_recipients) || 0,
+      sentCount: Number(row.sent_count) || 0,
+    }));
 }
 
 export interface CampaignRecipientRow {

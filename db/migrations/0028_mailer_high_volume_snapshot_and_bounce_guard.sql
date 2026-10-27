@@ -1,7 +1,11 @@
 -- =============================================================================
 -- Migration 0028: Mailer High-Volume Snapshot, Domain Hygiene, Bounce Guard & Permissive Bursts
 -- =============================================================================
--- 100% aditiva e idempotente.
+-- [SUBSTITUÍDA PELA MIGRATION 0029]: Esta migration foi superada pela 0029_mailer_schema_reconcile.sql,
+-- que é 100% autossuficiente e corrige o status check ('draft'), FK e colunas do snapshot,
+-- o retorno de bounce_guard_triggered e a verificação robusta de mailer_burst_ready.
+-- NÃO aplicar esta migration; aplique diretamente a 0029.
+-- =============================================================================
 -- Cruza com todas as tabelas e RPCs das migrations 0001 a 0027:
 -- - public.is_agency_admin() (0001)
 -- - public.mailer_campaigns (0022, 0024, 0025)

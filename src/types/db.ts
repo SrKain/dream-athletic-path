@@ -465,7 +465,20 @@ export interface CoachInterestSignal {
 export type MailerCampaignMode = "single_athlete" | "multi_athlete" | "catalog";
 
 export type MailerCampaignStatus =
-  "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
+  "draft" | "preparing" | "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
+
+export interface MailerCampaignSnapshotRow {
+  campaign_id: string;
+  schema_version: number;
+  snapshot: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MailerDomainCheck {
+  domain: string;
+  has_mx: boolean;
+  checked_at: string;
+}
 
 export type MailerQueueStatus =
   "pending" | "processing" | "sent" | "failed" | "retry" | "cancelled";

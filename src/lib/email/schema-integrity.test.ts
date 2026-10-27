@@ -275,7 +275,46 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
     expect(mailerQueueColumns.has("processing_started_at")).toBe(false);
   });
 
-  it("verifies migration 0028 defines snapshot table, domain checks table, and required RPCs", () => {
+  it("verifies migration 0029 is self-contained, supersedes 0028, and defines all required objects", () => {
+    const mig0029 = fs.readFileSync(
+      path.resolve(process.cwd(), "db/migrations/0029_mailer_schema_reconcile.sql"),
+      "utf-8",
+    );
+
+    // 1. Status check with draft and preparing
+    expect(mig0029).toMatch(/mailer_campaigns_status_check/i);
+    expect(mig0029).toMatch(/'draft'/i);
+    expect(mig0029).toMatch(/'preparing'/i);
+
+    // 2. Tables
+    expect(mig0029).toMatch(
+      /create\s+table\s+if\s+not\s+exists\s+public\.mailer_campaign_snapshots/i,
+    );
+    expect(mig0029).toMatch(/create\s+table\s+if\s+not\s+exists\s+public\.mailer_domain_checks/i);
+
+    // 3. Exact columns in mailer_campaign_snapshots
+    const snapshotCols = extractColumnsFromSql(migrationFiles, "mailer_campaign_snapshots");
+    expect(snapshotCols.has("campaign_id")).toBe(true);
+    expect(snapshotCols.has("schema_version")).toBe(true);
+    expect(snapshotCols.has("snapshot")).toBe(true);
+    expect(snapshotCols.has("created_at")).toBe(true);
+    // Phantom columns from previous bug must not exist in schema
+    expect(snapshotCols.has("version")).toBe(false);
+    expect(snapshotCols.has("snapshot_data")).toBe(false);
+    expect(snapshotCols.has("mode")).toBe(false);
+
+    // 4. RPCs
+    expect(mig0029).toMatch(/function\s+public\.filter_suppressed_emails/i);
+    expect(mig0029).toMatch(/function\s+public\.mailer_campaign_bounce_stats/i);
+    expect(mig0029).toMatch(/bounce_guard_triggered\s+boolean/i);
+    expect(mig0029).toMatch(/function\s+public\.complete_mailer_burst/i);
+    expect(mig0029).toMatch(/p_dry_run\s+boolean/i);
+
+    // 5. mailer_burst_ready checks pronargs=7 and draft check
+    expect(mig0029).toMatch(/p\.pronargs\s*=\s*7/i);
+    expect(mig0029).toMatch(/pg_get_constraintdef\(c\.oid\)\s+like\s+'%draft%'/i);
+
+    // 6. Migration 0028 marked as superseded
     const mig0028 = fs.readFileSync(
       path.resolve(
         process.cwd(),
@@ -283,14 +322,62 @@ describe("Database Migration Schema Integrity vs. Application Code", () => {
       ),
       "utf-8",
     );
+    expect(mig0028).toMatch(/SUBSTITUÍDA PELA MIGRATION 0029/i);
+  });
 
-    expect(mig0028).toMatch(
-      /create\s+table\s+if\s+not\s+exists\s+public\.mailer_campaign_snapshots/i,
+  it("verifies schema contract: every literal column accessed in mailer-queue.server.ts exists in migrations", () => {
+    const queueSource = fs.readFileSync(
+      path.resolve(process.cwd(), "src/lib/email/mailer-queue.server.ts"),
+      "utf-8",
     );
-    expect(mig0028).toMatch(/create\s+table\s+if\s+not\s+exists\s+public\.mailer_domain_checks/i);
-    expect(mig0028).toMatch(/function\s+public\.filter_suppressed_emails/i);
-    expect(mig0028).toMatch(/function\s+public\.mailer_campaign_bounce_stats/i);
-    expect(mig0028).toMatch(/function\s+public\.complete_mailer_burst/i);
-    expect(mig0028).toMatch(/p_dry_run\s+boolean/i);
+
+    const snapshotCols = extractColumnsFromSql(migrationFiles, "mailer_campaign_snapshots");
+
+    // Check columns queried from mailer_campaign_snapshots
+    const snapshotSelectMatches = Array.from(
+      queueSource.matchAll(/\.from\("mailer_campaign_snapshots"\)\s*\.select\("([^"]+)"\)/g),
+    );
+    for (const match of snapshotSelectMatches) {
+      const cols = match[1].split(",").map((c) => c.trim());
+      for (const col of cols) {
+        expect(snapshotCols.has(col)).toBe(true);
+      }
+    }
+
+    // Check columns inserted into mailer_campaign_snapshots
+    const snapshotInsertMatch = queueSource.match(
+      /\.from\("mailer_campaign_snapshots"\)\.insert\(\{([\s\S]+?)\}\)/,
+    );
+    expect(snapshotInsertMatch).toBeTruthy();
+    const insertProps = snapshotInsertMatch![1]
+      .split("\n")
+      .map((l) => l.trim().match(/^([a-z0-9_]+):/i)?.[1])
+      .filter((k): k is string => Boolean(k));
+    for (const prop of insertProps) {
+      expect(snapshotCols.has(prop)).toBe(true);
+    }
+
+    // Check that every literal status assigned to mailer_campaigns.status exists in CHECK definition
+    const validStatuses = new Set([
+      "draft",
+      "preparing",
+      "queued",
+      "running",
+      "paused",
+      "completed",
+      "failed",
+      "cancelled",
+    ]);
+    const statusMatches = Array.from(queueSource.matchAll(/status:\s*"([a-z_]+)"/g));
+    for (const match of statusMatches) {
+      const statusValue = match[1];
+      if (
+        ["draft", "preparing", "running", "paused", "completed", "cancelled", "failed"].includes(
+          statusValue,
+        )
+      ) {
+        expect(validStatuses.has(statusValue)).toBe(true);
+      }
+    }
   });
 });

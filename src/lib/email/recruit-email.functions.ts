@@ -365,10 +365,11 @@ export const getCampaignBounceStatsServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
     const admin = getAdminClient();
-    const { data: rows, error } = await admin.rpc("mailer_campaign_bounce_stats", {
+    const { parseCampaignBounceStats } = await import("./mailer-queue.server");
+    const { data: rawData, error } = await admin.rpc("mailer_campaign_bounce_stats", {
       p_campaign_id: data.campaignId,
     });
-    if (error || !Array.isArray(rows) || rows.length === 0) {
+    if (error || !rawData) {
       return {
         sentCount: 0,
         bounceCount: 0,
@@ -377,19 +378,13 @@ export const getCampaignBounceStatsServerFn = createServerFn({ method: "POST" })
         bounceGuardTriggered: false,
       };
     }
-    const r = rows[0] as {
-      sent_count?: number;
-      bounce_count?: number;
-      complaint_count?: number;
-      bounce_rate?: number;
-      bounce_guard_triggered?: boolean;
-    };
+    const parsed = parseCampaignBounceStats(rawData);
     return {
-      sentCount: Number(r.sent_count) || 0,
-      bounceCount: Number(r.bounce_count) || 0,
-      complaintCount: Number(r.complaint_count) || 0,
-      bounceRate: Number(r.bounce_rate) || 0,
-      bounceGuardTriggered: Boolean(r.bounce_guard_triggered),
+      sentCount: parsed.sentCount,
+      bounceCount: parsed.permanentBounces,
+      complaintCount: parsed.complaints,
+      bounceRate: parsed.bounceRate,
+      bounceGuardTriggered: parsed.bounceGuardTriggered,
     };
   });
 

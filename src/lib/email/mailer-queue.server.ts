@@ -67,6 +67,49 @@ function filterValidUuids(ids: Array<string | null | undefined>): string[] {
     .filter((id) => UUID_REGEX.test(id));
 }
 
+export interface ParsedCampaignBounceStats {
+  sentCount: number;
+  permanentBounces: number;
+  transientBounces: number;
+  complaints: number;
+  bounceRate: number;
+  complaintRate: number;
+  bounceGuardTriggered: boolean;
+}
+
+export function parseCampaignBounceStats(raw: unknown): ParsedCampaignBounceStats {
+  const obj = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | null | undefined;
+  if (!obj || typeof obj !== "object") {
+    return {
+      sentCount: 0,
+      permanentBounces: 0,
+      transientBounces: 0,
+      complaints: 0,
+      bounceRate: 0,
+      complaintRate: 0,
+      bounceGuardTriggered: false,
+    };
+  }
+  const sentCount = Number(obj.sent_count) || 0;
+  const permanentBounces = Number(obj.permanent_bounces ?? obj.bounce_count) || 0;
+  const transientBounces = Number(obj.transient_bounces) || 0;
+  const complaints = Number(obj.complaints ?? obj.complaint_count) || 0;
+  const bounceRate = Number(obj.bounce_rate) || 0;
+  const complaintRate = Number(obj.complaint_rate) || 0;
+  const bounceGuardTriggered = Boolean(
+    obj.bounce_guard_triggered ?? (sentCount >= 20 && bounceRate > 3),
+  );
+  return {
+    sentCount,
+    permanentBounces,
+    transientBounces,
+    complaints,
+    bounceRate,
+    complaintRate,
+    bounceGuardTriggered,
+  };
+}
+
 export interface EnqueueResult {
   success: boolean;
   campaignId: string;
@@ -266,22 +309,7 @@ export async function createCampaignDraft(
         ? `Multi-Athlete Showcase (${validUuidAthleteIds.length} athletes)`
         : "Prospect Spotlight");
 
-  // Inserir snapshot na tabela dedicada (0028)
-  const { error: snapErr } = await admin.from("mailer_campaign_snapshots").insert({
-    campaign_id: campaignId,
-    version: 1,
-    mode,
-    subject_template: snapshot.subjectTemplate,
-    snapshot_data: snapshot as unknown as Record<string, unknown>,
-    created_at: now,
-  });
-
-  if (snapErr) {
-    console.error("[mailer-queue] Failed to save campaign snapshot:", snapErr.message);
-    throw new Error(`Failed to save campaign snapshot: ${snapErr.message}`);
-  }
-
-  // Inserir registro inicial da campanha com status 'draft'
+  // 1. Inserir registro inicial da campanha com status 'draft' PRIMEIRO (respeitando FK do snapshot)
   const { error: campErr } = await admin.from("mailer_campaigns").insert({
     id: campaignId,
     created_by: input.createdBy || null,
@@ -306,6 +334,23 @@ export async function createCampaignDraft(
   if (campErr) {
     console.error("[mailer-queue] Failed to create campaign draft:", campErr.message);
     throw new Error(`Failed to create campaign draft: ${campErr.message}`);
+  }
+
+  // 2. Inserir snapshot na tabela dedicada (0029) usando as colunas reais do schema
+  const { error: snapErr } = await admin.from("mailer_campaign_snapshots").insert({
+    campaign_id: campaignId,
+    schema_version: 1,
+    snapshot: snapshot as unknown as Record<string, unknown>,
+    created_at: now,
+  });
+
+  if (snapErr) {
+    console.error(
+      "[mailer-queue] Failed to save campaign snapshot, rolling back draft:",
+      snapErr.message,
+    );
+    await admin.from("mailer_campaigns").delete().eq("id", campaignId);
+    throw new Error(`Failed to save campaign snapshot: ${snapErr.message}`);
   }
 
   return {
@@ -383,8 +428,9 @@ export async function appendCampaignRecipients(
       p_emails: cleanEmails,
     });
     if (!suppRpcErr && Array.isArray(suppRows)) {
-      for (const row of suppRows as Array<{ email?: string }>) {
-        if (row.email) suppressedEmailsSet.add(row.email.toLowerCase().trim());
+      for (const row of suppRows as Array<{ email?: string; suppressed_email?: string }>) {
+        const email = (row.suppressed_email || row.email || "").toLowerCase().trim();
+        if (email) suppressedEmailsSet.add(email);
       }
     }
   } catch (err) {
@@ -472,14 +518,12 @@ export async function appendCampaignRecipients(
     let campaignSnapshot: MailerCampaignSnapshot | null = null;
     const { data: snapshotRow } = await admin
       .from("mailer_campaign_snapshots")
-      .select("snapshot_data")
+      .select("snapshot")
       .eq("campaign_id", campaignId)
-      .order("version", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    if (snapshotRow?.snapshot_data) {
-      campaignSnapshot = snapshotRow.snapshot_data as MailerCampaignSnapshot;
+    if (snapshotRow?.snapshot) {
+      campaignSnapshot = snapshotRow.snapshot as unknown as MailerCampaignSnapshot;
     }
 
     const currentTotal = campaign.total_recipients || 0;
@@ -637,12 +681,22 @@ export async function activateCampaign(
 
       if (Array.isArray(recentCampaigns) && recentCampaigns.length > 0) {
         for (const recent of recentCampaigns) {
-          const { data: bounceStats } = await admin.rpc("mailer_campaign_bounce_stats", {
-            p_campaign_id: recent.id,
-          });
-          if (Array.isArray(bounceStats) && bounceStats[0]?.bounce_guard_triggered) {
+          const { data: bounceRaw, error: bounceErr } = await admin.rpc(
+            "mailer_campaign_bounce_stats",
+            { p_campaign_id: recent.id },
+          );
+          if (bounceErr) {
+            console.warn(
+              "[mailer-queue] Failed to fetch bounce stats for recent campaign:",
+              recent.id,
+              bounceErr.message,
+            );
+            continue;
+          }
+          const parsed = parseCampaignBounceStats(bounceRaw);
+          if (parsed.bounceGuardTriggered) {
             throw new Error(
-              `Bounce guard: Recent campaign bounce rate (${Number(bounceStats[0].bounce_rate).toFixed(1)}%) exceeded 3.0%. High-volume campaigns (>1,000) are blocked until deliverability issues are resolved.`,
+              `Bounce guard: Recent campaign bounce rate (${parsed.bounceRate.toFixed(1)}%) exceeded 3.0%. High-volume campaigns (>1,000) are blocked until deliverability issues are resolved.`,
             );
           }
         }
@@ -908,7 +962,7 @@ export async function processMailerQueue(
     return empty({
       effectiveBurstSize: effectiveSize,
       message:
-        "A migration 0027/0028 do Mailer não está aplicada no banco. Aplique a migration 0027/0028 no Supabase SQL Editor para liberar os disparos.",
+        "A migration 0029 do Mailer não está aplicada no banco. Aplique a migration 0029 no Supabase SQL Editor para liberar os disparos.",
     });
   }
 
@@ -1047,8 +1101,9 @@ export async function processMailerQueue(
       p_emails: candidateEmails,
     });
     if (!suppErr && Array.isArray(suppressedRows)) {
-      for (const row of suppressedRows as Array<{ email?: string }>) {
-        if (row.email) suppressedInBatch.add(row.email.toLowerCase().trim());
+      for (const row of suppressedRows as Array<{ email?: string; suppressed_email?: string }>) {
+        const e = (row.suppressed_email || row.email || "").toLowerCase().trim();
+        if (e) suppressedInBatch.add(e);
       }
     }
   } catch (err) {
@@ -1065,16 +1120,14 @@ export async function processMailerQueue(
   if (needsSnapshot) {
     const { data: snapshotRow, error: snapErr } = await admin
       .from("mailer_campaign_snapshots")
-      .select("snapshot_data")
+      .select("snapshot")
       .eq("campaign_id", campaignId)
-      .order("version", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    if (snapErr || !snapshotRow?.snapshot_data) {
+    if (snapErr || !snapshotRow?.snapshot) {
       console.warn("[mailer-queue] Missing snapshot for campaign:", campaignId, snapErr?.message);
     } else {
-      campaignSnapshot = snapshotRow.snapshot_data as MailerCampaignSnapshot;
+      campaignSnapshot = snapshotRow.snapshot as unknown as MailerCampaignSnapshot;
     }
   }
 
@@ -1285,11 +1338,17 @@ export async function processMailerQueue(
   // 6. Verificação do Bounce Guard após envios reais (se enviados >= 20)
   if (!isDryRun) {
     try {
-      const { data: bounceRows } = await admin.rpc("mailer_campaign_bounce_stats", {
-        p_campaign_id: campaignId,
-      });
-      if (Array.isArray(bounceRows) && bounceRows[0]?.bounce_guard_triggered) {
-        quarantineReason = `Bounce rate (${Number(bounceRows[0].bounce_rate).toFixed(1)}%) exceeded 3% threshold. Dispatch suspended to protect sender reputation.`;
+      const { data: bounceRaw, error: bounceErr } = await admin.rpc(
+        "mailer_campaign_bounce_stats",
+        {
+          p_campaign_id: campaignId,
+        },
+      );
+      if (!bounceErr && bounceRaw) {
+        const parsedBounce = parseCampaignBounceStats(bounceRaw);
+        if (parsedBounce.bounceGuardTriggered) {
+          quarantineReason = `Bounce rate (${parsedBounce.bounceRate.toFixed(1)}%) exceeded 3% threshold. Dispatch suspended to protect sender reputation.`;
+        }
       }
     } catch (err) {
       console.warn("[mailer-queue] Failed to verify bounce stats:", err);
