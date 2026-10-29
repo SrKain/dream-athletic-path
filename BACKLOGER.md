@@ -1470,5 +1470,14 @@ $ vite build
 [nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
 ```
 
+---
 
+## TASK-114 — 2026-10-29 14:17 (America/Sao_Paulo) — Registro do plano de reestruturação confiável e econômica do Recruit Mailer
 
+- **Solicitante:** Kauan (usuário humano).
+- **Executor:** ChatGPT (planejamento e documentação).
+- **Pedido:** Registrar em `think/`, no padrão do repositório, um plano consolidado para corrigir divergências entre selecionados, enfileirados, aceitos e entregues; melhorar retomada de envios, reconciliação, transparência de status, uso do navegador e custo dentro dos limites Supabase Free/Vercel/Resend.
+- **Status:** `[CONCLUÍDO]` — documentação registrada. **Implementação de código/migrations: [PENDENTE DE APROVAÇÃO HUMANA EXPLÍCITA].**
+- **Entrega:** `think/2026-10-29-1417-plano-reestruturacao-confiabilidade-recruit-mailer.md`.
+- **Base de evidências:** consultas de leitura à produção no Supabase e análise de código no GitHub; distinção entre fatos verificados e hipóteses sujeitas à correlação de logs.
+- **Governança:** só houve criação de Markdown em `think/` e registro em `BACKLOGER.md`. Nenhum código, schema, configuração, dado ou e-mail foi alterado/disparado. `CERNE.md` não necessita atualização nesta etapa documental. Comandos de validação de código (`bun install --frozen-lockfile`, `bun run validate`) **não executados**, pois não houve alteração de código nem ambiente de build; não se declara aprovação de build.
