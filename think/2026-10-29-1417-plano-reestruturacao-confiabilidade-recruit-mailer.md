@@ -30,14 +30,14 @@ Não introduzir Cloudflare, Redis, brokers pagos, novas contas/infraestruturas n
 
 ### 2.1 Fatos observados em produção (consultas de leitura, 29/10/2026)
 
-| Caso | Evidência | Interpretação correta |
-| --- | --- | --- |
-| Campanha `a0cbaebd…` de 20/10 | `799` destinatários/`799` itens `sent` com `provider_message_id`; eventos de `794` entregas, `4` supressões e `3` bounces. | Aceitação na Resend **não** significa entrega. Eventos de tipos distintos podem coexistir por mensagem; não somar esses eventos como categorias mutuamente exclusivas. |
-| Campanha `17d7ad60…` de 28/10 | `404` itens `sent` com identificação do provedor, `396` eventos de entrega e `8` de supressão. | O painel pode mostrar 404 aceitos, mas não 404 entregues. |
-| Campanha `2725beda…` de 27/10 | `276` itens marcados `sent`, mas somente `176` com `provider_message_id` e `176` logs `sent`; `100` itens `sent` sem ID do provedor e com código de erro. | Há **lacuna de auditoria** em 100 registros: não presumir nem entrega nem falha; reconciliar antes de qualquer reenvio. |
-| Campanha `8a56bef1…` de 28/10 | `399` destinatários inseridos na fila, campanha ainda `draft`, sem disparos registrados. | Preparação/ativação não concluiu; apurar erro de unicidade/idempotência e tornar a criação recuperável. |
-| Campanha `f23475af…` de 21/10 | Cabeçalho com `1.339` destinatários, mas apenas `500` linhas na fila, posteriormente canceladas. | Existe histórico de preparação parcialmente persistida; o cabeçalho não pode ser tratado como manifesto fechado. |
-| Cadastro de universidades não HBCU | `3.252` registros de coaches com e-mail; `2.801` e-mails normalizados distintos; `451` registros excedentes por repetição. | A UI pode contar contatos selecionáveis enquanto o envio precisa contar endereços únicos; a diferença deve ser mostrada antes da confirmação. |
+| Caso                               | Evidência                                                                                                                                                 | Interpretação correta                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Campanha `a0cbaebd…` de 20/10      | `799` destinatários/`799` itens `sent` com `provider_message_id`; eventos de `794` entregas, `4` supressões e `3` bounces.                                | Aceitação na Resend **não** significa entrega. Eventos de tipos distintos podem coexistir por mensagem; não somar esses eventos como categorias mutuamente exclusivas. |
+| Campanha `17d7ad60…` de 28/10      | `404` itens `sent` com identificação do provedor, `396` eventos de entrega e `8` de supressão.                                                            | O painel pode mostrar 404 aceitos, mas não 404 entregues.                                                                                                              |
+| Campanha `2725beda…` de 27/10      | `276` itens marcados `sent`, mas somente `176` com `provider_message_id` e `176` logs `sent`; `100` itens `sent` sem ID do provedor e com código de erro. | Há **lacuna de auditoria** em 100 registros: não presumir nem entrega nem falha; reconciliar antes de qualquer reenvio.                                                |
+| Campanha `8a56bef1…` de 28/10      | `399` destinatários inseridos na fila, campanha ainda `draft`, sem disparos registrados.                                                                  | Preparação/ativação não concluiu; apurar erro de unicidade/idempotência e tornar a criação recuperável.                                                                |
+| Campanha `f23475af…` de 21/10      | Cabeçalho com `1.339` destinatários, mas apenas `500` linhas na fila, posteriormente canceladas.                                                          | Existe histórico de preparação parcialmente persistida; o cabeçalho não pode ser tratado como manifesto fechado.                                                       |
+| Cadastro de universidades não HBCU | `3.252` registros de coaches com e-mail; `2.801` e-mails normalizados distintos; `451` registros excedentes por repetição.                                | A UI pode contar contatos selecionáveis enquanto o envio precisa contar endereços únicos; a diferença deve ser mostrada antes da confirmação.                          |
 
 **Contexto do schema:** verificações de leitura anteriores indicaram que o `coach_id` de `recruit_email_logs` é anulável e que `mailer_burst_ready()` está apta, compatível com a alteração essencial da migration `0030`. Isso **não** substitui a verificação formal de todos os objetos/assinaturas no momento do deploy. Não reaplicar migrations às cegas.
 
@@ -152,18 +152,18 @@ O navegador pode disparar ticks **enquanto a página estiver ativa**. Ao fechar 
 
 **Testes com Resend, Supabase e rede mockados; nenhum envio real nesta etapa.** Cenários de campanhas com 100, 500, 800, 1.500 e 5.000 seleções, incluindo todos os modos (individual, multi-atleta, catálogo).
 
-| Cenário | Resultado obrigatório |
-| --- | --- |
-| Duplicatas na mesma fatia e entre fatias de 500 | Um único item por e-mail normalizado; exclusões explicadas; não ocorre violação de unicidade. |
-| E-mails inválidos, opt-out e supressão entre preflight e envio | Contagem fecha, elegibilidade atualizada, nenhuma mensagem proibida é enviada. |
-| Falha no meio da preparação ou clique repetido | Mesmo identificador lógico, nenhuma ativação parcial, possibilidade de completar sem duplicar linhas. |
-| Sucesso/erro mistos em batch e 429 com `Retry-After` | Só itens rejeitados comprovadamente entram em retry seguro; backoff e número de chamadas respeitados. |
-| Timeout após envio aceito, resposta ambígua ou falha de persistência | Não há replay cego; fica `unconfirmed` até evidência/decisão humana auditada. |
-| Fechar/recarregar aba, offline/online, duas abas, lease vencida | Estado permanece íntegro; retomada segura sem concorrência dupla; nenhuma promessa de disparo com aba fechada. |
-| Webhook duplicado, tardio ou fora de ordem | Contadores por mensagem única, evento íntegro, distinção entre `accepted` e `delivered`. |
-| Campanha com bounces/supressões/falhas | Nunca exibir “entregue integralmente” sem comprovação; divergências visíveis por causa. |
-| Limites dos planos e consultas | Medir chamadas, duração, queries/egress, definir teto/alarme por campanha e demonstrar desempenho dentro dos budgets acordados. |
-| Sem alterações do produto fora do Mailer | Preview, filtros, atletas, personalização, histórico, autenticação e descadastro preservados. |
+| Cenário                                                              | Resultado obrigatório                                                                                                           |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Duplicatas na mesma fatia e entre fatias de 500                      | Um único item por e-mail normalizado; exclusões explicadas; não ocorre violação de unicidade.                                   |
+| E-mails inválidos, opt-out e supressão entre preflight e envio       | Contagem fecha, elegibilidade atualizada, nenhuma mensagem proibida é enviada.                                                  |
+| Falha no meio da preparação ou clique repetido                       | Mesmo identificador lógico, nenhuma ativação parcial, possibilidade de completar sem duplicar linhas.                           |
+| Sucesso/erro mistos em batch e 429 com `Retry-After`                 | Só itens rejeitados comprovadamente entram em retry seguro; backoff e número de chamadas respeitados.                           |
+| Timeout após envio aceito, resposta ambígua ou falha de persistência | Não há replay cego; fica `unconfirmed` até evidência/decisão humana auditada.                                                   |
+| Fechar/recarregar aba, offline/online, duas abas, lease vencida      | Estado permanece íntegro; retomada segura sem concorrência dupla; nenhuma promessa de disparo com aba fechada.                  |
+| Webhook duplicado, tardio ou fora de ordem                           | Contadores por mensagem única, evento íntegro, distinção entre `accepted` e `delivered`.                                        |
+| Campanha com bounces/supressões/falhas                               | Nunca exibir “entregue integralmente” sem comprovação; divergências visíveis por causa.                                         |
+| Limites dos planos e consultas                                       | Medir chamadas, duração, queries/egress, definir teto/alarme por campanha e demonstrar desempenho dentro dos budgets acordados. |
+| Sem alterações do produto fora do Mailer                             | Preview, filtros, atletas, personalização, histórico, autenticação e descadastro preservados.                                   |
 
 **Invariantes de aceite:**
 

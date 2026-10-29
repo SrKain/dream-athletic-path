@@ -1481,3 +1481,61 @@ $ vite build
 - **Entrega:** `think/2026-10-29-1417-plano-reestruturacao-confiabilidade-recruit-mailer.md`.
 - **Base de evidências:** consultas de leitura à produção no Supabase e análise de código no GitHub; distinção entre fatos verificados e hipóteses sujeitas à correlação de logs.
 - **Governança:** só houve criação de Markdown em `think/` e registro em `BACKLOGER.md`. Nenhum código, schema, configuração, dado ou e-mail foi alterado/disparado. `CERNE.md` não necessita atualização nesta etapa documental. Comandos de validação de código (`bun install --frozen-lockfile`, `bun run validate`) **não executados**, pois não houve alteração de código nem ambiente de build; não se declara aprovação de build.
+
+---
+
+## TASK-115 — 2026-10-29 18:31 (UTC) — Implementação Completa do Recruit Mailer V2 (5.000+ Disparos, Idempotência por Lote, Pré-Checagem, Monitor em 3 Fases e Relatório Final)
+
+- **Solicitante:** Kauan (usuário humano) — `"Da uma olhada no último think e vamos pra cima disso"`.
+- **Executor:** Google AI Studio (Coding Engine).
+- **Status:** `[CONCLUÍDO]` — Plano aprovado em [`think/2026-10-29-1500-mailer-arquitetura-a-prova-de-falhas-e-prompt-ai-studio.md`](think/2026-10-29-1500-mailer-arquitetura-a-prova-de-falhas-e-prompt-ai-studio.md).
+- **Entregas Realizadas:**
+  1. **Migrations SQL & Verificadores (`db/migrations/`):**
+     - `db/migrations/verify-0031-prereqs.sql` (diagnóstico somente leitura pré-aplicação das migrations `0001–0030`).
+     - `db/migrations/0031_mailer_reliability.sql` (pré-checagem determinística `DO $$`, tabelas `mailer_batches` e `mailer_campaign_exclusions`, evolução de `mailer_campaigns` e `mailer_queue`, reconciliação segura das campanhas legadas `2725beda…` e `8a56bef1…`, e RPCs `mailer_preflight`, `create_mailer_campaign`, `activate_mailer_campaign`, `claim_mailer_batch`, `finalize_mailer_batch`, `mailer_campaign_progress`, `mailer_requeue_failed_retryable` e `mailer_burst_ready()` endurecidos com `SECURITY DEFINER`, `SET search_path = public` e `REVOKE ALL FROM PUBLIC, anon, authenticated`).
+     - `db/migrations/verify-0031.sql` (verificação pós-migration das tabelas, índices, RPCs e invariantes).
+     - `db/migrations/0032_mailer_cron_optional.sql` (cron opcional `pg_cron` + `pg_net` via `vault.decrypted_secrets`, sem segredos em texto puro).
+  2. **Backend Mailer Engine V2 & Provider (`src/lib/email/` e `src/server.ts`):**
+     - `src/lib/email/unsubscribe-token.ts`: token de descadastro ancorado ao dia UTC para preservar determinismo byte a byte em replays idempotentes dentro de 24h.
+     - `src/lib/email/mail-provider.server.ts`: `sendResendBatchV2` e `classifyBatchErrorV2` com `Idempotency-Key: mc:{campaign_id}:b{seq}`, sem fallback síncrono de 100 chamadas individuais e com matriz fechada de falhas.
+     - `src/lib/email/mailer-engine-v2.server.ts`: pré-checagem com guarda de cota mensal (20.000/mês), enfileiramento idempotente em fatias de 500, tick orçado (`MAILER_TICK_BUDGET_MS=4000`, `MAILER_BATCH_GAP_MS=1200`), guarda de supressão e reputação em tempo real, relatório final consolidado, reenvio exclusivo de `failed_retryable`, exportação CSV UTF-8 BOM e feature flag `MAILER_ENGINE=v2|legacy`.
+     - `src/lib/email/mailer-worker-auth.ts`, `src/lib/email/recruit-email.functions.ts` e `src/server.ts` (`POST /api/mailer/tick`).
+  3. **Frontend & UX Operacional (`src/hooks/use-campaign-runner.ts`, `src/components/mailer/*`, `src/routes/_authenticated/admin/mailer.tsx`):**
+     - `useCampaignRunner` com coordenação entre abas (`BroadcastChannel`), pausa em aba oculta/offline e retomada automática em foco/online.
+     - `MailerPreflightPanel`, `MailerProgressPanel` (barras separadas de Submissão ao Resend e Entrega via Webhook) e `MailerFinalReport` (funil completo, tabela de não enviados, reenvio de `failed_retryable` e download CSV).
+  4. **Testes & Simulação de Escala (`src/lib/email/mailer-engine-v2.test.ts`):**
+     - Simulação em memória de 100, 500, 800, 1.500 e 5.000 destinatários nos 3 modos (`single_athlete`, `multi_athlete`, `catalog`), falha no meio da preparação + retry idempotente, replay ambíguo 5xx/timeout, 429 `Retry-After`, 429 cota mensal, 409 conflito, takeover de lease expirado, deduplicação de webhooks por `svix_id` e contratos SQL.
+- **Saídas Reais do Portão Anti-Build-Quebrada (Regra 7 do `AGENTS.md`):**
+
+```bash
+$ git hash-object bun.lock package.json
+11e32ea0199fd8ea03742194d7e92136aa0ed513
+868f6434b581f681611b76689623de2ee9a2b9b1
+# package.json e bun.lock permaneceram 100% intocados (mesmos SHAs canônicos validados com Bun 1.3.14).
+```
+
+```bash
+$ bunx vitest run src/lib/lockfile-sync.test.ts src/lib/email/mailer-engine-v2.test.ts
+ RUN  v3.2.7 /app/applet
+ ✓ src/lib/lockfile-sync.test.ts (3 tests) 17ms
+ ✓ src/lib/email/mailer-engine-v2.test.ts (9 tests) 1468ms
+   ✓ TASK-115 — Recruit Mailer V2 Reliability & 5,000+ Scale Simulation > simulates 100, 500, 800, 1,500 and 5,000 recipients across all 3 modes (single_athlete, multi_athlete, catalog) with 100% invariant integrity  1420ms
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+```
+
+```bash
+$ bun run validate
+$ bun run lint && bun run typecheck && bun run test && bun run build
+$ eslint .
+✖ 14 problems (0 errors, 14 warnings)
+$ tsc --noEmit
+$ vitest run
+ Test Files  43 passed (43)
+      Tests  351 passed (351)
+$ vite build
+✓ built in 27.47s
+ℹ Generated .vercel/output/nitro.json
+[nitro] ✔ You can preview this build using npx vite preview
+[nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
+```

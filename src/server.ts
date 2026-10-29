@@ -5,7 +5,10 @@ import { renderErrorPage } from "./lib/error-page";
 import { generateSitemapXml } from "./lib/sitemap";
 import { processResendWebhook } from "./lib/email/resend-webhook.server";
 import { processScheduledEmails } from "./lib/email/email.server";
-import { verifyMailerWorkerRequest } from "./lib/email/mailer-worker-auth";
+import {
+  verifyMailerWorkerRequest,
+  verifyMailerCronTickSecret,
+} from "./lib/email/mailer-worker-auth";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -116,6 +119,96 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/api/mailer/tick") {
+        const headers = {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+        };
+        if (request.method !== "POST") {
+          return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+            status: 405,
+            headers,
+          });
+        }
+
+        // Autenticação dupla: MAILER_CRON_SECRET (comparação em tempo constante) OU sessão agency_admin
+        const cronAuth = verifyMailerCronTickSecret(request);
+        let isAuthorized = cronAuth === "ok";
+        let resolvedControllerId = "cron_scheduler";
+
+        if (!isAuthorized) {
+          const authHeader = request.headers.get("authorization") || "";
+          const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+          if (bearerToken) {
+            const { getUserServerClient } = await import("./lib/supabase/clients.server");
+            const userClient = getUserServerClient(bearerToken);
+            if (userClient) {
+              const { data: authData, error: authErr } = await userClient.auth.getUser();
+              if (!authErr && authData?.user?.id) {
+                const { data: roleRow } = await userClient
+                  .from("user_roles")
+                  .select("role")
+                  .eq("user_id", authData.user.id)
+                  .maybeSingle();
+                if (roleRow?.role === "agency_admin") {
+                  isAuthorized = true;
+                  resolvedControllerId = `admin_${authData.user.id.slice(0, 8)}`;
+                }
+              }
+            }
+          }
+        }
+
+        if (!isAuthorized) {
+          return new Response(JSON.stringify({ error: "unauthorized" }), {
+            status: 401,
+            headers,
+          });
+        }
+
+        let body: { campaignId?: string; controllerId?: string } = {};
+        try {
+          body = (await request.json()) as { campaignId?: string; controllerId?: string };
+        } catch {
+          body = {};
+        }
+
+        const { runCampaignTick } = await import("./lib/email/mailer-engine-v2.server");
+        const { getAdminClient } = await import("./lib/supabase/clients.server");
+
+        let targetCampaignId = body.campaignId?.trim() || "";
+        if (!targetCampaignId) {
+          const admin = getAdminClient();
+          const nowIso = new Date().toISOString();
+          const { data: nextCamp } = await admin
+            .from("mailer_campaigns")
+            .select("id, controller_lease_expires_at")
+            .eq("status", "running")
+            .order("created_at", { ascending: true })
+            .limit(5);
+          const candidate = (nextCamp || []).find(
+            (c: { id: string; controller_lease_expires_at?: string | null }) =>
+              !c.controller_lease_expires_at || c.controller_lease_expires_at <= nowIso,
+          );
+          if (!candidate) {
+            return new Response(
+              JSON.stringify({
+                success: true,
+                status: "idle",
+                nextTickInMs: null,
+              }),
+              { status: 200, headers },
+            );
+          }
+          targetCampaignId = candidate.id;
+        }
+
+        const tickResult = await runCampaignTick(targetCampaignId, {
+          controllerId: body.controllerId?.trim() || resolvedControllerId,
+        });
+        return new Response(JSON.stringify(tickResult), { status: 200, headers });
+      }
+
       // Deliberately not configured in Vercel/Supabase: a scheduler must be
       // provisioned separately after operational authorization.
       if (url.pathname === "/api/mailer/worker") {

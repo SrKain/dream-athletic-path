@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano técnico completo para corrigir a falha de fechamento de rajada do Mailer (coach_id nulo em recruit_email_logs), tornar a persistência da fila resiliente a falhas de log, introduzir o estado unconfirmed para reconciliação sem reenvio automático com decisão humana explícita, e adicionar polling independente e telemetria de último tick no modo navegador.",
-  "updatedAt":  "2026-10-27T20:13:44.888866941Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Plano técnico completo para corrigir a falha de fechamento de rajada do Mailer (coach_id nulo em recruit_email_logs), tornar a persistência da fila resiliente a falhas de log, introduzir o estado unconfirmed para reconciliação sem reenvio automático com decisão humana explícita, e adicionar polling independente e telemetria de último tick no modo navegador.",
+  "updatedAt": "2026-10-27T20:13:44.888866941Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

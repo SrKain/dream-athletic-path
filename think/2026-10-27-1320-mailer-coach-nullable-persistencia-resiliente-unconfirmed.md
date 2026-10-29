@@ -13,6 +13,7 @@ Em produção, o fechamento de rajada do Mailer falha com:
 `null value in column "coach_id" of relation "recruit_email_logs" violates not-null constraint`.
 
 ### Causa Comprovada
+
 - `recruit_email_logs.coach_id` é `NOT NULL` desde a migration `0016`.
 - A migration `0018` removeu apenas o `NOT NULL` de `athlete_id` e a FK `recruit_email_logs_coach_id_fkey`, mantendo `coach_id` como `NOT NULL`.
 - Contatos importados de universidades (JSONB) não possuem linha em `public.coaches`, logo `mailer_queue.coach_id` é `NULL`.

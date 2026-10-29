@@ -26,3 +26,30 @@ export function verifyMailerWorkerRequest(
   }
   return "ok";
 }
+
+/**
+ * Verifica autenticação via `MAILER_CRON_SECRET` em tempo constante (`timingSafeEqual`)
+ * para o endpoint `POST /api/mailer/tick`.
+ */
+export function verifyMailerCronTickSecret(
+  request: Request,
+  env: NodeJS.ProcessEnv = process.env,
+): "ok" | "disabled" | "unauthorized" {
+  const cronSecret = (env.MAILER_CRON_SECRET || env.MAILER_WORKER_SECRET || "").trim();
+  if (!cronSecret) return "disabled";
+
+  const headerSecret = (request.headers.get("x-mailer-cron-secret") || "").trim();
+  const bearerHeader = (request.headers.get("authorization") || "").trim();
+  const bearerToken = bearerHeader.startsWith("Bearer ") ? bearerHeader.slice(7).trim() : "";
+  const candidate = headerSecret || bearerToken;
+
+  if (!candidate) return "unauthorized";
+
+  const expectedBuf = Buffer.from(cronSecret, "utf8");
+  const suppliedBuf = Buffer.from(candidate, "utf8");
+
+  if (expectedBuf.length !== suppliedBuf.length || !timingSafeEqual(expectedBuf, suppliedBuf)) {
+    return "unauthorized";
+  }
+  return "ok";
+}

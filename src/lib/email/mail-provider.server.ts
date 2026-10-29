@@ -400,3 +400,445 @@ export function getMailProvider(options?: { dryRun?: boolean }): MailProvider {
   }
   return new ResendMailProvider();
 }
+
+// ============================================================================
+// MOTOR V2 — MATRIZ FECHADA DE FALHAS (SEÇÃO 4.4) E IDEMPOTÊNCIA POR LOTE
+// ============================================================================
+
+export type V2BatchDisposition =
+  | "accepted" // 200 com IDs para todos os itens
+  | "partial" // 200 com alguns IDs e alguns erros 4xx por item
+  | "retry_same_key" // 429 rate_limit_exceeded ou 409 concurrent_idempotent_requests
+  | "ambiguous_same_key" // 5xx, timeout, queda de rede -> reenviar payload idêntico com MESMA chave
+  | "pause_quota" // 429 monthly_quota_exceeded / daily_quota_exceeded -> pausa de segurança sem falhar item
+  | "pause_config" // 401/403 domain/key error -> pausa de segurança sem falhar item
+  | "unconfirmed_409" // 409 invalid_idempotent_request -> NUNCA reenviar; itens viram unconfirmed
+  | "failed_permanent"; // 422 / 400 definitivo no lote
+
+export interface V2BatchItemOutcome {
+  id: string;
+  status: "accepted" | "failed_permanent" | "failed_retryable" | "unconfirmed";
+  providerMessageId?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  failureCategory?: string | null;
+}
+
+export interface V2BatchSubmissionResult {
+  disposition: V2BatchDisposition;
+  httpStatus: number;
+  idempotencyKey: string;
+  outcomes: V2BatchItemOutcome[];
+  retryAfterMs?: number;
+  pauseReason?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  rawResponse?: Record<string, unknown> | null;
+}
+
+export function parseRetryAfterMs(rawRetryAfter: unknown, fallbackMs = 2000): number {
+  if (typeof rawRetryAfter === "number" && Number.isFinite(rawRetryAfter) && rawRetryAfter > 0) {
+    return Math.min(Math.max(Math.ceil(rawRetryAfter * 1000), 500), 300_000);
+  }
+  if (typeof rawRetryAfter === "string" && rawRetryAfter.trim()) {
+    const trimmed = rawRetryAfter.trim();
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return Math.min(Math.max(Math.ceil(numeric * 1000), 500), 300_000);
+    }
+    const parsedDate = Date.parse(trimmed);
+    if (!Number.isNaN(parsedDate)) {
+      const deltaMs = parsedDate - Date.now();
+      return Math.min(Math.max(deltaMs, 500), 300_000);
+    }
+  }
+  return fallbackMs;
+}
+
+/**
+ * Classifica qualquer erro da Resend Batch API segundo a matriz fechada da Seção 4.4.
+ * NUNCA faz fallback de 100 chamadas individuais em cascata.
+ */
+export function classifyBatchErrorV2(
+  err: unknown,
+  items: BatchEmailItem[],
+  idempotencyKey: string,
+): V2BatchSubmissionResult {
+  const errorObj = (err || {}) as {
+    statusCode?: number;
+    status?: number;
+    name?: string;
+    code?: string;
+    message?: string;
+    retryAfter?: unknown;
+    retry_after?: unknown;
+    headers?: Record<string, string | undefined>;
+  };
+
+  const statusCode = Number(errorObj.statusCode || errorObj.status || 0);
+  const name = String(errorObj.name || errorObj.code || "").toLowerCase();
+  const message = String(errorObj.message || "Unknown Resend batch error");
+  const rawRetryHeader =
+    errorObj.retryAfter ??
+    errorObj.retry_after ??
+    errorObj.headers?.["retry-after"] ??
+    errorObj.headers?.["Retry-After"];
+
+  // 1. 409 Conflict de Idempotência
+  if (statusCode === 409 || /idempotent/i.test(name) || /idempotent/i.test(message)) {
+    if (/concurrent/i.test(name) || /concurrent/i.test(message)) {
+      // 409 concurrent_idempotent_requests: primeira chamada ainda em voo no Resend -> aguardar e consultar/repetir com MESMA chave
+      return {
+        disposition: "retry_same_key",
+        httpStatus: 409,
+        idempotencyKey,
+        outcomes: [],
+        retryAfterMs: parseRetryAfterMs(rawRetryHeader, 2500),
+        errorCode: "CONCURRENT_IDEMPOTENT_REQUESTS",
+        errorMessage: message,
+        rawResponse: { statusCode: 409, name, message },
+      };
+    }
+
+    // 409 invalid_idempotent_request: chave reutilizada com payload diferente -> NUNCA reenviar; itens viram unconfirmed
+    return {
+      disposition: "unconfirmed_409",
+      httpStatus: 409,
+      idempotencyKey,
+      outcomes: items.map((it) => ({
+        id: it.id,
+        status: "unconfirmed",
+        providerMessageId: null,
+        errorCode: "INVALID_IDEMPOTENT_REQUEST",
+        errorMessage: `Conflito 409 de payload idempotente (${idempotencyKey}): ${message}`,
+        failureCategory: "invalid_idempotent_request",
+      })),
+      pauseReason: `Pausada por segurança: conflito 409 invalid_idempotent_request no lote ${idempotencyKey}.`,
+      errorCode: "INVALID_IDEMPOTENT_REQUEST",
+      errorMessage: message,
+      rawResponse: { statusCode: 409, name, message },
+    };
+  }
+
+  // 2. 429 Rate Limit vs Cota Mensal / Diária
+  if (
+    statusCode === 429 ||
+    name === "rate_limit_exceeded" ||
+    name === "monthly_quota_exceeded" ||
+    name === "daily_quota_exceeded" ||
+    /429|rate_limit|too many requests|monthly_quota|daily_quota|quota exceeded/i.test(message)
+  ) {
+    const isQuotaExceeded =
+      name === "monthly_quota_exceeded" ||
+      name === "daily_quota_exceeded" ||
+      /monthly_quota_exceeded|daily_quota_exceeded|monthly quota|daily quota|quota exceeded/i.test(
+        message,
+      );
+
+    if (isQuotaExceeded) {
+      // Pausa por segurança SEM marcar itens como falha
+      const quotaLabel = /daily/i.test(name + " " + message)
+        ? "Cota diária do Resend atingida (daily_quota_exceeded)."
+        : "Cota mensal do Resend atingida (monthly_quota_exceeded).";
+      return {
+        disposition: "pause_quota",
+        httpStatus: 429,
+        idempotencyKey,
+        outcomes: [],
+        pauseReason: `Pausada por segurança: ${quotaLabel} Nenhum item pendente foi perdido.`,
+        errorCode: name.toUpperCase() || "QUOTA_EXCEEDED",
+        errorMessage: message,
+        rawResponse: { statusCode: 429, name, message },
+      };
+    }
+
+    // 429 de taxa por segundo: respeita retry-after e repete com a MESMA chave
+    return {
+      disposition: "retry_same_key",
+      httpStatus: 429,
+      idempotencyKey,
+      outcomes: [],
+      retryAfterMs: parseRetryAfterMs(rawRetryHeader, 2000),
+      errorCode: "RATE_LIMIT_EXCEEDED",
+      errorMessage: message,
+      rawResponse: { statusCode: 429, name, message },
+    };
+  }
+
+  // 3. 401 / 403 Credenciais ou Domínio -> Pausa de segurança sem perder a fila
+  if (
+    statusCode === 401 ||
+    statusCode === 403 ||
+    /unauthorized|invalid api key|domain not verified|forbidden/i.test(message)
+  ) {
+    return {
+      disposition: "pause_config",
+      httpStatus: statusCode || 403,
+      idempotencyKey,
+      outcomes: [],
+      pauseReason: `Pausada por segurança: erro de autenticação/domínio no provedor (${message}).`,
+      errorCode: "PROVIDER_CONFIG_ERROR",
+      errorMessage: message,
+      rawResponse: { statusCode: statusCode || 403, name, message },
+    };
+  }
+
+  // 4. 5xx, Timeout, Queda de Rede -> Lote `ambiguous` -> Reenvio IDÊNTICO com a MESMA Idempotency-Key
+  if (
+    statusCode >= 500 ||
+    statusCode === 408 ||
+    name === "timeouterror" ||
+    name === "aborterror" ||
+    /timeout|timed out|econnreset|etimedout|enotfound|fetch failed|network|socket hang up|500|502|503|504/i.test(
+      message,
+    )
+  ) {
+    return {
+      disposition: "ambiguous_same_key",
+      httpStatus: statusCode || 504,
+      idempotencyKey,
+      outcomes: [],
+      retryAfterMs: 1500,
+      errorCode: "AMBIGUOUS_NETWORK_OR_5XX",
+      errorMessage: message,
+      rawResponse: { statusCode: statusCode || 504, name, message },
+    };
+  }
+
+  // 5. 400 / 422 Definitivo de Validação
+  return {
+    disposition: "failed_permanent",
+    httpStatus: statusCode || 422,
+    idempotencyKey,
+    outcomes: items.map((it) => ({
+      id: it.id,
+      status: "failed_permanent",
+      providerMessageId: null,
+      errorCode: "BATCH_VALIDATION_ERROR",
+      errorMessage: message,
+      failureCategory: "provider_4xx_validation",
+    })),
+    errorCode: "BATCH_VALIDATION_ERROR",
+    errorMessage: message,
+    rawResponse: { statusCode: statusCode || 422, name, message },
+  };
+}
+
+/**
+ * Executa o envio de um lote de até 100 e-mails via Resend Batch API (`POST /emails/batch`)
+ * com `Idempotency-Key` imutável (`mc:{campaign_id}:b{seq}`) e matriz fechada de falhas.
+ */
+export async function sendResendBatchV2(
+  items: BatchEmailItem[],
+  options: {
+    idempotencyKey: string;
+    dryRun?: boolean;
+    timeoutMs?: number;
+    customClient?: {
+      batch: {
+        send: (payload: unknown, opts: unknown) => Promise<unknown>;
+      };
+    } | null;
+  },
+): Promise<V2BatchSubmissionResult> {
+  const { idempotencyKey, dryRun = false, timeoutMs = 10_000 } = options;
+
+  if (items.length === 0) {
+    return {
+      disposition: "accepted",
+      httpStatus: 200,
+      idempotencyKey,
+      outcomes: [],
+      rawResponse: { empty: true },
+    };
+  }
+
+  if (items.length > 100) {
+    throw new Error(`sendResendBatchV2: Resend batch limit is 100 items, received ${items.length}`);
+  }
+
+  // Modo Dry Run: gera IDs determinísticos por item sem chamar rede
+  if (dryRun) {
+    return {
+      disposition: "accepted",
+      httpStatus: 200,
+      idempotencyKey,
+      outcomes: items.map((it, idx) => ({
+        id: it.id,
+        status: "accepted",
+        providerMessageId: `dry_${idempotencyKey}_${idx + 1}`,
+      })),
+      rawResponse: { dryRun: true, count: items.length },
+    };
+  }
+
+  const { isConfigured, from: defaultFrom } = getResendConfig();
+  if (!isConfigured && !options.customClient) {
+    return {
+      disposition: "pause_config",
+      httpStatus: 503,
+      idempotencyKey,
+      outcomes: [],
+      pauseReason: "Pausada por segurança: RESEND_API_KEY não configurada no servidor.",
+      errorCode: "RESEND_NOT_CONFIGURED",
+      errorMessage: "RESEND_API_KEY is missing.",
+    };
+  }
+
+  const client = options.customClient ?? getResendClient();
+  if (!client) {
+    return {
+      disposition: "pause_config",
+      httpStatus: 503,
+      idempotencyKey,
+      outcomes: [],
+      pauseReason: "Pausada por segurança: falha ao inicializar cliente Resend.",
+      errorCode: "RESEND_INIT_FAILED",
+      errorMessage: "Failed to initialize Resend client.",
+    };
+  }
+
+  const batchPayload = items.map((it) => ({
+    from: it.from || defaultFrom,
+    to: [it.to],
+    replyTo: it.replyTo || "contact@goteamgoagency.com",
+    subject: it.subject,
+    html: it.html,
+    text: it.text,
+    headers: it.headers,
+    tags: it.tags,
+  }));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const sendPromise = (
+      client.batch as unknown as {
+        send: (payload: unknown, opts: unknown) => Promise<unknown>;
+      }
+    ).send(batchPayload, {
+      batchValidation: "permissive",
+      idempotencyKey,
+    });
+
+    const abortPromise = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener("abort", () => {
+        const err = new Error(`Resend batch request timed out after ${timeoutMs}ms`);
+        err.name = "TimeoutError";
+        reject(err);
+      });
+    });
+
+    const rawResponse = await Promise.race([sendPromise, abortPromise]);
+    clearTimeout(timer);
+
+    const response = rawResponse as {
+      data?:
+        | {
+            data?: Array<{ id?: string }>;
+            errors?: Array<{ index: number; message?: string; code?: string }>;
+          }
+        | Array<{ id?: string }>;
+      errors?: Array<{ index: number; message?: string; code?: string }>;
+      error?: {
+        statusCode?: number;
+        status?: number;
+        name?: string;
+        message?: string;
+        retryAfter?: unknown;
+      } | null;
+    };
+
+    if (response?.error) {
+      return classifyBatchErrorV2(response.error, items, idempotencyKey);
+    }
+
+    const resData = response?.data;
+    const errorIndices = new Map<number, { message: string; code: string }>();
+    const responseErrors =
+      (resData && !Array.isArray(resData) && resData.errors) || response?.errors;
+
+    if (Array.isArray(responseErrors)) {
+      for (const errItem of responseErrors) {
+        if (typeof errItem.index === "number") {
+          errorIndices.set(errItem.index, {
+            message: errItem.message || " Destinatário rejeitado pelo provedor (4xx)",
+            code: errItem.code || "ITEM_VALIDATION_ERROR",
+          });
+        }
+      }
+    }
+
+    const dataArr: Array<{ id?: string }> = Array.isArray(resData)
+      ? resData
+      : Array.isArray(resData?.data)
+        ? resData.data
+        : [];
+
+    const outcomes: V2BatchItemOutcome[] = [];
+    let dataPtr = 0;
+    let hasAccepted = false;
+    let hasRejected = false;
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      if (errorIndices.has(idx)) {
+        const itemErr = errorIndices.get(idx)!;
+        hasRejected = true;
+        outcomes.push({
+          id: item.id,
+          status: "failed_permanent",
+          providerMessageId: null,
+          errorCode: itemErr.code,
+          errorMessage: itemErr.message,
+          failureCategory: "provider_item_rejected",
+        });
+      } else {
+        const candidateId =
+          dataArr[dataPtr]?.id ?? (dataArr.length === items.length ? dataArr[idx]?.id : undefined);
+        if (dataArr[dataPtr]?.id !== undefined) {
+          dataPtr++;
+        }
+
+        if (candidateId && String(candidateId).trim().length > 0) {
+          hasAccepted = true;
+          outcomes.push({
+            id: item.id,
+            status: "accepted",
+            providerMessageId: String(candidateId).trim(),
+          });
+        } else {
+          // Regra da Seção 4.4: NUNCA marcar `accepted` sem `provider_message_id` real do provedor
+          hasRejected = true;
+          outcomes.push({
+            id: item.id,
+            status: "unconfirmed",
+            providerMessageId: null,
+            errorCode: "MISSING_PROVIDER_MESSAGE_ID",
+            errorMessage:
+              "O provedor retornou HTTP 200 para o lote sem informar o ID desta mensagem.",
+            failureCategory: "missing_provider_id",
+          });
+        }
+      }
+    }
+
+    const disposition: V2BatchDisposition =
+      hasAccepted && hasRejected ? "partial" : hasAccepted ? "accepted" : "failed_permanent";
+
+    return {
+      disposition,
+      httpStatus: 200,
+      idempotencyKey,
+      outcomes,
+      rawResponse: {
+        acceptedCount: outcomes.filter((o) => o.status === "accepted").length,
+        rejectedCount: outcomes.filter((o) => o.status !== "accepted").length,
+      },
+    };
+  } catch (err: unknown) {
+    clearTimeout(timer);
+    return classifyBatchErrorV2(err, items, idempotencyKey);
+  }
+}

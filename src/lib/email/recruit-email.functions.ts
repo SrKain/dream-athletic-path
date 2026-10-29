@@ -164,10 +164,16 @@ export const sendRecruitEmailServerFn = createServerFn({ method: "POST" })
 // 10. Enfileiramento Inteligente de Campanha do Mailer (Requer agência)
 export const enqueueMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
-  .inputValidator((data: SendMailerInput) => data)
-  .handler(async ({ data }) => {
-    const { enqueueCampaignDispatches } = await import("./mailer-queue.server");
-    return enqueueCampaignDispatches(data);
+  .inputValidator((data: SendMailerInput & { idempotencyKey?: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { getMailerEngineMode, prepareAndActivateCampaignV2 } =
+      await import("./mailer-engine-v2.server");
+    const userId = (context as { user?: { id?: string } })?.user?.id ?? data.createdBy;
+    if (getMailerEngineMode() === "legacy") {
+      const { enqueueCampaignDispatches } = await import("./mailer-queue.server");
+      return enqueueCampaignDispatches({ ...data, createdBy: userId });
+    }
+    return prepareAndActivateCampaignV2({ ...data, createdBy: userId });
   });
 
 // 11. Progresso em Tempo Real da Fila da Campanha (Requer agência)
@@ -175,8 +181,13 @@ export const getCampaignQueueProgressServerFn = createServerFn({ method: "POST" 
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
-    const { getCampaignQueueProgress } = await import("./mailer-queue.server");
-    return getCampaignQueueProgress(data.campaignId);
+    const { getMailerEngineMode, getCampaignProgressV2 } =
+      await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "legacy") {
+      const { getCampaignQueueProgress } = await import("./mailer-queue.server");
+      return getCampaignQueueProgress(data.campaignId);
+    }
+    return getCampaignProgressV2(data.campaignId);
   });
 
 // 12. Pausar Campanha em Andamento (Requer agência)
@@ -479,4 +490,83 @@ export const getPaginatedMailerHistoryServerFn = createServerFn({ method: "POST"
   .handler(async ({ data }) => {
     const { getPaginatedMailerHistory } = await import("./mailer-history.server");
     return getPaginatedMailerHistory(data);
+  });
+
+// 21. Pré-checagem Autoritativa do Mailer V2 (selecionados = elegíveis + exclusões + cota mensal)
+export const runMailerPreflightServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: import("./mailer-engine-v2.server").RunMailerPreflightInput) => data)
+  .handler(async ({ data }) => {
+    const { runMailerPreflight } = await import("./mailer-engine-v2.server");
+    return runMailerPreflight(data);
+  });
+
+// 22. Tick Idempotente de Campanha no Servidor (`runCampaignTick`)
+export const runCampaignTickServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string; controllerId?: string }) => {
+    if (!data?.campaignId || typeof data.campaignId !== "string" || !data.campaignId.trim()) {
+      throw new Error("campaignId is required.");
+    }
+    return {
+      campaignId: data.campaignId.trim(),
+      controllerId: typeof data.controllerId === "string" ? data.controllerId.trim() : undefined,
+    };
+  })
+  .handler(async ({ data }) => {
+    const { getMailerEngineMode, runCampaignTick, getCampaignProgressV2 } =
+      await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "legacy") {
+      const { processMailerQueue, getCampaignQueueProgress } =
+        await import("./mailer-queue.server");
+      const res = await processMailerQueue({
+        campaignId: data.campaignId,
+        maxBatchSize: 100,
+        clientId: data.controllerId,
+      });
+      const progress = await getCampaignQueueProgress(data.campaignId);
+      return {
+        success: true,
+        campaignId: data.campaignId,
+        campaignStatus: res.campaignStatus || progress?.status || "running",
+        batchesProcessed: res.processed > 0 ? 1 : 0,
+        itemsProcessed: res.processed,
+        acceptedInTick: res.sent,
+        failedInTick: res.failed,
+        unconfirmedInTick: 0,
+        nextTickInMs:
+          (res.campaignStatus || progress?.status) === "running"
+            ? (res.cooldownRemainingSec || 2) * 1000
+            : null,
+        leaseHeldByOther: Boolean(res.controllerConflict),
+        rateLimited: res.rateLimited,
+        progress: progress || null,
+        message: res.message,
+      };
+    }
+    const tickRes = await runCampaignTick(data.campaignId, {
+      controllerId: data.controllerId,
+    });
+    if (!tickRes.progress) {
+      tickRes.progress = await getCampaignProgressV2(data.campaignId);
+    }
+    return tickRes;
+  });
+
+// 23. Relatório Final Auditável da Campanha (resumo congelado + entrega viva + itens não enviados)
+export const getCampaignFinalReportServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { getCampaignFinalReport } = await import("./mailer-engine-v2.server");
+    return getCampaignFinalReport(data.campaignId);
+  });
+
+// 24. Reenviar Somente Falhas Retentáveis (`failed_retryable` -> `pending`)
+export const retryFailedRetryableServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string }) => data)
+  .handler(async ({ data }) => {
+    const { retryFailedRetryableItems } = await import("./mailer-engine-v2.server");
+    return retryFailedRetryableItems(data.campaignId);
   });

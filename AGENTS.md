@@ -27,4 +27,4 @@
    5. Mudou contrato de função (retorno, tipo, assinatura)? Rode `grep -rn "<nome>" src` e atualize TODOS os chamadores, incluindo `src/server.ts`, que não tem teste.
    6. Commits de documentação/plano não podem carregar código: um commit "docs" só altera documentação.
    7. O teste `src/lib/lockfile-sync.test.ts` é guarda obrigatória: nunca remova, pule ou relaxe esse teste para "passar" a build.
-   Se qualquer etapa falhar e não puder ser resolvida sem violar estas regras, PARE e reporte ao humano em vez de entregar código quebrado.
+      Se qualquer etapa falhar e não puder ser resolvida sem violar estas regras, PARE e reporte ao humano em vez de entregar código quebrado.

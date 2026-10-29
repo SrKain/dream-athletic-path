@@ -17,10 +17,19 @@ export function generateUnsubscribeToken(
   email: string,
   campaignId?: string | null,
   ttlDays: number = DEFAULT_TTL_DAYS,
+  referenceTimeMs?: number,
 ): string {
   const secret = getUnsubscribeSecret();
   const cleanEmail = email.trim().toLowerCase();
-  const exp = Date.now() + ttlDays * 24 * 60 * 60 * 1000;
+  const dayMs = 24 * 60 * 60 * 1000;
+  // Quando há campaignId (ou referenceTimeMs), ancora o exp ao dia UTC para que retries
+  // do mesmo lote na janela de 24h do Resend produzam payload 100% idêntico (evitando 409).
+  const rawMs =
+    typeof referenceTimeMs === "number" && Number.isFinite(referenceTimeMs)
+      ? referenceTimeMs
+      : Date.now();
+  const baseMs = ttlDays > 0 ? Math.floor(rawMs / dayMs) * dayMs : rawMs;
+  const exp = baseMs + ttlDays * dayMs;
   const camp = campaignId?.trim() || "";
 
   const payload = Buffer.from(JSON.stringify({ e: cleanEmail, c: camp, exp }), "utf8").toString(

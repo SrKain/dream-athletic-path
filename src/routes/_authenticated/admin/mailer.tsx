@@ -62,10 +62,16 @@ import {
   getMailerCampaignOrchestrationModeServerFn,
   getRecentMailerCampaignsServerFn,
   getCampaignBounceStatsServerFn,
+  runMailerPreflightServerFn,
+  retryFailedRetryableServerFn,
 } from "@/lib/email/recruit-email.functions";
 import { isDeliverableEmailSyntax } from "@/lib/email/email-syntax";
 import { BudgetMultiSelect } from "@/components/mailer/budget-multi-select";
 import { MailerHistorySection } from "@/components/mailer/mailer-history-section";
+import { MailerPreflightPanel } from "@/components/mailer/mailer-preflight-panel";
+import { MailerProgressPanel } from "@/components/mailer/mailer-progress-panel";
+import { MailerFinalReport } from "@/components/mailer/mailer-final-report";
+import { useCampaignRunner } from "@/hooks/use-campaign-runner";
 import { MailerMetricsDashboard } from "@/components/mailer-metrics-dashboard";
 import type { EmailTimelineItem } from "@/lib/email/mailer-metrics.server";
 import {
@@ -95,6 +101,7 @@ import type {
   UniversityToeflLevel,
   CoachInterestSignal,
   CampaignProgress,
+  MailerPreflightResult,
 } from "@/types/db";
 import { LEAGUES, US_STATES, BUDGET_LEVELS, TOEFL_LEVELS } from "@/lib/universities-constants";
 
@@ -240,7 +247,7 @@ function MailerPage() {
   const [filterToefl, setFilterToefl] = useState("all");
   const [filterHideSignaled, setFilterHideSignaled] = useState(false);
 
-  // TASK-107: Fila em Tempo Real & Reconciliação
+  // TASK-107 & V2: Fila em Tempo Real & Reconciliação
   const [showQueueRecipients, setShowQueueRecipients] = useState(false);
   const [queueRecipients, setQueueRecipients] = useState<
     Array<{
@@ -267,6 +274,7 @@ function MailerPage() {
   const [reconcileNotes, setReconcileNotes] = useState("");
   const [isReconciling, setIsReconciling] = useState(false);
   const [isTriggeringWorker, setIsTriggeringWorker] = useState(false);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
   const [unconfirmedRecipientsList, setUnconfirmedRecipientsList] = useState<
     Array<{
       id: string;
@@ -277,28 +285,23 @@ function MailerPage() {
   >([]);
   const [loadingUnconfirmedList, setLoadingUnconfirmedList] = useState(false);
 
-  // Modal de Confirmação & Estado de Envio
+  // Modal de Confirmação, Preflight & Estado de Envio
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [preflightResult, setPreflightResult] = useState<MailerPreflightResult | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
 
-  // Fila Inteligente: Estado de Monitoramento em Tempo Real e Operações
+  // Fila Inteligente V2: Estado de Monitoramento em Tempo Real e Operações
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [recentCampaigns, setRecentCampaigns] = useState<
     Array<{ id: string; subject: string; status: string; createdAt: string }>
   >([]);
-  // null until server confirms ownership; never race a scheduled worker from the browser.
   const [orchestrationMode, setOrchestrationMode] = useState<{
     campaignId: string;
     serverOrchestrated: boolean;
   } | null>(null);
   const [campaignProgress, setCampaignProgress] = useState<CampaignProgress | null>(null);
   const [isOperatingQueue, setIsOperatingQueue] = useState(false);
-  const [isTabHidden, setIsTabHidden] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(null);
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== "undefined" ? !navigator.onLine : false,
-  );
-  const [isAnotherTabActive, setIsAnotherTabActive] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
   const [campaignBounceStats, setCampaignBounceStats] = useState<{
     bounceRate: number;
@@ -307,34 +310,32 @@ function MailerPage() {
     bounceGuardTriggered: boolean;
   } | null>(null);
 
-  // Orquestrador do Navegador: Refs de controle do loop assíncrono e concorrência
-  const tabIdRef = React.useRef<string>(
-    (() => {
-      try {
-        if (typeof window !== "undefined" && window.sessionStorage) {
-          const existing = window.sessionStorage.getItem("gtg_mailer_tab_id");
-          if (existing) return existing;
-          const created = `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
-          window.sessionStorage.setItem("gtg_mailer_tab_id", created);
-          return created;
-        }
-      } catch {
-        // Fallback em memória se sessionStorage estiver indisponível
-      }
-      return `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
-    })(),
-  );
-  const isUnmountedRef = React.useRef(false);
-  const isOrchestratorActiveRef = React.useRef(false);
-  const isProcessingTickRef = React.useRef(false);
-  const tickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const burstSizeRef = React.useRef(100);
-  const burstPauseRef = React.useRef(1200);
-  const lastBurstAtRef = React.useRef<number | null>(null);
-  const [lastTickAt, setLastTickAt] = useState<number | null>(null);
-  const [lastTickElapsedSec, setLastTickElapsedSec] = useState<number | null>(null);
-  const [sendRate, setSendRate] = useState(0);
-  const [rateLimitNotice, setRateLimitNotice] = useState<string | null>(null);
+  const runner = useCampaignRunner({
+    campaignId: activeCampaignId,
+    onCampaignCompleted: () => {
+      void getMailerHistoryServerFn()
+        .then((updatedLogs) => {
+          setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
+        })
+        .catch(() => {});
+    },
+  });
+
+  useEffect(() => {
+    if (runner.progress) {
+      setCampaignProgress(runner.progress);
+    }
+  }, [runner.progress]);
+
+  useEffect(() => {
+    if (!activeCampaignId) {
+      setCampaignBounceStats(null);
+      return;
+    }
+    void getCampaignBounceStatsServerFn({ data: { campaignId: activeCampaignId } })
+      .then((stats) => setCampaignBounceStats(stats))
+      .catch(() => {});
+  }, [activeCampaignId, campaignProgress?.sentCount]);
 
   // Carregar dados iniciais
   async function loadInitialData() {
@@ -452,7 +453,6 @@ function MailerPage() {
         }));
         setAthletes(formatted);
 
-        // Se não houver atleta selecionado mas houver atletas na lista, seleciona o primeiro
         if (!selectedAthleteId && formatted.length > 0) {
           setSelectedAthleteId(formatted[0].id);
         }
@@ -477,7 +477,6 @@ function MailerPage() {
         setInterestSignals((signalsRes as CoachInterestSignal[]) || []);
       }
 
-      // Restaura monitoramento de campanha ativa (running/queued/paused), se houver
       const activeCamp = await getLatestActiveCampaignServerFn().catch(() => null);
       if (activeCamp) {
         setActiveCampaignId(activeCamp.campaignId);
@@ -495,314 +494,6 @@ function MailerPage() {
     void loadInitialData();
   }, []);
 
-  // 0. Monitorar desmonte do componente para evitar vazamento de memória e chamadas fantasmas
-  useEffect(() => {
-    isUnmountedRef.current = false;
-    return () => {
-      isUnmountedRef.current = true;
-      isOrchestratorActiveRef.current = false;
-      if (tickTimeoutRef.current) {
-        clearTimeout(tickTimeoutRef.current);
-        tickTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // 1. Monitorar visibilidade da aba do navegador e conectividade de rede
-  useEffect(() => {
-    const handleVisibility = () => {
-      setIsTabHidden(document.visibilityState === "hidden");
-    };
-    const onOnline = () => {
-      setIsOffline(false);
-      // Ao reconectar, aguardar 1s e retomar sem rajadas
-      if (activeCampaignId && isOrchestratorActiveRef.current && !isUnmountedRef.current) {
-        triggerOrchestratorTick(1000);
-      }
-    };
-    const onOffline = () => {
-      setIsOffline(true);
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
-  }, [activeCampaignId]);
-
-  // 2. BroadcastChannel para coordenação entre abas locais no mesmo navegador
-  useEffect(() => {
-    if (typeof BroadcastChannel === "undefined" || !activeCampaignId) return;
-    const bc = new BroadcastChannel("gtg_mailer_orchestrator");
-    bc.onmessage = (event) => {
-      if (
-        event.data?.type === "HEARTBEAT" &&
-        event.data.campaignId === activeCampaignId &&
-        event.data.tabId !== tabIdRef.current
-      ) {
-        // The server-side lease arbitrates ownership; do not permanently
-        // disable recovery just because another tab emitted a heartbeat.
-        setIsAnotherTabActive(true);
-      }
-    };
-    return () => {
-      bc.close();
-    };
-  }, [activeCampaignId]);
-
-  // 3. Timer de contagem regressiva para cooldown de 60s
-  useEffect(() => {
-    if (cooldownRemaining === null || cooldownRemaining <= 0) return;
-    const timer = setInterval(() => {
-      setCooldownRemaining((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldownRemaining]);
-
-  // 4. Orquestrador do Navegador: rajadas sequenciais de até 300 (chunks de 100 no servidor)
-  const triggerOrchestratorTick = React.useCallback(
-    (delayMs: number = 1000) => {
-      if (tickTimeoutRef.current) {
-        clearTimeout(tickTimeoutRef.current);
-        tickTimeoutRef.current = null;
-      }
-
-      if (
-        !isOrchestratorActiveRef.current ||
-        isUnmountedRef.current ||
-        orchestrationMode?.campaignId !== activeCampaignId ||
-        orchestrationMode.serverOrchestrated
-      )
-        return;
-
-      tickTimeoutRef.current = setTimeout(async () => {
-        if (
-          !isOrchestratorActiveRef.current ||
-          isUnmountedRef.current ||
-          isProcessingTickRef.current ||
-          !activeCampaignId
-        ) {
-          return;
-        }
-
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          setIsOffline(true);
-          triggerOrchestratorTick(3000);
-          return;
-        }
-
-        isProcessingTickRef.current = true;
-
-        try {
-          const res = await processMailerMicroBatchServerFn({
-            data: {
-              campaignId: activeCampaignId,
-              batchSize: burstSizeRef.current,
-              clientId: tabIdRef.current,
-            },
-          });
-
-          if (isUnmountedRef.current || !isOrchestratorActiveRef.current) return;
-
-          if (res.effectiveBurstSize) {
-            burstSizeRef.current = Math.min(100, res.effectiveBurstSize);
-          }
-          if (res.burstPauseMs) {
-            burstPauseRef.current = Math.max(1000, res.burstPauseMs);
-          }
-          if (res.rateLimited)
-            setRateLimitNotice(
-              res.message || `Resend limitou a velocidade; nova rajada: ${burstSizeRef.current}.`,
-            );
-          const tickNow = Date.now();
-          if (res.sent > 0 && lastBurstAtRef.current) {
-            setSendRate(res.sent / Math.max(1, (tickNow - lastBurstAtRef.current) / 1000));
-          }
-          lastBurstAtRef.current = tickNow;
-          setLastTickAt(tickNow);
-          setLastTickElapsedSec(0);
-
-          if (res.progress) {
-            setCampaignProgress(res.progress);
-          }
-
-          if (res.controllerConflict) {
-            setIsAnotherTabActive(true);
-            // An expired lease (30s) can be acquired shortly; do not leave the UI stuck.
-            triggerOrchestratorTick(5000);
-            return;
-          }
-
-          if (
-            !res.progress &&
-            res.processed === 0 &&
-            !res.cooldownActive &&
-            !res.campaignCompleted &&
-            !res.campaignStatus
-          ) {
-            isOrchestratorActiveRef.current = false;
-            toast.error(res.message || "Não foi possível validar a fila de envios.");
-            return;
-          }
-
-          setIsAnotherTabActive(false);
-          // Signal ownership only after an authenticated server response.
-          try {
-            if (typeof BroadcastChannel !== "undefined") {
-              const bc = new BroadcastChannel("gtg_mailer_orchestrator");
-              bc.postMessage({
-                type: "HEARTBEAT",
-                campaignId: activeCampaignId,
-                tabId: tabIdRef.current,
-              });
-              bc.close();
-            }
-          } catch {
-            // Broadcast is an advisory UI signal; the database lease is authoritative.
-          }
-
-          if (res.progress) {
-            setCampaignProgress(res.progress);
-            if (activeCampaignId) {
-              void getCampaignBounceStatsServerFn({ data: { campaignId: activeCampaignId } })
-                .then((stats) => {
-                  if (!isUnmountedRef.current) setCampaignBounceStats(stats);
-                })
-                .catch(() => {});
-            }
-          }
-
-          if (res.campaignCompleted || res.campaignStatus === "completed") {
-            isOrchestratorActiveRef.current = false;
-            const hasFailures =
-              (res.progress?.failedCount || 0) > 0 || (res.progress?.cancelledCount || 0) > 0;
-            if (hasFailures) {
-              toast.warning(
-                `Campanha concluída: ${res.progress?.sentCount || 0} enviado(s), ${res.progress?.failedCount || 0} falha(s), ${res.progress?.cancelledCount || 0} cancelado(s).`,
-              );
-            } else {
-              toast.success("Campanha de e-mails concluída com sucesso!");
-            }
-            const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
-            if (!isUnmountedRef.current) {
-              setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
-            }
-            return;
-          }
-
-          if (res.campaignStatus === "paused" || res.campaignStatus === "cancelled") {
-            isOrchestratorActiveRef.current = false;
-            if (res.message && res.campaignStatus === "paused") toast.warning(res.message);
-            return;
-          }
-
-          if (res.cooldownActive && res.cooldownRemainingSec && res.cooldownRemainingSec > 0) {
-            setCooldownRemaining(res.cooldownRemainingSec);
-            // O cronômetro do provedor é autoritativo.
-            triggerOrchestratorTick(res.cooldownRemainingSec * 1000 + 1000);
-            return;
-          }
-
-          setCooldownRemaining(null);
-
-          // A pausa começa após o término da resposta anterior.
-          if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
-            triggerOrchestratorTick(burstPauseRef.current);
-          }
-        } catch (err) {
-          console.error("[mailer] Error during browser orchestrator micro-tick:", err);
-          // Em caso de falha de conexão, aguardar 3s para retentar sem rajadas
-          if (isOrchestratorActiveRef.current && !isUnmountedRef.current) {
-            triggerOrchestratorTick(3000);
-          }
-        } finally {
-          isProcessingTickRef.current = false;
-        }
-      }, delayMs);
-    },
-    [activeCampaignId, orchestrationMode],
-  );
-
-  // 4b. Background Web Worker + Screen Wake Lock + beforeunload
-  useEffect(() => {
-    if (!activeCampaignId || !campaignProgress || campaignProgress.status !== "running") {
-      return;
-    }
-
-    let wakeLockSentinel: { release: () => Promise<void> } | null = null;
-    if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
-      (
-        navigator as unknown as {
-          wakeLock: { request: (type: string) => Promise<{ release: () => Promise<void> }> };
-        }
-      ).wakeLock
-        .request("screen")
-        .then((lock) => {
-          wakeLockSentinel = lock;
-        })
-        .catch(() => {});
-    }
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue =
-        "Uma campanha de e-mails está sendo enviada pelo navegador. Sair da página pausará os disparos.";
-      return e.returnValue;
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    let worker: Worker | null = null;
-    try {
-      const workerScript = `
-        var timer = null;
-        self.onmessage = function(e) {
-          if (e.data === 'start') {
-            if (timer) clearInterval(timer);
-            timer = setInterval(function() {
-              self.postMessage('tick');
-            }, 1000);
-          } else if (e.data === 'stop') {
-            if (timer) { clearInterval(timer); timer = null; }
-          }
-        };
-      `;
-      const blob = new Blob([workerScript], { type: "application/javascript" });
-      worker = new Worker(URL.createObjectURL(blob));
-      worker.onmessage = (e) => {
-        if (e.data === "tick") {
-          if (!isProcessingTickRef.current && isOrchestratorActiveRef.current) {
-            triggerOrchestratorTick(0);
-          }
-        }
-      };
-      worker.postMessage("start");
-    } catch {
-      // Fallback
-    }
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (wakeLockSentinel) {
-        wakeLockSentinel.release().catch(() => {});
-      }
-      if (worker) {
-        worker.postMessage("stop");
-        worker.terminate();
-      }
-    };
-  }, [activeCampaignId, campaignProgress?.status, triggerOrchestratorTick]);
-
-  // Select among recent campaigns without claiming ownership or triggering email.
   const refreshRecentCampaigns = React.useCallback(async () => {
     try {
       setRecentCampaigns(await getRecentMailerCampaignsServerFn());
@@ -815,7 +506,6 @@ function MailerPage() {
     void refreshRecentCampaigns();
   }, [refreshRecentCampaigns]);
 
-  // Authoritative server ownership must be resolved BEFORE browser ticks start.
   useEffect(() => {
     if (!activeCampaignId) return;
     let cancelled = false;
@@ -829,8 +519,6 @@ function MailerPage() {
           });
       })
       .catch(() => {
-        // Se houver oscilação na leitura do modo, manter o navegador ativo
-        // (protegido pela lease atômica acquire_mailer_campaign_lease no Supabase).
         if (!cancelled)
           setOrchestrationMode({
             campaignId: activeCampaignId,
@@ -841,119 +529,6 @@ function MailerPage() {
       cancelled = true;
     };
   }, [activeCampaignId]);
-
-  // 3b. Relógio de 1s para exibir "último tick há Xs" no modo navegador
-  useEffect(() => {
-    if (lastTickAt === null) {
-      setLastTickElapsedSec(null);
-      return;
-    }
-    setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - lastTickAt) / 1000)));
-    const interval = setInterval(() => {
-      setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - lastTickAt) / 1000)));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [lastTickAt]);
-
-  // 4c. Polling de leitura independente no modo navegador (a cada 7s, entre 5-10s),
-  // desacoplado dos ticks de disparo para garantir atualização de progresso e conclusão.
-  useEffect(() => {
-    if (!activeCampaignId) return;
-    if (orchestrationMode?.serverOrchestrated) return;
-    const isTerminal =
-      campaignProgress?.status === "completed" || campaignProgress?.status === "cancelled";
-    if (isTerminal) return;
-
-    let cancelled = false;
-    const pollBrowserProgress = async () => {
-      try {
-        const progress = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (cancelled || isUnmountedRef.current || !progress) return;
-        setCampaignProgress((prev) => {
-          const wasCompleted = prev?.status === "completed";
-          if (!wasCompleted && progress.status === "completed") {
-            isOrchestratorActiveRef.current = false;
-            void getMailerHistoryServerFn()
-              .then((updatedLogs) => {
-                if (!isUnmountedRef.current) {
-                  setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
-                }
-              })
-              .catch(() => {});
-          }
-          return progress;
-        });
-      } catch {
-        // Falha transitória de leitura não interrompe o monitoramento.
-      }
-    };
-
-    const timer = setInterval(() => {
-      void pollBrowserProgress();
-    }, 7000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [activeCampaignId, orchestrationMode?.serverOrchestrated, campaignProgress?.status]);
-
-  // In server mode polling is READ ONLY. A page refresh never starts a batch.
-  useEffect(() => {
-    if (
-      !activeCampaignId ||
-      orchestrationMode?.campaignId !== activeCampaignId ||
-      !orchestrationMode.serverOrchestrated
-    )
-      return;
-    let cancelled = false;
-    const refresh = async () => {
-      try {
-        const progress = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (!cancelled && progress) setCampaignProgress(progress);
-      } catch {
-        // Previous state remains visible until next successful poll.
-      }
-    };
-    void refresh();
-    const timer = setInterval(() => {
-      void refresh();
-    }, 10000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [activeCampaignId, orchestrationMode]);
-
-  // 5. Iniciar ou pausar orquestrador conforme o estado da campanha
-  useEffect(() => {
-    if (
-      activeCampaignId &&
-      campaignProgress?.status === "running" &&
-      orchestrationMode?.campaignId === activeCampaignId &&
-      !orchestrationMode.serverOrchestrated
-    ) {
-      isOrchestratorActiveRef.current = true;
-      triggerOrchestratorTick(300);
-    } else {
-      isOrchestratorActiveRef.current = false;
-      if (tickTimeoutRef.current) {
-        clearTimeout(tickTimeoutRef.current);
-        tickTimeoutRef.current = null;
-      }
-    }
-
-    return () => {
-      if (tickTimeoutRef.current) {
-        clearTimeout(tickTimeoutRef.current);
-        tickTimeoutRef.current = null;
-      }
-    };
-  }, [activeCampaignId, campaignProgress?.status, orchestrationMode, triggerOrchestratorTick]);
 
   // Mapeamento de sinais de interesse ativos agrupados por e-mail do coach
   const signalsByEmail = useMemo(() => {
@@ -1466,6 +1041,44 @@ function MailerPage() {
     return badges;
   }
 
+  // Executar preflight quando o modal de confirmação abre
+  useEffect(() => {
+    if (!confirmModalOpen) return;
+    let cancelled = false;
+    setPreflightLoading(true);
+    const payloadRecipients = selectedRecipientsList.map((r) => ({
+      coachId: r.coachId,
+      name: r.name,
+      lastName: r.lastName ?? undefined,
+      email: r.email,
+      universityName: r.universityName,
+    }));
+    runMailerPreflightServerFn({
+      data: {
+        mode:
+          sendMode === "single"
+            ? "single_athlete"
+            : sendMode === "multi"
+              ? "multi_athlete"
+              : "catalog",
+        athleteIds: activeComposerAthleteIds,
+        recipients: payloadRecipients,
+      },
+    })
+      .then((res) => {
+        if (!cancelled) setPreflightResult(res);
+      })
+      .catch((err) => {
+        console.error("[mailer] Error running preflight:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setPreflightLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmModalOpen, selectedRecipientsList, sendMode, activeComposerAthleteIds]);
+
   // Ação de Disparo
   async function handleSendMailer() {
     if (emailAthletesPanelState !== "ready") {
@@ -1484,6 +1097,11 @@ function MailerPage() {
 
     if (previewIntegrityError) {
       toast.error(`Envio bloqueado por integridade: ${previewIntegrityError}`);
+      return;
+    }
+
+    if (!isDryRun && preflightResult?.quota.blocked) {
+      toast.error("Envio bloqueado: a seleção excede o saldo da cota mensal de 20.000 e-mails.");
       return;
     }
 
@@ -1546,12 +1164,9 @@ function MailerPage() {
           );
         }
         setConfirmModalOpen(false);
-        setIsAnotherTabActive(false);
-        setCooldownRemaining(null);
         setActiveCampaignId(res.campaignId);
         void refreshRecentCampaigns();
 
-        // Atualizar progresso imediatamente
         const initialProg = await getCampaignQueueProgressServerFn({
           data: { campaignId: res.campaignId },
         }).catch(() => null);
@@ -1559,10 +1174,6 @@ function MailerPage() {
           setCampaignProgress(initialProg);
         }
 
-        // O useEffect inicia o navegador SOMENTE após verificar o executor
-        // da campanha. Uma campanha server-orchestrated nunca dispara aqui.
-
-        // Atualizar histórico
         const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
         setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
       } else {
@@ -1583,20 +1194,11 @@ function MailerPage() {
   async function handlePauseCampaign() {
     if (!activeCampaignId) return;
     setIsOperatingQueue(true);
-    // Parar orquestrador no navegador imediatamente
-    isOrchestratorActiveRef.current = false;
-    if (tickTimeoutRef.current) {
-      clearTimeout(tickTimeoutRef.current);
-      tickTimeoutRef.current = null;
-    }
     try {
       const res = await pauseMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
         toast.info("Campanha pausada. O servidor manterá o estado persistido.");
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
+        await runner.refreshProgress();
       } else {
         toast.error(res.message || "Falha ao pausar campanha.");
       }
@@ -1614,13 +1216,9 @@ function MailerPage() {
     try {
       const res = await resumeMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
-        toast.success("Campanha retomada, aguardando o executor autorizado.");
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
-        // O effect reativa apenas campanhas explicitamente browser-owned.
-        setIsAnotherTabActive(false);
+        toast.success("Campanha retomada pelo executor.");
+        await runner.refreshProgress();
+        runner.triggerImmediateTick();
       } else {
         toast.error(res.message || "Falha ao retomar campanha.");
       }
@@ -1642,20 +1240,11 @@ function MailerPage() {
       return;
     }
     setIsOperatingQueue(true);
-    // Parar orquestrador imediatamente
-    isOrchestratorActiveRef.current = false;
-    if (tickTimeoutRef.current) {
-      clearTimeout(tickTimeoutRef.current);
-      tickTimeoutRef.current = null;
-    }
     try {
       const res = await cancelMailerCampaignServerFn({ data: { campaignId: activeCampaignId } });
       if (res.success) {
         toast.warning("Campanha cancelada.");
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
+        await runner.refreshProgress();
         const updatedLogs = await getMailerHistoryServerFn().catch(() => []);
         setHistoryLogs((updatedLogs as RecruitEmailLog[]) || []);
       } else {
@@ -1666,6 +1255,26 @@ function MailerPage() {
       toast.error("Erro ao cancelar campanha.");
     } finally {
       setIsOperatingQueue(false);
+    }
+  }
+
+  async function handleRetryFailedRetryable() {
+    if (!activeCampaignId) return;
+    setIsRetryingFailed(true);
+    try {
+      const res = await retryFailedRetryableServerFn({ data: { campaignId: activeCampaignId } });
+      if (res.success) {
+        toast.success(res.message);
+        await runner.refreshProgress();
+        runner.triggerImmediateTick();
+      } else {
+        toast.error(res.message || "Não foi possível reenviar as falhas retentáveis.");
+      }
+    } catch (err) {
+      console.error("[mailer] Error retrying failed retryable items:", err);
+      toast.error("Erro ao reenviar falhas retentáveis.");
+    } finally {
+      setIsRetryingFailed(false);
     }
   }
 
@@ -1744,10 +1353,7 @@ function MailerPage() {
         setReconcileModalOpen(false);
         setReconcileNotes("");
         setUnconfirmedRecipientsList([]);
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
+        await runner.refreshProgress();
         void loadQueueRecipients(1, queueStatusFilter);
       } else {
         toast.error(res.message);
@@ -1768,13 +1374,9 @@ function MailerPage() {
         data: { campaignId: activeCampaignId },
       });
       if (res.success) {
-        const prog = await getCampaignQueueProgressServerFn({
-          data: { campaignId: activeCampaignId },
-        });
-        if (prog) setCampaignProgress(prog);
+        await runner.refreshProgress();
 
         if (res.requiresReconciliation || Number(res.unconfirmedCount || 0) > 0) {
-          isOrchestratorActiveRef.current = false;
           if (Array.isArray(res.unconfirmedRecipients) && res.unconfirmedRecipients.length > 0) {
             setUnconfirmedRecipientsList(res.unconfirmedRecipients);
           } else {
@@ -1789,14 +1391,11 @@ function MailerPage() {
         }
 
         toast.success(res.message || "Fila sincronizada e retomada pelo navegador.");
-        setIsAnotherTabActive(false);
-        setCooldownRemaining(null);
         setOrchestrationMode({
           campaignId: activeCampaignId,
           serverOrchestrated: false,
         });
-        isOrchestratorActiveRef.current = true;
-        triggerOrchestratorTick(250);
+        runner.triggerImmediateTick();
       } else {
         toast.error(res.message || "Não foi possível sincronizar a fila.");
       }
@@ -1951,563 +1550,56 @@ function MailerPage() {
             </button>
           </div>
 
-          {/* LIVE CAMPAIGN MONITOR */}
+          {/* LIVE CAMPAIGN MONITOR (V2) */}
           {campaignProgress && (
-            <div className="bg-card/90 backdrop-blur-md border border-primary/40 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-primary/10 text-foreground border border-primary/30">
-                      Fila Inteligente de Disparos
-                    </span>
-                    {isDryRun && (
-                      <span className="text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40">
-                        DRY RUN
-                      </span>
-                    )}
-                    {campaignProgress.substateLabel && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border">
-                        {campaignProgress.substateLabel}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground font-mono">
-                      ID: {campaignProgress.campaignId.slice(0, 8)}...
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-primary animate-pulse" />
-                    {campaignProgress.subject}
-                  </h3>
-                  {campaignProgress.substateDescription && (
-                    <p className="text-xs text-muted-foreground">
-                      {campaignProgress.substateDescription}
-                    </p>
-                  )}
-                </div>
+            <div className="space-y-4">
+              <MailerProgressPanel
+                progress={campaignProgress}
+                bounceStats={runner.bounceStats}
+                isDryRun={isDryRun}
+                isOffline={runner.isOffline}
+                isTabHidden={runner.isTabHidden}
+                isAnotherTabActive={runner.isAnotherTabActive}
+                isOperatingQueue={isOperatingQueue}
+                isTriggeringWorker={isTriggeringWorker}
+                cooldownRemainingSec={runner.cooldownRemainingSec}
+                lastTickElapsedSec={runner.lastTickElapsedSec}
+                statusMessage={runner.statusMessage}
+                showQueueRecipients={showQueueRecipients}
+                onToggleQueueRecipients={() => setShowQueueRecipients(!showQueueRecipients)}
+                queueStatusFilter={queueStatusFilter}
+                onChangeQueueStatusFilter={(status) => {
+                  setQueueStatusFilter(status);
+                  setQueuePage(1);
+                }}
+                queueRecipients={queueRecipients as never}
+                queueRecipientsTotal={queueRecipientsTotal}
+                queuePage={queuePage}
+                onChangeQueuePage={(page) => setQueuePage(page)}
+                queueLoading={queueLoading}
+                onRefreshQueueRecipients={() =>
+                  void loadQueueRecipients(queuePage, queueStatusFilter)
+                }
+                onPause={handlePauseCampaign}
+                onResume={handleResumeCampaign}
+                onCancel={handleCancelCampaign}
+                onTriggerWorker={handleTriggerWorker}
+                onOpenReconcileModal={() => setReconcileModalOpen(true)}
+                onDismiss={() => {
+                  setCampaignProgress(null);
+                  setActiveCampaignId(null);
+                }}
+              />
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Status Badge Confiável */}
-                  {isOffline ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Sem Conexão (Reconectando...)
-                    </span>
-                  ) : isAnotherTabActive ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      Outra Aba em Execução
-                    </span>
-                  ) : campaignProgress.status === "running" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                      {(cooldownRemaining !== null && cooldownRemaining > 0) ||
-                      (campaignProgress.nextBatchAt &&
-                        new Date(campaignProgress.nextBatchAt) > new Date())
-                        ? `Aguardando Intervalo (${cooldownRemaining ?? 60}s)`
-                        : `Enviando (Lote ${campaignProgress.currentBatch} de ${campaignProgress.totalBatches})`}
-                    </span>
-                  ) : campaignProgress.status === "paused" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-                      <Pause className="w-3.5 h-3.5" />
-                      Campanha Pausada
-                    </span>
-                  ) : campaignProgress.status === "queued" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
-                      <Clock className="w-3.5 h-3.5" />
-                      Enfileirada
-                    </span>
-                  ) : campaignProgress.status === "completed" ? (
-                    campaignProgress.failedCount > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-900 dark:text-amber-200" />
-                        Concluída com {campaignProgress.failedCount} falha(s)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-900 dark:text-emerald-200" />
-                        Concluída com Sucesso
-                      </span>
-                    )
-                  ) : campaignProgress.status === "cancelled" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
-                      <Ban className="w-3.5 h-3.5" />
-                      Cancelada
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Erro na Campanha
-                    </span>
-                  )}
-
-                  {/* Controles de Ação Seguros */}
-                  {(campaignProgress.status === "running" ||
-                    campaignProgress.status === "paused" ||
-                    campaignProgress.processingCount > 0) && (
-                    <button
-                      type="button"
-                      disabled={isTriggeringWorker || isOperatingQueue}
-                      onClick={handleTriggerWorker}
-                      title="Reconcilia itens presos em processamento e força a retomada imediata pelo navegador"
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Zap className="w-3 h-3" />
-                      {isTriggeringWorker
-                        ? "Sincronizando..."
-                        : campaignProgress.processingCount > 0
-                          ? `Destravar Fila (${campaignProgress.processingCount})`
-                          : "Sincronizar Navegador"}
-                    </button>
-                  )}
-                  {campaignProgress.status === "running" && (
-                    <button
-                      type="button"
-                      disabled={isOperatingQueue}
-                      onClick={handlePauseCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700 dark:hover:bg-amber-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Pause className="w-3 h-3" />
-                      Pausar
-                    </button>
-                  )}
-                  {campaignProgress.status === "paused" && (
-                    <button
-                      type="button"
-                      disabled={isOperatingQueue}
-                      onClick={handleResumeCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-950 border border-emerald-300 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:text-emerald-200 dark:border-emerald-700 dark:hover:bg-emerald-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <Play className="w-3 h-3" />
-                      Retomar
-                    </button>
-                  )}
-                  {(campaignProgress.status === "running" ||
-                    campaignProgress.status === "paused") && (
-                    <button
-                      type="button"
-                      disabled={isOperatingQueue}
-                      onClick={handleCancelCampaign}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-rose-100 text-rose-950 border border-rose-300 hover:bg-rose-200 dark:bg-rose-950/70 dark:text-rose-200 dark:border-rose-700 dark:hover:bg-rose-950 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <XCircle className="w-3 h-3" />
-                      Cancelar
-                    </button>
-                  )}
-                  {(campaignProgress.status === "completed" ||
-                    campaignProgress.status === "cancelled") && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCampaignProgress(null);
-                        setActiveCampaignId(null);
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-                    >
-                      Ocultar
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Alerta de Quarentena Anti-Duplicação */}
-              {campaignProgress.substate === "reconciliation_required" && (
-                <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 space-y-2 text-rose-950 dark:text-rose-200">
-                  <div className="flex items-center gap-2 font-bold text-sm">
-                    <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                    <span>Disparos Pausados por Quarentena Anti-Duplicação</span>
-                  </div>
-                  <p className="text-xs leading-relaxed">
-                    O provedor Resend respondeu com status ambíguo ou timeout de rede durante a
-                    última rajada. Para garantir que nenhum coach receba e-mails duplicados, a
-                    automação foi suspensa preventivamente. Você pode reconciliar os itens
-                    verificando automaticamente os envios já registrados e liberar o restante.
-                  </p>
-                  <div className="pt-1 flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setReconcileModalOpen(true)}
-                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs cursor-pointer shadow-sm flex items-center gap-1.5 transition-all"
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      Reconciliar e Liberar Campanha
-                    </button>
-                  </div>
-                </div>
+              {runner.finalReport && (
+                <MailerFinalReport
+                  report={runner.finalReport}
+                  onRefreshReport={() => runner.refreshFinalReport()}
+                  onRetryFailedRetryable={handleRetryFailedRetryable}
+                  onOpenReconcileModal={() => setReconcileModalOpen(true)}
+                  isRetryingRetryable={isRetryingFailed}
+                />
               )}
-
-              {/* Orientação discreta da aba aberta e dispositivo ativo */}
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                  <span>
-                    <strong className="text-foreground">Execução:</strong>{" "}
-                    {orchestrationMode?.campaignId !== activeCampaignId
-                      ? "Validando executor antes de permitir disparos."
-                      : orchestrationMode.serverOrchestrated
-                        ? "Servidor controla as rajadas. A aba pode ser fechada; aqui são mostrados somente dados persistidos."
-                        : "Orquestração via navegador ativa (lotes seguros de até 100 e-mails/tick): mantenha esta aba aberta durante os disparos."}
-                  </span>
-                </div>
-                {isTabHidden && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700 shrink-0">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    Aba em segundo plano detectada
-                  </span>
-                )}
-              </div>
-
-              {/* Barra de Progresso */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground font-medium">
-                    Progresso Global:{" "}
-                    <strong className="text-foreground">{campaignProgress.sentCount}</strong> de{" "}
-                    {campaignProgress.totalRecipients} e-mails
-                  </span>
-                  <span className="font-bold text-primary">
-                    {campaignProgress.percentComplete}%
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
-                  <div
-                    className="h-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, campaignProgress.percentComplete))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground" role="status">
-                <span>
-                  Rajada atual:{" "}
-                  <strong className="text-foreground">{campaignProgress.batchSize}</strong> e-mails
-                </span>
-                <span>
-                  Ritmo:{" "}
-                  <strong className="text-foreground">
-                    {orchestrationMode?.serverOrchestrated
-                      ? "Controlado pelo servidor"
-                      : `${sendRate.toFixed(1)} e-mails/s`}
-                  </strong>
-                </span>
-                <span>
-                  Último tick:{" "}
-                  <strong className="text-foreground font-mono">
-                    {lastTickElapsedSec !== null
-                      ? `último tick há ${lastTickElapsedSec}s`
-                      : "aguardando 1º tick"}
-                  </strong>
-                </span>
-                {(campaignProgress.unconfirmedCount || 0) > 0 && (
-                  <span className="text-amber-600 dark:text-amber-400 font-bold">
-                    Não confirmados (unconfirmed): {campaignProgress.unconfirmedCount}
-                  </span>
-                )}
-                <span>
-                  Tempo restante estimado:{" "}
-                  <strong className="text-foreground">
-                    {campaignProgress.estimatedRemainingSeconds === null
-                      ? "Indisponível"
-                      : `${campaignProgress.estimatedRemainingSeconds}s`}
-                  </strong>
-                </span>
-              </div>
-              {rateLimitNotice && (
-                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200">
-                  {rateLimitNotice}
-                </p>
-              )}
-
-              {/* Semáforo de Bounce em Tempo Real */}
-              {campaignBounceStats && campaignBounceStats.sentCount > 0 && (
-                <div className="flex items-center justify-between p-2.5 rounded-xl border bg-muted/30 text-xs">
-                  <div className="flex items-center gap-2">
-                    {campaignBounceStats.bounceRate < 2.0 ? (
-                      <span className="flex items-center gap-1.5 font-bold text-emerald-500">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Saudável &lt;
-                        2%)
-                      </span>
-                    ) : campaignBounceStats.bounceRate <= 3.0 ? (
-                      <span className="flex items-center gap-1.5 font-bold text-amber-500">
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Atenção 2%-3%)
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 font-bold text-rose-500">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-                        Taxa de Bounce: {campaignBounceStats.bounceRate.toFixed(1)}% (Bounce Guard
-                        Acionado &gt; 3%)
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {campaignBounceStats.bounceCount} bounces / {campaignBounceStats.sentCount}{" "}
-                    enviados
-                    {campaignBounceStats.bounceGuardTriggered && (
-                      <span className="ml-2 font-bold text-rose-500">· Disparos suspensos</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Grid de Métricas da Fila */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
-                <div className="bg-muted/40 border border-border/60 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-muted-foreground uppercase font-bold flex items-center justify-center gap-1">
-                    <Users className="w-3 h-3 text-muted-foreground" /> Total
-                  </div>
-                  <div className="text-base font-black text-foreground mt-0.5">
-                    {campaignProgress.totalRecipients}
-                  </div>
-                </div>
-
-                <div className="bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-emerald-900 dark:text-emerald-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Aceitos Resend
-                  </div>
-                  <div className="text-base font-black text-emerald-950 dark:text-emerald-100 mt-0.5">
-                    {campaignProgress.sentCount}
-                  </div>
-                </div>
-
-                <div className="bg-sky-50 border border-sky-200 dark:bg-sky-950/40 dark:border-sky-800 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-sky-900 dark:text-sky-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <Clock className="w-3 h-3" /> Na Fila
-                  </div>
-                  <div className="text-base font-black text-sky-950 dark:text-sky-100 mt-0.5">
-                    {campaignProgress.pendingCount}
-                  </div>
-                </div>
-
-                <div className="bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-indigo-900 dark:text-indigo-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <Activity className="w-3 h-3" /> Em Curso
-                  </div>
-                  <div className="text-base font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
-                    {campaignProgress.processingCount}
-                  </div>
-                </div>
-
-                <div className="bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-rose-900 dark:text-rose-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> Falhas
-                  </div>
-                  <div className="text-base font-black text-rose-950 dark:text-rose-100 mt-0.5">
-                    {campaignProgress.failedCount}
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 dark:bg-slate-950/40 dark:border-slate-800 rounded-xl p-2.5 text-center">
-                  <div className="text-[11px] text-slate-900 dark:text-slate-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <Ban className="w-3 h-3" /> Suprimidos
-                  </div>
-                  <div className="text-base font-black text-slate-950 dark:text-slate-100 mt-0.5">
-                    {campaignProgress.suppressedCount}
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 rounded-xl p-2.5 text-center col-span-2 sm:col-span-1">
-                  <div className="text-[11px] text-amber-900 dark:text-amber-200 uppercase font-bold flex items-center justify-center gap-1">
-                    <Layers className="w-3 h-3" /> Bloco
-                  </div>
-                  <div className="text-base font-black text-amber-950 dark:text-amber-100 mt-0.5">
-                    {campaignProgress.currentBatch} / {campaignProgress.totalBatches}
-                  </div>
-                </div>
-              </div>
-
-              {/* Informações de Estimativa e Pausa */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/30 gap-1">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span>
-                    {campaignProgress.status === "completed"
-                      ? campaignProgress.failedCount > 0
-                        ? `Processamento concluído com ${campaignProgress.failedCount} falha(s).`
-                        : "Todos os e-mails foram processados com sucesso."
-                      : (campaignProgress.estimatedRemainingSeconds ?? 0) > 0
-                        ? `Tempo estimado para conclusão: ~${Math.ceil(
-                            (campaignProgress.estimatedRemainingSeconds ?? 0) / 60,
-                          )} min`
-                        : "Estimativa indisponível até o ritmo estabilizar."}
-                  </span>
-                </div>
-                {campaignProgress.nextBatchAt &&
-                  new Date(campaignProgress.nextBatchAt) > new Date() && (
-                    <span className="text-amber-900 dark:text-amber-200 font-medium">
-                      Pausa automática de segurança ativa até{" "}
-                      {new Date(campaignProgress.nextBatchAt).toLocaleTimeString()}
-                    </span>
-                  )}
-              </div>
-
-              {/* TASK-107: Fila em Tempo Real de Destinatários */}
-              <div className="pt-2 border-t border-border/40 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setShowQueueRecipients(!showQueueRecipients)}
-                  className="w-full flex items-center justify-between text-xs font-semibold text-foreground py-1 px-2 rounded-lg hover:bg-muted/40 transition cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-primary" />
-                    Destinatários Desta Campanha ({campaignProgress.totalRecipients})
-                  </span>
-                  {showQueueRecipients ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {showQueueRecipients && (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Filtrar status:</span>
-                        <select
-                          value={queueStatusFilter}
-                          onChange={(e) => {
-                            setQueueStatusFilter(e.target.value);
-                            setQueuePage(1);
-                          }}
-                          className="text-xs px-2 py-1 rounded-md border border-border bg-background cursor-pointer"
-                        >
-                          <option value="all">Todos ({campaignProgress.totalRecipients})</option>
-                          <option value="pending">Na Fila ({campaignProgress.pendingCount})</option>
-                          <option value="processing">
-                            Em Curso ({campaignProgress.processingCount})
-                          </option>
-                          <option value="unconfirmed">
-                            Não Confirmados ({campaignProgress.unconfirmedCount || 0})
-                          </option>
-                          <option value="sent">Enviados ({campaignProgress.sentCount})</option>
-                          <option value="failed">Falhas ({campaignProgress.failedCount})</option>
-                          <option value="suppressed">
-                            Suprimidos ({campaignProgress.suppressedCount})
-                          </option>
-                        </select>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void loadQueueRecipients(queuePage, queueStatusFilter)}
-                        className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <RefreshCw className={`w-3 h-3 ${queueLoading ? "animate-spin" : ""}`} />
-                        Atualizar fila
-                      </button>
-                    </div>
-
-                    <div className="border border-border rounded-xl overflow-hidden bg-background">
-                      <div className="overflow-x-auto max-h-72">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-muted/50 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase sticky top-0">
-                            <tr>
-                              <th className="p-2.5">Coach</th>
-                              <th className="p-2.5">Universidade</th>
-                              <th className="p-2.5">Status</th>
-                              <th className="p-2.5">Tentativas</th>
-                              <th className="p-2.5">Erro / Info</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {queueLoading && queueRecipients.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                                  <Loader2 className="w-4 h-4 animate-spin inline-block mr-2 text-primary" />
-                                  Carregando destinatários da fila...
-                                </td>
-                              </tr>
-                            ) : queueRecipients.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                                  Nenhum destinatário encontrado com o filtro selecionado.
-                                </td>
-                              </tr>
-                            ) : (
-                              queueRecipients.map((item) => (
-                                <tr key={item.id} className="hover:bg-muted/20">
-                                  <td className="p-2.5">
-                                    <div className="font-semibold text-foreground">
-                                      {item.recipientName}
-                                    </div>
-                                    <div className="text-[11px] text-muted-foreground">
-                                      {item.recipientEmail}
-                                    </div>
-                                  </td>
-                                  <td className="p-2.5 text-foreground">{item.universityName}</td>
-                                  <td className="p-2.5">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        item.status === "sent"
-                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-                                          : item.status === "unconfirmed"
-                                            ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                                            : item.status === "processing"
-                                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"
-                                              : item.status === "failed"
-                                                ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
-                                                : item.status === "suppressed"
-                                                  ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                                                  : "bg-muted text-muted-foreground"
-                                      }`}
-                                    >
-                                      {item.status}
-                                    </span>
-                                  </td>
-                                  <td className="p-2.5 text-muted-foreground font-mono">
-                                    {item.attempts}
-                                  </td>
-                                  <td
-                                    className="p-2.5 text-muted-foreground text-[11px] max-w-xs truncate"
-                                    title={item.lastError || ""}
-                                  >
-                                    {item.lastError ||
-                                      (item.processedAt
-                                        ? `Processado às ${new Date(item.processedAt).toLocaleTimeString()}`
-                                        : "—")}
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Paginação da fila */}
-                      {queueRecipientsTotal > 25 && (
-                        <div className="flex items-center justify-between p-2.5 border-t border-border bg-muted/20 text-xs">
-                          <span className="text-muted-foreground">
-                            Página {queuePage} de {Math.ceil(queueRecipientsTotal / 25)} (
-                            {queueRecipientsTotal} itens)
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              disabled={queuePage <= 1 || queueLoading}
-                              onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
-                              className="px-2 py-1 rounded border border-border bg-background disabled:opacity-40 cursor-pointer"
-                            >
-                              Anterior
-                            </button>
-                            <button
-                              type="button"
-                              disabled={
-                                queuePage >= Math.ceil(queueRecipientsTotal / 25) || queueLoading
-                              }
-                              onClick={() => setQueuePage((p) => p + 1)}
-                              className="px-2 py-1 rounded border border-border bg-background disabled:opacity-40 cursor-pointer"
-                            >
-                              Próxima
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -3418,7 +2510,7 @@ function MailerPage() {
         {/* MODAL DE CONFIRMAÇÃO DO DISPARO */}
         {confirmModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-full bg-primary/10 text-primary">
                   <Send className="w-6 h-6" />
@@ -3426,10 +2518,16 @@ function MailerPage() {
                 <div>
                   <h3 className="font-bold text-foreground">Confirmar Disparo de Mailer</h3>
                   <p className="text-xs text-muted-foreground">
-                    Revise o resumo antes de iniciar o envio.
+                    Revise o preflight determinístico e o saldo da cota antes de iniciar o envio.
                   </p>
                 </div>
               </div>
+
+              <MailerPreflightPanel
+                preflight={preflightResult}
+                loading={preflightLoading}
+                isDryRun={isDryRun}
+              />
 
               <div className="bg-muted/40 border border-border rounded-xl p-3.5 text-xs space-y-2">
                 <div className="flex justify-between">
@@ -3459,30 +2557,6 @@ function MailerPage() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Selecionados:</span>
-                  <span className="font-bold text-foreground">
-                    {selectedRecipientsList.length} coaches
-                  </span>
-                </div>
-                {syntaxInvalidCount > 0 && (
-                  <div className="flex justify-between text-rose-500 font-medium">
-                    <span>Sintaxe Inválida (Excluídos):</span>
-                    <span>{syntaxInvalidCount} (RFC 5322)</span>
-                  </div>
-                )}
-                {suppressedSelectedCount > 0 && (
-                  <div className="flex justify-between text-amber-500 font-medium">
-                    <span>Bloqueados por Descadastro:</span>
-                    <span>{suppressedSelectedCount} (serão pulados)</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Destinatários Válidos:</span>
-                  <span className="font-bold text-emerald-500">
-                    {activeSelectedRecipients.length} coaches
-                  </span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-muted-foreground">Assunto:</span>
                   <span
                     className="font-semibold text-foreground truncate max-w-[220px]"
@@ -3492,8 +2566,10 @@ function MailerPage() {
                   </span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-border/40 font-bold">
-                  <span>Total de E-mails a Disparar:</span>
-                  <span className="text-primary text-sm">{totalCalculatedDispatches}</span>
+                  <span>Total de E-mails Elegíveis:</span>
+                  <span className="text-primary text-sm">
+                    {preflightResult ? preflightResult.eligibleCount : totalCalculatedDispatches}
+                  </span>
                 </div>
 
                 {/* Dry Run Toggle Switch */}
@@ -3549,9 +2625,12 @@ function MailerPage() {
                   type="button"
                   disabled={
                     isSending ||
+                    preflightLoading ||
                     !emailAthletesReady ||
                     missingAthleteFields.length > 0 ||
-                    Boolean(previewIntegrityError)
+                    Boolean(previewIntegrityError) ||
+                    (preflightResult !== null && preflightResult.eligibleCount === 0) ||
+                    (!isDryRun && Boolean(preflightResult?.quota.blocked))
                   }
                   onClick={handleSendMailer}
                   className={buttonClass}

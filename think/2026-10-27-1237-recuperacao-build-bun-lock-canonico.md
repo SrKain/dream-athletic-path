@@ -7,9 +7,10 @@
 - **Causa Comprovada:** O commit `67551be` comitou um `bun.lock` divergente (blob `c5cb7bd`):
   - `@lovable.dev/vite-tanstack-config`: package.json = `2.25.3`, bun.lock = `2.13.1`
   - `nitro`: package.json = `3.0.260603-beta`, bun.lock = `^3.0.260610-beta`
-  O `bun.lock` canônico e válido é o blob `11e32ea0199fd8ea03742194d7e92136aa0ed513` (presente nos commits `8651da0` e `3a90ba2`).
+    O `bun.lock` canônico e válido é o blob `11e32ea0199fd8ea03742194d7e92136aa0ed513` (presente nos commits `8651da0` e `3a90ba2`).
 
 ## Escopo Confirmado pelo Usuário
+
 - **Arquivos a incluir no commit final:**
   1. `bun.lock` (restaurado byte a byte ao blob `11e32ea0199fd8ea03742194d7e92136aa0ed513` do commit `8651da0`)
   2. `AGENTS.md` (correção de indentação da última linha da Regra 7 + reforço explícito proibindo agentes de tocarem no `bun.lock` e `package.json`)

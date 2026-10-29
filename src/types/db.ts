@@ -482,13 +482,89 @@ export interface MailerDomainCheck {
 
 export type MailerQueueStatus =
   | "pending"
+  | "claimed"
+  | "accepted"
+  | "failed_retryable"
+  | "failed_permanent"
+  | "unconfirmed"
+  | "cancelled"
+  // Legacy compatibility statuses
   | "processing"
   | "sent"
   | "failed"
   | "retry"
-  | "suppressed"
-  | "cancelled"
-  | "unconfirmed";
+  | "suppressed";
+
+export type MailerBatchStatus =
+  "claimed" | "submitting" | "accepted" | "partial" | "failed" | "ambiguous";
+
+export type MailerExclusionReason =
+  "duplicate" | "invalid" | "suppressed" | "blocked_fit" | "other";
+
+export interface MailerBatch {
+  id: string;
+  campaign_id: string;
+  seq: number;
+  item_ids: string[];
+  idempotency_key: string;
+  status: MailerBatchStatus;
+  attempts: number;
+  provider_http_status?: number | null;
+  provider_response?: Record<string, unknown> | null;
+  last_error?: string | null;
+  claimed_at: string;
+  submitted_at?: string | null;
+  finished_at?: string | null;
+  created_at: string;
+}
+
+export interface MailerCampaignExclusion {
+  id?: string;
+  campaign_id?: string;
+  coachId?: string | null;
+  email: string;
+  emailNormalized: string;
+  name?: string | null;
+  universityName?: string | null;
+  reason: MailerExclusionReason;
+  details?: string | null;
+  created_at?: string;
+}
+
+export interface MailerPreflightQuota {
+  monthlyQuota: number;
+  cycleStartDay: number;
+  cycleStartsAt: string;
+  usedThisMonth: number;
+  remainingBeforeSend: number;
+  remainingAfterSend: number;
+  projectedUsagePercent: number;
+  warning80Percent: boolean;
+  blocked: boolean;
+}
+
+export interface MailerPreflightResult {
+  selectedCount: number;
+  eligibleCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  suppressedCount: number;
+  blockedFitCount: number;
+  otherExcludedCount: number;
+  excludedTotalCount: number;
+  invariantValid: boolean;
+  manifestFingerprint: string;
+  quota: MailerPreflightQuota;
+  eligibleRecipients: Array<{
+    coachId?: string | null;
+    name: string;
+    lastName?: string;
+    universityName?: string;
+    email: string;
+    emailNormalized: string;
+  }>;
+  excludedRecipients: MailerCampaignExclusion[];
+}
 
 export interface MailerCampaign {
   id: string;
@@ -498,6 +574,20 @@ export interface MailerCampaign {
   subject: string;
   athlete_ids: string[];
   recipients_count: number;
+  selected_count?: number;
+  eligible_count?: number;
+  manifest_count?: number;
+  manifest_fingerprint?: string | null;
+  accepted_count?: number;
+  delivered_count?: number;
+  failed_permanent_count?: number;
+  failed_retryable_count?: number;
+  unconfirmed_count?: number;
+  cancelled_count?: number;
+  exclusions_summary?: Record<string, number>;
+  safety_pause_reason?: string | null;
+  engine_version?: "v2" | "legacy" | string;
+  idempotency_key?: string | null;
   filters: Record<string, unknown>;
   status?: MailerCampaignStatus;
   total_recipients?: number;
@@ -524,6 +614,7 @@ export interface MailerQueueItem {
   campaign_id: string;
   coach_id?: string | null;
   recipient_email: string;
+  email_normalized?: string;
   recipient_name: string;
   university_name?: string | null;
   email_type: "athlete_teaser" | "athlete_teaser_multi" | "catalog_general";
@@ -532,6 +623,9 @@ export interface MailerQueueItem {
   idempotency_key: string;
   status: MailerQueueStatus;
   batch_number: number;
+  batch_id?: string | null;
+  batch_seq?: number | null;
+  failure_category?: string | null;
   attempts: number;
   max_attempts: number;
   reserved_by?: string | null;
@@ -561,27 +655,111 @@ export interface CampaignProgress {
   campaignId: string;
   status: MailerCampaignStatus;
   subject: string;
+  mode?: MailerCampaignMode;
+  engineVersion?: string;
+  selectedCount?: number;
+  eligibleCount?: number;
   totalRecipients: number;
   sentCount: number;
+  acceptedCount?: number;
   failedCount: number;
+  failedPermanentCount?: number;
+  failedRetryableCount?: number;
   suppressedCount: number;
   pendingCount: number;
   processingCount: number;
+  claimedCount?: number;
   cancelledCount: number;
   unconfirmedCount?: number;
+  decidedCount?: number;
+  statesSum?: number;
+  invariantValid?: boolean;
+  submissionPercent?: number;
+  deliveryPercent?: number;
+  deliveredCount?: number;
+  bouncedCount?: number;
+  complainedCount?: number;
+  openedCount?: number;
+  clickedCount?: number;
+  awaitingDeliveryCount?: number;
   currentBatch: number;
   totalBatches: number;
   batchSize: number;
+  lastBatchStatus?: string | null;
+  lastBatchAttempts?: number;
+  lastBatchIdempotencyKey?: string | null;
+  exclusionsSummary?: Record<string, number>;
+  safetyPauseReason?: string | null;
   percentComplete: number;
   nextBatchAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  pausedAt?: string | null;
+  throughputPerSec?: number;
   estimatedRemainingSeconds: number | null;
   lastError: string | null;
   substate?: string;
   substateLabel?: string;
   substateDescription?: string;
   lastProgressAt?: string | null;
+  asOf?: string;
+}
+
+export interface MailerNonSentReportItem {
+  id: string;
+  email: string;
+  coachName: string;
+  universityName: string;
+  source: "preflight_exclusion" | "queue_item";
+  status: string;
+  categoryKey:
+    | "duplicate"
+    | "invalid"
+    | "suppressed"
+    | "blocked_fit"
+    | "failed_permanent"
+    | "failed_retryable"
+    | "unconfirmed"
+    | "cancelled";
+  categoryLabelPt: string;
+  reasonPt: string;
+  suggestedActionPt: string;
+  attempts: number;
+}
+
+export interface MailerCampaignFinalReport {
+  campaignId: string;
+  subject: string;
+  mode: MailerCampaignMode;
+  status: MailerCampaignStatus;
+  finalBadgeLabelPt:
+    | "Concluída — tudo aceito"
+    | "Concluída com ressalvas"
+    | "Pausada por segurança"
+    | "Interrompida — reabra para retomar"
+    | "Cancelada";
+  finalBadgeTone: "emerald" | "amber" | "rose" | "slate";
+  selectedCount: number;
+  eligibleCount: number;
+  excludedCount: number;
+  acceptedCount: number;
+  deliveredCount: number;
+  awaitingDeliveryCount: number;
+  bouncedCount: number;
+  complainedCount: number;
+  openedCount: number;
+  clickedCount: number;
+  failedPermanentCount: number;
+  failedRetryableCount: number;
+  unconfirmedCount: number;
+  cancelledCount: number;
+  invariantSelectionValid: boolean;
+  invariantQueueValid: boolean;
+  asOf: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  safetyPauseReason: string | null;
+  nonSentItems: MailerNonSentReportItem[];
 }
 
 export interface EnqueueResult {
@@ -593,6 +771,8 @@ export interface EnqueueResult {
   totalBatches: number;
   batchSize: number;
   status: MailerCampaignStatus;
+  preflight?: MailerPreflightResult;
+  reusedCampaign?: boolean;
   message?: string;
   errors?: string[];
 }
