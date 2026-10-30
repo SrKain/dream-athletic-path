@@ -1,6 +1,6 @@
 -- 0031 / 03C: ACL, readiness e PostgREST reload. Execute apos 03B.
 BEGIN;
-DO $$BEGIN IF to_regprocedure('public.mailer_campaign_progress(uuid)') IS NULL OR to_regprocedure('public.mailer_requeue_failed_retryable(uuid)') IS NULL THEN RAISE EXCEPTION 'Execute 03B antes de 03C'; END IF; END$$;
+DO $$BEGIN IF to_regprocedure('public.mailer_campaign_progress(uuid)') IS NULL OR to_regprocedure('public.mailer_requeue_failed_retryable(uuid)') IS NULL THEN RAISE EXCEPTION 'Execute 03B antes de 03C'; END IF; END; $;
 -- ----------------------------------------------------------------------------
 -- 12. SEGURANÇA ESTRITA DOS RPCS (PADRÃO MIGRATION 0026)
 -- ----------------------------------------------------------------------------
