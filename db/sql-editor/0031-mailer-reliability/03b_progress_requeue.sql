@@ -1,6 +1,6 @@
 -- 0031 / 03B: progress e requeue. Execute apos 03A.
 BEGIN;
-DO $$BEGIN IF to_regprocedure('public.finalize_mailer_batch(uuid,uuid,text,text,integer,jsonb,jsonb,text,integer,boolean)') IS NULL THEN RAISE EXCEPTION 'Execute 03A antes de 03B'; END IF; END; $;
+DO $$BEGIN IF to_regprocedure('public.finalize_mailer_batch(uuid,uuid,text,text,integer,jsonb,jsonb,text,integer,boolean)') IS NULL THEN RAISE EXCEPTION 'Execute 03A antes de 03B'; END IF; END; $$;
 -- ----------------------------------------------------------------------------
 -- 10. RPC `public.mailer_campaign_progress`
 -- ----------------------------------------------------------------------------
