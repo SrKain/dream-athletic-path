@@ -1,6 +1,6 @@
 -- 0031 / 03A: finalize_mailer_batch. Execute apos 01 e 02.
 BEGIN;
-DO $$BEGIN IF to_regprocedure('public.claim_mailer_batch(uuid,text,integer,integer)') IS NULL THEN RAISE EXCEPTION 'Execute 02 antes de 03A'; END IF; END; $;
+DO $$BEGIN IF to_regprocedure('public.claim_mailer_batch(uuid,text,integer,integer)') IS NULL THEN RAISE EXCEPTION 'Execute 02 antes de 03A'; END IF; END; $$;
 CREATE OR REPLACE FUNCTION public.finalize_mailer_batch(
 p_campaign_id uuid,
 p_batch_id uuid,
