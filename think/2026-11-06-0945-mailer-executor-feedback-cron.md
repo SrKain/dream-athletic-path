@@ -1,12 +1,12 @@
 # Mailer — fila sem executor, feedback infiel e rede de segurança por cron
 
 - **Data/hora:** 2026-11-06 09:45 (America/Sao_Paulo).
-- **Solicitante:** Kauan — Go Team Go. **Planejamento:** Claude. **Implementação:** Google AI Studio.
+- **Solicitante:** Kauan — Go Team Go. **Planejamento:** Claude. **Implementação:** ChatGPT/Codex (substitui Google AI Studio por autorização de Kauan em 06/11).
 - **Base:** `main` no commit `d464a51` (30/10) + consultas somente leitura rodadas no Supabase em 06/11.
 - **Decisão do solicitante (06/11):** opção **A** — ligar o cron do Supabase como rede de segurança. Isso **revisa** a decisão de 16/10 ("fila só no navegador"); o navegador continua podendo dirigir a fila, mas deixa de ser o único executor.
-- **Status:** PLANO PRONTO. Implementação autorizada somente quando o humano colar a Parte 2 no AI Studio (Regra 2 do AGENTS.md).
+- **Status:** PLANO PRONTO. Implementação aprovada explicitamente por Kauan em 06/11 nesta conversa: “Não vai ser o ai studio, vai ser vc”. A Parte 2 passa a ser executada por ChatGPT/Codex (Regra 2 do AGENTS.md).
 
-Como usar: commite este arquivo em `think/` e cole a **Parte 2** no AI Studio. A Parte 1 é a justificativa.
+Execução atual: ChatGPT/Codex implementa a **Parte 2**, conforme autorização posterior de Kauan. A Parte 1 é a justificativa. Aplicação em produção segue o procedimento humano em `docs/mailer/TASK-116-deploy.md`.
 
 ---
 
@@ -52,7 +52,7 @@ Campanha `205ab475…` (565 elegíveis, 6 lotes), horários em Brasília:
 
 ---
 
-# PARTE 2 — Prompt para o Google AI Studio
+# PARTE 2 — Instruções de implementação para ChatGPT/Codex
 
 Você é o executor desta tarefa no repositório `SrKain/dream-athletic-path` (branch `main`). Entregue **tudo de uma vez**, sem entrega parcial.
 
@@ -113,5 +113,10 @@ Cobrir: (1) regressão da trava: `leaseHeldByOther` continua agendando ticks; (2
 
 1. SQL na ordem de aplicação, antes do deploy do código.
 2. **Portão anti-build-quebrada (Regra 7):** cole no `BACKLOGER.md` a **saída real** de `git hash-object bun.lock package.json`, `bun run lint`, `bun run typecheck`, `bun run test`, `bun run build` e `bun run validate`. Se falhar e você não puder corrigir sem violar as regras, **pare e reporte**.
-3. `CERNE.md` atualizado; **TASK-116** no `BACKLOGER.md` (solicitante: Kauan; executor: Google AI Studio; status).
+3. `CERNE.md` atualizado; **TASK-116** no `BACKLOGER.md` (solicitante: Kauan; executor atual: ChatGPT/Codex; status).
 4. Resposta final com: arquivos alterados, SQL na ordem, passo a passo humano do cron, e checklist de verificação pós-deploy (campanha pequena em dry run, fechar a aba, conferir que termina e que o selo do cron aparece ativo).
+
+
+## Atualização de execução — 06/11/2026
+
+Kauan transferiu a implementação integral para ChatGPT/Codex. O escopo técnico das Partes 1 e 2 foi mantido. A exceção anterior de build valeu somente para o commit documental; a implementação executará integralmente o portão da Regra 7. SQL e configuração de cron em produção continuam manuais.

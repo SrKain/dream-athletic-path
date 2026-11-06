@@ -1,8 +1,8 @@
 import React from "react";
+import { deriveCampaignHealth, campaignHealthLabels } from "@/lib/email/mailer-v2-policy";
 import {
   Activity,
   AlertCircle,
-  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -21,9 +21,11 @@ import {
 } from "lucide-react";
 import type { BounceStatsSummary } from "@/hooks/use-campaign-runner";
 import type { CampaignRecipientRow } from "@/lib/email/mailer-runner.server";
-import type { CampaignProgress } from "@/types/db";
+import type { MailerCronStatus, CampaignProgress } from "@/types/db";
 
 export interface MailerProgressPanelProps {
+  cronStatus?: MailerCronStatus | null;
+  onOverrideBounceGuard?: () => void;
   progress: CampaignProgress;
   bounceStats: BounceStatsSummary | null;
   isDryRun: boolean;
@@ -54,6 +56,8 @@ export interface MailerProgressPanelProps {
 }
 
 export function MailerProgressPanel({
+  cronStatus,
+  onOverrideBounceGuard,
   progress,
   bounceStats,
   isDryRun,
@@ -62,7 +66,6 @@ export function MailerProgressPanel({
   isAnotherTabActive,
   isOperatingQueue,
   isTriggeringWorker,
-  cooldownRemainingSec,
   lastTickElapsedSec,
   statusMessage,
   showQueueRecipients,
@@ -91,8 +94,6 @@ export function MailerProgressPanel({
   const cancelled = progress.cancelledCount ?? 0;
   const pending = progress.pendingCount ?? 0;
   const claimed = progress.claimedCount ?? progress.processingCount ?? 0;
-  const decided =
-    progress.decidedCount ?? accepted + failedPerm + failedRetry + unconfirmed + cancelled;
   const statesSum =
     progress.statesSum ??
     pending + claimed + accepted + failedPerm + failedRetry + unconfirmed + cancelled;
@@ -100,7 +101,7 @@ export function MailerProgressPanel({
     typeof progress.invariantValid === "boolean" ? progress.invariantValid : statesSum === eligible;
 
   const submissionPercent =
-    eligible > 0 ? Math.min(100, Math.round((decided / eligible) * 100)) : 100;
+    eligible > 0 ? Math.min(100, Math.round((accepted / eligible) * 100)) : 100;
 
   const delivered = progress.deliveredCount ?? 0;
   const awaitingDelivery =
@@ -109,6 +110,17 @@ export function MailerProgressPanel({
   const bounced = progress.bouncedCount ?? 0;
   const deliveryPercent =
     accepted > 0 ? Math.min(100, Math.round((delivered / accepted) * 100)) : 0;
+
+  const health = deriveCampaignHealth(progress);
+  const healthLabel = campaignHealthLabels[health];
+  const stale = progress.lastTickAt
+    ? Math.floor((Date.now() - Date.parse(progress.lastTickAt)) / 1000)
+    : (progress.staleSeconds ?? 0);
+  const noWebhooks =
+    accepted > 0 &&
+    progress.webhookEventCount === 0 &&
+    progress.firstAcceptedAt &&
+    Date.now() - Date.parse(progress.firstAcceptedAt) > 120_000;
 
   const asOfFormatted = progress.asOf
     ? new Date(progress.asOf).toLocaleTimeString("pt-BR", {
@@ -150,52 +162,12 @@ export function MailerProgressPanel({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Badge Honesto de Estado */}
-          {isOffline ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Sem Conexão (Reconectando...)
-            </span>
-          ) : isAnotherTabActive ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-              <ShieldAlert className="w-3.5 h-3.5" />
-              Outra Aba em Execução
-            </span>
-          ) : progress.status === "running" ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              {cooldownRemainingSec !== null && cooldownRemainingSec > 0
-                ? `Respeitando limite do provedor — retomando em ${cooldownRemainingSec}s`
-                : `Enviando lote ${Math.max(1, progress.currentBatch)} de ${progress.totalBatches}`}
-            </span>
-          ) : progress.status === "paused" ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-              <Pause className="w-3.5 h-3.5" />
-              {progress.safetyPauseReason ? "Pausada por segurança" : "Campanha Pausada"}
-            </span>
-          ) : progress.status === "completed" ? (
-            failedTotal > 0 || unconfirmed > 0 ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Concluída com ressalvas ({failedTotal + unconfirmed} itens)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Concluída — tudo aceito
-              </span>
-            )
-          ) : progress.status === "cancelled" ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700">
-              <Ban className="w-3.5 h-3.5" />
-              Cancelada
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600">
-              <Clock className="w-3.5 h-3.5" />
-              {progress.status}
-            </span>
-          )}
+          <span
+            role="status"
+            className="px-3 py-1 rounded-full text-xs font-bold border border-border bg-muted text-foreground"
+          >
+            {healthLabel}
+          </span>
 
           {/* Controles Seguros */}
           {(progress.status === "running" || progress.status === "paused" || claimed > 0) && (
@@ -203,7 +175,7 @@ export function MailerProgressPanel({
               type="button"
               disabled={isTriggeringWorker || isOperatingQueue}
               onClick={onTriggerWorker}
-              title="Reconcilia itens presos e aciona tick imediato no servidor"
+              title="Consulta o lease e aciona tick quando disponível"
               className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Zap className="w-3 h-3" />
@@ -304,19 +276,69 @@ export function MailerProgressPanel({
         </div>
       )}
 
+      <div role="status" className="rounded-xl border border-border p-3 text-sm space-y-2">
+        <span className="font-semibold">
+          Rede de segurança: {cronStatus?.enabled ? "ativa" : "inativa"}
+        </span>
+        {cronStatus?.schedule && (
+          <span className="ml-2 text-muted-foreground">({cronStatus.schedule})</span>
+        )}
+        {!cronStatus?.enabled && <p>Fechar a aba pausa o envio</p>}
+        {cronStatus?.error && (
+          <p className="text-destructive">Não foi possível verificar o cron: {cronStatus.error}</p>
+        )}
+        {progress.degraded && (
+          <p>Números aproximados — consulta de progresso degradada; entrega indisponível.</p>
+        )}
+      </div>
+      {health === "stalled" && (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950 dark:text-amber-100 p-3 space-y-2"
+        >
+          <p>Fila parada há {Math.max(0, stale)}s — nenhum executor ativo</p>
+          <button
+            type="button"
+            disabled={isTriggeringWorker}
+            onClick={onTriggerWorker}
+            className="min-h-[44px] px-3 border rounded-lg"
+          >
+            Retomar agora
+          </button>
+          {!cronStatus?.enabled && <p>Rede de segurança inativa. Fechar a aba pausa o envio.</p>}
+        </div>
+      )}
+      {health === "paused_safety" &&
+        /bounce/i.test(progress.safetyPauseReason || "") &&
+        onOverrideBounceGuard && (
+          <div className="text-sm space-y-2">
+            <p>
+              Taxa atual: {bounceStats?.bounceRate ?? "—"}%. Mínimos: 200 aceitos e 5 hard bounces;
+              limite 3%. Teto com override: 8%.
+            </p>
+            <button
+              type="button"
+              disabled={isOperatingQueue || (bounceStats?.bounceRate ?? 0) > 8}
+              onClick={onOverrideBounceGuard}
+              className="min-h-[44px] px-3 border rounded-lg"
+            >
+              Continuar mesmo assim
+            </button>
+          </div>
+        )}
+
       {/* Mensagem de Status Operacional Clara */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary shrink-0" />
           <span className="text-foreground font-medium">
-            {isTabHidden
-              ? "Aba em segundo plano — envio retomado automaticamente ao voltar."
-              : statusMessage ||
-                (progress.status === "running"
-                  ? `Enviando lote ${Math.max(1, progress.currentBatch)} de ${progress.totalBatches} — mantenha esta aba aberta para progresso em tempo real.`
-                  : progress.status === "completed"
-                    ? "Processamento da fila concluído. As confirmações de entrega continuam chegando via webhook."
-                    : "Campanha pronta para operação.")}
+            {healthLabel}
+            {statusMessage ? ` — ${statusMessage}` : ""}
+            {isOffline
+              ? " — sem conexão"
+              : isAnotherTabActive
+                ? " — outro executor ativo (aba ou cron), acompanhando"
+                : ""}
           </span>
         </div>
         {isTabHidden && (
@@ -332,23 +354,37 @@ export function MailerProgressPanel({
         {/* Barra 1: Submissão ao Provedor */}
         <div className="rounded-xl border border-border bg-background/60 p-3 space-y-1.5">
           <div className="flex justify-between text-xs">
-            <span className="font-semibold text-foreground">
-              1. Submissão ao Provedor (Fila Decidida)
-            </span>
+            <span className="font-semibold text-foreground">1. Aceitos pela Resend</span>
             <span className="font-bold text-primary">{submissionPercent}%</span>
           </div>
-          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
+          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50 flex">
             <div
               className="h-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
               style={{
                 width: `${Math.max(0, Math.min(100, submissionPercent))}%`,
               }}
             />
+            <div
+              className="h-full bg-rose-500"
+              style={{ width: `${eligible > 0 ? (100 * failedTotal) / eligible : 0}%` }}
+              title="Falhas"
+            />
+            <div
+              className="h-full bg-amber-500"
+              style={{ width: `${eligible > 0 ? (100 * unconfirmed) / eligible : 0}%` }}
+              title="Não confirmados"
+            />
+            <div
+              className="h-full bg-slate-400"
+              style={{ width: `${eligible > 0 ? (100 * cancelled) / eligible : 0}%` }}
+              title="Cancelados"
+            />
           </div>
           <div className="text-[11px] text-muted-foreground flex justify-between flex-wrap gap-1">
             <span>
-              <strong className="text-foreground">{decided}</strong> de {eligible} elegíveis
-              processados ({accepted} aceitos · {failedTotal} falhas · {unconfirmed} não conf.)
+              <strong className="text-foreground">{accepted}</strong> de {eligible} elegíveis
+              aceitos pela Resend · {failedTotal} falhas · {unconfirmed} não confirmados ·{" "}
+              {cancelled} cancelados
             </span>
           </div>
         </div>
@@ -359,7 +395,9 @@ export function MailerProgressPanel({
             <span className="font-semibold text-foreground">
               2. Entrega Confirmada (Webhooks Resend)
             </span>
-            <span className="font-bold text-sky-500">{deliveryPercent}%</span>
+            <span className="font-bold text-sky-500">
+              {noWebhooks || progress.degraded ? "—" : `${deliveryPercent}%`}
+            </span>
           </div>
           <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
             <div
@@ -371,6 +409,11 @@ export function MailerProgressPanel({
           </div>
           <div className="text-[11px] text-muted-foreground flex justify-between flex-wrap gap-1">
             <span>
+              {noWebhooks && (
+                <span role="alert" className="block">
+                  Sem eventos de webhook — verifique a integração
+                </span>
+              )}
               <strong className="text-foreground">{delivered}</strong> entregues confirmados de{" "}
               {accepted} aceitos ·{" "}
               <span className="text-amber-600 dark:text-amber-400 font-medium">

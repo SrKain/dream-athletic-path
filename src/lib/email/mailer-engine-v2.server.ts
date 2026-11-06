@@ -1,4 +1,10 @@
 import crypto from "node:crypto";
+import { getResendConfig } from "./resend-client.server";
+import {
+  shouldPauseBounceGuard,
+  deriveCampaignHealth,
+  MAILER_PROVIDER_MARGIN_MS,
+} from "./mailer-v2-policy";
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import type {
   CampaignProgress,
@@ -43,7 +49,7 @@ export function getMailerEngineMode(): "v2" | "legacy" {
 
 export function getMailerTickConfig() {
   const tickBudgetMs = Math.min(
-    Math.max(Number(process.env.MAILER_TICK_BUDGET_MS) || DEFAULT_TICK_BUDGET_MS, 1000),
+    Math.max(Number(process.env.MAILER_TICK_BUDGET_MS) || DEFAULT_TICK_BUDGET_MS, 2000),
     25_000,
   );
   const batchGapMs = Math.min(
@@ -913,6 +919,7 @@ export async function prepareAndActivateCampaignV2(
 }
 
 export interface CampaignTickResult {
+  durationMs: number;
   success: boolean;
   campaignId: string;
   campaignStatus: MailerCampaignStatus;
@@ -958,7 +965,109 @@ interface ClaimedBatchItemRow {
  * - Aplica matriz fechada de falhas (Seção 4.4) com chave imutável `mc:{campaign_id}:b{seq}`.
  * - Retorna `nextTickInMs` para guiar o relógio único da UI (`useCampaignRunner`).
  */
+export async function getBatchSuppressedEmails(
+  admin: ReturnType<typeof getAdminClient>,
+  emails: string[],
+) {
+  const res = await admin.rpc("filter_suppressed_emails", { p_emails: emails });
+  if (!res.error && Array.isArray(res.data))
+    return new Set<string>(res.data.map((r) => normalizeEmail(r.suppressed_email)));
+  console.error("[mailer-v2] suppression RPC unavailable", res.error?.message);
+  const result = new Set<string>();
+  const targets = new Set(emails.map(normalizeEmail));
+  for (let start = 0; ; start += 1000) {
+    const page = await admin
+      .from("email_suppressions")
+      .select("email, expires_at")
+      .order("id")
+      .range(start, start + 999);
+    if (page.error) throw new Error(`Falha ao verificar supressões: ${page.error.message}`);
+    for (const item of page.data || [])
+      if (
+        (!item.expires_at || Date.parse(item.expires_at) > Date.now()) &&
+        targets.has(normalizeEmail(item.email))
+      )
+        result.add(normalizeEmail(item.email));
+    if ((page.data?.length || 0) < 1000) break;
+  }
+  return result;
+}
+
 export async function runCampaignTick(
+  campaignId: string,
+  options?: Parameters<typeof runCampaignTickInternal>[1],
+): Promise<CampaignTickResult> {
+  const started = Date.now();
+  const admin = options?.customAdmin ?? getAdminClient();
+  const controllerId = options?.controllerId || `srv_${crypto.randomUUID()}`;
+  let result: Omit<CampaignTickResult, "durationMs">;
+  try {
+    result = await runCampaignTickInternal(campaignId, { ...options, controllerId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[mailer-v2] tick failed", campaignId, message);
+    if (admin) {
+      const saved = await admin
+        .from("mailer_campaigns")
+        .update({ last_error: message })
+        .eq("id", campaignId);
+      if (saved.error) console.error("[mailer-v2] last_error persistence", saved.error.message);
+    }
+    const progress = admin ? await getCampaignProgressV2(campaignId, admin) : null;
+    result = {
+      success: false,
+      campaignId,
+      campaignStatus: progress?.status || "running",
+      batchesProcessed: 0,
+      itemsProcessed: 0,
+      acceptedInTick: 0,
+      failedInTick: 0,
+      unconfirmedInTick: 0,
+      nextTickInMs: 3000,
+      progress,
+      message,
+    };
+  }
+  // A contender reading someone else's lease must never fabricate a heartbeat.
+  if (admin && !result.leaseHeldByOther) {
+    for (const [rpc, args] of [
+      [
+        "mailer_record_tick",
+        {
+          p_campaign_id: campaignId,
+          p_controller_id: controllerId,
+          p_message: result.message || (result.success ? "Tick concluído" : "Falha no tick"),
+        },
+      ],
+      [
+        "mailer_release_lease",
+        { p_campaign_id: campaignId, p_controller_id: controllerId, p_keep_seconds: 15 },
+      ],
+    ] as const) {
+      try {
+        const saved = await admin.rpc(rpc, args);
+        if (saved.error) throw new Error(saved.error.message);
+      } catch (error) {
+        result.success = false;
+        result.message =
+          `${result.message || ""} Falha em ${rpc}: ${error instanceof Error ? error.message : error}`.trim();
+        console.error("[mailer-v2]", result.message);
+      }
+    }
+    result.progress = await getCampaignProgressV2(campaignId, admin);
+    if (result.rateLimited && result.progress?.nextBatchAt) {
+      result.nextTickInMs = Math.max(250, Date.parse(result.progress.nextBatchAt) - Date.now());
+      result.message = `Aguardando o provedor — nova tentativa em ${Math.ceil(result.nextTickInMs / 1000)}s com a mesma chave.`;
+    }
+  }
+  if (result.progress) {
+    result.campaignStatus = result.progress.status;
+    if (result.campaignStatus !== "running") result.nextTickInMs = null;
+  }
+  return { ...result, durationMs: Date.now() - started };
+}
+
+async function runCampaignTickInternal(
   campaignId: string,
   options?: {
     controllerId?: string;
@@ -971,7 +1080,7 @@ export async function runCampaignTick(
       };
     } | null;
   },
-): Promise<CampaignTickResult> {
+): Promise<Omit<CampaignTickResult, "durationMs">> {
   const admin = options?.customAdmin ?? getAdminClient();
   const config = getMailerTickConfig();
   const tickBudgetMs = options?.tickBudgetMs ?? config.tickBudgetMs;
@@ -994,6 +1103,16 @@ export async function runCampaignTick(
       message: "Supabase Service Role client is not configured.",
     };
   }
+
+  const finalizeBatch = async (args: Record<string, unknown>) => {
+    const res = await admin.rpc("finalize_mailer_batch", args);
+    if (res.error || !res.data || res.data.finalized === false) {
+      throw new Error(
+        `Falha ao persistir lote após resposta do provedor; envio interrompido. O próximo tick preserva a mesma chave: ${res.error?.message || "finalize não confirmou a transação"}`,
+      );
+    }
+    return res;
+  };
 
   // Carregar dados da campanha e snapshot
   const campRes = await admin
@@ -1046,10 +1165,20 @@ export async function runCampaignTick(
     const bounceRes = await admin.rpc("mailer_campaign_bounce_stats", {
       p_campaign_id: campaignId,
     });
+    if (bounceRes.error) throw new Error(bounceRes.error.message);
     const bounceData = Array.isArray(bounceRes?.data) ? bounceRes.data[0] : bounceRes?.data;
-    if (bounceData && (bounceData as { bounce_guard_triggered?: boolean }).bounce_guard_triggered) {
-      const pauseReason =
-        "Pausada por segurança: taxa de bounce acima do limite de 3% (Bounce Guard acionado).";
+    const guardTriggered =
+      bounceData &&
+      typeof bounceData.sent_count === "number" &&
+      typeof bounceData.permanent_bounces === "number"
+        ? shouldPauseBounceGuard(
+            bounceData.sent_count,
+            bounceData.permanent_bounces,
+            Boolean(bounceData.override_active),
+          )
+        : Boolean(bounceData?.bounce_guard_triggered);
+    if (guardTriggered) {
+      const pauseReason = `Pausada por segurança: taxa ${bounceData.bounce_rate}% de hard bounces. Mínimos: 200 aceitos e 5 hard bounces; limite 3%, ou 8% com override.`;
       await admin
         .from("mailer_campaigns")
         .update({
@@ -1060,7 +1189,8 @@ export async function runCampaignTick(
           controller_id: null,
           controller_lease_expires_at: null,
         })
-        .eq("id", campaignId);
+        .eq("id", campaignId)
+        .eq("status", "running");
 
       const progress = await getCampaignProgressV2(campaignId, admin);
       return {
@@ -1079,8 +1209,10 @@ export async function runCampaignTick(
         message: pauseReason,
       };
     }
-  } catch {
-    // Continua se consulta de bounce stats não estiver disponível
+  } catch (error) {
+    throw new Error(
+      `Falha ao verificar Bounce Guard: ${error instanceof Error ? error.message : error}`,
+    );
   }
 
   // Carregar snapshot da campanha uma única vez por tick
@@ -1122,9 +1254,7 @@ export async function runCampaignTick(
     });
 
     if (claimRpc.error || !claimRpc.data) {
-      tickMessage = claimRpc.error?.message || "Falha ao reservar lote na fila.";
-      nextTickInMs = 3000;
-      break;
+      throw new Error(claimRpc.error?.message || "Falha ao reservar lote na fila.");
     }
 
     const claim = claimRpc.data as {
@@ -1139,6 +1269,11 @@ export async function runCampaignTick(
       campaignStatus?: MailerCampaignStatus;
       waitMs?: number;
       safetyPauseReason?: string | null;
+      requestPayload?: {
+        emails: BatchEmailItem[];
+        preOutcomes: V2BatchItemOutcome[];
+        renderOutcomes: V2BatchItemOutcome[];
+      };
       items?: ClaimedBatchItemRow[];
     };
 
@@ -1172,7 +1307,7 @@ export async function runCampaignTick(
     lastIdempotencyKey = batchIdempotencyKey;
 
     if (batchItems.length === 0) {
-      await admin.rpc("finalize_mailer_batch", {
+      await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1191,10 +1326,13 @@ export async function runCampaignTick(
     //    (Em replay ambíguo, o payload DEVE permanecer 100% idêntico para a mesma Idempotency-Key!)
     let newlySuppressedSet = new Set<string>();
     if (!isReplayingAmbiguous && !claim.reusedBatch) {
-      newlySuppressedSet = await getSuppressedEmailSet();
+      newlySuppressedSet = await getBatchSuppressedEmails(
+        admin,
+        batchItems.map((i) => i.recipient_email),
+      );
     }
 
-    const preCancelledOutcomes: V2BatchItemOutcome[] = [];
+    let preCancelledOutcomes: V2BatchItemOutcome[] = [];
     const renderableItems: ClaimedBatchItemRow[] = [];
 
     for (const item of batchItems) {
@@ -1215,8 +1353,8 @@ export async function runCampaignTick(
     }
 
     // 3. Renderizar determinísticamente os itens do lote a partir do snapshot
-    const batchEmailsToSend: BatchEmailItem[] = [];
-    const renderFailedOutcomes: V2BatchItemOutcome[] = [];
+    let batchEmailsToSend: BatchEmailItem[] = [];
+    let renderFailedOutcomes: V2BatchItemOutcome[] = [];
 
     for (const item of renderableItems) {
       try {
@@ -1268,6 +1406,8 @@ export async function runCampaignTick(
         batchEmailsToSend.push({
           id: item.id,
           to: item.recipient_email,
+          from: getResendConfig().from,
+          replyTo: "contact@goteamgoagency.com",
           subject,
           html,
           text,
@@ -1289,10 +1429,28 @@ export async function runCampaignTick(
       }
     }
 
+    // Freeze before the first provider request. Replays reuse exact bytes across UTC days.
+    const frozen = await admin.rpc("mailer_store_batch_payload", {
+      p_campaign_id: campaignId,
+      p_batch_id: batchId,
+      p_controller_id: controllerId,
+      p_payload: {
+        emails: batchEmailsToSend,
+        preOutcomes: preCancelledOutcomes,
+        renderOutcomes: renderFailedOutcomes,
+      },
+    });
+    if (frozen.error || !frozen.data)
+      throw new Error(`Falha ao congelar payload: ${frozen.error?.message || "resposta vazia"}`);
+    const payload = frozen.data as NonNullable<typeof claim.requestPayload>;
+    batchEmailsToSend = payload.emails;
+    preCancelledOutcomes = payload.preOutcomes;
+    renderFailedOutcomes = payload.renderOutcomes;
+
     // Se todos os itens do lote foram suprimidos/falharam no render antes de chamar Resend
     if (batchEmailsToSend.length === 0) {
       const combinedOutcomes = [...preCancelledOutcomes, ...renderFailedOutcomes];
-      const finRes = await admin.rpc("finalize_mailer_batch", {
+      const finRes = await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1318,8 +1476,17 @@ export async function runCampaignTick(
     }
 
     // 4. Enviar o lote via Resend Batch API com `Idempotency-Key: mc:{campaign_id}:b{seq}`
+    const timeoutMs = Math.min(
+      10_000,
+      tickBudgetMs - (Date.now() - tickStartedAt) - MAILER_PROVIDER_MARGIN_MS,
+    );
+    if (timeoutMs <= 0) {
+      tickMessage = "Orçamento do tick esgotado antes do envio; lote preservado.";
+      break;
+    }
     const sendResult = await sendResendBatchV2(batchEmailsToSend, {
       idempotencyKey: batchIdempotencyKey,
+      timeoutMs,
       dryRun: isDryRun || Boolean((batchItems[0]?.payload as { dry_run?: boolean })?.dry_run),
       customClient: options?.customResendClient,
     });
@@ -1328,7 +1495,7 @@ export async function runCampaignTick(
     if (sendResult.disposition === "retry_same_key") {
       rateLimited = sendResult.httpStatus === 429;
       const retryMs = sendResult.retryAfterMs || 2000;
-      const finRes = await admin.rpc("finalize_mailer_batch", {
+      const finRes = await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1359,7 +1526,7 @@ export async function runCampaignTick(
 
     if (sendResult.disposition === "ambiguous_same_key") {
       const retryMs = sendResult.retryAfterMs || 1500;
-      const finRes = await admin.rpc("finalize_mailer_batch", {
+      const finRes = await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1385,7 +1552,7 @@ export async function runCampaignTick(
       safetyPaused = true;
       safetyPauseReason =
         sendResult.pauseReason || "Campanha pausada preventivamente por limite ou configuração.";
-      await admin.rpc("finalize_mailer_batch", {
+      await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1416,7 +1583,7 @@ export async function runCampaignTick(
         ...renderFailedOutcomes,
         ...sendResult.outcomes,
       ];
-      await admin.rpc("finalize_mailer_batch", {
+      await finalizeBatch({
         p_campaign_id: campaignId,
         p_batch_id: batchId,
         p_controller_id: controllerId,
@@ -1455,7 +1622,7 @@ export async function runCampaignTick(
           ? "partial"
           : "failed";
 
-    const finRes = await admin.rpc("finalize_mailer_batch", {
+    const finRes = await finalizeBatch({
       p_campaign_id: campaignId,
       p_batch_id: batchId,
       p_controller_id: controllerId,
@@ -1568,7 +1735,7 @@ export async function getCampaignProgressV2(
           pending + claimed + accepted + failedPerm + failedRetry + unconfirmed + cancelled,
       );
       const submissionPercent =
-        eligible > 0 ? Math.min(100, Math.round((decided / eligible) * 100)) : 100;
+        eligible > 0 ? Math.min(100, Math.round((accepted / eligible) * 100)) : 100;
       const delivered = Number(d.deliveredCount ?? 0);
       const bounced = Number(d.bouncedCount ?? 0);
       const deliveryPercent =
@@ -1577,7 +1744,17 @@ export async function getCampaignProgressV2(
       const status = (d.status as MailerCampaignStatus) || "running";
       const safetyPauseReason = (d.safetyPauseReason as string | null) ?? null;
 
-      return {
+      const progress: CampaignProgress = {
+        lastTickAt: (d.lastTickAt as string | null) ?? null,
+        lastTickBy: (d.lastTickBy as string | null) ?? null,
+        lastTickMessage: (d.lastTickMessage as string | null) ?? null,
+        controllerId: (d.controllerId as string | null) ?? null,
+        controllerLeaseExpiresAt: (d.controllerLeaseExpiresAt as string | null) ?? null,
+        staleSeconds: Number(d.staleSeconds ?? 0),
+        firstAcceptedAt: (d.firstAcceptedAt as string | null) ?? null,
+        webhookEventCount: Number(d.webhookEventCount ?? 0),
+        lastProviderHttpStatus: (d.lastProviderHttpStatus as number | null) ?? null,
+        health: d.health as CampaignProgress["health"],
         campaignId: String(d.campaignId || campaignId),
         status,
         subject: String(d.subject || "Campanha Mailer"),
@@ -1638,9 +1815,12 @@ export async function getCampaignProgressV2(
                 : "sending",
         asOf: String(d.asOf || new Date().toISOString()),
       };
+      progress.health = progress.health || deriveCampaignHealth(progress);
+      return progress;
     }
-  } catch {
-    // Fallback direto na tabela caso RPC não esteja instalada
+    throw new Error(rpcRes.error?.message || "RPC de progresso vazia");
+  } catch (error) {
+    console.error("[mailer-v2] progresso degradado", campaignId, error);
   }
 
   const campRes = await admin
@@ -1651,35 +1831,48 @@ export async function getCampaignProgressV2(
   if (!campRes?.data) return null;
   const c = campRes.data as Record<string, unknown>;
 
-  const queueRes = await admin.from("mailer_queue").select("status").eq("campaign_id", campaignId);
-  const rows = Array.isArray(queueRes?.data) ? (queueRes.data as Array<{ status: string }>) : [];
-
-  let pending = 0;
-  let claimed = 0;
-  let accepted = 0;
-  let failedPerm = 0;
-  let failedRetry = 0;
-  let unconfirmed = 0;
-  let cancelled = 0;
-
-  for (const r of rows) {
-    if (r.status === "pending") pending++;
-    else if (r.status === "claimed" || r.status === "processing") claimed++;
-    else if (r.status === "accepted" || r.status === "sent") accepted++;
-    else if (r.status === "failed_permanent" || r.status === "failed") failedPerm++;
-    else if (r.status === "failed_retryable" || r.status === "retry") failedRetry++;
-    else if (r.status === "unconfirmed") unconfirmed++;
-    else if (r.status === "cancelled") cancelled++;
-  }
+  const count = async (statuses: string[]) => {
+    const res = await admin
+      .from("mailer_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .in("status", statuses);
+    if (res.error || res.count == null)
+      throw new Error(
+        `Falha na contagem de progresso: ${res.error?.message || "contagem ausente"}`,
+      );
+    return Number(res.count);
+  };
+  const [pending, claimed, accepted, failedPerm, failedRetry, unconfirmed, cancelled, suppressed] =
+    await Promise.all([
+      count(["pending"]),
+      count(["claimed", "processing"]),
+      count(["accepted", "sent"]),
+      count(["failed_permanent", "failed"]),
+      count(["failed_retryable", "retry"]),
+      count(["unconfirmed"]),
+      count(["cancelled"]),
+      count(["suppressed"]),
+    ]);
 
   const statesSum =
-    pending + claimed + accepted + failedPerm + failedRetry + unconfirmed + cancelled;
+    pending + claimed + accepted + failedPerm + failedRetry + unconfirmed + cancelled + suppressed;
   const eligible = Number(c.eligible_count || c.total_recipients || statesSum);
   const decided = accepted + failedPerm + failedRetry + unconfirmed + cancelled;
   const submissionPercent =
-    eligible > 0 ? Math.min(100, Math.round((decided / eligible) * 100)) : 100;
+    eligible > 0 ? Math.min(100, Math.round((accepted / eligible) * 100)) : 100;
 
-  return {
+  const progress: CampaignProgress = {
+    degraded: true,
+    lastTickAt: (c.last_tick_at as string | null) ?? null,
+    lastTickBy: (c.last_tick_by as string | null) ?? null,
+    lastTickMessage: (c.last_tick_message as string | null) ?? null,
+    controllerId: (c.controller_id as string | null) ?? null,
+    controllerLeaseExpiresAt: (c.controller_lease_expires_at as string | null) ?? null,
+    staleSeconds: Math.max(
+      0,
+      (Date.now() - Date.parse(String(c.last_tick_at || c.started_at || c.created_at))) / 1000,
+    ),
     campaignId,
     status: (c.status as MailerCampaignStatus) || "running",
     subject: String(c.subject || "Campanha Mailer"),
@@ -1693,7 +1886,7 @@ export async function getCampaignProgressV2(
     failedCount: failedPerm + failedRetry,
     failedPermanentCount: failedPerm,
     failedRetryableCount: failedRetry,
-    suppressedCount: Number(c.suppressed_count || 0),
+    suppressedCount: Number(c.suppressed_count || 0) + suppressed,
     pendingCount: pending,
     processingCount: claimed,
     claimedCount: claimed,
@@ -1725,6 +1918,8 @@ export async function getCampaignProgressV2(
     lastError: (c.last_error as string | null) ?? null,
     asOf: new Date().toISOString(),
   };
+  progress.health = deriveCampaignHealth(progress);
+  return progress;
 }
 
 function mapExclusionReasonToPt(reason: MailerExclusionReason, details?: string | null) {
@@ -1940,6 +2135,13 @@ export async function getCampaignFinalReport(
   if (progress.status === "cancelled") {
     finalBadgeLabelPt = "Cancelada";
     finalBadgeTone = "rose";
+  } else if (
+    progress.health === "needs_reconciliation" ||
+    (progress.status === "completed" &&
+      progress.pendingCount + (progress.claimedCount ?? progress.processingCount) > 0)
+  ) {
+    finalBadgeLabelPt = "Requer reconciliação";
+    finalBadgeTone = "amber";
   } else if (progress.status === "paused" && progress.safetyPauseReason) {
     finalBadgeLabelPt = "Pausada por segurança";
     finalBadgeTone = "rose";
