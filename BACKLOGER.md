@@ -1539,3 +1539,36 @@ $ vite build
 [nitro] ✔ You can preview this build using npx vite preview
 [nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
 ```
+
+
+---
+
+## TASK-116 — 2026-11-06 09:45 (America/Sao_Paulo) — Mailer: executor por cron, continuidade e feedback fiel
+
+- **Solicitante:** Kauan — Go Team Go.
+- **Planejamento:** Claude (texto fornecido pelo solicitante); registro documental preparado por ChatGPT/Codex.
+- **Executor da implementação:** Google AI Studio.
+- **Status:** `[PENDENTE]` — plano pronto; implementação autorizada somente quando o humano colar a Parte 2 no AI Studio. Registro documental autorizado para publicação na main; implementação permanece pendente no Google AI Studio.
+- **Plano:** [think/2026-11-06-0945-mailer-executor-feedback-cron.md](think/2026-11-06-0945-mailer-executor-feedback-cron.md). Texto fornecido pelo solicitante preservado, incluindo diagnóstico, decisões e prompt completo para o executor.
+- **Pedido:** Garantir conclusão de campanhas de 5.000+ destinatários sem aba aberta; corrigir disputa de lease no navegador, retentativas, controles v2, supressão e progresso; acrescentar saúde derivada e identificação de fila parada; entregar migrations pequenas, verificadores somente leitura e testes de concorrência/cron.
+- **Decisão revista em 06/11:** a pedido de Kauan, a decisão de 16/10 (“fila só no navegador”) passa a admitir o cron do Supabase como rede de segurança. O navegador continua podendo executar ticks. Esta decisão não significa que o cron esteja instalado ou ativo.
+- **Evidência:** diagnóstico de produção e achados de código reproduzidos do plano fornecido; consultas ao Supabase não foram repetidas nesta etapa documental. Os blobs de `bun.lock` e `package.json` consultados na `main` pelo GitHub conferem com os hashes canônicos do plano: `11e32ea0199fd8ea03742194d7e92136aa0ed513` e `868f6434b581f681611b76689623de2ee9a2b9b1`. Isso não substitui a execução local do portão de validação.
+- **Escopo desta etapa:** somente este registro, o plano em `think/` e a anotação da decisão no `CERNE.md`. Nenhum código, migration, dependência, segredo, agendamento ou dado de produção alterado. Nenhum e-mail enviado.
+- **Operação humana após a implementação (não executada nesta etapa):**
+  1. Aplicar o SQL entregue pelo AI Studio na ordem documentada, antes do deploy do código, e executar os verificadores somente leitura correspondentes.
+  2. Habilitar `pg_cron`, `pg_net` e `supabase_vault` no Supabase. Conferir a versão de `pg_cron` conforme a documentação entregue pelo executor antes de escolher segundos; usar 1 minuto se não houver suporte.
+  3. Criar no Vault os secrets `mailer_tick_url` (URL de produção de `/api/mailer/tick`) e `mailer_cron_secret` (segredo compartilhado com a Vercel), conforme a migration revisada. Não colocar segredos no repositório.
+  4. Configurar na Vercel `MAILER_CRON_ENABLED=true` e `MAILER_CRON_SECRET` com o mesmo segredo do Vault; conferir no painel a duração máxima da função e sua compatibilidade com `MAILER_TICK_BUDGET_MS`; publicar o código após o SQL requerido.
+  5. Aplicar a versão revisada de `0032_mailer_cron_optional.sql` no ponto indicado pela ordem final do executor e rodar o verify entregue. Não presumir que o arquivo atual já incorpora as mudanças da TASK-116.
+  6. Fazer campanha pequena em dry run, fechar a aba e reabrir após a janela de execução; conferir conclusão, ticks persistidos e selo “Rede de segurança: ativa”. Homologar entrega/webhooks somente com campanha de teste autorizada, pois dry run não prova entrega real.
+- **Exceção humana para este commit documental:** após a pergunta explícita sobre commitar somente estes três Markdown sem executar o build, Kauan autorizou em 06/11/2026: “Tudo liberado, vai com tudo”. A exceção abrange somente o registro documental em `think/`, `BACKLOGER.md` e `CERNE.md`; não dispensa o portão de validação da implementação no AI Studio.
+- **Validação da preparação documental:** os arquivos anteriores de `BACKLOGER.md` e `CERNE.md` foram preservados integralmente, com apenas acréscimos; o plano contém Partes 1 e 2 e blocos A–F. O ambiente não contém checkout Git completo nem Bun. Tentativa real de iniciar o portão:
+
+```text
+$ bun install --frozen-lockfile
+/bin/bash: line 1: bun: command not found
+Exit code: 127
+```
+
+- `git hash-object bun.lock package.json`, `git diff --exit-code -- package.json bun.lock`, lint, typecheck, testes, build e validate não executados nesta preparação; nenhum resultado de aprovação presumido. A implementação deverá registrar as saídas reais exigidas no plano e na Regra 7.
+

@@ -1646,3 +1646,11 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - **Testes e Validação (`src/lib/email/mailer-engine-v2.test.ts`):**
   - Simulação determinística em memória de 100, 500, 800, 1.500 e 5.000 destinatários nos 3 modos (`single_athlete`, `multi_athlete`, `catalog`), falha no meio da preparação + retry idempotente, replay ambíguo 5xx/timeout com a mesma `Idempotency-Key`, 429 `Retry-After`, 429 cota mensal, 409 conflito, takeover de lease expirado após 90s, deduplicação de webhooks fora de ordem/duplicados por `svix_id` e validação de contratos SQL.
   - 43 suítes / 351 testes 100% verdes no Vitest; `eslint .` com 0 erros; `tsc --noEmit` com 0 erros; `vite build` concluído com sucesso; `package.json` e `bun.lock` 100% intocados.
+
+
+## Decisão de 2026-11-06 (TASK-116) — Rede de segurança do Mailer por cron (implementação pendente)
+
+- A pedido de Kauan — Go Team Go, a decisão de 16/10 (“fila só no navegador”) foi revista: o cron do Supabase será a rede de segurança e o navegador continuará podendo dirigir a fila pelo motor v2.
+- Plano: [think/2026-11-06-0945-mailer-executor-feedback-cron.md](think/2026-11-06-0945-mailer-executor-feedback-cron.md), com diagnóstico e prompt de execução para o Google AI Studio. A implementação só está autorizada quando o humano colar a Parte 2 no AI Studio.
+- Este registro documenta uma decisão de projeto; não indica cron habilitado, SQL aplicado ou correções de código implantadas. Estado da TASK-116: `[PENDENTE]`.
+
