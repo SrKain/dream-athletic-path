@@ -18,6 +18,19 @@
 --   4. Execute esta migration no SQL Editor.
 -- ============================================================================
 
+BEGIN;
+DO $$
+DECLARE missing text[] := '{}'; x text;
+BEGIN
+ FOREACH x IN ARRAY ARRAY['pg_cron','pg_net','supabase_vault'] LOOP
+  IF NOT EXISTS(SELECT 1 FROM pg_extension WHERE extname=x) THEN missing:=array_append(missing,'extension:'||x); END IF;
+ END LOOP;
+ IF to_regprocedure('public.mailer_cron_status()') IS NULL THEN missing:=array_append(missing,'0033a–0033f'); END IF;
+ IF to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
+  EXECUTE 'SELECT $1 || ARRAY(SELECT ''secret:''||n FROM unnest(ARRAY[''mailer_tick_url'',''mailer_cron_secret'']) n WHERE NOT EXISTS(SELECT 1 FROM vault.decrypted_secrets WHERE name=n AND length(trim(decrypted_secret))>0))' INTO missing USING missing;
+ END IF;
+ IF cardinality(missing)>0 THEN RAISE EXCEPTION 'PRECHECK_0032 missing: %',array_to_string(missing,', '); END IF;
+END $$;
 CREATE OR REPLACE FUNCTION public.mailer_trigger_expired_campaigns_cron()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -98,7 +111,8 @@ BEGIN
         body := jsonb_build_object(
           'campaignId', $3::text,
           'source', 'pg_cron'
-        )
+        ),
+        timeout_milliseconds := 30000
       )
     $q$ USING v_tick_url, v_cron_secret, v_campaign.id;
 
@@ -116,16 +130,13 @@ $$;
 REVOKE ALL ON FUNCTION public.mailer_trigger_expired_campaigns_cron() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mailer_trigger_expired_campaigns_cron() TO service_role;
 
+-- pg_cron >= 1.5 introduziu intervalos em segundos; consultar pg_extension.extversion.
 DO $$
+DECLARE version_parts text[]; schedule_text text := '* * * * *';
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron') THEN
-    PERFORM cron.schedule(
-      'mailer-campaign-tick-every-minute',
-      '* * * * *',
-      $cron$SELECT public.mailer_trigger_expired_campaigns_cron();$cron$
-    );
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'pg_cron não está ativo neste banco; agendamento ignorado com segurança (%).', SQLERRM;
-END;
-$$;
+ SELECT regexp_match(extversion,'^(\d+)\.(\d+)') INTO version_parts FROM pg_extension WHERE extname='pg_cron';
+ IF version_parts[1]::int>1 OR (version_parts[1]::int=1 AND version_parts[2]::int>=5) THEN schedule_text:='15 seconds'; END IF;
+ EXECUTE 'SELECT cron.schedule($1,$2,$3)' USING 'mailer-campaign-tick-every-minute',schedule_text,
+  'SELECT public.mailer_trigger_expired_campaigns_cron();';
+END $$;
+COMMIT;

@@ -48,6 +48,7 @@ import {
   processMailerMicroBatchServerFn,
   getCampaignQueueProgressServerFn,
   getLatestActiveCampaignServerFn,
+  overrideMailerBounceGuardServerFn,
   pauseMailerCampaignServerFn,
   resumeMailerCampaignServerFn,
   cancelMailerCampaignServerFn,
@@ -1554,6 +1555,36 @@ function MailerPage() {
           {campaignProgress && (
             <div className="space-y-4">
               <MailerProgressPanel
+                cronStatus={runner.cronStatus}
+                onOverrideBounceGuard={async () => {
+                  if (
+                    !activeCampaignId ||
+                    !confirm(
+                      "Continuar apesar dos hard bounces? O teto de 8% permanece obrigatório.",
+                    )
+                  )
+                    return;
+                  const note = prompt(
+                    "Informe a justificativa para auditoria (mínimo 5 caracteres):",
+                  );
+                  if (!note || note.trim().length < 5) return;
+                  setIsOperatingQueue(true);
+                  try {
+                    const result = await overrideMailerBounceGuardServerFn({
+                      data: { campaignId: activeCampaignId, note },
+                    });
+                    if (!result.success) {
+                      toast.error(result.message);
+                      return;
+                    }
+                    await runner.refreshProgress();
+                    runner.triggerImmediateTick();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Falha no override");
+                  } finally {
+                    setIsOperatingQueue(false);
+                  }
+                }}
                 progress={campaignProgress}
                 bounceStats={runner.bounceStats}
                 isDryRun={isDryRun}

@@ -195,6 +195,11 @@ export const pauseMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
+    const { getMailerEngineMode } = await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "v2") {
+      const { controlCampaignV2 } = await import("./mailer-controls-v2.server");
+      return controlCampaignV2(data.campaignId, "pause");
+    }
     const { pauseCampaign } = await import("./mailer-queue.server");
     return pauseCampaign(data.campaignId);
   });
@@ -204,6 +209,11 @@ export const resumeMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
+    const { getMailerEngineMode } = await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "v2") {
+      const { controlCampaignV2 } = await import("./mailer-controls-v2.server");
+      return controlCampaignV2(data.campaignId, "resume");
+    }
     const { resumeCampaign } = await import("./mailer-queue.server");
     return resumeCampaign(data.campaignId);
   });
@@ -213,6 +223,11 @@ export const cancelMailerCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
+    const { getMailerEngineMode } = await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "v2") {
+      const { controlCampaignV2 } = await import("./mailer-controls-v2.server");
+      return controlCampaignV2(data.campaignId, "cancel");
+    }
     const { cancelCampaign } = await import("./mailer-queue.server");
     return cancelCampaign(data.campaignId);
   });
@@ -246,6 +261,11 @@ export const processMailerMicroBatchServerFn = createServerFn({ method: "POST" }
 export const getLatestActiveCampaignServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .handler(async () => {
+    const { getMailerEngineMode } = await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "v2") {
+      const { getLatestActiveCampaignV2 } = await import("./mailer-controls-v2.server");
+      return getLatestActiveCampaignV2();
+    }
     const { getLatestActiveCampaign } = await import("./mailer-queue.server");
     return getLatestActiveCampaign();
   });
@@ -290,6 +310,11 @@ export const triggerCampaignWorkerServerFn = createServerFn({ method: "POST" })
   .middleware([requireAgency])
   .inputValidator((data: { campaignId: string }) => data)
   .handler(async ({ data }) => {
+    const { getMailerEngineMode } = await import("./mailer-engine-v2.server");
+    if (getMailerEngineMode() === "v2") {
+      const { syncCampaignV2 } = await import("./mailer-controls-v2.server");
+      return syncCampaignV2(data.campaignId);
+    }
     const { getAdminClient } = await import("@/lib/supabase/clients.server");
     const { reconcileStaleProcessingQueueItems, getCampaignQueueProgress } =
       await import("./mailer-queue.server");
@@ -569,4 +594,26 @@ export const retryFailedRetryableServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { retryFailedRetryableItems } = await import("./mailer-engine-v2.server");
     return retryFailedRetryableItems(data.campaignId);
+  });
+
+export const getMailerCronStatusServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .handler(async () => {
+    const { getMailerCronStatus } = await import("./mailer-controls-v2.server");
+    return getMailerCronStatus();
+  });
+
+export const overrideMailerBounceGuardServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAgency])
+  .inputValidator((data: { campaignId: string; note: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { getAdminClient } = await import("@/lib/supabase/clients.server");
+    const admin = getAdminClient();
+    const res = await admin.rpc("mailer_override_bounce_guard", {
+      p_campaign_id: data.campaignId,
+      p_note: data.note,
+      p_actor_id: context.userId,
+    });
+    if (res.error) return { success: false, message: res.error.message };
+    return res.data as { success: boolean; message: string };
   });

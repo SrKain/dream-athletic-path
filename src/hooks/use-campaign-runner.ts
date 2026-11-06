@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getCampaignBounceStatsServerFn,
+  getMailerCronStatusServerFn,
   getCampaignFinalReportServerFn,
   getCampaignQueueProgressServerFn,
   runCampaignTickServerFn,
 } from "@/lib/email/recruit-email.functions";
-import type { CampaignProgress, MailerCampaignFinalReport } from "@/types/db";
+import { tickRetryDelay, tickErrorMessage } from "@/lib/email/mailer-v2-policy";
+import type { MailerCronStatus, CampaignProgress, MailerCampaignFinalReport } from "@/types/db";
 
 const CHANNEL_NAME = "teamgo_mailer_campaign_runner_v2";
 const RUNNING_POLL_MS = 2000;
@@ -25,6 +27,7 @@ export interface UseCampaignRunnerOptions {
 }
 
 export interface UseCampaignRunnerState {
+  cronStatus: MailerCronStatus | null;
   progress: CampaignProgress | null;
   setProgress: React.Dispatch<React.SetStateAction<CampaignProgress | null>>;
   finalReport: MailerCampaignFinalReport | null;
@@ -45,7 +48,7 @@ export interface UseCampaignRunnerState {
 /**
  * Relógio único da UI (`useCampaignRunner`) para o Recruit Mailer V2.
  * - Utiliza `setTimeout` encadeado guiado pelo `nextTickInMs` retornado pelo servidor.
- * - Pausa automaticamente quando a aba fica oculta (`visibilitychange`) e retoma ao voltar.
+ * - Aba oculta mantém ticks; somente offline impede chamadas de envio.
  * - Coordena abas via `BroadcastChannel` para evitar chamadas concorrentes da mesma sessão.
  * - Aplica polling adaptativo:
  *   - 2s durante `running`
@@ -67,6 +70,36 @@ export function useCampaignRunner({
   const [lastTickAtMs, setLastTickAtMs] = useState<number | null>(null);
   const [lastTickElapsedSec, setLastTickElapsedSec] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const [cronStatus, setCronStatus] = useState<MailerCronStatus | null>(null);
+  const completionRef = useRef(onCampaignCompleted);
+  completionRef.current = onCampaignCompleted;
+  const failuresRef = useRef(0);
+  const generationRef = useRef(0);
+
+  useEffect(() => {
+    let disposed = false;
+    const read = async () => {
+      try {
+        const status = await getMailerCronStatusServerFn();
+        if (!disposed) setCronStatus(status);
+      } catch (error) {
+        if (!disposed)
+          setCronStatus({
+            enabled: false,
+            active: false,
+            schedule: null,
+            error: tickErrorMessage(error),
+          });
+      }
+    };
+    void read();
+    const timer = setInterval(() => void read(), 30_000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   const clientIdRef = useRef<string>("");
   const tickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,6 +131,7 @@ export function useCampaignRunner({
   }, []);
 
   const stopRunner = useCallback(() => {
+    generationRef.current++;
     clearTimers();
   }, [clearTimers]);
 
@@ -167,11 +201,6 @@ export function useCampaignRunner({
     const onVisibility = () => {
       const hidden = document.visibilityState === "hidden";
       setIsTabHidden(hidden);
-      if (hidden) {
-        setStatusMessage("Aba em segundo plano — envio retomado automaticamente ao voltar.");
-      } else {
-        setStatusMessage(null);
-      }
     };
 
     const onOnline = () => setIsOffline(false);
@@ -247,8 +276,9 @@ export function useCampaignRunner({
     }
 
     const interval = setInterval(() => {
-      if (lastTickAtMs) {
-        setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - lastTickAtMs) / 1000)));
+      const last = progress.lastTickAt ? Date.parse(progress.lastTickAt) : lastTickAtMs;
+      if (last) {
+        setLastTickElapsedSec(Math.max(0, Math.floor((Date.now() - last) / 1000)));
       }
       if (progress?.nextBatchAt) {
         const rem = Math.ceil((new Date(progress.nextBatchAt).getTime() - Date.now()) / 1000);
@@ -259,7 +289,7 @@ export function useCampaignRunner({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [campaignId, progress?.status, progress?.nextBatchAt, lastTickAtMs]);
+  }, [campaignId, progress?.status, progress?.nextBatchAt, progress?.lastTickAt, lastTickAtMs]);
 
   const executeTick = useCallback(
     async function runStep(delayMs: number) {
@@ -269,17 +299,20 @@ export function useCampaignRunner({
         tickTimerRef.current = null;
       }
 
+      const generation = generationRef.current;
       tickTimerRef.current = setTimeout(
         async () => {
+          if (generation !== generationRef.current) return;
           if (!campaignId) return;
-          if (document.visibilityState === "hidden" || !navigator.onLine || isAnotherTabActive) {
-            // Se a aba está oculta, offline ou outra aba detém o controle, apenas consulta progresso leve (2s)
-            await refreshProgress(campaignId);
-            tickTimerRef.current = setTimeout(() => void runStep(RUNNING_POLL_MS), RUNNING_POLL_MS);
+          if (!navigator.onLine) {
+            setStatusMessage("Sem conexão — aguardando conexão.");
+            void runStep(RUNNING_POLL_MS);
             return;
           }
-
-          if (inFlightRef.current) return;
+          if (inFlightRef.current) {
+            void runStep(500);
+            return;
+          }
           inFlightRef.current = true;
           setIsTickInFlight(true);
 
@@ -291,6 +324,9 @@ export function useCampaignRunner({
               },
             });
 
+            if (generation !== generationRef.current) return;
+            if (!res.success) throw new Error(res.message || "Falha ao executar tick.");
+            failuresRef.current = 0;
             setLastTickAtMs(Date.now());
             setLastTickElapsedSec(0);
 
@@ -302,13 +338,15 @@ export function useCampaignRunner({
 
             void refreshBounceStats(campaignId);
 
-            if (res.message) {
+            if (res.leaseHeldByOther) {
+              setStatusMessage("Outro executor ativo (aba ou cron) — acompanhando");
+            } else if (res.message) {
               setStatusMessage(res.message);
             } else if (res.campaignStatus === "running") {
               const batchNum = res.progress?.currentBatch || 1;
               const totalBatches = res.progress?.totalBatches || 1;
               setStatusMessage(
-                `Enviando lote ${batchNum} de ${totalBatches} — mantenha esta aba aberta para progresso em tempo real.`,
+                `Enviando lote ${batchNum} de ${totalBatches} — acompanhando o envio.`,
               );
             }
 
@@ -340,18 +378,23 @@ export function useCampaignRunner({
                 completedNotifiedRef.current !== campaignId
               ) {
                 completedNotifiedRef.current = campaignId;
-                onCampaignCompleted?.(campaignId);
+                completionRef.current?.(campaignId);
               }
               return;
             }
 
             if (typeof res.nextTickInMs === "number" && res.nextTickInMs >= 0) {
-              const nextDelay = Math.max(250, res.nextTickInMs);
+              const nextDelay = res.leaseHeldByOther
+                ? tickRetryDelay(0, true, res.nextTickInMs)
+                : Math.max(250, res.nextTickInMs);
               void runStep(nextDelay);
             }
-          } catch {
-            // Em caso de falha transitória de rede, agenda nova tentativa com backoff de 3s
-            void runStep(3000);
+          } catch (error) {
+            if (generation !== generationRef.current) return;
+            failuresRef.current++;
+            const delay = tickRetryDelay(failuresRef.current);
+            setStatusMessage(`${tickErrorMessage(error)} Nova tentativa em ${delay / 1000}s.`);
+            void runStep(delay);
           } finally {
             inFlightRef.current = false;
             setIsTickInFlight(false);
@@ -360,15 +403,22 @@ export function useCampaignRunner({
         Math.max(0, delayMs),
       );
     },
-    [
-      campaignId,
-      isAnotherTabActive,
-      onCampaignCompleted,
-      refreshBounceStats,
-      refreshFinalReport,
-      refreshProgress,
-    ],
+    [campaignId, refreshBounceStats, refreshFinalReport, refreshProgress],
   );
+
+  useEffect(
+    () => () => {
+      generationRef.current++;
+      clearTimers();
+    },
+    [campaignId, clearTimers],
+  );
+
+  useEffect(() => {
+    if (!campaignId || progress?.status !== "running") return;
+    const timer = setInterval(() => void refreshProgress(campaignId), RUNNING_POLL_MS);
+    return () => clearInterval(timer);
+  }, [campaignId, progress?.status, refreshProgress]);
 
   // Carregamento inicial quando campaignId muda
   useEffect(() => {
@@ -387,13 +437,15 @@ export function useCampaignRunner({
     void refreshBounceStats(campaignId);
   }, [campaignId, clearTimers, refreshBounceStats, refreshProgress]);
 
+  const campaignStatus = progress?.status;
+
   // Orquestração adaptativa conforme status da campanha e visibilidade da aba
   useEffect(() => {
     clearTimers();
-    if (!campaignId || !progress) return;
+    if (!campaignId || !campaignStatus) return;
 
-    if (progress.status === "running") {
-      if (!isTabHidden && !isOffline && !isAnotherTabActive) {
+    if (campaignStatus === "running") {
+      if (!isOffline) {
         void executeTick(250);
       } else {
         // Aba oculta ou secundária: polling de leitura a cada 2s
@@ -408,7 +460,7 @@ export function useCampaignRunner({
       return clearTimers;
     }
 
-    if (progress.status === "paused") {
+    if (campaignStatus === "paused") {
       // Durante pausa: polling leve a cada 10s
       const schedulePausedPoll = () => {
         pollTimerRef.current = setTimeout(async () => {
@@ -422,16 +474,7 @@ export function useCampaignRunner({
 
     // Estado terminal (`completed`, `cancelled`, `failed`): 0 polling automático
     return clearTimers;
-  }, [
-    campaignId,
-    clearTimers,
-    executeTick,
-    isAnotherTabActive,
-    isOffline,
-    isTabHidden,
-    progress?.status,
-    refreshProgress,
-  ]);
+  }, [campaignId, clearTimers, executeTick, isOffline, campaignStatus, refreshProgress]);
 
   const triggerImmediateTick = useCallback(() => {
     if (!campaignId) return;
@@ -440,6 +483,7 @@ export function useCampaignRunner({
   }, [campaignId, executeTick]);
 
   return {
+    cronStatus,
     progress,
     setProgress,
     finalReport,

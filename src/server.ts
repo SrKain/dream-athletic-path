@@ -134,7 +134,7 @@ export default {
         // Autenticação dupla: MAILER_CRON_SECRET (comparação em tempo constante) OU sessão agency_admin
         const cronAuth = verifyMailerCronTickSecret(request);
         let isAuthorized = cronAuth === "ok";
-        let resolvedControllerId = "cron_scheduler";
+        let resolvedControllerId = `cron_${crypto.randomUUID()}`;
 
         if (!isAuthorized) {
           const authHeader = request.headers.get("authorization") || "";
@@ -183,6 +183,8 @@ export default {
           const { data: nextCamp } = await admin
             .from("mailer_campaigns")
             .select("id, controller_lease_expires_at")
+            .or(`controller_lease_expires_at.is.null,controller_lease_expires_at.lte.${nowIso}`)
+            .or(`next_batch_at.is.null,next_batch_at.lte.${nowIso}`)
             .eq("status", "running")
             .order("created_at", { ascending: true })
             .limit(5);
@@ -204,7 +206,7 @@ export default {
         }
 
         const tickResult = await runCampaignTick(targetCampaignId, {
-          controllerId: body.controllerId?.trim() || resolvedControllerId,
+          controllerId: resolvedControllerId,
         });
         return new Response(JSON.stringify(tickResult), { status: 200, headers });
       }

@@ -1547,14 +1547,14 @@ $ vite build
 
 - **Solicitante:** Kauan — Go Team Go.
 - **Planejamento:** Claude (texto fornecido pelo solicitante); registro documental preparado por ChatGPT/Codex.
-- **Executor da implementação:** Google AI Studio.
-- **Status:** `[PENDENTE]` — plano pronto; implementação autorizada somente quando o humano colar a Parte 2 no AI Studio. Registro documental autorizado para publicação na main; implementação permanece pendente no Google AI Studio.
+- **Executor da implementação:** ChatGPT/Codex (substituiu Google AI Studio por autorização de Kauan).
+- **Status:** `[CONCLUÍDO]` — implementação e validação; implantação humana em produção pendente. — plano aprovado; implementação transferida a ChatGPT/Codex e executada conforme registro de entrega abaixo. Implantação em produção depende da aplicação humana do SQL e configuração do cron.
 - **Plano:** [think/2026-11-06-0945-mailer-executor-feedback-cron.md](think/2026-11-06-0945-mailer-executor-feedback-cron.md). Texto fornecido pelo solicitante preservado, incluindo diagnóstico, decisões e prompt completo para o executor.
 - **Pedido:** Garantir conclusão de campanhas de 5.000+ destinatários sem aba aberta; corrigir disputa de lease no navegador, retentativas, controles v2, supressão e progresso; acrescentar saúde derivada e identificação de fila parada; entregar migrations pequenas, verificadores somente leitura e testes de concorrência/cron.
 - **Decisão revista em 06/11:** a pedido de Kauan, a decisão de 16/10 (“fila só no navegador”) passa a admitir o cron do Supabase como rede de segurança. O navegador continua podendo executar ticks. Esta decisão não significa que o cron esteja instalado ou ativo.
 - **Evidência:** diagnóstico de produção e achados de código reproduzidos do plano fornecido; consultas ao Supabase não foram repetidas nesta etapa documental. Os blobs de `bun.lock` e `package.json` consultados na `main` pelo GitHub conferem com os hashes canônicos do plano: `11e32ea0199fd8ea03742194d7e92136aa0ed513` e `868f6434b581f681611b76689623de2ee9a2b9b1`. Isso não substitui a execução local do portão de validação.
 - **Escopo desta etapa:** somente este registro, o plano em `think/` e a anotação da decisão no `CERNE.md`. Nenhum código, migration, dependência, segredo, agendamento ou dado de produção alterado. Nenhum e-mail enviado.
-- **Operação humana após a implementação (não executada nesta etapa):**
+- **Operação humana após a implementação (operação de produção não executada pelo agente):**
   1. Aplicar o SQL entregue pelo AI Studio na ordem documentada, antes do deploy do código, e executar os verificadores somente leitura correspondentes.
   2. Habilitar `pg_cron`, `pg_net` e `supabase_vault` no Supabase. Conferir a versão de `pg_cron` conforme a documentação entregue pelo executor antes de escolher segundos; usar 1 minuto se não houver suporte.
   3. Criar no Vault os secrets `mailer_tick_url` (URL de produção de `/api/mailer/tick`) e `mailer_cron_secret` (segredo compartilhado com a Vercel), conforme a migration revisada. Não colocar segredos no repositório.
@@ -1572,3 +1572,1576 @@ Exit code: 127
 
 - `git hash-object bun.lock package.json`, `git diff --exit-code -- package.json bun.lock`, lint, typecheck, testes, build e validate não executados nesta preparação; nenhum resultado de aprovação presumido. A implementação deverá registrar as saídas reais exigidas no plano e na Regra 7.
 
+
+
+### TASK-116 — mudança de executor e início da implementação (06/11/2026)
+
+- Solicitante: Kauan. Executor: ChatGPT/Codex, substituindo Google AI Studio por autorização explícita nesta conversa.
+- Status: [PENDENTE] — em implementação integral do plano aprovado. Nenhuma alteração em produção autorizada por esta etapa; migrations e configuração do cron serão entregues para aplicação humana.
+- Bun 1.3.14 instalado no ambiente de implementação; instalação frozen realizada sem modificar package.json ou bun.lock. A exceção documental anterior não dispensa as validações do código.
+
+
+### TASK-116 — entrega da implementação por ChatGPT/Codex — 2026-11-06 10:31:17 (America/Sao_Paulo)
+
+- **Solicitante:** Kauan — Go Team Go. **Executor:** ChatGPT/Codex (troca aprovada expressamente em 06/11). **Status:** [CONCLUÍDO] — código, migrations e testes entregues; implantação/configuração/homologação em produção pendentes de operação humana.
+- **Base:** main 8ceddbed3230b92283f4c443925629fc0458c4bc (documentação sobre d464a51). Branch de entrega: `fix/task-116-mailer-cron-health`. Não fazer merge/deploy antes de aplicar as partes 0033; a ativação 0032 ocorre depois da configuração do ambiente e deploy do novo endpoint.
+- **Arquivos de aplicação:** `src/hooks/use-campaign-runner.ts`, `src/lib/email/mailer-engine-v2.server.ts`, `src/lib/email/mailer-controls-v2.server.ts`, `src/lib/email/mailer-v2-policy.ts`, `src/lib/email/recruit-email.functions.ts`, `src/components/mailer/mailer-progress-panel.tsx`, `src/routes/_authenticated/admin/mailer.tsx`, `src/server.ts`, `src/types/db.ts`.
+- **SQL:** `0033a_mailer_prereqs_heartbeat.sql` → `0033b_mailer_claim.sql` → `0033c_mailer_finalize.sql` → `0033d_mailer_progress.sql` → `0033e_mailer_controls_bounce.sql` → `0033f_mailer_cron_status.sql` → `verify-0033.sql` (somente leitura). Depois do código, extensões e secrets: `0032_mailer_cron_optional.sql` revisada → repetir verify. Todas as partes têm menos de 250 linhas; transações independentes e pré-checagens explícitas. Sem profiles.role ou dependências novas.
+- **Correções:** lease não trava o hook; aba oculta mantém ticks; falhas/401 são exibidas com backoff; heartbeat/health persistidos; status do cron visível; progressos sem truncamento; controles v2 e cancelamento em voo conservadores; supressão por lote; finalização verificada; replay com payload congelado e chave estável inclusive ao cruzar meia-noite, limite 23h, rate limits sem esgotamento em 3 tentativas, 8 respostas ambíguas antes de unconfirmed; Bounce Guard com amostra mínima/override auditado/teto 8%; corrida bounce/cancelamento protegida. Payload congelado é removido ao fechar lote.
+- **Testes acrescentados:** `use-campaign-runner.test.ts`, `mailer-task116.test.ts`, `mailer-controls-v2.test.ts`, `mailer-progress-panel.test.tsx`; fixtures/runner SQL em `scripts/mailer-tests/`. O teste isolado completo registrou 379 testes; o validate final registrou 380 após acrescentar a regressão de cancelamento concorrente. Todos passaram. Lint final: 0 erros, 13 avisos.
+- **Decisão:** em 06/11, Kauan reviu a exclusividade de execução no navegador decidida em 16/10 e escolheu Supabase Cron como rede de segurança. A implementação foi transferida do AI Studio a ChatGPT/Codex. A exceção de build anterior era só documental; esta entrega executou o portão integralmente com Bun 1.3.14.
+- **Passo a passo humano do cron:**
+  1. Aplicar 0033a–0033f em ordem e executar verify-0033 antes de publicar o código. Escolher janela sem disparos; não reaplicar 0031/reprocessar campanhas antigas.
+  2. Habilitar pg_cron, pg_net e supabase_vault no Supabase; consultar `pg_extension.extversion`. Agendamento em segundos exige pg_cron>=1.5, senão usar 1min (escolha automática na 0032 revisada).
+  3. Criar/atualizar no Vault `mailer_tick_url` (URL de produção /api/mailer/tick) e `mailer_cron_secret`; não registrar valores em Git ou logs.
+  4. Definir MAILER_CRON_ENABLED=true e MAILER_CRON_SECRET na Vercel (mesmo segredo do Vault); conferir manualmente a duração máxima de função no painel e sua margem em relação a MAILER_TICK_BUDGET_MS (default 8000ms). Publicar o código após SQL 0033. Esta duração máxima não é verificável pelo repositório.
+  5. Aplicar 0032 revisada, executar novamente verify-0033 e conferir selo “Rede de segurança: ativa”.
+  6. Campanha pequena em dry run, fechar a aba, aguardar várias janelas e verificar conclusão/ticks de cron ao reabrir. Dry run não prova entrega real; homologar webhooks/entrega somente com contatos de teste e disparo real autorizado.
+- **Runbook completo e checklist:** [docs/mailer/TASK-116-deploy.md](docs/mailer/TASK-116-deploy.md). Inclui teste de aba oculta, concorrência, retomada de stalled, cancelamento e diagnóstico de cron/pg_net. Contrato prévio de colunas: [docs/mailer/TASK-116-schema.md](docs/mailer/TASK-116-schema.md).
+- **Limites de evidência:** PostgreSQL 17 local descartável; testes de 5000 destinatários com relógio virtual e sem ticks de navegador; concorrência em duas sessões SQL. Nenhuma chamada real à Resend/Supabase/Vercel para alterar produção, nenhuma campanha antiga reprocessada. O funcionamento pg_cron/pg_net/Vault de ponta a ponta exige os passos humanos acima.
+
+#### Saídas reais — portão anti-build-quebrada (Regra 7)
+
+```text
+$ bun install --frozen-lockfile
+bun install v1.3.14 (0d9b296a)
+
+Checked 532 installs across 652 packages (no changes) [30.00ms]
+Exit code: 0
+```
+
+```text
+$ git diff --exit-code -- package.json bun.lock
+
+Exit code: 0
+```
+
+```text
+$ git hash-object bun.lock package.json
+11e32ea0199fd8ea03742194d7e92136aa0ed513
+868f6434b581f681611b76689623de2ee9a2b9b1
+Exit code: 0
+```
+
+```text
+$ bun run lint
+$ eslint .
+
+/workspace/mailer-implementation/src/components/confetti-celebration.tsx
+  17:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/mailer/mailer-history-section.tsx
+  77:6  warning  React Hook useEffect has a missing dependency: 'loadHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  87:6  warning  React Hook useEffect has a missing dependency: 'loadHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/mailer-implementation/src/components/ui/badge.tsx
+  32:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/button.tsx
+  49:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/form.tsx
+  163:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/sidebar.tsx
+  743:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/toggle.tsx
+  42:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/i18n/i18n-provider.tsx
+  34:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/providers/auth-provider.tsx
+  76:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/routes/_authenticated/admin/mailer.tsx
+   496:6  warning  React Hook useEffect has a missing dependency: 'loadInitialData'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1415:6  warning  React Hook useEffect has a missing dependency: 'loadQueueRecipients'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 13 problems (0 errors, 13 warnings)
+
+Exit code: 0
+```
+
+```text
+$ bun run typecheck
+$ tsc --noEmit
+Exit code: 0
+```
+
+```text
+$ bun run test
+$ vitest run
+
+ RUN  v3.2.7 /workspace/mailer-implementation
+
+stderr | src/lib/email/mailer-queue.test.ts > Mailer Intelligent Queue & Rate Limiting Suite > 3. Campaign State Controls: Pause, Resume & Cancel > reconciles expired processing rows: marks evidenced items as sent and unevidenced items as unconfirmed (never auto-pending)
+[mailer-queue] Exception reading email_events during reconciliation: TypeError: admin.from(...).select(...).in is not a function
+    at reconcileStaleProcessingQueueItems (/workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts:1956:10)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at Module.processMailerQueue (/workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts:1013:24)
+    at /workspace/mailer-implementation/src/lib/email/mailer-queue.test.ts:1308:26
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+
+stderr | src/lib/email/mailer-queue.test.ts > Mailer Intelligent Queue & Rate Limiting Suite > 4. Migration 0029 Reconcile, Order, Rollback, Bounce Stats & Dry-Run Lifecycle > creates campaign in draft before inserting snapshot, and rolls back draft if snapshot insert fails
+[mailer-queue] Failed to save campaign snapshot, rolling back draft: Simulated snapshot insert error
+
+ ✓ src/lib/email/mailer-queue.test.ts (39 tests) 1052ms
+   ✓ Mailer Intelligent Queue & Rate Limiting Suite > 2. Worker Processing, Rate Limits & Batch Progression > dispatches 3300 recipients with 11 bursts and no duplicates  453ms
+ ✓ src/lib/email/mailer-engine-v2.test.ts (9 tests) 1143ms
+   ✓ TASK-115 — Recruit Mailer V2 Reliability & 5,000+ Scale Simulation > simulates 100, 500, 800, 1,500 and 5,000 recipients across all 3 modes (single_athlete, multi_athlete, catalog) with 100% invariant integrity  1082ms
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 actual engine and progress > finalize failure after provider acceptance stops the loop, persists the real error and keeps same-key replay
+[mailer-v2] tick failed campaign Falha ao persistir lote após resposta do provedor; envio interrompido. O próximo tick preserva a mesma chave: Injected finalize_mailer_batch failure
+
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 actual engine and progress > surfaces a bounce RPC failure and never sends a batch
+[mailer-v2] tick failed campaign Falha ao verificar Bounce Guard: Injected mailer_campaign_bounce_stats failure
+
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 suppression fallback > paginates when the suppression RPC is unavailable, including matches after row 1000
+[mailer-v2] suppression RPC unavailable unavailable
+
+ ✓ src/lib/email/mailer-task116.test.ts (14 tests) 444ms
+   ✓ TASK-116 actual engine and progress > finishes 5000 recipients with no browser for 50 virtual minutes; cron alone calls the real engine  393ms
+ ✓ src/components/proposal-pdf.test.tsx (1 test) 212ms
+ ✓ src/lib/email/schema-integrity.test.ts (9 tests) 145ms
+ ✓ src/components/mailer/mailer-progress-panel.test.tsx (4 tests) 72ms
+ ✓ src/lib/email/recruit-email-multi.test.ts (16 tests) 62ms
+ ✓ src/lib/email/mailer-runner.test.ts (21 tests) 49ms
+ ✓ src/hooks/use-campaign-runner.test.ts (4 tests) 24ms
+ ✓ src/lib/email/athlete-board-card.test.ts (21 tests) 35ms
+ ✓ src/components/agency-logo.test.tsx (5 tests) 23ms
+ ✓ src/lib/email/mailer-text-integrity.test.ts (8 tests) 30ms
+ ✓ src/lib/proposals.test.ts (4 tests) 32ms
+stderr | src/lib/email/resend-email.test.ts > Email Service with Resend > returns not_configured when RESEND_API_KEY is missing
+[email] Chave Resend ausente (RESEND_API_KEY) — disparo "welcome" não enviado.
+
+ ✓ src/lib/email/resend-email.test.ts (10 tests) 28ms
+ ✓ src/lib/universities-fetch.test.ts (8 tests) 29ms
+stderr | src/lib/email/recruit-email-send.test.ts > Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence > sends tags and logs campaign_id in fallback emails.send when batch fails
+[recruit-email] Batch failed (Simulated batch failure). Retrying chunk individually...
+
+ ✓ src/lib/email/recruit-email-send.test.ts (4 tests) 37ms
+ ✓ src/lib/coach-directory.test.ts (3 tests) 19ms
+ ✓ src/lib/email/email-personalization.test.ts (11 tests) 18ms
+ ✓ src/lib/email/athlete-email-data.server.test.ts (9 tests) 26ms
+stderr | src/lib/email/mailer-metrics.test.ts > Mailer Metrics Quality, Attribution & Aggregation > 3. Strict Campaign Attribution & Unique Capped Rates (<= 100%) > attributes events strictly by provider_email_id (never mixing campaigns via recipient_email)
+[mailer-metrics] RPC get_mailer_dashboard_metrics failed, using narrow projection fallback: Fallback to narrow query
+
+ ✓ src/lib/email/mailer-metrics.test.ts (10 tests) 28ms
+ ✓ src/lib/email/email-blocks.test.ts (11 tests) 27ms
+stdout | src/lib/indexnow.test.ts > IndexNow protocol helper > sends structured payload to IndexNow API
+[IndexNow] Submissão com sucesso de 1 URL(s). Status: 200
+
+stderr | src/lib/indexnow.test.ts > IndexNow protocol helper > is resilient to network errors and never throws exceptions
+[IndexNow] Falha na comunicação com a API IndexNow: Error: Network connection timeout
+    at /workspace/mailer-implementation/src/lib/indexnow.test.ts:83:50
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:155:11
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:752:26
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1863:10)
+    at runTest (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1574:12)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at runSuite (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+    at runSuite (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+
+stderr | src/lib/indexnow.test.ts > IndexNow protocol helper > handles non-200 API responses gracefully
+[IndexNow] Resposta não-OK da API (422): Invalid key location
+
+ ✓ src/lib/indexnow.test.ts (6 tests) 22ms
+ ✓ src/lib/email/mailer-parity.test.ts (3 tests) 32ms
+stderr | src/lib/email/resend-webhook.test.ts > Resend Webhook Verification & Event Processing > 1. verifyResendWebhookSignature (Fail-Closed in Production) > fails closed (returns false) in production when RESEND_WEBHOOK_SECRET is missing
+[resend-webhook] CRITICAL: RESEND_WEBHOOK_SECRET is not configured in production. Rejecting webhook (401).
+
+stderr | src/lib/email/resend-webhook.test.ts > Resend Webhook Verification & Event Processing > 3. Database Error Handling & Extended Event Types > returns dbError when email_events upsert fails so server can respond with HTTP 500
+[resend-webhook] Database error persisting email_events: connection timeout {
+  svixId: 'svix_err_1',
+  type: 'email.opened',
+  providerEmailId: 're_err_1'
+}
+
+ ✓ src/lib/email/resend-webhook.test.ts (8 tests) 22ms
+ ✓ src/lib/lockfile-sync.test.ts (3 tests) 19ms
+ ✓ src/i18n/messages.test.ts (1 test) 3ms
+ ✓ src/lib/email/domain-hygiene.test.ts (11 tests) 14ms
+ ✓ src/lib/email/mailer-burst.test.ts (4 tests) 9ms
+ ✓ src/lib/email/sending-window.test.ts (34 tests) 15ms
+ ✓ src/lib/image-transform.test.ts (10 tests) 12ms
+ ✓ src/lib/contact.test.ts (9 tests) 13ms
+ ✓ src/lib/email/mail-provider.test.ts (3 tests) 12ms
+ ✓ src/lib/catalog.test.ts (4 tests) 7ms
+ ✓ src/lib/email/email-syntax.test.ts (6 tests) 7ms
+ ✓ src/lib/email/unsubscribe-token.test.ts (3 tests) 17ms
+ ✓ src/lib/email/mailer-controls-v2.test.ts (6 tests) 12ms
+ ✓ src/lib/email/mailer-history.test.ts (2 tests) 29ms
+ ✓ src/lib/youtube.test.ts (13 tests) 27ms
+ ✓ src/lib/email/mailer-worker-auth.test.ts (2 tests) 28ms
+ ✓ src/lib/units.test.ts (3 tests) 13ms
+ ✓ src/lib/email/athlete-email-quality.test.ts (6 tests) 7ms
+ ✓ src/lib/public-videos.test.ts (2 tests) 7ms
+ ✓ src/lib/universities-import.test.ts (4 tests) 19ms
+ ✓ src/lib/athletes.functions.test.ts (5 tests) 9ms
+ ✓ src/lib/uploads.test.ts (4 tests) 16ms
+ ✓ src/lib/pipeline.helpers.test.ts (3 tests) 14ms
+ ✓ src/lib/athlete-slugs.test.ts (3 tests) 15ms
+
+ Test Files  47 passed (47)
+      Tests  379 passed (379)
+   Start at  13:25:07
+   Duration  29.21s (transform 2.55s, setup 0ms, collect 6.97s, tests 3.93s, environment 20ms, prepare 5.53s)
+
+Exit code: 0
+```
+
+```text
+$ bun run build
+$ vite build
+[nitro:vercel] ℹ Using nodejs24.x runtime.
+[nitro:vercel] ℹ Using web entry format.
+vite v7.3.6 building client environment for production...
+transforming...
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/indexnow.ts: /workspace/mailer-implementation/src/lib/indexnow.ts:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/stage-change.functions.ts: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+✓ 2970 modules transformed.
+rendering chunks...
+computing gzip size...
+.vercel/output/static/assets/styles-DVjDpGw7.css                     187.65 kB │ gzip:  28.38 kB
+.vercel/output/static/assets/route-DiVoJHBv.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/route-BjQyH7I4.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/route-CG7keBuX.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/check-CJDFdujc.js                         0.12 kB │ gzip:   0.14 kB
+.vercel/output/static/assets/plus-BLHn9i5g.js                          0.15 kB │ gzip:   0.15 kB
+.vercel/output/static/assets/x-DgB_73cm.js                             0.16 kB │ gzip:   0.15 kB
+.vercel/output/static/assets/arrow-up-C-GcAMm4.js                      0.16 kB │ gzip:   0.16 kB
+.vercel/output/static/assets/arrow-down-Cx4ao7tp.js                    0.17 kB │ gzip:   0.16 kB
+.vercel/output/static/assets/search-C443fr-w.js                        0.17 kB │ gzip:   0.17 kB
+.vercel/output/static/assets/rotate-ccw-CClvJ6xc.js                    0.20 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/circle-x-OH04Qqf5.js                      0.20 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/chevron-up-CsvuWJUD.js                    0.21 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/chevron-right-vcTokVif.js                 0.21 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/copy-DpZlAjKs.js                          0.23 kB │ gzip:   0.21 kB
+.vercel/output/static/assets/download-BHS6hqfb.js                      0.23 kB │ gzip:   0.19 kB
+.vercel/output/static/assets/eye-BgD-4EUY.js                           0.25 kB │ gzip:   0.20 kB
+.vercel/output/static/assets/external-link-DzbkPYVs.js                 0.25 kB │ gzip:   0.20 kB
+.vercel/output/static/assets/map-pin-BTK08pnQ.js                       0.26 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/triangle-alert-C557FGAD.js                0.27 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/image-CrLFh7tK.js                         0.27 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/pencil-HTjoMNti.js                        0.28 kB │ gzip:   0.23 kB
+.vercel/output/static/assets/send-BQJnw-Az.js                          0.29 kB │ gzip:   0.23 kB
+.vercel/output/static/assets/shield-check-F40N6TRT.js                  0.32 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/trash-2-BrVv-xHI.js                       0.33 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/graduation-cap-B5L75UwR.js                0.33 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/file-clock-23yr8ZwV.js                    0.36 kB │ gzip:   0.26 kB
+.vercel/output/static/assets/grip-vertical-5VvG6yOj.js                 0.37 kB │ gzip:   0.19 kB
+.vercel/output/static/assets/file-text-DSFSl8j3.js                     0.39 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/pipeline.helpers-BVfavFUz.js              0.39 kB │ gzip:   0.24 kB
+.vercel/output/static/assets/athlete-slugs-DVVc3_69.js                 0.43 kB │ gzip:   0.24 kB
+.vercel/output/static/assets/units-felDiIZp.js                         0.48 kB │ gzip:   0.27 kB
+.vercel/output/static/assets/sparkles-QKAl-ydU.js                      0.50 kB │ gzip:   0.28 kB
+.vercel/output/static/assets/auth.functions-BsL_OmZJ.js                0.57 kB │ gzip:   0.34 kB
+.vercel/output/static/assets/video-DuXiu7Fr.js                         0.79 kB │ gzip:   0.48 kB
+.vercel/output/static/assets/reset-password-DKC3Zr-s.js                0.81 kB │ gzip:   0.52 kB
+.vercel/output/static/assets/auth.accept-invite-1AKk-kmg.js            0.87 kB │ gzip:   0.57 kB
+.vercel/output/static/assets/forgot-password-PmLdN_Jl.js               0.94 kB │ gzip:   0.57 kB
+.vercel/output/static/assets/notifications-Bexfkog1.js                 0.97 kB │ gzip:   0.53 kB
+.vercel/output/static/assets/notifications-62yJ1SSL.js                 1.10 kB │ gzip:   0.59 kB
+.vercel/output/static/assets/universities-fetch-BPyVU6zD.js            1.14 kB │ gzip:   0.56 kB
+.vercel/output/static/assets/pipeline-DH7K4Nc_.js                      1.23 kB │ gzip:   0.64 kB
+.vercel/output/static/assets/use-portal-data-CUs48s29.js               1.24 kB │ gzip:   0.53 kB
+.vercel/output/static/assets/uploads-77oP-PI1.js                       1.33 kB │ gzip:   0.73 kB
+.vercel/output/static/assets/login-DoO_R60h.js                         1.38 kB │ gzip:   0.74 kB
+.vercel/output/static/assets/sitemap-BKwEveFW.js                       1.39 kB │ gzip:   0.82 kB
+.vercel/output/static/assets/youtube-K_A-74X7.js                       1.43 kB │ gzip:   0.66 kB
+.vercel/output/static/assets/admin-ui-C1XmSVOE.js                      1.44 kB │ gzip:   0.71 kB
+.vercel/output/static/assets/auth-card-BEXZ4sL3.js                     1.49 kB │ gzip:   0.65 kB
+.vercel/output/static/assets/index-Rs9-QuYH.js                         1.58 kB │ gzip:   0.75 kB
+.vercel/output/static/assets/universities-constants-C36oRzPk.js        1.87 kB │ gzip:   0.98 kB
+.vercel/output/static/assets/documents-ClUi1Vsu.js                     2.20 kB │ gzip:   1.03 kB
+.vercel/output/static/assets/documents--zCj9sLU.js                     2.34 kB │ gzip:   1.17 kB
+.vercel/output/static/assets/media-DriJFCGv.js                         2.38 kB │ gzip:   1.26 kB
+.vercel/output/static/assets/index-Bcm2PuM9.js                         2.60 kB │ gzip:   1.12 kB
+.vercel/output/static/assets/proposal._token-DbAQuP-F.js               3.13 kB │ gzip:   1.51 kB
+.vercel/output/static/assets/index-BAJVpnsy.js                         3.92 kB │ gzip:   1.70 kB
+.vercel/output/static/assets/use-stage-announcement-DRacA2rT.js        4.08 kB │ gzip:   1.71 kB
+.vercel/output/static/assets/pipeline-Cyha1nO0.js                      5.98 kB │ gzip:   2.23 kB
+.vercel/output/static/assets/app-shell-Cu3Leeqv.js                     6.26 kB │ gzip:   2.41 kB
+.vercel/output/static/assets/dialog-h4-AVy2_.js                        6.93 kB │ gzip:   2.59 kB
+.vercel/output/static/assets/index-X5Jd-naQ.js                         8.02 kB │ gzip:   3.02 kB
+.vercel/output/static/assets/feedback-ZL2vhjlp.js                      8.31 kB │ gzip:   2.93 kB
+.vercel/output/static/assets/proposal-experience-cH5GmPTs.js           8.52 kB │ gzip:   2.92 kB
+.vercel/output/static/assets/visual-BN00xHKI.js                        8.82 kB │ gzip:   3.08 kB
+.vercel/output/static/assets/stage-timeline-cKdNvYQJ.js                9.77 kB │ gzip:   3.40 kB
+.vercel/output/static/assets/settings-BFF794s4.js                     10.61 kB │ gzip:   3.86 kB
+.vercel/output/static/assets/catalog-B8_cW97q.js                      11.48 kB │ gzip:   4.24 kB
+.vercel/output/static/assets/stage-celebration-dialog-UsTsi5CM.js     14.13 kB │ gzip:   5.89 kB
+.vercel/output/static/assets/_id-DnVEJuWN.js                          14.97 kB │ gzip:   5.16 kB
+.vercel/output/static/assets/coaches-OifbCN_W.js                      17.44 kB │ gzip:   5.18 kB
+.vercel/output/static/assets/_id-WLRcif-s.js                          31.00 kB │ gzip:   8.65 kB
+.vercel/output/static/assets/athlete._slug-bLl9Em9K.js                31.14 kB │ gzip:   8.35 kB
+.vercel/output/static/assets/index-CcPHBKXD.js                        31.89 kB │ gzip:   9.13 kB
+.vercel/output/static/assets/Combination-OLL5CCFH.js                  33.30 kB │ gzip:  11.58 kB
+.vercel/output/static/assets/proposals-CQMBERuN.js                    55.67 kB │ gzip:  13.10 kB
+.vercel/output/static/assets/universities-DRhhYoic.js                499.62 kB │ gzip: 159.91 kB
+.vercel/output/static/assets/mailer-DxfAdCpW.js                      633.15 kB │ gzip: 169.86 kB
+.vercel/output/static/assets/index-CG_Rsr6g.js                       682.83 kB │ gzip: 206.17 kB
+.vercel/output/static/assets/proposal._token.pdf-Cb762joD.js       1,293.38 kB │ gzip: 465.06 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 25.03s
+vite v7.3.6 building ssr environment for production...
+transforming...
+[plugin tanstack-start-core::server-fn:ssr] src/lib/indexnow.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/indexnow.ts?tss-serverfn-split:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts?tss-serverfn-split:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts?tss-serverfn-split:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/stage-change.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts?tss-serverfn-split:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/indexnow.ts: /workspace/mailer-implementation/src/lib/indexnow.ts:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/stage-change.functions.ts: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+"createRequestHandler", "defineHandlerCallback", "transformPipeableStreamWithRouter" and "transformReadableStreamWithRouter" are imported from external module "@tanstack/router-core/ssr/server" but never used in "node_modules/@tanstack/start-server-core/dist/esm/index.js".
+"RawStream" is imported from external module "@tanstack/router-core" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+"defaultSerovalDeserializerPlugins", "hydrate" and "json" are imported from external module "@tanstack/router-core/ssr/client" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+✓ 241 modules transformed.
+rendering chunks...
+[plugin vite:reporter]
+(!) /workspace/mailer-implementation/src/lib/supabase/clients.server.ts is dynamically imported by /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/proposals.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/proposals.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/server.ts, /workspace/mailer-implementation/src/server.ts but also statically imported by /workspace/mailer-implementation/src/lib/coach-directory.server.ts, /workspace/mailer-implementation/src/lib/email/athlete-email-data.server.ts, /workspace/mailer-implementation/src/lib/email/email.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-controls-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-engine-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-history.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-metrics.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-runner.server.ts, /workspace/mailer-implementation/src/lib/email/recruit-email.server.ts, /workspace/mailer-implementation/src/lib/email/resend-webhook.server.ts, /workspace/mailer-implementation/src/lib/email/stage-change.server.ts, /workspace/mailer-implementation/src/lib/sitemap.ts, /workspace/mailer-implementation/src/lib/supabase/auth-middleware.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter]
+(!) /workspace/mailer-implementation/src/lib/email/recruit-email.server.ts is dynamically imported by /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/server.ts but also statically imported by /workspace/mailer-implementation/src/lib/email/mailer-engine-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts, /workspace/mailer-implementation/src/lib/email/resend-webhook.server.ts, dynamic import will not move module into another chunk.
+
+node_modules/.nitro/vite/services/ssr/assets/styles-DVjDpGw7.css                     187.65 kB
+node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-BFgPZ6_d.js         0.13 kB
+node_modules/.nitro/vite/services/ssr/assets/route-BFsOu0JM.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/route-DWQrCpgz.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/route-IDtaasSt.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerRpc-D03Ff49U.js               0.31 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline.helpers-oeRXkyRL.js              0.68 kB
+node_modules/.nitro/vite/services/ssr/assets/client-D0H-iNFs.js                        0.70 kB
+node_modules/.nitro/vite/services/ssr/assets/universities-constants-Cce4vvLY.js        0.72 kB
+node_modules/.nitro/vite/services/ssr/assets/athlete-slugs-BDUG16e_.js                 0.83 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-middleware-OqwTRgJm.js               1.27 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-change.functions-CEgPU0MJ.js        1.36 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.functions-Dz1vkE92.js                1.44 kB
+node_modules/.nitro/vite/services/ssr/assets/reset-password-CtHDajbI.js                1.49 kB
+node_modules/.nitro/vite/services/ssr/assets/forgot-password-D1_6bHQK.js               1.60 kB
+node_modules/.nitro/vite/services/ssr/assets/email-syntax-CuRO8rgf.js                  1.70 kB
+node_modules/.nitro/vite/services/ssr/assets/uploads-B1H8TedC.js                       1.70 kB
+node_modules/.nitro/vite/services/ssr/assets/placeholders-BhMfZY5H.js                  1.98 kB
+node_modules/.nitro/vite/services/ssr/assets/admin-ui-DNBMLukk.js                      2.00 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-card-DYd4jbdA.js                     2.01 kB
+node_modules/.nitro/vite/services/ssr/assets/use-portal-data-BMOOrT1Q.js               2.05 kB
+node_modules/.nitro/vite/services/ssr/assets/notifications-BawllIoC.js                 2.07 kB
+node_modules/.nitro/vite/services/ssr/assets/coach-directory.functions-CZTeK-M1.js     2.15 kB
+node_modules/.nitro/vite/services/ssr/assets/notifications-B8As7q6P.js                 2.22 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.accept-invite-etSLhOx8.js            2.23 kB
+node_modules/.nitro/vite/services/ssr/assets/start-2ve4CarE.js                         2.32 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline-BboU7wz9.js                      2.34 kB
+node_modules/.nitro/vite/services/ssr/assets/indexnow-CTHptt89.js                      2.46 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-controls-v2.server-B1KbQvrb.js     2.50 kB
+node_modules/.nitro/vite/services/ssr/assets/proposals.functions-B0o4Jr2r.js           2.53 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-v2-policy-Bejopkhc.js              2.63 kB
+node_modules/.nitro/vite/services/ssr/assets/indexnow-D_sCp7VV.js                      2.79 kB
+node_modules/.nitro/vite/services/ssr/assets/unsubscribe-token-CFaArNGm.js             2.89 kB
+node_modules/.nitro/vite/services/ssr/assets/index-ZmsSs2X7.js                         2.89 kB
+node_modules/.nitro/vite/services/ssr/assets/login-CJ6JUCFq.js                         2.93 kB
+node_modules/.nitro/vite/services/ssr/assets/coach-directory.server-B0YE3H9T.js        3.04 kB
+node_modules/.nitro/vite/services/ssr/assets/dialog-TAJkJe6z.js                        3.22 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-change.server-BGFXAG1b.js           3.28 kB
+node_modules/.nitro/vite/services/ssr/assets/proposals-D95lEz2G.js                     3.28 kB
+node_modules/.nitro/vite/services/ssr/assets/documents-sNCNajv1.js                     4.13 kB
+node_modules/.nitro/vite/services/ssr/assets/media-DbButSZA.js                         4.37 kB
+node_modules/.nitro/vite/services/ssr/assets/documents-BTOldtAH.js                     4.41 kB
+node_modules/.nitro/vite/services/ssr/assets/use-stage-announcement-D07RJ6n4.js        4.55 kB
+node_modules/.nitro/vite/services/ssr/assets/index-Czj4HipG.js                         4.81 kB
+node_modules/.nitro/vite/services/ssr/assets/app-shell-BxUh6YLG.js                     5.16 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-celebration-dialog--Hm2k4gn.js      5.17 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal._token-RuaAtQ45.js               5.36 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-history.server-BnhLl-Mv.js         6.22 kB
+node_modules/.nitro/vite/services/ssr/assets/index-19BeG4cs.js                         6.66 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-runner.server-D2iAZmd0.js          7.61 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.functions-B7tXqyAg.js                8.32 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal._token.pdf-CAQ4Cdhu.js           8.58 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline-Gpc6SYuP.js                     10.31 kB
+node_modules/.nitro/vite/services/ssr/assets/feedback-fCSunM2L.js                     11.73 kB
+node_modules/.nitro/vite/services/ssr/assets/index-DK36XOKH.js                        11.99 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal-experience-DI-ED9rL.js          13.70 kB
+node_modules/.nitro/vite/services/ssr/assets/athletes.functions-4jEw2w1G.js           13.85 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-dLTMmxXj.js   13.97 kB
+node_modules/.nitro/vite/services/ssr/assets/visual-COuNexnF.js                       14.10 kB
+node_modules/.nitro/vite/services/ssr/assets/settings-CbhBuCJg.js                     16.90 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-timeline-D_6FBKwJ.js               17.57 kB
+node_modules/.nitro/vite/services/ssr/assets/catalog-DvEUlRpi.js                      18.42 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-metrics.server-FaeBtroc.js        21.74 kB
+node_modules/.nitro/vite/services/ssr/assets/_id-CLx6kNLd.js                          23.16 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-snapshot-ByTfKgRw.js              24.73 kB
+node_modules/.nitro/vite/services/ssr/assets/coaches-DxgEYeYz.js                      29.89 kB
+node_modules/.nitro/vite/services/ssr/assets/recruit-email.functions-Dq_MFbPR.js      37.35 kB
+node_modules/.nitro/vite/services/ssr/assets/athlete._slug-W6XwLgFU.js                43.41 kB
+node_modules/.nitro/vite/services/ssr/assets/index-D1zAH7lV.js                        48.93 kB
+node_modules/.nitro/vite/services/ssr/assets/_id-W035vkki.js                          52.72 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-queue.server-DaIQc4Vd.js          60.71 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-engine-v2.server-B2r8pFBu.js      66.20 kB
+node_modules/.nitro/vite/services/ssr/assets/router-BErWpSlP.js                       79.87 kB
+node_modules/.nitro/vite/services/ssr/assets/server-CuhUg9Io.js                       86.91 kB
+node_modules/.nitro/vite/services/ssr/assets/universities-DZkdNq-8.js                125.35 kB
+node_modules/.nitro/vite/services/ssr/index.js                                       168.87 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-ORLNiRTC.js                      251.71 kB
+✓ built in 10.29s
+
+[nitro] ◐ Building [Nitro] (preset: vercel, compatibility: 2026-11-06)
+[nitro] ✔ Generated public .vercel/output/static
+vite v7.3.6 building nitro environment for production...
+transforming...
+node_modules/@tanstack/react-router/dist/esm/index.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/index.js" was ignored.
+node_modules/sonner/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/sonner/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-router/dist/esm/utils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/utils.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/ClientOnly.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/ClientOnly.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useNavigate.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useNavigate.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/RouterProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/RouterProvider.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useBlocker.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useBlocker.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useLocation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useLocation.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouterState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouterState.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/HeadContent.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/HeadContent.js" was ignored.
+node_modules/@vercel/analytics/dist/react/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@vercel/analytics/dist/react/index.mjs" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouter.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouter.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useMatch.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useMatch.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/link.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/link.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Matches.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Matches.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Match.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Match.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Asset.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Asset.js" was ignored.
+node_modules/@radix-ui/react-popover/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popover/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQueries.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useIsFetching.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useIsFetching.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutationState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutationState.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutation.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/routerContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/routerContext.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/matchContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/matchContext.js" was ignored.
+node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/nonRouteComponentContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/nonRouteComponentContext.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Transitioner.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Transitioner.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useBaseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useBaseQuery.js" was ignored.
+✓ 2915 modules transformed.
+ℹ Tracing dependencies:
+- tslib (2.8.1)
+✔ Traced 1 dependencies (4 files) in 79ms.
+ℹ Ensure your production environment matches the builder OS and architecture (linux-x64) to avoid native module issues.
+rendering chunks...
+.vercel/output/functions/__server.func/_libs/hookable.mjs                                          0.00 kB
+.vercel/output/functions/__server.func/_libs/ufo.mjs                                               0.00 kB
+.vercel/output/functions/__server.func/_libs/ohash.mjs                                             0.00 kB
+.vercel/output/functions/__server.func/_libs/ocache.mjs                                            0.00 kB
+.vercel/output/functions/__server.func/_libs/unstorage.mjs                                         0.00 kB
+.vercel/output/functions/__server.func/_libs/tanstack__store.mjs                                   0.00 kB
+.vercel/output/functions/__server.func/_libs/use-sync-external-store.mjs                           0.00 kB
+.vercel/output/functions/__server.func/_libs/detect-node-es.mjs                                    0.00 kB
+.vercel/output/functions/__server.func/_libs/babel__runtime.mjs                                    0.00 kB
+.vercel/output/functions/__server.func/_libs/dom-helpers.mjs                                       0.00 kB
+.vercel/output/functions/__server.func/_libs/tslib.mjs                                             0.00 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-store.mjs                             0.02 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-arrow.mjs                             0.02 kB
+.vercel/output/functions/__server.func/_libs/react-transition-group.mjs                            0.05 kB
+.vercel/output/functions/__server.func/_ssr/empty-plugin-adapters-BFgPZ6_d.mjs                     0.13 kB
+.vercel/output/functions/__server.func/_libs/tiny-invariant.mjs                                    0.14 kB
+.vercel/output/functions/__server.func/_chunks/render_resend_false.mjs                             0.16 kB
+.vercel/output/functions/__server.func/_libs/get-nonce.mjs                                         0.16 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-layout-effect+[...].mjs           0.17 kB
+.vercel/output/functions/__server.func/_libs/rou3.mjs                                              0.21 kB
+.vercel/output/functions/__server.func/_libs/swc__helpers.mjs                                      0.25 kB
+.vercel/output/functions/__server.func/_ssr/createServerRpc-D03Ff49U.mjs                           0.31 kB
+.vercel/output/functions/__server.func/_libs/emoji-regex-xs.mjs                                    0.36 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-query.mjs                             0.46 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-callback-ref+[...].mjs            0.51 kB
+.vercel/output/functions/__server.func/_libs/clsx.mjs                                              0.51 kB
+.vercel/output/functions/__server.func/_chunks/ssr-renderer.mjs                                    0.51 kB
+.vercel/output/functions/__server.func/_ssr/route-BFsOu0JM.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/route-DWQrCpgz.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/route-IDtaasSt.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/pipeline.helpers-oeRXkyRL.mjs                          0.68 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-id.mjs                                0.69 kB
+.vercel/output/functions/__server.func/_ssr/client-D0H-iNFs.mjs                                    0.72 kB
+.vercel/output/functions/__server.func/_ssr/universities-constants-Cce4vvLY.mjs                    0.72 kB
+.vercel/output/functions/__server.func/_ssr/athlete-slugs-BDUG16e_.mjs                             0.83 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-label.mjs                             0.86 kB
+.vercel/output/functions/__server.func/_libs/is-url.mjs                                            0.99 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-portal.mjs                            0.99 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-effect-event+[...].mjs            1.04 kB
+.vercel/output/functions/__server.func/_libs/internmap.mjs                                         1.17 kB
+.vercel/output/functions/__server.func/_libs/hsl-to-hex.mjs                                        1.17 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-compose-refs.mjs                      1.17 kB
+.vercel/output/functions/__server.func/_ssr/auth-middleware-OqwTRgJm.mjs                           1.27 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__primitives.mjs                             1.30 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-primitive.mjs                         1.32 kB
+.vercel/output/functions/__server.func/_libs/victory-vendor.mjs                                    1.37 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-focus-guards.mjs                      1.41 kB
+.vercel/output/functions/__server.func/_libs/parse-svg-path.mjs                                    1.42 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-use-size.mjs                          1.42 kB
+.vercel/output/functions/__server.func/_libs/cookie-es.mjs                                         1.46 kB
+.vercel/output/functions/__server.func/_libs/hsl-to-rgb-for-reals.mjs                              1.48 kB
+.vercel/output/functions/__server.func/_ssr/auth.functions-Dz1vkE92.mjs                            1.50 kB
+.vercel/output/functions/__server.func/_libs/abs-svg-path.mjs                                      1.54 kB
+.vercel/output/functions/__server.func/_libs/fast-deep-equal.mjs                                   1.57 kB
+.vercel/output/functions/__server.func/_libs/react-style-singleton.mjs                             1.67 kB
+.vercel/output/functions/__server.func/_ssr/email-syntax-CuRO8rgf.mjs                              1.70 kB
+.vercel/output/functions/__server.func/_ssr/uploads-B1H8TedC.mjs                                   1.70 kB
+.vercel/output/functions/__server.func/_libs/use-callback-ref.mjs                                  1.75 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__primitive.mjs                               1.86 kB
+.vercel/output/functions/__server.func/_ssr/placeholders-BhMfZY5H.mjs                              1.98 kB
+.vercel/output/functions/__server.func/_libs/tanstack__history.mjs                                 2.04 kB
+.vercel/output/functions/__server.func/_ssr/stage-change.functions-CEgPU0MJ.mjs                    2.06 kB
+.vercel/output/functions/__server.func/_ssr/use-portal-data-BMOOrT1Q.mjs                           2.10 kB
+.vercel/output/functions/__server.func/_ssr/admin-ui-DNBMLukk.mjs                                  2.14 kB
+.vercel/output/functions/__server.func/_libs/class-variance-authority.mjs                          2.14 kB
+.vercel/output/functions/__server.func/_libs/object-assign.mjs                                     2.27 kB
+.vercel/output/functions/__server.func/_ssr/auth-card-DYd4jbdA.mjs                                 2.28 kB
+.vercel/output/functions/__server.func/_ssr/reset-password-CtHDajbI.mjs                            2.35 kB
+.vercel/output/functions/__server.func/_libs/dfa.mjs                                               2.39 kB
+.vercel/output/functions/__server.func/_ssr/indexnow-CTHptt89.mjs                                  2.47 kB
+.vercel/output/functions/__server.func/_ssr/forgot-password-D1_6bHQK.mjs                           2.47 kB
+.vercel/output/functions/__server.func/_libs/normalize-svg-path.mjs                                2.51 kB
+.vercel/output/functions/__server.func/_libs/prop-types.mjs                                        2.54 kB
+.vercel/output/functions/__server.func/_ssr/mailer-v2-policy-Bejopkhc.mjs                          2.63 kB
+.vercel/output/functions/__server.func/_libs/use-sidecar.mjs                                       2.65 kB
+.vercel/output/functions/__server.func/_ssr/proposals.functions-B0o4Jr2r.mjs                       2.78 kB
+.vercel/output/functions/__server.func/_libs/isbot.mjs                                             2.85 kB
+.vercel/output/functions/__server.func/_ssr/coach-directory.functions-CZTeK-M1.mjs                 2.85 kB
+.vercel/output/functions/__server.func/_ssr/unsubscribe-token-CFaArNGm.mjs                         2.89 kB
+.vercel/output/functions/__server.func/_libs/seroval-plugins.mjs                                   2.96 kB
+.vercel/output/functions/__server.func/_ssr/mailer-controls-v2.server-B1KbQvrb.mjs                 2.99 kB
+.vercel/output/functions/__server.func/_ssr/start-2ve4CarE.mjs                                     3.02 kB
+.vercel/output/functions/__server.func/_ssr/indexnow-D_sCp7VV.mjs                                  3.04 kB
+.vercel/output/functions/__server.func/_ssr/notifications-BawllIoC.mjs                             3.07 kB
+.vercel/output/functions/__server.func/_ssr/auth.accept-invite-etSLhOx8.mjs                        3.16 kB
+.vercel/output/functions/__server.func/_ssr/notifications-B8As7q6P.mjs                             3.21 kB
+.vercel/output/functions/__server.func/_libs/d3-path.mjs                                           3.36 kB
+.vercel/output/functions/__server.func/_ssr/dialog-TAJkJe6z.mjs                                    3.50 kB
+.vercel/output/functions/__server.func/_ssr/proposals-D95lEz2G.mjs                                 3.52 kB
+.vercel/output/functions/__server.func/_ssr/coach-directory.server-B0YE3H9T.mjs                    3.53 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__fns.mjs                                    3.71 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-controllable-state+[...].mjs      3.76 kB
+.vercel/output/functions/__server.func/_ssr/stage-change.server-BGFXAG1b.mjs                       3.77 kB
+.vercel/output/functions/__server.func/_libs/unicode-trie.mjs                                      3.88 kB
+.vercel/output/functions/__server.func/_ssr/index-ZmsSs2X7.mjs                                     3.90 kB
+.vercel/output/functions/__server.func/_libs/react-remove-scroll-bar.mjs                           3.96 kB
+.vercel/output/functions/__server.func/_ssr/login-CJ6JUCFq.mjs                                     3.97 kB
+.vercel/output/functions/__server.func/_libs/aria-hidden.mjs                                       4.06 kB
+.vercel/output/functions/__server.func/_libs/react-is.mjs                                          4.11 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-context.mjs                           4.30 kB
+.vercel/output/functions/__server.func/_libs/d3-interpolate.mjs                                    4.34 kB
+.vercel/output/functions/__server.func/_ssr/pipeline-BboU7wz9.mjs                                  4.35 kB
+.vercel/output/functions/__server.func/_libs/color-name.mjs                                        4.43 kB
+.vercel/output/functions/__server.func/_ssr/use-stage-announcement-D07RJ6n4.mjs                    4.60 kB
+.vercel/output/functions/__server.func/_libs/vercel__analytics.mjs                                 4.67 kB
+.vercel/output/functions/__server.func/_libs/svg-arc-to-cubic-bezier.mjs                           4.99 kB
+.vercel/output/functions/__server.func/_ssr/documents-sNCNajv1.mjs                                 5.29 kB
+.vercel/output/functions/__server.func/_ssr/media-DbButSZA.mjs                                     5.48 kB
+.vercel/output/functions/__server.func/_ssr/documents-BTOldtAH.mjs                                 5.52 kB
+.vercel/output/functions/__server.func/_ssr/stage-celebration-dialog--Hm2k4gn.mjs                  5.59 kB
+.vercel/output/functions/__server.func/_libs/color-string.mjs                                      5.64 kB
+.vercel/output/functions/__server.func/_ssr/app-shell-BxUh6YLG.mjs                                 5.68 kB
+.vercel/output/functions/__server.func/_libs/standardwebhooks.mjs                                  5.73 kB
+.vercel/output/functions/__server.func/_libs/media-engine.mjs                                      5.74 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__svg.mjs                                    5.89 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-slot.mjs                              6.21 kB
+.vercel/output/functions/__server.func/_libs/eventemitter3.mjs                                     6.54 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-presence.mjs                          6.56 kB
+.vercel/output/functions/__server.func/_ssr/proposal._token-RuaAtQ45.mjs                           6.65 kB
+.vercel/output/functions/__server.func/_ssr/mailer-history.server-BnhLl-Mv.mjs                     6.71 kB
+.vercel/output/functions/__server.func/_libs/tiny-inflate.mjs                                      6.98 kB
+.vercel/output/functions/__server.func/_libs/clone.mjs                                             7.00 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__renderer.mjs                               7.12 kB
+.vercel/output/functions/__server.func/_libs/d3-array.mjs                                          7.16 kB
+.vercel/output/functions/__server.func/_ssr/index-Czj4HipG.mjs                                     7.19 kB
+.vercel/output/functions/__server.func/index.mjs                                                   7.34 kB
+.vercel/output/functions/__server.func/_libs/base64-js.mjs                                         7.46 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__image.mjs                                  7.83 kB
+.vercel/output/functions/__server.func/_libs/@stablelib/base64.mjs                                 7.95 kB
+.vercel/output/functions/__server.func/_ssr/index-19BeG4cs.mjs                                     8.03 kB
+.vercel/output/functions/__server.func/_ssr/mailer-runner.server-D2iAZmd0.mjs                      8.11 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__react-dom.mjs                            8.42 kB
+.vercel/output/functions/__server.func/_libs/srvx.mjs                                              9.05 kB
+.vercel/output/functions/__server.func/_ssr/auth.functions-B7tXqyAg.mjs                            9.07 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-focus-scope.mjs                       9.27 kB
+.vercel/output/functions/__server.func/_libs/png-js.mjs                                            9.48 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__utils.mjs                                9.73 kB
+.vercel/output/functions/__server.func/_libs/d3-format.mjs                                         9.81 kB
+.vercel/output/functions/__server.func/_libs/h3-v2.mjs                                             9.98 kB
+.vercel/output/functions/__server.func/_libs/d3-color.mjs                                         10.63 kB
+.vercel/output/functions/__server.func/_libs/d3-time.mjs                                          10.78 kB
+.vercel/output/functions/__server.func/_libs/postcss-value-parser.mjs                             10.96 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-popover.mjs                          11.33 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-popper.mjs                           11.86 kB
+.vercel/output/functions/__server.func/_ssr/proposal._token.pdf-CAQ4Cdhu.mjs                      11.87 kB
+.vercel/output/functions/__server.func/_ssr/pipeline-Gpc6SYuP.mjs                                 11.93 kB
+.vercel/output/functions/__server.func/_libs/scheduler.mjs                                        11.97 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-dialog.mjs                           12.40 kB
+.vercel/output/functions/__server.func/_libs/supabase__functions-js.mjs                           12.42 kB
+.vercel/output/functions/__server.func/_libs/recharts-scale.mjs                                   12.43 kB
+.vercel/output/functions/__server.func/_libs/noble__ciphers.mjs                                   13.23 kB
+.vercel/output/functions/__server.func/_libs/fast-sha256.mjs                                      13.31 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__font.mjs                                  13.33 kB
+.vercel/output/functions/__server.func/_libs/react-remove-scroll.mjs                              13.37 kB
+.vercel/output/functions/__server.func/_ssr/feedback-fCSunM2L.mjs                                 13.58 kB
+.vercel/output/functions/__server.func/_libs/fast-equals.mjs                                      13.70 kB
+.vercel/output/functions/__server.func/_libs/jay-peg.mjs                                          13.93 kB
+.vercel/output/functions/__server.func/_tanstack-start-manifest_v-dLTMmxXj.mjs                    13.97 kB
+.vercel/output/functions/__server.func/_ssr/index-DK36XOKH.mjs                                    13.99 kB
+.vercel/output/functions/__server.func/_ssr/athletes.functions-4jEw2w1G.mjs                       14.09 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-dismissable-layer+[...].mjs          14.28 kB
+.vercel/output/functions/__server.func/_libs/h3.mjs                                               14.32 kB
+.vercel/output/functions/__server.func/_ssr/proposal-experience-DI-ED9rL.mjs                      15.02 kB
+.vercel/output/functions/__server.func/_libs/iceberg-js.mjs                                       15.70 kB
+.vercel/output/functions/__server.func/_ssr/visual-COuNexnF.mjs                                   16.06 kB
+.vercel/output/functions/__server.func/_libs/d3-time-format.mjs                                   18.50 kB
+.vercel/output/functions/__server.func/_ssr/catalog-DvEUlRpi.mjs                                  18.64 kB
+.vercel/output/functions/__server.func/_ssr/stage-timeline-D_6FBKwJ.mjs                           18.66 kB
+.vercel/output/functions/__server.func/_libs/react.mjs                                            19.83 kB
+.vercel/output/functions/__server.func/_ssr/settings-CbhBuCJg.mjs                                 20.05 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__dom.mjs                                 20.85 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__stylesheet.mjs                            21.13 kB
+.vercel/output/functions/__server.func/_ssr/mailer-metrics.server-FaeBtroc.mjs                    22.23 kB
+.vercel/output/functions/__server.func/_libs/unicode-properties.mjs                               22.56 kB
+.vercel/output/functions/__server.func/_libs/js-md5.mjs                                           22.76 kB
+.vercel/output/functions/__server.func/_libs/canvas-confetti.mjs                                  23.00 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__core.mjs                                23.42 kB
+.vercel/output/functions/__server.func/_libs/d3-shape.mjs                                         24.56 kB
+.vercel/output/functions/__server.func/_ssr/mailer-snapshot-ByTfKgRw.mjs                          24.73 kB
+.vercel/output/functions/__server.func/_id-CLx6kNLd.mjs                                           26.30 kB
+.vercel/output/functions/__server.func/_libs/decimal.js-light.mjs                                 26.70 kB
+.vercel/output/functions/__server.func/_libs/restructure.mjs                                      26.72 kB
+.vercel/output/functions/__server.func/_libs/d3-scale.mjs                                         29.02 kB
+.vercel/output/functions/__server.func/_ssr/coaches-DxgEYeYz.mjs                                  33.22 kB
+.vercel/output/functions/__server.func/_libs/supabase__supabase-js.mjs                            33.53 kB
+.vercel/output/functions/__server.func/_libs/bidi-js.mjs                                          34.45 kB
+.vercel/output/functions/__server.func/_libs/lucide-react.mjs                                     35.57 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-router.mjs                           36.32 kB
+.vercel/output/functions/__server.func/_ssr/recruit-email.functions-Dq_MFbPR.mjs                  38.08 kB
+.vercel/output/functions/__server.func/_libs/react-smooth.mjs                                     38.16 kB
+.vercel/output/functions/__server.func/_libs/resend.mjs                                           43.20 kB
+.vercel/output/functions/__server.func/_ssr/athlete._slug-W6XwLgFU.mjs                            48.56 kB
+.vercel/output/functions/__server.func/_ssr/index-D1zAH7lV.mjs                                    53.56 kB
+.vercel/output/functions/__server.func/_libs/tanstack__query-core.mjs                             55.06 kB
+.vercel/output/functions/__server.func/_libs/supabase__phoenix.mjs                                55.82 kB
+.vercel/output/functions/__server.func/_libs/sonner.mjs                                           57.97 kB
+.vercel/output/functions/__server.func/_id-W035vkki.mjs                                           58.11 kB
+.vercel/output/functions/__server.func/_ssr/mailer-queue.server-DaIQc4Vd.mjs                      61.25 kB
+.vercel/output/functions/__server.func/_libs/linebreak.mjs                                        63.65 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__textkit.mjs                               65.44 kB
+.vercel/output/functions/__server.func/_ssr/mailer-engine-v2.server-B2r8pFBu.mjs                  66.70 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__layout.mjs                                76.89 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__render.mjs                                78.73 kB
+.vercel/output/functions/__server.func/_libs/supabase__realtime-js.mjs                            80.89 kB
+.vercel/output/functions/__server.func/_ssr/router-BErWpSlP.mjs                                   83.83 kB
+.vercel/output/functions/__server.func/_ssr/server-CuhUg9Io.mjs                                   86.64 kB
+.vercel/output/functions/__server.func/_libs/tailwind-merge.mjs                                   99.21 kB
+.vercel/output/functions/__server.func/_libs/seroval.mjs                                          99.78 kB
+.vercel/output/functions/__server.func/_libs/postal-mime.mjs                                     100.85 kB
+.vercel/output/functions/__server.func/_libs/supabase__storage-js.mjs                            102.54 kB
+.vercel/output/functions/__server.func/_libs/zod.mjs                                             107.72 kB
+.vercel/output/functions/__server.func/_libs/supabase__postgrest-js.mjs                          107.90 kB
+.vercel/output/functions/__server.func/_libs/lodash.mjs                                          113.24 kB
+.vercel/output/functions/__server.func/_libs/hyphen.mjs                                          131.50 kB
+.vercel/output/functions/__server.func/_ssr/universities-DZkdNq-8.mjs                            137.67 kB
+.vercel/output/functions/__server.func/_libs/yoga-layout.mjs                                     147.53 kB
+.vercel/output/functions/__server.func/_ssr/index.mjs                                            169.34 kB
+.vercel/output/functions/__server.func/_libs/tanstack__router-core.mjs                           180.51 kB
+.vercel/output/functions/__server.func/_ssr/mailer-ORLNiRTC.mjs                                  276.32 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__pdfkit.mjs                               278.64 kB
+.vercel/output/functions/__server.func/_libs/supabase__auth-js.mjs                               311.43 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__reconciler.mjs                           409.93 kB
+.vercel/output/functions/__server.func/_libs/fontkit.mjs                                         436.58 kB
+.vercel/output/functions/__server.func/_libs/recharts.mjs                                        502.37 kB
+.vercel/output/functions/__server.func/_libs/react-dom.mjs                                       509.21 kB
+.vercel/output/functions/__server.func/_libs/xlsx.mjs                                            857.08 kB
+.vercel/output/functions/__server.func/_libs/brotli.mjs                                        1,385.84 kB
+✓ built in 37.84s
+ℹ Generated .vercel/output/nitro.json
+
+[nitro] ✔ You can preview this build using npx vite preview
+[nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
+Exit code: 0
+```
+
+```text
+$ bun run validate
+$ bun run lint && bun run typecheck && bun run test && bun run build
+$ eslint .
+
+/workspace/mailer-implementation/src/components/confetti-celebration.tsx
+  17:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/mailer/mailer-history-section.tsx
+  77:6  warning  React Hook useEffect has a missing dependency: 'loadHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  87:6  warning  React Hook useEffect has a missing dependency: 'loadHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/mailer-implementation/src/components/ui/badge.tsx
+  32:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/button.tsx
+  49:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/form.tsx
+  163:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/sidebar.tsx
+  743:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/components/ui/toggle.tsx
+  42:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/i18n/i18n-provider.tsx
+  34:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/providers/auth-provider.tsx
+  76:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/mailer-implementation/src/routes/_authenticated/admin/mailer.tsx
+   496:6  warning  React Hook useEffect has a missing dependency: 'loadInitialData'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1415:6  warning  React Hook useEffect has a missing dependency: 'loadQueueRecipients'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 13 problems (0 errors, 13 warnings)
+
+$ tsc --noEmit
+$ vitest run
+
+ RUN  v3.2.7 /workspace/mailer-implementation
+
+ ✓ src/lib/email/mailer-engine-v2.test.ts (9 tests) 1054ms
+   ✓ TASK-115 — Recruit Mailer V2 Reliability & 5,000+ Scale Simulation > simulates 100, 500, 800, 1,500 and 5,000 recipients across all 3 modes (single_athlete, multi_athlete, catalog) with 100% invariant integrity  1010ms
+stderr | src/lib/email/mailer-queue.test.ts > Mailer Intelligent Queue & Rate Limiting Suite > 3. Campaign State Controls: Pause, Resume & Cancel > reconciles expired processing rows: marks evidenced items as sent and unevidenced items as unconfirmed (never auto-pending)
+[mailer-queue] Exception reading email_events during reconciliation: TypeError: admin.from(...).select(...).in is not a function
+    at reconcileStaleProcessingQueueItems (/workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts:1956:10)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at Module.processMailerQueue (/workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts:1013:24)
+    at /workspace/mailer-implementation/src/lib/email/mailer-queue.test.ts:1308:26
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+
+stderr | src/lib/email/mailer-queue.test.ts > Mailer Intelligent Queue & Rate Limiting Suite > 4. Migration 0029 Reconcile, Order, Rollback, Bounce Stats & Dry-Run Lifecycle > creates campaign in draft before inserting snapshot, and rolls back draft if snapshot insert fails
+[mailer-queue] Failed to save campaign snapshot, rolling back draft: Simulated snapshot insert error
+
+ ✓ src/lib/email/mailer-queue.test.ts (39 tests) 1068ms
+   ✓ Mailer Intelligent Queue & Rate Limiting Suite > 2. Worker Processing, Rate Limits & Batch Progression > dispatches 3300 recipients with 11 bursts and no duplicates  488ms
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 actual engine and progress > finalize failure after provider acceptance stops the loop, persists the real error and keeps same-key replay
+[mailer-v2] tick failed campaign Falha ao persistir lote após resposta do provedor; envio interrompido. O próximo tick preserva a mesma chave: Injected finalize_mailer_batch failure
+
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 actual engine and progress > surfaces a bounce RPC failure and never sends a batch
+[mailer-v2] tick failed campaign Falha ao verificar Bounce Guard: Injected mailer_campaign_bounce_stats failure
+
+stderr | src/lib/email/mailer-task116.test.ts > TASK-116 suppression fallback > paginates when the suppression RPC is unavailable, including matches after row 1000
+[mailer-v2] suppression RPC unavailable unavailable
+
+ ✓ src/lib/email/mailer-task116.test.ts (15 tests) 438ms
+   ✓ TASK-116 actual engine and progress > finishes 5000 recipients with no browser for 50 virtual minutes; cron alone calls the real engine  383ms
+ ✓ src/components/proposal-pdf.test.tsx (1 test) 225ms
+ ✓ src/lib/email/schema-integrity.test.ts (9 tests) 155ms
+ ✓ src/components/mailer/mailer-progress-panel.test.tsx (4 tests) 75ms
+ ✓ src/lib/email/recruit-email-multi.test.ts (16 tests) 62ms
+ ✓ src/lib/email/mailer-runner.test.ts (21 tests) 43ms
+stderr | src/lib/email/recruit-email-send.test.ts > Mailer Campaign Creation, Resend Tags & Multi-Athlete Log Persistence > sends tags and logs campaign_id in fallback emails.send when batch fails
+[recruit-email] Batch failed (Simulated batch failure). Retrying chunk individually...
+
+ ✓ src/lib/email/recruit-email-send.test.ts (4 tests) 40ms
+ ✓ src/lib/email/athlete-board-card.test.ts (21 tests) 34ms
+ ✓ src/lib/email/mailer-parity.test.ts (3 tests) 26ms
+ ✓ src/lib/proposals.test.ts (4 tests) 26ms
+ ✓ src/lib/email/mailer-text-integrity.test.ts (8 tests) 35ms
+ ✓ src/lib/universities-fetch.test.ts (8 tests) 27ms
+ ✓ src/lib/email/mailer-history.test.ts (2 tests) 9ms
+stderr | src/lib/email/mailer-metrics.test.ts > Mailer Metrics Quality, Attribution & Aggregation > 3. Strict Campaign Attribution & Unique Capped Rates (<= 100%) > attributes events strictly by provider_email_id (never mixing campaigns via recipient_email)
+[mailer-metrics] RPC get_mailer_dashboard_metrics failed, using narrow projection fallback: Fallback to narrow query
+
+ ✓ src/lib/email/mailer-metrics.test.ts (10 tests) 30ms
+stderr | src/lib/email/resend-email.test.ts > Email Service with Resend > returns not_configured when RESEND_API_KEY is missing
+[email] Chave Resend ausente (RESEND_API_KEY) — disparo "welcome" não enviado.
+
+ ✓ src/lib/email/resend-email.test.ts (10 tests) 31ms
+ ✓ src/lib/email/mailer-worker-auth.test.ts (2 tests) 7ms
+ ✓ src/lib/youtube.test.ts (13 tests) 6ms
+ ✓ src/lib/email/email-blocks.test.ts (11 tests) 19ms
+ ✓ src/lib/email/athlete-email-data.server.test.ts (9 tests) 26ms
+ ✓ src/hooks/use-campaign-runner.test.ts (4 tests) 17ms
+ ✓ src/components/agency-logo.test.tsx (5 tests) 19ms
+stdout | src/lib/indexnow.test.ts > IndexNow protocol helper > sends structured payload to IndexNow API
+[IndexNow] Submissão com sucesso de 1 URL(s). Status: 200
+
+stderr | src/lib/indexnow.test.ts > IndexNow protocol helper > is resilient to network errors and never throws exceptions
+[IndexNow] Falha na comunicação com a API IndexNow: Error: Network connection timeout
+    at /workspace/mailer-implementation/src/lib/indexnow.test.ts:83:50
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:155:11
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:752:26
+    at file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1863:10)
+    at runTest (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1574:12)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at runSuite (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+    at runSuite (file:///workspace/mailer-implementation/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+
+stderr | src/lib/indexnow.test.ts > IndexNow protocol helper > handles non-200 API responses gracefully
+[IndexNow] Resposta não-OK da API (422): Invalid key location
+
+ ✓ src/lib/indexnow.test.ts (6 tests) 23ms
+stderr | src/lib/email/resend-webhook.test.ts > Resend Webhook Verification & Event Processing > 1. verifyResendWebhookSignature (Fail-Closed in Production) > fails closed (returns false) in production when RESEND_WEBHOOK_SECRET is missing
+[resend-webhook] CRITICAL: RESEND_WEBHOOK_SECRET is not configured in production. Rejecting webhook (401).
+
+stderr | src/lib/email/resend-webhook.test.ts > Resend Webhook Verification & Event Processing > 3. Database Error Handling & Extended Event Types > returns dbError when email_events upsert fails so server can respond with HTTP 500
+[resend-webhook] Database error persisting email_events: connection timeout {
+  svixId: 'svix_err_1',
+  type: 'email.opened',
+  providerEmailId: 're_err_1'
+}
+
+ ✓ src/lib/email/resend-webhook.test.ts (8 tests) 17ms
+ ✓ src/lib/lockfile-sync.test.ts (3 tests) 24ms
+ ✓ src/lib/coach-directory.test.ts (3 tests) 12ms
+ ✓ src/lib/universities-import.test.ts (4 tests) 7ms
+ ✓ src/lib/email/email-personalization.test.ts (11 tests) 15ms
+ ✓ src/lib/email/unsubscribe-token.test.ts (3 tests) 6ms
+ ✓ src/lib/uploads.test.ts (4 tests) 4ms
+ ✓ src/lib/athlete-slugs.test.ts (3 tests) 4ms
+ ✓ src/lib/email/sending-window.test.ts (34 tests) 25ms
+ ✓ src/lib/pipeline.helpers.test.ts (3 tests) 9ms
+ ✓ src/lib/email/domain-hygiene.test.ts (11 tests) 10ms
+ ✓ src/lib/units.test.ts (3 tests) 11ms
+ ✓ src/lib/contact.test.ts (9 tests) 6ms
+ ✓ src/lib/email/mail-provider.test.ts (3 tests) 13ms
+ ✓ src/lib/email/mailer-controls-v2.test.ts (6 tests) 11ms
+ ✓ src/lib/image-transform.test.ts (10 tests) 7ms
+ ✓ src/lib/athletes.functions.test.ts (5 tests) 10ms
+ ✓ src/lib/email/mailer-burst.test.ts (4 tests) 14ms
+ ✓ src/lib/email/athlete-email-quality.test.ts (6 tests) 7ms
+ ✓ src/lib/email/email-syntax.test.ts (6 tests) 6ms
+ ✓ src/lib/catalog.test.ts (4 tests) 5ms
+ ✓ src/lib/public-videos.test.ts (2 tests) 9ms
+ ✓ src/i18n/messages.test.ts (1 test) 3ms
+
+ Test Files  47 passed (47)
+      Tests  380 passed (380)
+   Start at  13:27:38
+   Duration  24.82s (transform 2.02s, setup 0ms, collect 5.66s, tests 3.73s, environment 13ms, prepare 4.72s)
+
+$ vite build
+[nitro:vercel] ℹ Using nodejs24.x runtime.
+[nitro:vercel] ℹ Using web entry format.
+vite v7.3.6 building client environment for production...
+transforming...
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/indexnow.ts: /workspace/mailer-implementation/src/lib/indexnow.ts:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/email/stage-change.functions.ts: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:client] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+✓ 2970 modules transformed.
+rendering chunks...
+computing gzip size...
+.vercel/output/static/assets/styles-DVjDpGw7.css                     187.65 kB │ gzip:  28.38 kB
+.vercel/output/static/assets/route-DiVoJHBv.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/route-BjQyH7I4.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/route-CG7keBuX.js                         0.10 kB │ gzip:   0.11 kB
+.vercel/output/static/assets/check-CJDFdujc.js                         0.12 kB │ gzip:   0.14 kB
+.vercel/output/static/assets/plus-BLHn9i5g.js                          0.15 kB │ gzip:   0.15 kB
+.vercel/output/static/assets/x-DgB_73cm.js                             0.16 kB │ gzip:   0.15 kB
+.vercel/output/static/assets/arrow-up-C-GcAMm4.js                      0.16 kB │ gzip:   0.16 kB
+.vercel/output/static/assets/arrow-down-Cx4ao7tp.js                    0.17 kB │ gzip:   0.16 kB
+.vercel/output/static/assets/search-C443fr-w.js                        0.17 kB │ gzip:   0.17 kB
+.vercel/output/static/assets/rotate-ccw-CClvJ6xc.js                    0.20 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/circle-x-OH04Qqf5.js                      0.20 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/chevron-up-CsvuWJUD.js                    0.21 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/chevron-right-vcTokVif.js                 0.21 kB │ gzip:   0.18 kB
+.vercel/output/static/assets/copy-DpZlAjKs.js                          0.23 kB │ gzip:   0.21 kB
+.vercel/output/static/assets/download-BHS6hqfb.js                      0.23 kB │ gzip:   0.19 kB
+.vercel/output/static/assets/eye-BgD-4EUY.js                           0.25 kB │ gzip:   0.20 kB
+.vercel/output/static/assets/external-link-DzbkPYVs.js                 0.25 kB │ gzip:   0.20 kB
+.vercel/output/static/assets/map-pin-BTK08pnQ.js                       0.26 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/triangle-alert-C557FGAD.js                0.27 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/image-CrLFh7tK.js                         0.27 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/pencil-HTjoMNti.js                        0.28 kB │ gzip:   0.23 kB
+.vercel/output/static/assets/send-BQJnw-Az.js                          0.29 kB │ gzip:   0.23 kB
+.vercel/output/static/assets/shield-check-F40N6TRT.js                  0.32 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/trash-2-BrVv-xHI.js                       0.33 kB │ gzip:   0.22 kB
+.vercel/output/static/assets/graduation-cap-B5L75UwR.js                0.33 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/file-clock-23yr8ZwV.js                    0.36 kB │ gzip:   0.26 kB
+.vercel/output/static/assets/grip-vertical-5VvG6yOj.js                 0.37 kB │ gzip:   0.19 kB
+.vercel/output/static/assets/file-text-DSFSl8j3.js                     0.39 kB │ gzip:   0.25 kB
+.vercel/output/static/assets/pipeline.helpers-BVfavFUz.js              0.39 kB │ gzip:   0.24 kB
+.vercel/output/static/assets/athlete-slugs-DVVc3_69.js                 0.43 kB │ gzip:   0.24 kB
+.vercel/output/static/assets/units-felDiIZp.js                         0.48 kB │ gzip:   0.27 kB
+.vercel/output/static/assets/sparkles-QKAl-ydU.js                      0.50 kB │ gzip:   0.28 kB
+.vercel/output/static/assets/auth.functions-BsL_OmZJ.js                0.57 kB │ gzip:   0.34 kB
+.vercel/output/static/assets/video-DuXiu7Fr.js                         0.79 kB │ gzip:   0.48 kB
+.vercel/output/static/assets/reset-password-DKC3Zr-s.js                0.81 kB │ gzip:   0.52 kB
+.vercel/output/static/assets/auth.accept-invite-1AKk-kmg.js            0.87 kB │ gzip:   0.57 kB
+.vercel/output/static/assets/forgot-password-PmLdN_Jl.js               0.94 kB │ gzip:   0.57 kB
+.vercel/output/static/assets/notifications-Bexfkog1.js                 0.97 kB │ gzip:   0.53 kB
+.vercel/output/static/assets/notifications-62yJ1SSL.js                 1.10 kB │ gzip:   0.59 kB
+.vercel/output/static/assets/universities-fetch-BPyVU6zD.js            1.14 kB │ gzip:   0.56 kB
+.vercel/output/static/assets/pipeline-DH7K4Nc_.js                      1.23 kB │ gzip:   0.64 kB
+.vercel/output/static/assets/use-portal-data-CUs48s29.js               1.24 kB │ gzip:   0.53 kB
+.vercel/output/static/assets/uploads-77oP-PI1.js                       1.33 kB │ gzip:   0.73 kB
+.vercel/output/static/assets/login-DoO_R60h.js                         1.38 kB │ gzip:   0.74 kB
+.vercel/output/static/assets/sitemap-BKwEveFW.js                       1.39 kB │ gzip:   0.82 kB
+.vercel/output/static/assets/youtube-K_A-74X7.js                       1.43 kB │ gzip:   0.66 kB
+.vercel/output/static/assets/admin-ui-C1XmSVOE.js                      1.44 kB │ gzip:   0.71 kB
+.vercel/output/static/assets/auth-card-BEXZ4sL3.js                     1.49 kB │ gzip:   0.65 kB
+.vercel/output/static/assets/index-Rs9-QuYH.js                         1.58 kB │ gzip:   0.75 kB
+.vercel/output/static/assets/universities-constants-C36oRzPk.js        1.87 kB │ gzip:   0.98 kB
+.vercel/output/static/assets/documents-ClUi1Vsu.js                     2.20 kB │ gzip:   1.03 kB
+.vercel/output/static/assets/documents--zCj9sLU.js                     2.34 kB │ gzip:   1.17 kB
+.vercel/output/static/assets/media-DriJFCGv.js                         2.38 kB │ gzip:   1.26 kB
+.vercel/output/static/assets/index-Bcm2PuM9.js                         2.60 kB │ gzip:   1.12 kB
+.vercel/output/static/assets/proposal._token-DbAQuP-F.js               3.13 kB │ gzip:   1.51 kB
+.vercel/output/static/assets/index-BAJVpnsy.js                         3.92 kB │ gzip:   1.70 kB
+.vercel/output/static/assets/use-stage-announcement-DRacA2rT.js        4.08 kB │ gzip:   1.71 kB
+.vercel/output/static/assets/pipeline-Cyha1nO0.js                      5.98 kB │ gzip:   2.23 kB
+.vercel/output/static/assets/app-shell-Cu3Leeqv.js                     6.26 kB │ gzip:   2.41 kB
+.vercel/output/static/assets/dialog-h4-AVy2_.js                        6.93 kB │ gzip:   2.59 kB
+.vercel/output/static/assets/index-X5Jd-naQ.js                         8.02 kB │ gzip:   3.02 kB
+.vercel/output/static/assets/feedback-ZL2vhjlp.js                      8.31 kB │ gzip:   2.93 kB
+.vercel/output/static/assets/proposal-experience-cH5GmPTs.js           8.52 kB │ gzip:   2.92 kB
+.vercel/output/static/assets/visual-BN00xHKI.js                        8.82 kB │ gzip:   3.08 kB
+.vercel/output/static/assets/stage-timeline-cKdNvYQJ.js                9.77 kB │ gzip:   3.40 kB
+.vercel/output/static/assets/settings-BFF794s4.js                     10.61 kB │ gzip:   3.86 kB
+.vercel/output/static/assets/catalog-B8_cW97q.js                      11.48 kB │ gzip:   4.24 kB
+.vercel/output/static/assets/stage-celebration-dialog-UsTsi5CM.js     14.13 kB │ gzip:   5.89 kB
+.vercel/output/static/assets/_id-DnVEJuWN.js                          14.97 kB │ gzip:   5.16 kB
+.vercel/output/static/assets/coaches-OifbCN_W.js                      17.44 kB │ gzip:   5.18 kB
+.vercel/output/static/assets/_id-WLRcif-s.js                          31.00 kB │ gzip:   8.65 kB
+.vercel/output/static/assets/athlete._slug-bLl9Em9K.js                31.14 kB │ gzip:   8.35 kB
+.vercel/output/static/assets/index-CcPHBKXD.js                        31.89 kB │ gzip:   9.13 kB
+.vercel/output/static/assets/Combination-OLL5CCFH.js                  33.30 kB │ gzip:  11.58 kB
+.vercel/output/static/assets/proposals-CQMBERuN.js                    55.67 kB │ gzip:  13.10 kB
+.vercel/output/static/assets/universities-DRhhYoic.js                499.62 kB │ gzip: 159.91 kB
+.vercel/output/static/assets/mailer-DxfAdCpW.js                      633.15 kB │ gzip: 169.86 kB
+.vercel/output/static/assets/index-CG_Rsr6g.js                       682.83 kB │ gzip: 206.17 kB
+.vercel/output/static/assets/proposal._token.pdf-Cb762joD.js       1,293.38 kB │ gzip: 465.06 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 38.78s
+vite v7.3.6 building ssr environment for production...
+transforming...
+[plugin tanstack-start-core::server-fn:ssr] src/lib/indexnow.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/indexnow.ts?tss-serverfn-split:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts?tss-serverfn-split:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts?tss-serverfn-split:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/stage-change.functions.ts?tss-serverfn-split: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts?tss-serverfn-split:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:11:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:29:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:39:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:55:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:63:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:80:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:88:51 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:96:53 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:126:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:145:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:156:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:165:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:180:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:194:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:208:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:222:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:236:48 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:274:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:283:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:299:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:309:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:411:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:420:49 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:429:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:438:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:476:59 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:496:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:521:43 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:530:40 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:582:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:591:45 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/recruit-email.functions.ts: /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts:606:50 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/indexnow.ts: /workspace/mailer-implementation/src/lib/indexnow.ts:87:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:5:44 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/coach-directory.functions.ts: /workspace/mailer-implementation/src/lib/coach-directory.functions.ts:15:46 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+[plugin tanstack-start-core::server-fn:ssr] src/lib/email/stage-change.functions.ts: /workspace/mailer-implementation/src/lib/email/stage-change.functions.ts:5:47 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.
+"createRequestHandler", "defineHandlerCallback", "transformPipeableStreamWithRouter" and "transformReadableStreamWithRouter" are imported from external module "@tanstack/router-core/ssr/server" but never used in "node_modules/@tanstack/start-server-core/dist/esm/index.js".
+"RawStream" is imported from external module "@tanstack/router-core" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+"defaultSerovalDeserializerPlugins", "hydrate" and "json" are imported from external module "@tanstack/router-core/ssr/client" but never used in "node_modules/@tanstack/start-client-core/dist/esm/index.js".
+✓ 241 modules transformed.
+rendering chunks...
+[plugin vite:reporter]
+(!) /workspace/mailer-implementation/src/lib/supabase/clients.server.ts is dynamically imported by /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/athletes.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/auth.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/proposals.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/proposals.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/server.ts, /workspace/mailer-implementation/src/server.ts but also statically imported by /workspace/mailer-implementation/src/lib/coach-directory.server.ts, /workspace/mailer-implementation/src/lib/email/athlete-email-data.server.ts, /workspace/mailer-implementation/src/lib/email/email.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-controls-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-engine-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-history.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-metrics.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-runner.server.ts, /workspace/mailer-implementation/src/lib/email/recruit-email.server.ts, /workspace/mailer-implementation/src/lib/email/resend-webhook.server.ts, /workspace/mailer-implementation/src/lib/email/stage-change.server.ts, /workspace/mailer-implementation/src/lib/sitemap.ts, /workspace/mailer-implementation/src/lib/supabase/auth-middleware.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter]
+(!) /workspace/mailer-implementation/src/lib/email/recruit-email.server.ts is dynamically imported by /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/lib/email/recruit-email.functions.ts?tss-serverfn-split, /workspace/mailer-implementation/src/server.ts but also statically imported by /workspace/mailer-implementation/src/lib/email/mailer-engine-v2.server.ts, /workspace/mailer-implementation/src/lib/email/mailer-queue.server.ts, /workspace/mailer-implementation/src/lib/email/resend-webhook.server.ts, dynamic import will not move module into another chunk.
+
+node_modules/.nitro/vite/services/ssr/assets/styles-DVjDpGw7.css                     187.65 kB
+node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-BFgPZ6_d.js         0.13 kB
+node_modules/.nitro/vite/services/ssr/assets/route-BFsOu0JM.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/route-DWQrCpgz.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/route-IDtaasSt.js                         0.19 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerRpc-Db6XDJ2T.js               0.31 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline.helpers-oeRXkyRL.js              0.68 kB
+node_modules/.nitro/vite/services/ssr/assets/client-D0H-iNFs.js                        0.70 kB
+node_modules/.nitro/vite/services/ssr/assets/universities-constants-Cce4vvLY.js        0.72 kB
+node_modules/.nitro/vite/services/ssr/assets/athlete-slugs-BDUG16e_.js                 0.83 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-middleware-CsvMdmBi.js               1.27 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-change.functions-deonaGv0.js        1.36 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.functions-CbYMjnZO.js                1.44 kB
+node_modules/.nitro/vite/services/ssr/assets/reset-password-CtHDajbI.js                1.49 kB
+node_modules/.nitro/vite/services/ssr/assets/forgot-password-D1_6bHQK.js               1.60 kB
+node_modules/.nitro/vite/services/ssr/assets/email-syntax-CuRO8rgf.js                  1.70 kB
+node_modules/.nitro/vite/services/ssr/assets/uploads-B1H8TedC.js                       1.70 kB
+node_modules/.nitro/vite/services/ssr/assets/placeholders-BhMfZY5H.js                  1.98 kB
+node_modules/.nitro/vite/services/ssr/assets/admin-ui-DNBMLukk.js                      2.00 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-card-DYd4jbdA.js                     2.01 kB
+node_modules/.nitro/vite/services/ssr/assets/use-portal-data-0Yk4IYr2.js               2.05 kB
+node_modules/.nitro/vite/services/ssr/assets/notifications-DdJ7y0zN.js                 2.07 kB
+node_modules/.nitro/vite/services/ssr/assets/coach-directory.functions-CR_t_UFf.js     2.15 kB
+node_modules/.nitro/vite/services/ssr/assets/notifications-D0YE4kQu.js                 2.22 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.accept-invite-BZgfVram.js            2.23 kB
+node_modules/.nitro/vite/services/ssr/assets/start-DpYeu2cY.js                         2.32 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline-Bs3orEw9.js                      2.34 kB
+node_modules/.nitro/vite/services/ssr/assets/indexnow-D_hgguGu.js                      2.46 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-controls-v2.server-Cpwh1kYg.js     2.50 kB
+node_modules/.nitro/vite/services/ssr/assets/proposals.functions-C4-ev4MC.js           2.53 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-v2-policy-Bejopkhc.js              2.63 kB
+node_modules/.nitro/vite/services/ssr/assets/indexnow-BEZDIe9o.js                      2.79 kB
+node_modules/.nitro/vite/services/ssr/assets/unsubscribe-token-CFaArNGm.js             2.89 kB
+node_modules/.nitro/vite/services/ssr/assets/index-CG6tfeyD.js                         2.89 kB
+node_modules/.nitro/vite/services/ssr/assets/login-B0MvRbjl.js                         2.93 kB
+node_modules/.nitro/vite/services/ssr/assets/coach-directory.server-B0YE3H9T.js        3.04 kB
+node_modules/.nitro/vite/services/ssr/assets/dialog-CcSXctYI.js                        3.22 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-change.server-BGFXAG1b.js           3.28 kB
+node_modules/.nitro/vite/services/ssr/assets/proposals-D95lEz2G.js                     3.28 kB
+node_modules/.nitro/vite/services/ssr/assets/documents-BzIar42-.js                     4.13 kB
+node_modules/.nitro/vite/services/ssr/assets/media-D18mkl70.js                         4.37 kB
+node_modules/.nitro/vite/services/ssr/assets/documents-UJJ7na6d.js                     4.41 kB
+node_modules/.nitro/vite/services/ssr/assets/use-stage-announcement-BS1AwWe1.js        4.55 kB
+node_modules/.nitro/vite/services/ssr/assets/index-B9LBCUur.js                         4.81 kB
+node_modules/.nitro/vite/services/ssr/assets/app-shell-zfw9yZT-.js                     5.16 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-celebration-dialog-Bxv3u8wp.js      5.17 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal._token-D9g4jvkl.js               5.36 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-history.server-BnhLl-Mv.js         6.22 kB
+node_modules/.nitro/vite/services/ssr/assets/index-D53W_DdB.js                         6.66 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-runner.server-D2iAZmd0.js          7.61 kB
+node_modules/.nitro/vite/services/ssr/assets/auth.functions-FUjw-D_z.js                8.32 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal._token.pdf-CPYs44C5.js           8.58 kB
+node_modules/.nitro/vite/services/ssr/assets/pipeline-DbVPc8gA.js                     10.31 kB
+node_modules/.nitro/vite/services/ssr/assets/feedback-BfMlvhjl.js                     11.73 kB
+node_modules/.nitro/vite/services/ssr/assets/index-pI_JnJM4.js                        11.99 kB
+node_modules/.nitro/vite/services/ssr/assets/proposal-experience-DI-ED9rL.js          13.70 kB
+node_modules/.nitro/vite/services/ssr/assets/athletes.functions-B_sCKE3I.js           13.85 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-dLTMmxXj.js   13.97 kB
+node_modules/.nitro/vite/services/ssr/assets/visual-Dvcu4yWx.js                       14.10 kB
+node_modules/.nitro/vite/services/ssr/assets/settings-DvfLBfvI.js                     16.90 kB
+node_modules/.nitro/vite/services/ssr/assets/stage-timeline-BZgyYNzP.js               17.57 kB
+node_modules/.nitro/vite/services/ssr/assets/catalog-DvEUlRpi.js                      18.42 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-metrics.server-FaeBtroc.js        21.74 kB
+node_modules/.nitro/vite/services/ssr/assets/_id-BpkLti9g.js                          23.16 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-snapshot-ByTfKgRw.js              24.73 kB
+node_modules/.nitro/vite/services/ssr/assets/coaches-CNqJEvsI.js                      29.89 kB
+node_modules/.nitro/vite/services/ssr/assets/recruit-email.functions-Cjd94mwl.js      37.35 kB
+node_modules/.nitro/vite/services/ssr/assets/athlete._slug-BIiNwD9Z.js                43.41 kB
+node_modules/.nitro/vite/services/ssr/assets/index-BzijBtk2.js                        48.93 kB
+node_modules/.nitro/vite/services/ssr/assets/_id-BkFPDoQG.js                          52.72 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-queue.server-DaIQc4Vd.js          60.71 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-engine-v2.server-g35-0Bde.js      66.38 kB
+node_modules/.nitro/vite/services/ssr/assets/router-CC42bmxP.js                       79.87 kB
+node_modules/.nitro/vite/services/ssr/assets/server-DrI6KnyY.js                       86.91 kB
+node_modules/.nitro/vite/services/ssr/assets/universities-D-8SpJxj.js                125.35 kB
+node_modules/.nitro/vite/services/ssr/index.js                                       168.87 kB
+node_modules/.nitro/vite/services/ssr/assets/mailer-BmyJbVpP.js                      251.71 kB
+✓ built in 7.46s
+
+[nitro] ◐ Building [Nitro] (preset: vercel, compatibility: 2026-11-06)
+[nitro] ✔ Generated public .vercel/output/static
+vite v7.3.6 building nitro environment for production...
+transforming...
+node_modules/@tanstack/react-router/dist/esm/index.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/index.js" was ignored.
+node_modules/sonner/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/sonner/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-router/dist/esm/utils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/utils.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/ClientOnly.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/ClientOnly.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useNavigate.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useNavigate.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/RouterProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/RouterProvider.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useBlocker.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useBlocker.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouterState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouterState.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useLocation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useLocation.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/HeadContent.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/HeadContent.js" was ignored.
+node_modules/@vercel/analytics/dist/react/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@vercel/analytics/dist/react/index.mjs" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useRouter.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useRouter.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/useMatch.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/useMatch.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/link.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/link.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Match.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Match.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Matches.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Matches.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Asset.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Asset.js" was ignored.
+node_modules/@radix-ui/react-popover/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popover/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQueries.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useIsFetching.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useIsFetching.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutationState.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutationState.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useMutation.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useMutation.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/IsRestoringProvider.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/routerContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/routerContext.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/matchContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/matchContext.js" was ignored.
+node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/errorBoundaryUtils.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/nonRouteComponentContext.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/nonRouteComponentContext.js" was ignored.
+node_modules/@tanstack/react-router/dist/esm/Transitioner.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-router/dist/esm/Transitioner.js" was ignored.
+node_modules/@tanstack/react-query/build/modern/useBaseQuery.js (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/@tanstack/react-query/build/modern/useBaseQuery.js" was ignored.
+✓ 2915 modules transformed.
+ℹ Tracing dependencies:
+- tslib (2.8.1)
+✔ Traced 1 dependencies (4 files) in 83ms.
+ℹ Ensure your production environment matches the builder OS and architecture (linux-x64) to avoid native module issues.
+rendering chunks...
+.vercel/output/functions/__server.func/_libs/hookable.mjs                                          0.00 kB
+.vercel/output/functions/__server.func/_libs/ufo.mjs                                               0.00 kB
+.vercel/output/functions/__server.func/_libs/ohash.mjs                                             0.00 kB
+.vercel/output/functions/__server.func/_libs/ocache.mjs                                            0.00 kB
+.vercel/output/functions/__server.func/_libs/unstorage.mjs                                         0.00 kB
+.vercel/output/functions/__server.func/_libs/tanstack__store.mjs                                   0.00 kB
+.vercel/output/functions/__server.func/_libs/use-sync-external-store.mjs                           0.00 kB
+.vercel/output/functions/__server.func/_libs/detect-node-es.mjs                                    0.00 kB
+.vercel/output/functions/__server.func/_libs/babel__runtime.mjs                                    0.00 kB
+.vercel/output/functions/__server.func/_libs/dom-helpers.mjs                                       0.00 kB
+.vercel/output/functions/__server.func/_libs/tslib.mjs                                             0.00 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-store.mjs                             0.02 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-arrow.mjs                             0.02 kB
+.vercel/output/functions/__server.func/_libs/react-transition-group.mjs                            0.05 kB
+.vercel/output/functions/__server.func/_ssr/empty-plugin-adapters-BFgPZ6_d.mjs                     0.13 kB
+.vercel/output/functions/__server.func/_libs/tiny-invariant.mjs                                    0.14 kB
+.vercel/output/functions/__server.func/_chunks/render_resend_false.mjs                             0.16 kB
+.vercel/output/functions/__server.func/_libs/get-nonce.mjs                                         0.16 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-layout-effect+[...].mjs           0.17 kB
+.vercel/output/functions/__server.func/_libs/rou3.mjs                                              0.21 kB
+.vercel/output/functions/__server.func/_libs/swc__helpers.mjs                                      0.25 kB
+.vercel/output/functions/__server.func/_ssr/createServerRpc-Db6XDJ2T.mjs                           0.31 kB
+.vercel/output/functions/__server.func/_libs/emoji-regex-xs.mjs                                    0.36 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-query.mjs                             0.46 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-callback-ref+[...].mjs            0.51 kB
+.vercel/output/functions/__server.func/_libs/clsx.mjs                                              0.51 kB
+.vercel/output/functions/__server.func/_chunks/ssr-renderer.mjs                                    0.51 kB
+.vercel/output/functions/__server.func/_ssr/route-BFsOu0JM.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/route-DWQrCpgz.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/route-IDtaasSt.mjs                                     0.64 kB
+.vercel/output/functions/__server.func/_ssr/pipeline.helpers-oeRXkyRL.mjs                          0.68 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-id.mjs                                0.69 kB
+.vercel/output/functions/__server.func/_ssr/client-D0H-iNFs.mjs                                    0.72 kB
+.vercel/output/functions/__server.func/_ssr/universities-constants-Cce4vvLY.mjs                    0.72 kB
+.vercel/output/functions/__server.func/_ssr/athlete-slugs-BDUG16e_.mjs                             0.83 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-label.mjs                             0.86 kB
+.vercel/output/functions/__server.func/_libs/is-url.mjs                                            0.99 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-portal.mjs                            0.99 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-effect-event+[...].mjs            1.04 kB
+.vercel/output/functions/__server.func/_libs/internmap.mjs                                         1.17 kB
+.vercel/output/functions/__server.func/_libs/hsl-to-hex.mjs                                        1.17 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-compose-refs.mjs                      1.17 kB
+.vercel/output/functions/__server.func/_ssr/auth-middleware-CsvMdmBi.mjs                           1.27 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__primitives.mjs                             1.30 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-primitive.mjs                         1.32 kB
+.vercel/output/functions/__server.func/_libs/victory-vendor.mjs                                    1.37 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-focus-guards.mjs                      1.41 kB
+.vercel/output/functions/__server.func/_libs/parse-svg-path.mjs                                    1.42 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-use-size.mjs                          1.42 kB
+.vercel/output/functions/__server.func/_libs/cookie-es.mjs                                         1.46 kB
+.vercel/output/functions/__server.func/_libs/hsl-to-rgb-for-reals.mjs                              1.48 kB
+.vercel/output/functions/__server.func/_ssr/auth.functions-CbYMjnZO.mjs                            1.50 kB
+.vercel/output/functions/__server.func/_libs/abs-svg-path.mjs                                      1.54 kB
+.vercel/output/functions/__server.func/_libs/fast-deep-equal.mjs                                   1.57 kB
+.vercel/output/functions/__server.func/_libs/react-style-singleton.mjs                             1.67 kB
+.vercel/output/functions/__server.func/_ssr/email-syntax-CuRO8rgf.mjs                              1.70 kB
+.vercel/output/functions/__server.func/_ssr/uploads-B1H8TedC.mjs                                   1.70 kB
+.vercel/output/functions/__server.func/_libs/use-callback-ref.mjs                                  1.75 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__primitive.mjs                               1.86 kB
+.vercel/output/functions/__server.func/_ssr/placeholders-BhMfZY5H.mjs                              1.98 kB
+.vercel/output/functions/__server.func/_libs/tanstack__history.mjs                                 2.04 kB
+.vercel/output/functions/__server.func/_ssr/stage-change.functions-deonaGv0.mjs                    2.06 kB
+.vercel/output/functions/__server.func/_ssr/use-portal-data-0Yk4IYr2.mjs                           2.10 kB
+.vercel/output/functions/__server.func/_ssr/admin-ui-DNBMLukk.mjs                                  2.14 kB
+.vercel/output/functions/__server.func/_libs/class-variance-authority.mjs                          2.14 kB
+.vercel/output/functions/__server.func/_libs/object-assign.mjs                                     2.27 kB
+.vercel/output/functions/__server.func/_ssr/auth-card-DYd4jbdA.mjs                                 2.28 kB
+.vercel/output/functions/__server.func/_ssr/reset-password-CtHDajbI.mjs                            2.35 kB
+.vercel/output/functions/__server.func/_libs/dfa.mjs                                               2.39 kB
+.vercel/output/functions/__server.func/_ssr/indexnow-D_hgguGu.mjs                                  2.47 kB
+.vercel/output/functions/__server.func/_ssr/forgot-password-D1_6bHQK.mjs                           2.47 kB
+.vercel/output/functions/__server.func/_libs/normalize-svg-path.mjs                                2.51 kB
+.vercel/output/functions/__server.func/_libs/prop-types.mjs                                        2.54 kB
+.vercel/output/functions/__server.func/_ssr/mailer-v2-policy-Bejopkhc.mjs                          2.63 kB
+.vercel/output/functions/__server.func/_libs/use-sidecar.mjs                                       2.65 kB
+.vercel/output/functions/__server.func/_ssr/proposals.functions-C4-ev4MC.mjs                       2.78 kB
+.vercel/output/functions/__server.func/_libs/isbot.mjs                                             2.85 kB
+.vercel/output/functions/__server.func/_ssr/coach-directory.functions-CR_t_UFf.mjs                 2.85 kB
+.vercel/output/functions/__server.func/_ssr/unsubscribe-token-CFaArNGm.mjs                         2.89 kB
+.vercel/output/functions/__server.func/_libs/seroval-plugins.mjs                                   2.96 kB
+.vercel/output/functions/__server.func/_ssr/mailer-controls-v2.server-Cpwh1kYg.mjs                 2.99 kB
+.vercel/output/functions/__server.func/_ssr/start-DpYeu2cY.mjs                                     3.02 kB
+.vercel/output/functions/__server.func/_ssr/indexnow-BEZDIe9o.mjs                                  3.04 kB
+.vercel/output/functions/__server.func/_ssr/notifications-DdJ7y0zN.mjs                             3.07 kB
+.vercel/output/functions/__server.func/_ssr/auth.accept-invite-BZgfVram.mjs                        3.16 kB
+.vercel/output/functions/__server.func/_ssr/notifications-D0YE4kQu.mjs                             3.21 kB
+.vercel/output/functions/__server.func/_libs/d3-path.mjs                                           3.36 kB
+.vercel/output/functions/__server.func/_ssr/dialog-CcSXctYI.mjs                                    3.50 kB
+.vercel/output/functions/__server.func/_ssr/proposals-D95lEz2G.mjs                                 3.52 kB
+.vercel/output/functions/__server.func/_ssr/coach-directory.server-B0YE3H9T.mjs                    3.53 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__fns.mjs                                    3.71 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-use-controllable-state+[...].mjs      3.76 kB
+.vercel/output/functions/__server.func/_ssr/stage-change.server-BGFXAG1b.mjs                       3.77 kB
+.vercel/output/functions/__server.func/_libs/unicode-trie.mjs                                      3.88 kB
+.vercel/output/functions/__server.func/_ssr/index-CG6tfeyD.mjs                                     3.90 kB
+.vercel/output/functions/__server.func/_libs/react-remove-scroll-bar.mjs                           3.96 kB
+.vercel/output/functions/__server.func/_ssr/login-B0MvRbjl.mjs                                     3.97 kB
+.vercel/output/functions/__server.func/_libs/aria-hidden.mjs                                       4.06 kB
+.vercel/output/functions/__server.func/_libs/react-is.mjs                                          4.11 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-context.mjs                           4.30 kB
+.vercel/output/functions/__server.func/_libs/d3-interpolate.mjs                                    4.34 kB
+.vercel/output/functions/__server.func/_ssr/pipeline-Bs3orEw9.mjs                                  4.35 kB
+.vercel/output/functions/__server.func/_libs/color-name.mjs                                        4.43 kB
+.vercel/output/functions/__server.func/_ssr/use-stage-announcement-BS1AwWe1.mjs                    4.60 kB
+.vercel/output/functions/__server.func/_libs/vercel__analytics.mjs                                 4.67 kB
+.vercel/output/functions/__server.func/_libs/svg-arc-to-cubic-bezier.mjs                           4.99 kB
+.vercel/output/functions/__server.func/_ssr/documents-BzIar42-.mjs                                 5.29 kB
+.vercel/output/functions/__server.func/_ssr/media-D18mkl70.mjs                                     5.48 kB
+.vercel/output/functions/__server.func/_ssr/documents-UJJ7na6d.mjs                                 5.52 kB
+.vercel/output/functions/__server.func/_ssr/stage-celebration-dialog-Bxv3u8wp.mjs                  5.59 kB
+.vercel/output/functions/__server.func/_libs/color-string.mjs                                      5.64 kB
+.vercel/output/functions/__server.func/_ssr/app-shell-zfw9yZT-.mjs                                 5.68 kB
+.vercel/output/functions/__server.func/_libs/standardwebhooks.mjs                                  5.73 kB
+.vercel/output/functions/__server.func/_libs/media-engine.mjs                                      5.74 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__svg.mjs                                    5.89 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-slot.mjs                              6.21 kB
+.vercel/output/functions/__server.func/_libs/eventemitter3.mjs                                     6.54 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-presence.mjs                          6.56 kB
+.vercel/output/functions/__server.func/_ssr/proposal._token-D9g4jvkl.mjs                           6.65 kB
+.vercel/output/functions/__server.func/_ssr/mailer-history.server-BnhLl-Mv.mjs                     6.71 kB
+.vercel/output/functions/__server.func/_libs/tiny-inflate.mjs                                      6.98 kB
+.vercel/output/functions/__server.func/_libs/clone.mjs                                             7.00 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__renderer.mjs                               7.12 kB
+.vercel/output/functions/__server.func/_libs/d3-array.mjs                                          7.16 kB
+.vercel/output/functions/__server.func/_ssr/index-B9LBCUur.mjs                                     7.19 kB
+.vercel/output/functions/__server.func/index.mjs                                                   7.34 kB
+.vercel/output/functions/__server.func/_libs/base64-js.mjs                                         7.46 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__image.mjs                                  7.83 kB
+.vercel/output/functions/__server.func/_libs/@stablelib/base64.mjs                                 7.95 kB
+.vercel/output/functions/__server.func/_ssr/index-D53W_DdB.mjs                                     8.03 kB
+.vercel/output/functions/__server.func/_ssr/mailer-runner.server-D2iAZmd0.mjs                      8.11 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__react-dom.mjs                            8.42 kB
+.vercel/output/functions/__server.func/_libs/srvx.mjs                                              9.05 kB
+.vercel/output/functions/__server.func/_ssr/auth.functions-FUjw-D_z.mjs                            9.07 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-focus-scope.mjs                       9.27 kB
+.vercel/output/functions/__server.func/_libs/png-js.mjs                                            9.48 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__utils.mjs                                9.73 kB
+.vercel/output/functions/__server.func/_libs/d3-format.mjs                                         9.81 kB
+.vercel/output/functions/__server.func/_libs/h3-v2.mjs                                             9.98 kB
+.vercel/output/functions/__server.func/_libs/d3-color.mjs                                         10.63 kB
+.vercel/output/functions/__server.func/_libs/d3-time.mjs                                          10.78 kB
+.vercel/output/functions/__server.func/_libs/postcss-value-parser.mjs                             10.96 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-popover.mjs                          11.33 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-popper.mjs                           11.86 kB
+.vercel/output/functions/__server.func/_ssr/proposal._token.pdf-CPYs44C5.mjs                      11.87 kB
+.vercel/output/functions/__server.func/_ssr/pipeline-DbVPc8gA.mjs                                 11.93 kB
+.vercel/output/functions/__server.func/_libs/scheduler.mjs                                        11.97 kB
+.vercel/output/functions/__server.func/_libs/radix-ui__react-dialog.mjs                           12.40 kB
+.vercel/output/functions/__server.func/_libs/supabase__functions-js.mjs                           12.42 kB
+.vercel/output/functions/__server.func/_libs/recharts-scale.mjs                                   12.43 kB
+.vercel/output/functions/__server.func/_libs/noble__ciphers.mjs                                   13.23 kB
+.vercel/output/functions/__server.func/_libs/fast-sha256.mjs                                      13.31 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__font.mjs                                  13.33 kB
+.vercel/output/functions/__server.func/_libs/react-remove-scroll.mjs                              13.37 kB
+.vercel/output/functions/__server.func/_ssr/feedback-BfMlvhjl.mjs                                 13.58 kB
+.vercel/output/functions/__server.func/_libs/fast-equals.mjs                                      13.70 kB
+.vercel/output/functions/__server.func/_libs/jay-peg.mjs                                          13.93 kB
+.vercel/output/functions/__server.func/_tanstack-start-manifest_v-dLTMmxXj.mjs                    13.97 kB
+.vercel/output/functions/__server.func/_ssr/index-pI_JnJM4.mjs                                    13.99 kB
+.vercel/output/functions/__server.func/_ssr/athletes.functions-B_sCKE3I.mjs                       14.09 kB
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-dismissable-layer+[...].mjs          14.28 kB
+.vercel/output/functions/__server.func/_libs/h3.mjs                                               14.32 kB
+.vercel/output/functions/__server.func/_ssr/proposal-experience-DI-ED9rL.mjs                      15.02 kB
+.vercel/output/functions/__server.func/_libs/iceberg-js.mjs                                       15.70 kB
+.vercel/output/functions/__server.func/_ssr/visual-Dvcu4yWx.mjs                                   16.06 kB
+.vercel/output/functions/__server.func/_libs/d3-time-format.mjs                                   18.50 kB
+.vercel/output/functions/__server.func/_ssr/catalog-DvEUlRpi.mjs                                  18.64 kB
+.vercel/output/functions/__server.func/_ssr/stage-timeline-BZgyYNzP.mjs                           18.66 kB
+.vercel/output/functions/__server.func/_libs/react.mjs                                            19.83 kB
+.vercel/output/functions/__server.func/_ssr/settings-DvfLBfvI.mjs                                 20.05 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__dom.mjs                                 20.85 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__stylesheet.mjs                            21.13 kB
+.vercel/output/functions/__server.func/_ssr/mailer-metrics.server-FaeBtroc.mjs                    22.23 kB
+.vercel/output/functions/__server.func/_libs/unicode-properties.mjs                               22.56 kB
+.vercel/output/functions/__server.func/_libs/js-md5.mjs                                           22.76 kB
+.vercel/output/functions/__server.func/_libs/canvas-confetti.mjs                                  23.00 kB
+.vercel/output/functions/__server.func/_libs/floating-ui__core.mjs                                23.42 kB
+.vercel/output/functions/__server.func/_libs/d3-shape.mjs                                         24.56 kB
+.vercel/output/functions/__server.func/_ssr/mailer-snapshot-ByTfKgRw.mjs                          24.73 kB
+.vercel/output/functions/__server.func/_id-BpkLti9g.mjs                                           26.30 kB
+.vercel/output/functions/__server.func/_libs/decimal.js-light.mjs                                 26.70 kB
+.vercel/output/functions/__server.func/_libs/restructure.mjs                                      26.72 kB
+.vercel/output/functions/__server.func/_libs/d3-scale.mjs                                         29.02 kB
+.vercel/output/functions/__server.func/_ssr/coaches-CNqJEvsI.mjs                                  33.22 kB
+.vercel/output/functions/__server.func/_libs/supabase__supabase-js.mjs                            33.53 kB
+.vercel/output/functions/__server.func/_libs/bidi-js.mjs                                          34.45 kB
+.vercel/output/functions/__server.func/_libs/lucide-react.mjs                                     35.57 kB
+.vercel/output/functions/__server.func/_libs/tanstack__react-router.mjs                           36.32 kB
+.vercel/output/functions/__server.func/_ssr/recruit-email.functions-Cjd94mwl.mjs                  38.08 kB
+.vercel/output/functions/__server.func/_libs/react-smooth.mjs                                     38.16 kB
+.vercel/output/functions/__server.func/_libs/resend.mjs                                           43.20 kB
+.vercel/output/functions/__server.func/_ssr/athlete._slug-BIiNwD9Z.mjs                            48.56 kB
+.vercel/output/functions/__server.func/_ssr/index-BzijBtk2.mjs                                    53.56 kB
+.vercel/output/functions/__server.func/_libs/tanstack__query-core.mjs                             55.06 kB
+.vercel/output/functions/__server.func/_libs/supabase__phoenix.mjs                                55.82 kB
+.vercel/output/functions/__server.func/_libs/sonner.mjs                                           57.97 kB
+.vercel/output/functions/__server.func/_id-BkFPDoQG.mjs                                           58.11 kB
+.vercel/output/functions/__server.func/_ssr/mailer-queue.server-DaIQc4Vd.mjs                      61.25 kB
+.vercel/output/functions/__server.func/_libs/linebreak.mjs                                        63.65 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__textkit.mjs                               65.44 kB
+.vercel/output/functions/__server.func/_ssr/mailer-engine-v2.server-g35-0Bde.mjs                  66.88 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__layout.mjs                                76.89 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__render.mjs                                78.73 kB
+.vercel/output/functions/__server.func/_libs/supabase__realtime-js.mjs                            80.89 kB
+.vercel/output/functions/__server.func/_ssr/router-CC42bmxP.mjs                                   83.83 kB
+.vercel/output/functions/__server.func/_ssr/server-DrI6KnyY.mjs                                   86.64 kB
+.vercel/output/functions/__server.func/_libs/tailwind-merge.mjs                                   99.21 kB
+.vercel/output/functions/__server.func/_libs/seroval.mjs                                          99.78 kB
+.vercel/output/functions/__server.func/_libs/postal-mime.mjs                                     100.85 kB
+.vercel/output/functions/__server.func/_libs/supabase__storage-js.mjs                            102.54 kB
+.vercel/output/functions/__server.func/_libs/zod.mjs                                             107.72 kB
+.vercel/output/functions/__server.func/_libs/supabase__postgrest-js.mjs                          107.90 kB
+.vercel/output/functions/__server.func/_libs/lodash.mjs                                          113.24 kB
+.vercel/output/functions/__server.func/_libs/hyphen.mjs                                          131.50 kB
+.vercel/output/functions/__server.func/_ssr/universities-D-8SpJxj.mjs                            137.67 kB
+.vercel/output/functions/__server.func/_libs/yoga-layout.mjs                                     147.53 kB
+.vercel/output/functions/__server.func/_ssr/index.mjs                                            169.34 kB
+.vercel/output/functions/__server.func/_libs/tanstack__router-core.mjs                           180.51 kB
+.vercel/output/functions/__server.func/_ssr/mailer-BmyJbVpP.mjs                                  276.32 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__pdfkit.mjs                               278.64 kB
+.vercel/output/functions/__server.func/_libs/supabase__auth-js.mjs                               311.43 kB
+.vercel/output/functions/__server.func/_libs/react-pdf__reconciler.mjs                           409.93 kB
+.vercel/output/functions/__server.func/_libs/fontkit.mjs                                         436.58 kB
+.vercel/output/functions/__server.func/_libs/recharts.mjs                                        502.37 kB
+.vercel/output/functions/__server.func/_libs/react-dom.mjs                                       509.21 kB
+.vercel/output/functions/__server.func/_libs/xlsx.mjs                                            857.08 kB
+.vercel/output/functions/__server.func/_libs/brotli.mjs                                        1,385.84 kB
+✓ built in 33.16s
+ℹ Generated .vercel/output/nitro.json
+
+[nitro] ✔ You can preview this build using npx vite preview
+[nitro] ✔ You can deploy this build using npx nitro deploy --prebuilt
+Exit code: 0
+```
+
+```text
+$ python3 scripts/mailer-tests/run.py
+0033a–0033f: aplicação 1 OK
+0033a–0033f: aplicação 2 OK
+Pré-checagem negativa: coluna faltante explicitamente identificada OK
+SQL real: 429 x5, ambíguos x8, janela 23h, pausa/retomada/cancelamento, órfãos, bounce/override/teto, 5000 cron, health OK
+Concorrência em duas sessões PostgreSQL (cron+navegador): um lote, um executor OK
+verify-0033.sql: executado com sucesso; nenhuma escrita OK
+Exit code: 0
+```
+
+```text
+$ git diff --check
+
+Exit code: 0
+```
