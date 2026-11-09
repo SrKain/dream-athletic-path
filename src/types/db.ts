@@ -651,7 +651,25 @@ export interface MailerRateLimit {
   updated_at: string;
 }
 
+export interface MailerCronStatus {
+  enabled: boolean;
+  schedule: string | null;
+  active: boolean;
+  error?: string;
+}
+
 export interface CampaignProgress {
+  health?: import("@/lib/email/mailer-v2-policy").CampaignHealth;
+  lastTickAt?: string | null;
+  lastTickBy?: string | null;
+  lastTickMessage?: string | null;
+  controllerId?: string | null;
+  controllerLeaseExpiresAt?: string | null;
+  staleSeconds?: number;
+  degraded?: boolean;
+  firstAcceptedAt?: string | null;
+  webhookEventCount?: number;
+  lastProviderHttpStatus?: number | null;
   campaignId: string;
   status: MailerCampaignStatus;
   subject: string;
@@ -733,6 +751,7 @@ export interface MailerCampaignFinalReport {
   mode: MailerCampaignMode;
   status: MailerCampaignStatus;
   finalBadgeLabelPt:
+    | "Requer reconciliação"
     | "Concluída — tudo aceito"
     | "Concluída com ressalvas"
     | "Pausada por segurança"
