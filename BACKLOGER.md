@@ -3145,3 +3145,57 @@ $ git diff --check
 
 Exit code: 0
 ```
+
+
+## TASK-117 — 2026-11-10 17:42 (America/Sao_Paulo) — Plano de migração completa para a Hetzner (banco + hospedagem)
+
+- **Solicitante:** Kauan — Go Team Go. **Executor (planejamento):** Claude (Claude Code).
+- **Pedido:** "Quero migrar pra Hetzner o app inteiro, tanto banco quanto a hospedagem dele, preciso que guie o preciso."
+- **Status:** `[PENDENTE]` — plano registrado e apresentado; aguardando aprovação humana explícita e as decisões da seção 9 do plano. Nenhum código, migration, dependência, segredo ou dado de produção alterado.
+- **Plano:** [think/2026-11-10-1742-migracao-hetzner-banco-e-hospedagem.md](think/2026-11-10-1742-migracao-hetzner-banco-e-hospedagem.md).
+- **Resumo:** recomendação de Supabase self-hosted (Docker) + app Node (Nitro `node-server`) num servidor Hetzner Cloud (CPX31/CCX23), com Coolify, HTTPS automático, backups externos e rollback mantendo Supabase Cloud/Vercel ligados por um período. Mudanças de código previstas: preset do Nitro por variável, Dockerfile, `deploy/hetzner/`, migration `0034` de reescrita de URLs do Storage, `<Analytics />` da Vercel condicionado, runbook. Sem alteração em `package.json`/`bun.lock`.
+- **Dependência:** confirmar o estado da TASK-116 em produção (0033a–f aplicadas?) antes do ensaio de migração.
+- **Escopo deste commit:** somente documentação (`think/` + `BACKLOGER.md`). `CERNE.md` não alterado, porque nenhum código mudou.
+
+#### Saídas reais — portão anti-build-quebrada (Regra 7), Bun 1.3.14
+
+```text
+$ bun --version
+1.3.14
+```
+
+```text
+$ bun install --frozen-lockfile
+bun install v1.3.14 (0d9b296a)
+528 packages installed [3.39s]
+Exit code: 0
+(lista de pacotes instalados omitida)
+```
+
+```text
+$ git diff --exit-code -- package.json bun.lock
+Exit code: 0
+```
+
+```text
+$ git hash-object bun.lock package.json
+11e32ea0199fd8ea03742194d7e92136aa0ed513
+868f6434b581f681611b76689623de2ee9a2b9b1
+Exit code: 0
+```
+
+```text
+$ bun run validate   (lint + typecheck + test + build — trechos finais)
+$ bun run lint && bun run typecheck && bun run test && bun run build
+$ eslint .
+✖ 13 problems (0 errors, 13 warnings)
+$ tsc --noEmit
+$ vitest run
+ Test Files  47 passed (47)
+      Tests  380 passed (380)
+$ vite build
+✓ built in 13.20s
+✓ built in 4.22s
+✓ built in 19.80s
+Exit code: 0
+```
