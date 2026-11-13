@@ -153,3 +153,5 @@ As `VITE_*` são embutidas **no build**, então a imagem precisa ser construída
 ## 10. Status da aprovação humana e resultado
 
 - 2026-11-10 17:42 — plano registrado e apresentado. **Aguardando aprovação explícita** para a etapa de código (seção 4). As etapas operacionais (seção 5) são executadas pelo solicitante, com acompanhamento.
+- 2026-11-13 — Kauan: "Vamos começar, me guie etapa por etapa". **Plano aprovado** para execução guiada, etapa por etapa. As decisões da seção 9 não foram respondidas individualmente; seguem as **recomendações** (A: Supabase self-hosted; Coolify; Ashburn; `api.goteamgoagency.com`; 30 dias de rollback) até o solicitante dizer o contrário. O estado da TASK-116 em produção será conferido na Etapa 1. O código da seção 4 entra antes da Fase 3 (ensaio), depois que as decisões de servidor estiverem confirmadas.
+- Etapa 1 (Fase 0 — preparação, sem impacto em produção) entregue ao solicitante: inventário somente leitura no Supabase Cloud (query única), conferência da 0033, TTL do DNS, conta Hetzner, chave SSH e DPA.

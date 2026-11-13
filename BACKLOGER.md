@@ -3199,3 +3199,9 @@ $ vite build
 ✓ built in 19.80s
 Exit code: 0
 ```
+
+### TASK-117 — aprovação e início da execução guiada — 2026-11-13 (America/Sao_Paulo)
+
+- Kauan aprovou o início: "Vamos começar, me guie etapa por etapa". Decisões da seção 9 do plano seguem as recomendações até confirmação em contrário.
+- **Status:** `[PENDENTE]` — Etapa 1 (preparação) entregue; aguardando retorno do solicitante (resultado do inventário, provedor de DNS, região do Supabase atual). Nenhum código, dado ou configuração de produção alterado.
+- Portão (Regra 7) antes deste commit de documentação, Bun 1.3.14: `bun install --frozen-lockfile` → "Checked 532 installs across 652 packages (no changes)", exit 0; `git diff --exit-code -- package.json bun.lock` → exit 0; hashes `11e32ea0199fd8ea03742194d7e92136aa0ed513` / `868f6434b581f681611b76689623de2ee9a2b9b1`; `bun run validate` → exit 0 (lint 0 erros/13 avisos; 47 arquivos e 380 testes passando; build ok).
