@@ -155,3 +155,14 @@ As `VITE_*` são embutidas **no build**, então a imagem precisa ser construída
 - 2026-11-10 17:42 — plano registrado e apresentado. **Aguardando aprovação explícita** para a etapa de código (seção 4). As etapas operacionais (seção 5) são executadas pelo solicitante, com acompanhamento.
 - 2026-11-13 — Kauan: "Vamos começar, me guie etapa por etapa". **Plano aprovado** para execução guiada, etapa por etapa. As decisões da seção 9 não foram respondidas individualmente; seguem as **recomendações** (A: Supabase self-hosted; Coolify; Ashburn; `api.goteamgoagency.com`; 30 dias de rollback) até o solicitante dizer o contrário. O estado da TASK-116 em produção será conferido na Etapa 1. O código da seção 4 entra antes da Fase 3 (ensaio), depois que as decisões de servidor estiverem confirmadas.
 - Etapa 1 (Fase 0 — preparação, sem impacto em produção) entregue ao solicitante: inventário somente leitura no Supabase Cloud (query única), conferência da 0033, TTL do DNS, conta Hetzner, chave SSH e DPA.
+
+### Resultado da Etapa 1 (2026-11-13) e ajustes do plano
+
+- Inventário (somente leitura, enviado pelo solicitante): PostgreSQL **17.6**; banco **214 MB**; **2** usuários em `auth.users`; extensões `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `supabase_vault` 0.3.1, `pg_cron` 1.6.4, `pg_net` 0.20.4; Storage: `athlete-media` 20 arquivos / 11 MB, `documents` 1 arquivo / 174 kB; **0033 aplicada**; 0 campanhas `running`.
+- DNS na **Cloudflare**, TTL 5 min. SMTP do Auth já é o **Resend** (reaproveitar as mesmas configurações no self-hosted). Conta Hetzner verificada.
+- **Pendência TASK-116 resolvida:** 0033 aplicada em produção. Falta saber se a 0032 (job do cron) foi aplicada; isso é conferido no início da Etapa 2. Após o corte, o job do cron no Supabase **Cloud** precisa ser desativado, para não ficar disparando ticks.
+- **Ajustes decorrentes:**
+  - O Supabase self-hosted deve usar a imagem **`supabase/postgres` 17.x**. Restaurar dump do 17 num Postgres 15 falha.
+  - Volume de dados pequeno: o dump/restore é rápido e os arquivos podem ser copiados com script simples. Sem **Volume** separado no início; a proteção vem do **Hetzner Backups** (snapshots diários automáticos) + pg_dump diário externo. Isso simplifica o uso com Coolify.
+  - Servidor mantido em **CPX31** (8 GB), por causa da memória da stack completa do Supabase, não do tamanho dos dados.
+  - O solicitante **não usa Windows**: a chave SSH passa a ser gerada no macOS/Linux, ou por app (Termius) no celular/tablet. Coolify instalado via **cloud-init** na criação do servidor, sem precisar de terminal.
