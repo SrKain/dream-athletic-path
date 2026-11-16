@@ -166,6 +166,20 @@ export default {
           });
         }
 
+        // TASK-117: executor externo (ex.: pulse na Hetzner) se identifica por header.
+        // Gravação best-effort: nunca impede o tick (funciona mesmo sem a migration 0034).
+        if (cronAuth === "ok") {
+          const { sanitizeExecutorName, recordExecutorHeartbeat } =
+            await import("./lib/email/mailer-executor-heartbeat.server");
+          const executorName = sanitizeExecutorName(request.headers.get("x-mailer-executor"));
+          if (executorName) {
+            const { getAdminClient: getHeartbeatAdmin } =
+              await import("./lib/supabase/clients.server");
+            await recordExecutorHeartbeat(getHeartbeatAdmin() as never, executorName);
+            resolvedControllerId = `cron_${executorName}_${crypto.randomUUID().slice(0, 8)}`;
+          }
+        }
+
         let body: { campaignId?: string; controllerId?: string } = {};
         try {
           body = (await request.json()) as { campaignId?: string; controllerId?: string };

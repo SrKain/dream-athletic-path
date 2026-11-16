@@ -1,0 +1,30 @@
+[Unit]
+Description=Go Team Go - Mailer pulse (executor externo do /api/mailer/tick) - TASK-117
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=mailerpulse
+Group=mailerpulse
+EnvironmentFile=/opt/mailer-pulse/pulse.env
+ExecStart=/opt/mailer-pulse/pulse.sh
+Restart=always
+RestartSec=5
+
+# Endurecimento: o pulse só precisa de rede de saída.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=64M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target

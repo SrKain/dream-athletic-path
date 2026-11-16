@@ -1,6 +1,7 @@
 import { getAdminClient } from "@/lib/supabase/clients.server";
 import type { MailerCronStatus } from "@/types/db";
 import { getCampaignProgressV2, runCampaignTick } from "./mailer-engine-v2.server";
+import { getFreshExecutorHeartbeat } from "./mailer-executor-heartbeat.server";
 
 export async function controlCampaignV2(
   campaignId: string,
@@ -33,10 +34,28 @@ export async function getMailerCronStatus(
   const enabled =
     process.env.MAILER_CRON_ENABLED?.trim().toLowerCase() === "true" &&
     Boolean(process.env.MAILER_CRON_SECRET?.trim());
+  // TASK-117: executor externo (pulse na Hetzner) com sinal recente também é rede de segurança.
+  const pulse = await getFreshExecutorHeartbeat(customAdmin as never);
+  const pulseStatus = (p: { executor: string; lastSeenAt: string }): MailerCronStatus => ({
+    enabled: true,
+    active: true,
+    schedule: `pulse externo (${p.executor})`,
+    source: "external_pulse",
+    lastSeenAt: p.lastSeenAt,
+  });
   const res = await customAdmin.rpc("mailer_cron_status");
-  if (res.error) return { enabled: false, active: false, schedule: null, error: res.error.message };
+  if (res.error) {
+    if (pulse) return pulseStatus(pulse);
+    return { enabled: false, active: false, schedule: null, error: res.error.message };
+  }
   const status = res.data as MailerCronStatus;
-  return { ...status, enabled: enabled && status.enabled && status.active };
+  const pgCronEnabled = enabled && status.enabled && status.active;
+  if (!pgCronEnabled && pulse) return pulseStatus(pulse);
+  return {
+    ...status,
+    enabled: pgCronEnabled,
+    source: pgCronEnabled ? "pg_cron" : null,
+  };
 }
 
 export async function syncCampaignV2(campaignId: string, customAdmin = getAdminClient()) {

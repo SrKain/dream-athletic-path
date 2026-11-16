@@ -3145,3 +3145,19 @@ $ git diff --check
 
 Exit code: 0
 ```
+
+## TASK-117 — 2026-11-16 16:10 (America/Sao_Paulo) — Mailer: executor externo "pulse" na Hetzner
+
+- **Solicitante:** Kauan (Iasin) — Go Team Go. **Planejamento e execução:** Claude (Anthropic).
+- **Pedido:** fazer o disparador aguentar campanhas grandes sem parar e com feedback fiel, usando a máquina que Kauan já tem na Hetzner, sem custo relevante. Manter a Resend.
+- **Aprovação humana:** plano apresentado na conversa e aprovado por Kauan em 16/11/2026 ("Vamos lá, vc vai fazer a migração toda, o que precisa pra fazer rodar"). Plano: [think/2026-11-16-1610-mailer-pulse-hetzner.md](think/2026-11-16-1610-mailer-pulse-hetzner.md).
+- **Diagnóstico:** o motor `runCampaignTick` está correto. O que faltava era um chamador do `/api/mailer/tick` independente do navegador. A rede da TASK-116 (pg_cron) nunca foi ativada em produção (`cron.job` inexistente).
+- **Entrega:**
+  - `db/migrations/0034_mailer_executor_heartbeat.sql` e `verify-0034.sql`: tabela `mailer_executor_heartbeats` com RLS e acesso só por service_role.
+  - `src/lib/email/mailer-executor-heartbeat.server.ts`: gravação e leitura best-effort do sinal do executor.
+  - `src/server.ts`: o tick autenticado por segredo com header `x-mailer-executor` grava o heartbeat. O controllerId fica `cron_<executor>_<id>`.
+  - `src/lib/email/mailer-controls-v2.server.ts` / `src/types/db.ts`: a "Rede de segurança" fica ativa com pg_cron **ou** com pulse externo de sinal recente (até 90 s). Campos opcionais `source` e `lastSeenAt`.
+  - `ops/hetzner-mailer-pulse/` (`pulse.sh`, `mailer-pulse.service`, `install.sh`) e `docs/mailer/TASK-117-hetzner-pulse.md` (runbook).
+  - Testes: `src/lib/email/mailer-executor-heartbeat.test.ts`.
+- **Status:** `[CONCLUÍDO]` no código. Implantação humana pendente: SQL 0034, `MAILER_CRON_SECRET` na Vercel com redeploy, e instalação na Hetzner (ver runbook).
+- **Fora do escopo:** motor de envio, UI, Resend, `package.json`/`bun.lock` (intocados).
