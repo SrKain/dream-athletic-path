@@ -1668,3 +1668,13 @@ Exemplo reproduzível sem envio: `bun scripts/render-mailer-quick-facts-preview.
 - Sem alteração em package.json/bun.lock, templates, cards, preview, personalização ou webhooks; nenhuma campanha antiga reprocessada, nenhum e-mail real disparado. Sem SQL/segredos/configuração em produção aplicados por esta sessão.
 - Ordem humana: 0033a→0033b→0033c→0033d→0033e→0033f→verify-0033; publicar código; configurar extensões/Vault/Vercel, aplicar 0032 revisada e repetir verify. Runbook: [docs/mailer/TASK-116-deploy.md](docs/mailer/TASK-116-deploy.md). Contrato de colunas antes do SQL: [docs/mailer/TASK-116-schema.md](docs/mailer/TASK-116-schema.md).
 - Validação real registrada no BACKLOGER.md: Bun 1.3.14, instalação frozen, hashes canônicos, lint (0 erros/13 avisos), typecheck, teste isolado (379), build e validate final (380 testes) com exit 0; testes SQL locais em PostgreSQL 17 isolado, sem dependência de serviços externos para os testes Vitest. Entrega em PR para respeitar SQL antes do deploy; produção depende da aplicação/homologação humana.
+
+## TASK-117 — 2026-11-16 — Executor externo do Mailer (pulse na Hetzner)
+
+- **Arquitetura de execução do Mailer:** o motor continua sendo `runCampaignTick` na Vercel (`POST /api/mailer/tick`), enviando pela Resend. Quem chama o tick:
+  1. o navegador (`useCampaignRunner`), com a aba aberta;
+  2. **o pulse na Hetzner** (`ops/hetzner-mailer-pulse/`), um processo systemd que chama o tick em loop autenticado por `x-mailer-cron-secret` e identificado por `x-mailer-executor: hetzner-pulse`, dormindo `nextTickInMs` (ou 20 s quando ocioso);
+  3. opcionalmente o pg_cron da TASK-116 (não ativado em produção).
+  O lease de 90 s garante um único executor por campanha.
+- **Heartbeat:** a tabela `mailer_executor_heartbeats` (migration 0034) guarda o último sinal por executor. `getMailerCronStatus` considera a rede de segurança ativa com pg_cron ativo **ou** com executor externo visto nos últimos 90 s (`EXECUTOR_HEARTBEAT_FRESH_MS`). Nesse caso devolve `source: "external_pulse"`, `lastSeenAt` e `schedule: "pulse externo (<nome>)"`. Gravação e leitura são best-effort e nunca derrubam o tick nem a tela.
+- **Variáveis:** Vercel `MAILER_CRON_SECRET` (obrigatória para o pulse). Hetzner `/opt/mailer-pulse/pulse.env`. Runbook: `docs/mailer/TASK-117-hetzner-pulse.md`.

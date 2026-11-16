@@ -656,6 +656,10 @@ export interface MailerCronStatus {
   schedule: string | null;
   active: boolean;
   error?: string;
+  /** TASK-117: origem da rede de segurança ativa. */
+  source?: "pg_cron" | "external_pulse" | null;
+  /** TASK-117: último sinal do executor externo (ISO). */
+  lastSeenAt?: string | null;
 }
 
 export interface CampaignProgress {
